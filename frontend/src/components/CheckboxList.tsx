@@ -29,9 +29,24 @@ export default function CheckboxList({ filterLabel, options, selected, onChange,
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
   }
 
+  const allShownSelected = shown.length > 0 && shown.every((o) => selected.includes(o.value))
+
+  /** Ticks or unticks every option in view, so with a filter it only touches the matches. */
+  function toggleAll() {
+    const values = new Set(shown.map((o) => o.value))
+    onChange(allShownSelected ? selected.filter((v) => !values.has(v)) : [...selected, ...shown.map((o) => o.value).filter((v) => !selected.includes(v))])
+  }
+
   return (
     <div>
       <input aria-label={filterLabel} className={`${inputClass} mb-2`} placeholder="Type to filter…" value={query} onChange={(e) => setQuery(e.target.value)} disabled={disabled} />
+      {shown.length > 0 && (
+        <div className="flex justify-end mb-1">
+          <button type="button" className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50" disabled={disabled} onClick={toggleAll}>
+            {allShownSelected ? 'Deselect all' : 'Select all'}
+          </button>
+        </div>
+      )}
       <div className="max-h-56 overflow-y-auto rounded border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-200 dark:divide-zinc-700">
         {options.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">{emptyText}</p>}
         {options.length > 0 && shown.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">Nothing matches.</p>}
