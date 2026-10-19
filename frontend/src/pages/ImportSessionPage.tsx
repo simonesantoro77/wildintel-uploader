@@ -6,6 +6,8 @@ import WizardStep from '../components/WizardStep'
 import { formatDay } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry, entryPeriod } from '../epicollectImport'
+import DateSourcePicker, { SOURCE_ORDER, against } from '../components/DateSourcePicker'
+import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
@@ -42,12 +44,6 @@ interface Entry {
   /** Where the location was deduced from, until it is picked by hand. */
   locationFrom?: 'folder' | 'log'
 }
-
-/** Where the period of a deployment comes from: Epicollect5, the collection's timestamp log, the images' EXIF data — in that order of
- * preference — or typed by hand, the only one that lets it be edited. */
-type DateSource = 'exif' | 'epicollect' | 'log' | 'manual'
-const SOURCE_ORDER: DateSource[] = ['epicollect', 'log', 'exif', 'manual']
-const SOURCE_LABELS: Record<DateSource, string> = { exif: 'Camera metadata (EXIF)', epicollect: 'Epicollect5', log: 'Timestamp log file', manual: 'Manual entry' }
 
 interface Outcome<T> { result?: T; error?: string }
 
@@ -488,14 +484,14 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   }, [detailsActive, settingsOpen, epicollectOn, revisionValid, revisionNumber, locationKey])
 
   /** The period a source gives a deployment — null when it has none (the manual one is whatever is typed). */
-  function periodOf(d: SessionScanDeployment, source: DateSource, timezone: string): { start: string | null; end: string | null } | null {
+  function periodOf(d: SessionScanDeployment, source: DateSource, timezone: string): Period | null {
     if (source === 'log') return d.from_timestamp_log && d.start_date ? { start: stampTimezone(d.start_date, timezone), end: d.end_date ? stampTimezone(d.end_date, timezone) : null } : null
     if (source === 'exif') { const g = guessed[d.name]; return g?.start_date ? { start: stampTimezone(g.start_date, timezone), end: g.end_date ? stampTimezone(g.end_date, timezone) : null } : null }
     if (source === 'epicollect') return entryPeriod(epicollectFound[d.name]?.fields, timezone)
     return null
   }
 
-  function applyPeriod(changes: Record<string, { source: DateSource; period: { start: string | null; end: string | null } | null }>) {
+  function applyPeriod(changes: Record<string, { source: DateSource; period: Period | null }>) {
     setDateSources((all) => ({ ...all, ...Object.fromEntries(Object.entries(changes).map(([name, c]) => [name, c.source])) }))
     setDrafts((all) => {
       const next = { ...all }
@@ -509,7 +505,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   useEffect(() => {
     if (!detailsActive) return
     const looking = guessingLeft > 0 || (epicollectOn && !epicollectDone)
-    const changes: Record<string, { source: DateSource; period: { start: string | null; end: string | null } | null }> = {}
+    const changes: Record<string, { source: DateSource; period: Period | null }> = {}
     for (const d of chosen) {
       const entry = drafts[d.name]
       if (!entry || sourcePicked.current.has(d.name)) continue
@@ -519,6 +515,30 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     if (Object.keys(changes).length > 0) applyPeriod(changes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailsActive, drafts, guessed, guessingLeft, epicollectFound, epicollectOn, epicollectDone, scan])
+
+  /** The sources of a deployment's dates, each showing what it found so they can be compared, and the period taken — typed when it is by hand. */
+  function datePanel(d: SessionScanDeployment, entry: Entry, start: string | null, end: string | null, dateSource: DateSource | undefined) {
+    const exif = periodOf(d, 'exif', entry.timezone), log = periodOf(d, 'log', entry.timezone), epi = periodOf(d, 'epicollect', entry.timezone)
+    const options: SourceOption[] = [
+      { source: 'exif', title: 'Camera data in the photos', period: exif,
+        hint: `First and last photo of the deployment.${d.image_count > 0 && exif ? ` ${plural(d.image_count, 'photo', 'photos')}, read from their EXIF data.` : ''}` },
+      { source: 'epicollect', title: 'Epicollect5 project', period: epi,
+        hint: epi ? 'Entry of your Epicollect5 project for this location and revision.'
+          : !epicollectOn ? 'Epicollect5 is turned off in the settings.'
+          : `Nothing found for ${entry.fields.location_id ?? d.name}, revision ${revisionValid ? revisionNumber : '?'}.` },
+      { source: 'log', title: 'Timestamp log file', period: log,
+        hint: log ? ((exif && against(log, exif)) ?? 'Set-up and pick-up times written down in the file.') : `No row for ${d.name} in a timestamp log.` },
+      { source: 'manual', title: 'Manual entry', period: null, hint: 'Type the start and the end yourself.' },
+    ]
+    return (
+      <div aria-label={`Dates of ${d.name}`} role="group" className="mx-5 mb-4">
+        <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
+        <DateSourcePicker name={d.name} options={options} value={dateSource} onPick={(src) => pickSource(d, src)} start={start} end={end} timezone={entry.timezone}
+                          manualForm={<DeploymentFormBody collapsible periodOnly deployment={entry.fields} timezone={entry.timezone} errors={activeErrors_of(d.name)}
+                                                          onField={(key, value) => updateField(d.name, key, value)} datesGuessed={false} />} />
+      </div>
+    )
+  }
 
   /** Takes the dates from the source picked; "by hand" keeps what there is, and lets it be edited. */
   function pickSource(d: SessionScanDeployment, source: DateSource) {
@@ -1179,51 +1199,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                       <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                     </button>
                     {open && fields && entry && (
-                      <div aria-label={`Dates of ${d.name}`} role="group" className="mx-5 mb-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
-                        <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
-                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">Date source</p>
-                        <div role="radiogroup" aria-label={`Date source of ${d.name}`} className="space-y-1.5">
-                          {(['exif', 'epicollect', 'log', 'manual'] as DateSource[]).map((src) => {
-                            const available = src === 'manual' || periodOf(d, src, entry.timezone) !== null
-                            return (
-                              <label key={src} className={`flex items-center gap-2 text-sm ${available ? 'cursor-pointer text-zinc-800 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-600'}`}>
-                                <input type="radio" name={`date-source-${d.name}`} checked={dateSource === src} disabled={!available} onChange={() => pickSource(d, src)} />
-                                {SOURCE_LABELS[src]}{!available && <span className="text-xs"> — nothing found</span>}
-                              </label>
-                            )
-                          })}
-                        </div>
-                        {dateSource && dateSource !== 'manual' && (
-                          <div className="mt-3 flex items-center gap-3 rounded-md bg-white dark:bg-zinc-900 px-3 py-2.5 text-xs text-zinc-600 dark:text-zinc-400">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {dateSource === 'log' ? <span className="font-mono">{scan?.timestamp_log?.name}</span> : SOURCE_LABELS[dateSource]}
-                              </p>
-                              <p>
-                                {dateSource === 'log' && 'Dates extracted from the selected log file'}
-                                {dateSource === 'epicollect' && 'Dates taken from the Epicollect5 entry of this location and revision'}
-                                {dateSource === 'exif' && 'Dates read from the photo data of the images'}
-                              </p>
-                            </div>
-                            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current text-emerald-600 dark:text-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></svg>
-                          </div>
-                        )}
-                        {dateSource === 'manual' ? (
-                          <div className="mt-3">
-                            <DeploymentFormBody collapsible periodOnly deployment={fields} timezone={entry.timezone} errors={activeErrors_of(d.name)}
-                                                onField={(key, value) => updateField(d.name, key, value)} datesGuessed={false} />
-                          </div>
-                        ) : (
-                          <div className="mt-3">
-                            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">Recording period</p>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-zinc-800 dark:text-zinc-200">
-                              <div><span className="block text-xs text-zinc-500 dark:text-zinc-400">Start date and time</span>{start ? shown(start) : '—'}</div>
-                              <div><span className="block text-xs text-zinc-500 dark:text-zinc-400">End date and time</span>{end ? shown(end) : '—'}</div>
-                            </div>
-                            {entry.timezone && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Times shown in the deployment&rsquo;s time zone, {entry.timezone}.</p>}
-                          </div>
-                        )}
-                      </div>
+                      datePanel(d, entry, start, end, dateSource)
                     )}
                   </li>
                 )

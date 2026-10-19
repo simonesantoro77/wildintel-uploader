@@ -345,7 +345,7 @@ describe('ImportSessionPage', () => {
     const first = within(list.getByText('DONA_01').closest('li')!)
     expect(first.getByText('Ready')).toBeInTheDocument()
     expect(first.getByText(/From S_FileTimestampLog\.csv/)).toBeInTheDocument() // the csv that comes with the collection
-    expect(first.getByText(/1 Sep 2024, 08:00 → 1 Nov 2024, 09:00/)).toBeInTheDocument()
+    expect(first.getAllByText(/1 Sep 2024, 08:00 → 1 Nov 2024, 09:00/).length).toBeGreaterThan(0)
     const second = within(list.getByText('DONA_02').closest('li')!)
     await waitFor(() => expect(second.getByText(/From the images/)).toBeInTheDocument())
     expect(second.getByText(/5 Sep 2024, 09:00/)).toBeInTheDocument()
@@ -390,7 +390,7 @@ describe('ImportSessionPage', () => {
     await toDetails()
     expect(await screen.findByText(/deployment\(s\) were taken from/)).toHaveTextContent('1 of these 2 deployment(s) were taken from S_FileTimestampLog.csv')
     expect(screen.getByRole('radio', { name: 'Timestamp log file' })).toBeChecked()
-    expect(screen.getByText(/^Dates extracted from/)).toBeInTheDocument()
+    expect(screen.getByText(/Starts .* the first photo and ends .* the last/)).toBeInTheDocument() // against what the images say
   })
 
   describe('the next revision', () => {

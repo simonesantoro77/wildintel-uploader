@@ -12,7 +12,9 @@ import Combobox from '../components/Combobox'
 import OptionCards from '../components/OptionCards'
 import type { Option } from '../components/OptionCards'
 import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
-import { applyEntry, entryLabel } from '../epicollectImport'
+import { applyEntry, entryLabel, entryPeriod } from '../epicollectImport'
+import DateSourcePicker from '../components/DateSourcePicker'
+import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
 import { isValidTimezone, knownTimezones, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
@@ -1270,12 +1272,17 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   // The closest earlier revision of this deployment, if one was kept — to offer filling the form in from it.
   const [previousRevision, setPreviousRevision] = useState<PreviousDeployment | null>(null)
   const [filledFrom, setFilledFrom] = useState<string | null>(null)
-  // The entry of the Epicollect5 form that fills the period, camera, site and notes in: the entries found, and what was said of them.
-  const [epicollectBusy, setEpicollectBusy] = useState(false)
+  // The entry of the Epicollect5 form that gives the period, and fills the camera, site and notes in.
   // Whether the settings turn Epicollect5 on — until they say so, nothing of it is offered.
   const [epicollectOn, setEpicollectOn] = useState(false)
-  // Whether the Epicollect5 project holds an entry for the location and revision, once looked up. There is one: if it has several, the newest is the one.
-  const [epicollectFound, setEpicollectFound] = useState(false)
+  // The entry the Epicollect5 project holds for the location and revision, once looked up. There is one: if it has several, the newest is the one.
+  const [epicollectEntry, setEpicollectEntry] = useState<EpicollectEntry | null>(null)
+  const [epicollectDone, setEpicollectDone] = useState(false)
+  // Whether the camera, site and notes of the entry have been imported — the dates are not part of that: they come from the source picked.
+  const [epicollectImported, setEpicollectImported] = useState(false)
+  // Where the period comes from; a source picked by hand is not changed by what is found later.
+  const [dateSource, setDateSource] = useState<DateSource | undefined>(undefined)
+  const sourcePicked = useRef(false)
   // Why the lookup found nothing to offer: Epicollect5 holds no entry for it (the empty string), or could not be read (what it said). Null while unknown or when there is something.
   const [epicollectMissing, setEpicollectMissing] = useState<string | null>(null)
   const [epicollectMessage, setEpicollectMessage] = useState<{ kind: 'info' | 'error'; text: string } | null>(null)
@@ -1394,6 +1401,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
     if (resumeSession.deployment) {
       setDeployment(resumeSession.deployment)
       setRevision(revisionOf(resumeSession.deployment.deployment_id)); revisionTouched.current = true
+      sourcePicked.current = true; setDateSource('manual')  // its dates were kept: what is found now does not replace them
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeSession])
@@ -1836,43 +1844,60 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
 
   // ...and whether Epicollect5 has the details of this location and revision, to offer them.
   useEffect(() => {
-    setEpicollectFound(false); setEpicollectMissing(null)
+    setEpicollectEntry(null); setEpicollectMissing(null); setEpicollectDone(false); setEpicollectImported(false)
     if (stepKey !== 'origin' || settingsOpen || !epicollectOn || !deployment.location_id || !revisionValid) return
     let cancelled = false
     void (async () => {
       try {
         const { results } = await api.epicollectEntries(deployment.location_id!, revisionNumber)
         if (cancelled) return
-        setEpicollectFound(results.length > 0)
+        setEpicollectEntry(results[0] ?? null)  // newest first
         if (results.length === 0) setEpicollectMissing('')
+        setEpicollectDone(true)
       } catch (e) {
-        if (!cancelled) setEpicollectMissing(e instanceof Error ? e.message : 'Could not read the Epicollect5 project.')
+        if (cancelled) return
+        setEpicollectMissing(e instanceof Error ? e.message : 'Could not read the Epicollect5 project.')
+        setEpicollectDone(true)
       }
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey, settingsOpen, epicollectOn, deployment.location_id, revisionNumber, revisionValid])
 
-  function fillFromEpicollect(entry: EpicollectEntry) {
-    setEpicollectFound(false); setEpicollectMissing(null)
-    setDeployment((d) => applyEntry(d, entry.fields, timezone))
-    setFilledFrom(`the Epicollect5 entry “${entryLabel(entry)}”`)
-    setEpicollectMessage({ kind: 'info', text: `Filled in from “${entryLabel(entry)}” — check the dates, and the camera, site and notes in More details.` })
+  /** The period each source gives — null when it has none. */
+  function periodOf(source: DateSource): Period | null {
+    if (source === 'exif') return guess?.start_date ? { start: stampTimezone(guess.start_date, timezone), end: guess.end_date ? stampTimezone(guess.end_date, timezone) : null } : null
+    if (source === 'epicollect') return entryPeriod(epicollectEntry?.fields, timezone)
+    return null
   }
 
-  /** Looks for the entry of this location and revision in the Epicollect5 project of the settings. */
-  async function handleImportFromEpicollect() {
-    if (!deployment.location_id || !revisionValid) return
-    setEpicollectBusy(true); setEpicollectMessage(null)
-    try {
-      const { results } = await api.epicollectEntries(deployment.location_id, revisionNumber)
-      if (results.length === 0) setEpicollectMessage({ kind: 'info', text: `There is no entry for ${deployment.location_id}, revision ${revisionNumber}, in the Epicollect5 project.` })
-      else fillFromEpicollect(results[0])  // newest first
-    } catch (e) {
-      setEpicollectMessage({ kind: 'error', text: e instanceof Error ? e.message : 'Could not read the Epicollect5 project.' })
-    } finally {
-      setEpicollectBusy(false)
-    }
+  function takePeriod(source: DateSource) {
+    setDateSource(source)
+    const period = periodOf(source)
+    if (period) setDeployment((d) => ({ ...d, start_date: period.start ?? '', end_date: period.end }))
+  }
+
+  // The period comes from the first source that has it: Epicollect5, the images — and by hand if neither does, once both have been looked at.
+  // A better one found later replaces the one taken, unless one was picked.
+  useEffect(() => {
+    if (stepKey !== 'origin' || sourcePicked.current) return
+    const looking = guessing || (epicollectOn && !epicollectDone)
+    const best = (['epicollect', 'exif', 'manual'] as DateSource[]).find((src) => (src === 'manual' ? !looking : periodOf(src) !== null))
+    if (best && best !== dateSource) takePeriod(best)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepKey, guess, guessing, epicollectEntry, epicollectOn, epicollectDone, timezone])
+
+  function pickSource(source: DateSource) {
+    sourcePicked.current = true
+    takePeriod(source)
+  }
+
+  /** Fills the camera, site and notes from the entry of Epicollect5 — the dates follow the source picked. */
+  function fillFromEpicollect(entry: EpicollectEntry) {
+    setEpicollectImported(true); setEpicollectMissing(null)
+    setDeployment((d) => ({ ...applyEntry(d, entry.fields, timezone), start_date: d.start_date, end_date: d.end_date }))
+    setFilledFrom(`the Epicollect5 entry “${entryLabel(entry)}”`)
+    setEpicollectMessage({ kind: 'info', text: `Filled in from “${entryLabel(entry)}” — check the camera, site and notes in More details.` })
   }
 
   function handleFillFromPrevious() {
@@ -1999,7 +2024,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   function handleStartOver() {
     setStep(0); setImagesOpen(1); setImagesReached(1); setOriginOpen(1); setOriginReached(1)
     setSourceDir(''); setScan(null); setScanError(null); setValidation(null); setValidationError(null)
-    setGuess(null); guessedFor.current = null
+    setGuess(null); guessedFor.current = null; sourcePicked.current = false; setDateSource(undefined)
     setImageChecks(new Set(['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates'])); setRequiredImageChecks(new Set())
     resetOriginChoice()
     setConn({ status: 'idle', message: '' })
@@ -2483,17 +2508,17 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                     <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
                   </div>
                 )}
-                {epicollectFound && !epicollectBusy && (
+                {epicollectEntry && !epicollectImported && (
                   <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
                     <span className="flex-1 min-w-[14rem]">
                       Epicollect5 has an entry for <strong>{deployment.location_id}</strong>, revision {revisionNumber}.
-                      The dates, camera, site and notes can be filled in from it.
+                      The camera, site and notes can be filled in from it.
                     </span>
-                    <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => void handleImportFromEpicollect()}>Import from Epicollect5</button>
+                    <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => fillFromEpicollect(epicollectEntry)}>Import from Epicollect5</button>
                   </div>
                 )}
-                {epicollectMissing !== null && !epicollectBusy && !epicollectMessage && (
+                {epicollectDone && epicollectMissing !== null && !epicollectMessage && (
                   <div role="alert" className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/50 px-5 py-4 text-sm text-amber-900 dark:text-amber-100">
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-amber-600 dark:text-amber-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>
                     <span className="flex-1 min-w-[14rem]">
@@ -2514,9 +2539,20 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                 )}
               </FormCard>
 
-              <DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors}
-                                  onField={updateField}
-                                  datesGuessed={Boolean(guess?.start_date)} />
+              <FormCard title="Period">
+                <DateSourcePicker
+                  name={deployment.deployment_id || 'deployment'} value={dateSource} onPick={pickSource} start={deployment.start_date || null} end={deployment.end_date ?? null} timezone={timezone}
+                  options={[
+                    { source: 'exif', title: 'Camera data in the photos', period: periodOf('exif'),
+                      hint: `First and last photo of the deployment.${scan && periodOf('exif') ? ` ${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'photo' : 'photos'}, read from their EXIF data.` : ''}` },
+                    { source: 'epicollect', title: 'Epicollect5 project', period: periodOf('epicollect'),
+                      hint: periodOf('epicollect') ? 'Entry of your Epicollect5 project for this location and revision.'
+                        : !epicollectOn ? 'Epicollect5 is turned off in the settings.'
+                        : `Nothing found for ${deployment.location_id}, revision ${revisionValid ? revisionNumber : '?'}.` },
+                    { source: 'manual', title: 'Manual entry', period: null, hint: 'Type the start and the end yourself.' },
+                  ] satisfies SourceOption[]}
+                  manualForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
+              </FormCard>
               <div className="flex justify-end mt-4">
                 <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
               </div>

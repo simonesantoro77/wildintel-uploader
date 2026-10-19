@@ -182,6 +182,11 @@ async function goToNewDetailsStep() {
   await waitFor(() => expect(screen.queryByText(/Reading the dates and the camera/)).not.toBeInTheDocument())
 }
 
+/** The dates can only be typed when their source is the manual entry: keeps the ones there are, and shows the fields. */
+async function manualEntry() {
+  await userEvent.click(await screen.findByRole('radio', { name: 'Manual entry' }))
+}
+
 async function addProjectByHand(name = 'Doñana', acronym = 'DONA') {
   await userEvent.click(await screen.findByRole('button', { name: /add a new research project/i }))
   await userEvent.click(screen.getByRole('button', { name: /by hand/i }))
@@ -726,12 +731,14 @@ describe('ImportDeploymentPage', () => {
     await addLocationByHand()
     await userEvent.click(screen.getByRole('button', { name: /Continue to the dates/ }))
     await screen.findByText('When was it collected?')
-    await waitFor(() => expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10'))
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Camera metadata (EXIF)' })).toBeChecked())
 
     expect(mockedApi.guessDetails).toHaveBeenCalledTimes(1)
     expect(mockedApi.guessDetails).toHaveBeenCalledWith(expect.stringContaining('/'))
+    expect(screen.getByText('4 Sep 2024, 13:10')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument() // only a manual entry can be edited
+    await manualEntry()
     expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
-    expect(screen.getByText(/Filled in from the images' photo data/)).toBeInTheDocument()
   })
 
   it('fills in the camera model and id from the images when every image has the same', async () => {
@@ -766,6 +773,7 @@ describe('ImportDeploymentPage', () => {
 
   it('asks for the deployment details right after the origin', async () => {
     await goToNewDetailsStep()
+    await manualEntry()
 
     expect(screen.getByLabelText('Deployment Id')).toHaveValue('')
     // Date fields are calendar pickers ("datetime-local"), which drop zero seconds.
@@ -846,6 +854,7 @@ describe('ImportDeploymentPage', () => {
 
   it('checks in the form itself that the deployment starts before it ends', async () => {
     await goToNewDetailsStep()
+    await manualEntry()
     await fillRequiredDetails()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
 
@@ -863,6 +872,7 @@ describe('ImportDeploymentPage', () => {
 
   it('checks the start date against the end date too, once the timezone is known', async () => {
     await goToNewDetailsStep()
+    await manualEntry()
     await fillRequiredDetails()
 
     fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-12-31T00:00' } }) // after the end, 2024-11-04
@@ -872,6 +882,7 @@ describe('ImportDeploymentPage', () => {
 
   it('gives both dates the timezone designator of the location', async () => {
     await goToNewDetailsStep()
+    await manualEntry()
     expect(screen.getAllByText(/Saved as 2024-(09-04T13:10:00\+02:00|11-04T14:28:00\+01:00)/)).toHaveLength(2)
 
     fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-12-01T08:00' } })
@@ -880,6 +891,7 @@ describe('ImportDeploymentPage', () => {
 
   it('shows the standard\'s description under each field', async () => {
     await goToNewDetailsStep()
+    await manualEntry()
 
     expect(screen.queryByText(/Formatted as an ISO 8601 string with timezone designator/)).not.toBeInTheDocument() // the dates say no more than their labels
     expect(screen.getAllByText('Required').length).toBeGreaterThanOrEqual(3) // revision, start, end (the location came with its coordinates)
@@ -1188,6 +1200,8 @@ describe('ImportDeploymentPage', () => {
 
   it('keeps the period always in view, and shows the camera, the site and the notes as sections to open', async () => {
     await goToNewDetailsStep()
+    expect(screen.getByText('Recording period')).toBeInTheDocument()
+    await manualEntry()
     expect(screen.getByLabelText('Start')).toBeInTheDocument()
     await openMoreDetails()
     await openSection(/^Camera/)
@@ -1480,6 +1494,7 @@ describe('ImportDeploymentPage', () => {
     it('is written again, with the new dates, when the details are changed and left again', async () => {
       await goToPostvalidation()
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+      await manualEntry()
       fireEvent.change(screen.getByLabelText('End'), { target: { value: '2024-12-01T08:00' } })
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await screen.findByText('Check the details', { selector: 'h4' })
@@ -2018,7 +2033,7 @@ describe('ImportDeploymentPage', () => {
     await screen.findByText('When was it collected?')
     expect(screen.getByLabelText('Revision')).toHaveValue(1)
     expect(screen.getByLabelText('Deployment Id')).toHaveValue('R0001-DONA_01')
-    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
+    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10') // kept: the source is the manual entry
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     expect(mockedApi.saveScan).not.toHaveBeenCalled()
   })
@@ -2078,6 +2093,8 @@ describe('ImportDeploymentPage', () => {
 
       expect(await screen.findByText(/Filled in from “DONA_01 · sent 1 Oct 2026”/)).toBeInTheDocument()
       expect(mockedApi.epicollectEntries).toHaveBeenCalledWith('DONA_01', 2)
+      expect(screen.getByRole('radio', { name: 'Epicollect5' })).toBeChecked()
+      await manualEntry()
       expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
       expect(screen.getByLabelText('End')).toHaveValue('2024-10-12T07:02')
       await openMoreDetails()
@@ -2172,6 +2189,7 @@ describe('ImportDeploymentPage', () => {
       mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': PREVIOUS } })
       await goToNewDetailsStep()
       await userEvent.type(screen.getByLabelText('Revision'), '2')
+      await manualEntry()
       fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-04T13:10:00' } })
       await userEvent.click(await screen.findByRole('button', { name: 'Copy from revision 1' }))
 
