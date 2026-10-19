@@ -643,7 +643,7 @@ export function deploymentCheckPassed(check: DeploymentCheck, result: Deployment
   return result.camera_mismatches.length === 0 && (result.camera_models_found?.length ?? 0) <= 1
 }
 
-/** Where the deployment was taken, and the timezone and summer-time setting it is read in. They are the location's — kept with it,
+/** Where the deployment was taken, and the timezone and summer-time setting it is read in, as tags. They are the location's — kept with it,
  * never asked for a deployment: every deployment there is read in them, and Trapper only accepts a package that declares the same ones. */
 export function LocationTimeNote({ locationId, latitude, longitude, timezone, ignoreDst }: {
   locationId: string | null | undefined; latitude?: number | null; longitude?: number | null; timezone: string; ignoreDst: boolean
@@ -652,12 +652,13 @@ export function LocationTimeNote({ locationId, latitude, longitude, timezone, ig
   if (!timezone) {
     return <span className="block text-red-600 dark:text-red-400">The location <strong>{locationId}</strong> has no timezone, and a deployment needs it: add it to the location.</span>
   }
+  const tag = 'rounded-full border border-zinc-300 dark:border-zinc-700 px-2.5 py-0.5 text-xs text-zinc-700 dark:text-zinc-300'
   return (
-    <>
-      You are entering the details of a deployment taken at location <strong>{locationId}</strong>
-      {latitude != null && longitude != null && <> (GPS <strong>{latitude}, {longitude}</strong>)</>}
-      , in the timezone <strong>{timezone}</strong>, which <strong>{ignoreDst ? 'ignores' : 'does not ignore'}</strong> summer time.{' '}
-    </>
+    <span className="flex flex-wrap gap-1.5">
+      {latitude != null && longitude != null && <span className={tag}>GPS {latitude}, {longitude}</span>}
+      <span className={tag}>{timezone}</span>
+      <span className={tag}>{ignoreDst ? 'Ignores summer time' : 'Follows summer time'}</span>
+    </span>
   )
 }
 
@@ -1271,11 +1272,10 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   const [filledFrom, setFilledFrom] = useState<string | null>(null)
   // The entry of the Epicollect5 form that fills the period, camera, site and notes in: the entries found, and what was said of them.
   const [epicollectBusy, setEpicollectBusy] = useState(false)
-  const [epicollectEntries, setEpicollectEntries] = useState<EpicollectEntry[]>([])
   // Whether the settings turn Epicollect5 on — until they say so, nothing of it is offered.
   const [epicollectOn, setEpicollectOn] = useState(false)
-  // How many entries the Epicollect5 project holds for the location and revision, once looked up — 0 when none, or when it can't be read.
-  const [epicollectAvailable, setEpicollectAvailable] = useState(0)
+  // Whether the Epicollect5 project holds an entry for the location and revision, once looked up. There is one: if it has several, the newest is the one.
+  const [epicollectFound, setEpicollectFound] = useState(false)
   // Why the lookup found nothing to offer: Epicollect5 holds no entry for it (the empty string), or could not be read (what it said). Null while unknown or when there is something.
   const [epicollectMissing, setEpicollectMissing] = useState<string | null>(null)
   const [epicollectMessage, setEpicollectMessage] = useState<{ kind: 'info' | 'error'; text: string } | null>(null)
@@ -1836,14 +1836,14 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
 
   // ...and whether Epicollect5 has the details of this location and revision, to offer them.
   useEffect(() => {
-    setEpicollectAvailable(0); setEpicollectMissing(null)
+    setEpicollectFound(false); setEpicollectMissing(null)
     if (stepKey !== 'origin' || settingsOpen || !epicollectOn || !deployment.location_id || !revisionValid) return
     let cancelled = false
     void (async () => {
       try {
         const { results } = await api.epicollectEntries(deployment.location_id!, revisionNumber)
         if (cancelled) return
-        setEpicollectAvailable(results.length)
+        setEpicollectFound(results.length > 0)
         if (results.length === 0) setEpicollectMissing('')
       } catch (e) {
         if (!cancelled) setEpicollectMissing(e instanceof Error ? e.message : 'Could not read the Epicollect5 project.')
@@ -1854,22 +1854,20 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   }, [stepKey, settingsOpen, epicollectOn, deployment.location_id, revisionNumber, revisionValid])
 
   function fillFromEpicollect(entry: EpicollectEntry) {
-    setEpicollectAvailable(0); setEpicollectMissing(null)
+    setEpicollectFound(false); setEpicollectMissing(null)
     setDeployment((d) => applyEntry(d, entry.fields, timezone))
     setFilledFrom(`the Epicollect5 entry “${entryLabel(entry)}”`)
-    setEpicollectEntries([])
     setEpicollectMessage({ kind: 'info', text: `Filled in from “${entryLabel(entry)}” — check the dates, and the camera, site and notes in More details.` })
   }
 
   /** Looks for the entry of this location and revision in the Epicollect5 project of the settings. */
   async function handleImportFromEpicollect() {
     if (!deployment.location_id || !revisionValid) return
-    setEpicollectBusy(true); setEpicollectMessage(null); setEpicollectEntries([])
+    setEpicollectBusy(true); setEpicollectMessage(null)
     try {
       const { results } = await api.epicollectEntries(deployment.location_id, revisionNumber)
       if (results.length === 0) setEpicollectMessage({ kind: 'info', text: `There is no entry for ${deployment.location_id}, revision ${revisionNumber}, in the Epicollect5 project.` })
-      else if (results.length === 1) fillFromEpicollect(results[0])
-      else setEpicollectEntries(results)
+      else fillFromEpicollect(results[0])  // newest first
     } catch (e) {
       setEpicollectMessage({ kind: 'error', text: e instanceof Error ? e.message : 'Could not read the Epicollect5 project.' })
     } finally {
@@ -2491,12 +2489,12 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                     <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
                   </div>
                 )}
-                {epicollectAvailable > 0 && !epicollectBusy && epicollectEntries.length === 0 && (
+                {epicollectFound && !epicollectBusy && (
                   <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
                     <span className="flex-1 min-w-[14rem]">
-                      Epicollect5 has {epicollectAvailable === 1 ? 'an entry' : `${epicollectAvailable} entries`} for <strong>{deployment.location_id}</strong>, revision {revisionNumber}.
-                      The dates, camera, site and notes can be filled in from {epicollectAvailable === 1 ? 'it' : 'one of them'}.
+                      Epicollect5 has an entry for <strong>{deployment.location_id}</strong>, revision {revisionNumber}.
+                      The dates, camera, site and notes can be filled in from it.
                     </span>
                     <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => void handleImportFromEpicollect()}>Import from Epicollect5</button>
                   </div>
@@ -2513,19 +2511,6 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                 {epicollectMessage && (
                   <p role={epicollectMessage.kind === 'error' ? 'alert' : 'status'}
                      className={`mt-3 text-sm ${epicollectMessage.kind === 'error' ? 'text-red-600 dark:text-red-400' : 'text-blue-800 dark:text-blue-300'}`}>{epicollectMessage.text}</p>
-                )}
-                {epicollectEntries.length > 1 && (
-                  <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
-                    <p>The Epicollect5 project has {epicollectEntries.length} entries for {deployment.location_id}, revision {revisionNumber}. Which one?</p>
-                    <ul className="mt-2 space-y-2">
-                      {epicollectEntries.map((entry, i) => (
-                        <li key={entry.uuid ?? i} className="flex items-center justify-between gap-3">
-                          <span>{entryLabel(entry)}{entry.fields.start_date && <span className="text-blue-700 dark:text-blue-300"> — {entry.fields.start_date} → {entry.fields.end_date ?? '…'}</span>}</span>
-                          <button type="button" className="rounded-md border border-blue-400 dark:border-blue-700 px-3 py-1 text-xs font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40" onClick={() => fillFromEpicollect(entry)}>Use this one</button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
                 )}
                 {existingFolder && (
                   <p role="alert" className="mt-3 text-sm text-amber-700 dark:text-amber-400">

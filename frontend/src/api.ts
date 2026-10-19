@@ -304,6 +304,10 @@ export const api = {
   epicollectEntries: (locationId: string, revision: number | null) =>
     post<{ results: EpicollectEntry[] }>('/api/epicollect/entries', { location_id: locationId, revision }),
 
+  /** The newest entry of each of the locations (and of this revision), null for one that has none — the project is read once. */
+  epicollectEntriesBatch: (locationIds: string[], revision: number | null) =>
+    post<{ results: Record<string, EpicollectEntry | null> }>('/api/epicollect/entries/batch', { location_ids: locationIds, revision }),
+
   /** Whether the project can be read with these values — saved or not; a blank secret is the saved one. Saves nothing. */
   epicollectTestConnection: (values: { project_slug: string; client_id: string; client_secret: string }) =>
     post<{ ok: boolean; project: string; slug: string; forms: number; inputs: number }>('/api/epicollect/test-connection', values),

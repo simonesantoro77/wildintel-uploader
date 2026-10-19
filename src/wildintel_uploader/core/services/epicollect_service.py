@@ -297,6 +297,14 @@ def find_entries(location_id: str, revision: int | None, settings: config.Settin
     """The entries that are this location's — and this revision's, when the form asks it —, newest first. Each is
     {"uuid", "title", "created_at", "fields"}. The location is compared without regard to case, as Trapper keeps it in
     lower case."""
+    wanted = location_id.strip().lower()
+    if not wanted:
+        raise EpicollectError("Choose the location first.")
+    return find_entries_of([wanted], revision, settings)[wanted]
+
+
+def find_entries_of(location_ids: list[str], revision: int | None, settings: config.Settings | None = None) -> dict[str, list[dict]]:
+    """find_entries for several locations at once, reading the project once: the entries of each, by its id in lower case."""
     cfg = (settings or config.load_settings()).EPICOLLECT5
     if not cfg.enabled:
         raise EpicollectError("Epicollect5 is turned off — turn it on in Settings › Epicollect5.")
@@ -305,9 +313,7 @@ def find_entries(location_id: str, revision: int | None, settings: config.Settin
     mapping = {k: v for k, v in cfg.mapping.items() if v}
     if "location_id" not in mapping:
         raise EpicollectError("The location id is not mapped yet — relate it to an input of the form in Settings › Epicollect5 › Mapping.")
-    wanted = location_id.strip().lower()
-    if not wanted:
-        raise EpicollectError("Choose the location first.")
+    found: dict[str, list[dict]] = {w: [] for w in (loc.strip().lower() for loc in location_ids) if w}
     try:
         entries = _all_entries(cfg.project_slug, cfg.client_id, cfg.client_secret)
     except EpicollectError:
@@ -317,14 +323,14 @@ def find_entries(location_id: str, revision: int | None, settings: config.Settin
         raise EpicollectError(f"Could not reach Epicollect5: {exc}") from exc
 
     inputs = _read_project(cfg.project_slug, cfg.client_id, cfg.client_secret)["inputs"] if cfg.unmapped_to_comments else []
-    found: list[dict] = []
     for entry in entries:
         fields = entry_fields(entry, mapping)
-        if (fields.get("location_id") or "").lower() != wanted:
+        location = (fields.get("location_id") or "").lower()
+        if location not in found:
             continue
         if revision is not None and "revision" in mapping and fields.get("revision") != revision:
             continue
         if cfg.unmapped_to_comments and (notes := unmapped_notes(entry, inputs, mapping)):
             fields["comments"] = "\n".join(filter(None, [fields.get("comments"), notes]))
-        found.append({"uuid": entry.get("ec5_uuid"), "title": entry.get("title") or "", "created_at": entry.get("created_at") or "", "fields": fields})
-    return sorted(found, key=lambda e: e["created_at"], reverse=True)
+        found[location].append({"uuid": entry.get("ec5_uuid"), "title": entry.get("title") or "", "created_at": entry.get("created_at") or "", "fields": fields})
+    return {location: sorted(items, key=lambda e: e["created_at"], reverse=True) for location, items in found.items()}

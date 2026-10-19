@@ -265,7 +265,7 @@ for the entry whose **location id** is the location you chose and whose **revisi
 the location is enough). The location's own data — its id, name and coordinates — are never taken from the entry, and the camera
 model and id only complete what the images didn't give. The day and the time of the start and the end come in two questions; a
 day with no time takes the time the images gave on that day, or the whole day (from its first second for the start, to its last
-for the end). If there are several entries, you pick one. It needs the *location id* mapped in the settings, and it
+for the end). If there are several entries, the newest is used. It needs the *location id* mapped in the settings, and it
 reads the project with the client saved there, so it may be refused for a while if Epicollect5 limits the requests. When Epicollect5 has an entry for the location and the revision, a notice says so and offers to import it.
 
 **3. More details.**

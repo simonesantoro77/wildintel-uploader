@@ -45,3 +45,19 @@ def entries(req: EntriesRequest) -> dict:
         return {"results": epicollect_service.find_entries(req.location_id, req.revision)}
     except epicollect_service.EpicollectError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+class BatchEntriesRequest(BaseModel):
+    location_ids: list[str]
+    revision: int | None = None
+
+
+@router.post("/entries/batch")
+def entries_batch(req: BatchEntriesRequest) -> dict:
+    """The newest entry of each location (and this revision) — null for one that has none — reading the project once.
+    {"results": {location id as sent: entry or null}}"""
+    try:
+        found = epicollect_service.find_entries_of(req.location_ids, req.revision)
+    except epicollect_service.EpicollectError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"results": {loc: (found.get(loc.strip().lower()) or [None])[0] for loc in req.location_ids}}

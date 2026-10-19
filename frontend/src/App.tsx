@@ -84,7 +84,7 @@ export default function App() {
           {task === 'deployment'
             ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} />
             : task === 'session'
-              ? <ImportSessionPage onUpload={goToUpload} />
+              ? <ImportSessionPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} />
               : task === 'upload'
               ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} />
               : task === 'utils'

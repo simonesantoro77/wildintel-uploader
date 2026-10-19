@@ -13,7 +13,7 @@ vi.mock('../api', () => ({
     getSettings: vi.fn(), exiftoolStatus: vi.fn(), browseFolder: vi.fn(), scanSession: vi.fn(), guessDetails: vi.fn(), validateImages: vi.fn(),
     listResearchProjects: vi.fn(), saveResearchProject: vi.fn(), listLocalLocations: vi.fn(), saveLocalLocation: vi.fn(),
     writeTimestampLog: vi.fn(), validateDeployment: vi.fn(), previousDeployments: vi.fn(), existingDeployments: vi.fn(), collectionPath: vi.fn(), importLocal: vi.fn(), openFolder: vi.fn(),
-    trapperGetConfig: vi.fn(), trapperTestConnection: vi.fn(), trapperResearchProjects: vi.fn(), nextRevision: vi.fn(),
+    trapperGetConfig: vi.fn(), trapperTestConnection: vi.fn(), trapperResearchProjects: vi.fn(), nextRevision: vi.fn(), epicollectEntriesBatch: vi.fn(),
   },
 }))
 
@@ -396,8 +396,9 @@ describe('ImportSessionPage', () => {
 
       expect(screen.queryByLabelText('Timezone (IANA)')).not.toBeInTheDocument()
       expect(screen.queryByRole('checkbox', { name: /ignore summer time/ })).not.toBeInTheDocument()
-      await screen.findAllByText(/You are entering the details of a deployment taken at location/)
-      for (const bold of ['Europe/Madrid', 'ignores']) expect(screen.getAllByText(bold)[0].tagName).toBe('STRONG')
+      expect((await screen.findAllByText('Europe/Madrid'))[0]).toBeInTheDocument()
+      expect(screen.getAllByText('Ignores summer time')[0]).toBeInTheDocument()
+      expect(screen.queryByText(/You are entering/)).not.toBeInTheDocument()
     })
   })
 
@@ -543,7 +544,7 @@ describe('ImportSessionPage', () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: {
       'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': previous('R0002-DONA_02', { habitat: 'Oak forest' }),
     } })
-    await toMoreDetails()
+    await toDetails() // offered with the revision itself
 
     expect(await screen.findByText(/Revision 1 is on file for DONA_01 and DONA_02/)).toBeInTheDocument()
     expect(screen.queryByText(/Filled in \d+ of/)).not.toBeInTheDocument() // nothing is copied unasked
@@ -551,10 +552,61 @@ describe('ImportSessionPage', () => {
 
     expect(await screen.findByText(/Filled in 2 of 2 from their previous revision/)).toBeInTheDocument()
     expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
+    await toMoreDetailsSubstep()
     await openMore('DONA_01', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
     await openMore('DONA_02', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('Oak forest')
+  })
+
+  describe('Epicollect5', () => {
+    const ENTRY = { uuid: 'u1', title: 'DONA_01', created_at: '2026-10-01T10:00:00.000Z', fields: { habitat: 'Pine forest', setup_by: 'Ana' } }
+    const on = () => mockedApi.getSettings.mockResolvedValue({ ...APP_SETTINGS, EPICOLLECT5: { ...APP_SETTINGS.EPICOLLECT5, enabled: true } })
+
+    it('offers to import the deployments it has an entry for, and fills them in when asked', async () => {
+      on()
+      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: ENTRY, DONA_02: null } })
+      await toDetails()
+
+      expect(await screen.findByText(/Epicollect5 has an entry for revision 3 of 1 of these 2 deployments/)).toBeInTheDocument()
+      expect(mockedApi.epicollectEntriesBatch).toHaveBeenCalledWith(['DONA_01', 'DONA_02'], 3)
+      await userEvent.click(screen.getByRole('button', { name: 'Import from Epicollect5' }))
+      expect(await screen.findByText(/Filled in 1 of 2 from Epicollect5/)).toBeInTheDocument()
+      await toMoreDetailsSubstep()
+      await openMore('DONA_01', /^Site/)
+      expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
+    })
+
+    it('warns, with a button to its settings, when it has no entry — or can not be read', async () => {
+      on()
+      const onOpenSettings = vi.fn()
+      pageProps = { onOpenSettings }
+      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: null, DONA_02: null } })
+      await toDetails()
+
+      expect(await screen.findByText(/Epicollect5 has no entry for revision 3 of these deployments/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Open Epicollect5 settings' }))
+      expect(onOpenSettings).toHaveBeenCalledWith('epicollect')
+    })
+
+    it('does not warn of the lack of entries while a previous revision can be copied from', async () => {
+      on()
+      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: null, DONA_02: null } })
+      mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': previous('R0002-DONA_01'), 'R0003-DONA_02': null } })
+      await toDetails()
+
+      expect(await screen.findByRole('button', { name: 'Copy from revision 1' })).toBeInTheDocument()
+      await waitFor(() => expect(mockedApi.epicollectEntriesBatch).toHaveBeenCalled())
+      expect(screen.queryByText(/Epicollect5 has no entry/)).not.toBeInTheDocument()
+    })
+
+    it('says nothing while the settings turn it off', async () => {
+      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: ENTRY, DONA_02: ENTRY } })
+      await toDetails()
+      await screen.findByLabelText('What revision number are you importing?')
+      expect(mockedApi.epicollectEntriesBatch).not.toHaveBeenCalled()
+      expect(screen.queryByText(/Epicollect5 has/)).not.toBeInTheDocument()
+    })
   })
 
   it('copies only what is on file, and what is typed afterwards is kept', async () => {

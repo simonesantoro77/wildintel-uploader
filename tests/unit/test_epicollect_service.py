@@ -258,6 +258,28 @@ def test_what_no_mapping_takes_goes_to_the_comments_when_asked():
     assert comments == "Near the pond\nWeather: Rain\nSpot: 37.1, -6.4\nSeen: fox, lynx"  # no photo, no blank answer
 
 
+def test_the_entries_of_several_locations_are_found_reading_the_project_once():
+    settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
+    settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", MAPPING
+    rows = [entry("a"), entry("b", location="dona_0007"), entry("c", location="dona_0007", created="2026-09-01T10:00:00.000Z"), entry("d", location="dona_0008", revision="9")]
+    with patch("pyepicollect.api.get_entries", return_value={"data": {"entries": rows}}) as get_entries:
+        found = epicollect_service.find_entries_of(["DONA_0006", "dona_0007", "dona_0008", "dona_0009"], 3, settings)
+    assert get_entries.call_count == 1
+    assert {k: [e["uuid"] for e in v] for k, v in found.items()} == {"dona_0006": ["a"], "dona_0007": ["b", "c"], "dona_0008": [], "dona_0009": []}
+
+
+def test_the_batch_endpoint_answers_the_newest_entry_of_each_location_or_null():
+    settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
+    settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", MAPPING
+    config.save_settings(settings)
+    rows = [entry("a"), entry("b", location="dona_0007", created="2026-09-01T10:00:00.000Z"), entry("c", location="dona_0007")]
+    with patch("pyepicollect.api.get_entries", return_value={"data": {"entries": rows}}):
+        body = TestClient(app).post("/api/epicollect/entries/batch", json={"location_ids": ["DONA_0006", "dona_0007", "dona_0099"], "revision": 3}).json()
+    assert body["results"]["DONA_0006"]["uuid"] == "a" and body["results"]["dona_0007"]["uuid"] == "c" and body["results"]["dona_0099"] is None
+
+
 def test_the_entries_endpoint_answers_them_or_a_400():
     client = TestClient(app)
     assert client.post("/api/epicollect/entries", json={"location_id": "dona_0006"}).status_code == 400

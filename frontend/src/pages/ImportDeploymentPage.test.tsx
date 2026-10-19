@@ -2147,7 +2147,7 @@ describe('ImportDeploymentPage', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('The location id is not mapped yet')
     })
 
-    it('asks which one when the location has several entries for the revision', async () => {
+    it('takes the newest when the location has several entries for the revision', async () => {
       mockedApi.epicollectEntries.mockResolvedValue({ results: [
         { ...ENTRY, uuid: 'new', fields: { ...ENTRY.fields, habitat: 'Marsh' } },
         { ...ENTRY, uuid: 'old', created_at: '2026-09-01T10:00:00.000Z' },
@@ -2156,11 +2156,10 @@ describe('ImportDeploymentPage', () => {
       await userEvent.type(screen.getByLabelText('Revision'), '2')
       await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
 
-      expect(await screen.findByText(/has 2 entries for DONA_01, revision 2/)).toBeInTheDocument()
-      await userEvent.click(screen.getAllByRole('button', { name: 'Use this one' })[0])
       await openMoreDetails()
       await openSection(/^Site/)
-      expect(screen.getByLabelText('Habitat')).toHaveValue('Marsh')
+      expect(await screen.findByLabelText('Habitat')).toHaveValue('Marsh')
+      expect(screen.queryByRole('button', { name: 'Use this one' })).not.toBeInTheDocument()
     })
   })
 

@@ -5,6 +5,8 @@ import type { ReactNode } from 'react'
 import WizardStep from '../components/WizardStep'
 import { formatDay } from '../dateFormat'
 import { api } from '../api'
+import { applyEntry } from '../epicollectImport'
+import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
@@ -68,9 +70,13 @@ function locationFields(location?: LocalLocation): Partial<DeploymentFields> {
 interface Props {
   /** Offered once the session is imported: goes to the upload page, on the revision's collection. */
   onUpload?: (target: UploadTarget) => void
+  /** Opens the settings, on a section when given one. */
+  onOpenSettings?: (section?: 'epicollect') => void
+  /** Whether the settings are open over the wizard: what they hold is read again once they close. */
+  settingsOpen?: boolean
 }
 
-export default function ImportSessionPage({ onUpload }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false }: Props = {}) {
   const [step, setStep] = useState(0)
   const stepKey = STEPS[step].key
   // The sub-steps of the images and of the origin: the one open, and the furthest reached.
@@ -132,6 +138,11 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
   // Whether each deployment is known to have an earlier revision (true) or not (false), by research project and id — until it is looked up, unknown.
   const [previousFound, setPreviousFound] = useState<Record<string, PreviousDeployment | null>>({})
   // What the last fill said, and whether it was for one deployment or for all of them.
+  // Whether the settings turn Epicollect5 on; the entry it has for each deployment (by folder) at the revision, and why there is none to offer.
+  const [epicollectOn, setEpicollectOn] = useState(false)
+  const [epicollectFound, setEpicollectFound] = useState<Record<string, EpicollectEntry>>({})
+  const [epicollectMissing, setEpicollectMissing] = useState<string | null>(null)
+  const [epicollectDone, setEpicollectDone] = useState(false)
   const [fillMessage, setFillMessage] = useState<{ scope: 'one' | 'all'; text: string; undo?: { name: string; fields: DeploymentFields } } | null>(null)
   const [locFilter, setLocFilter] = useState('')
   const [locTab, setLocTab] = useState<'all' | 'missing' | 'ready'>('all')
@@ -352,6 +363,8 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
     return revisionValid && revisionNumber > 1 && Boolean(id) && Boolean(previousFound[`${projectId}|${id}`])
   }
   const canFillFromPrevious = chosen.some((d) => hasEarlierRevision(d.name))
+  // Whether the earlier revisions have been looked up (revision 1 has none): until they have, and while one can be copied from, Epicollect5's lack of entries is not said.
+  const previousChecked = !revisionValid || revisionNumber <= 1 || !knownIds || knownIds.split('\n').every((id) => `${projectId}|${id}` in previousFound)
   const detailsReady = revisionValid && chosen.length > 0 && completed === chosen.length
 
   /** The location each deployment without one is named after: its folder's name first; failing that, the id its row in the timestamp log gives it. */
@@ -419,6 +432,57 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
     setFillMessage({ scope, undo: found.length && before ? { name: names[0], fields: before } : undefined, text: names.length === 1
       ? (found.length ? `Filled in from ${previousFound[`${projectId}|${fieldsOf(names[0]).deployment_id}`]!.deployment_id}.` : 'There is no previous revision of this deployment to fill it in from.')
       : `Filled in ${found.length} of ${names.length} from their previous revision${found.length < names.length ? ` — the other ${names.length - found.length} have none` : ''}.` })
+  }
+
+  // Whether the settings turn Epicollect5 on — read again when they are closed, as they may have changed.
+  useEffect(() => {
+    if (stepKey !== 'origin' || settingsOpen) return
+    let cancelled = false
+    api.getSettings()
+      .then((s) => { if (!cancelled) setEpicollectOn(s.EPICOLLECT5.enabled) })
+      .catch(() => { if (!cancelled) setEpicollectOn(false) })
+    return () => { cancelled = true }
+  }, [stepKey, settingsOpen])
+
+  // ...and, once the revision and the locations are known, the entries Epicollect5 has for them — one read for all.
+  const locationKey = [...new Set(chosen.map((d) => fieldsOf(d.name).location_id).filter((l): l is string => Boolean(l)))].sort().join('\n')
+  useEffect(() => {
+    setEpicollectFound({}); setEpicollectMissing(null); setEpicollectDone(false)
+    if (!detailsActive || settingsOpen || !epicollectOn || !revisionValid || !locationKey) return
+    let cancelled = false
+    const timer = setTimeout(() => { // the revision may still be being typed
+      void (async () => {
+        try {
+          const { results } = await api.epicollectEntriesBatch(locationKey.split('\n'), revisionNumber)
+          if (cancelled) return
+          const found: Record<string, EpicollectEntry> = {}
+          for (const d of chosen) {
+            const id = fieldsOf(d.name).location_id
+            const entry = id ? results[id] : null
+            if (entry) found[d.name] = entry
+          }
+          setEpicollectFound(found)
+          if (Object.keys(found).length === 0) setEpicollectMissing('')
+          setEpicollectDone(true)
+        } catch (e) {
+          if (!cancelled) { setEpicollectMissing(e instanceof Error ? e.message : 'Could not read the Epicollect5 project.'); setEpicollectDone(true) }
+        }
+      })()
+    }, 400)
+    return () => { cancelled = true; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsActive, settingsOpen, epicollectOn, revisionValid, revisionNumber, locationKey])
+
+  /** Fills the period, camera, site and notes of the deployments that have an entry in Epicollect5 from it. */
+  function importFromEpicollect() {
+    const names = Object.keys(epicollectFound)
+    setDrafts((all) => {
+      const next = { ...all }
+      for (const name of names) if (next[name]) next[name] = { ...next[name], fields: applyEntry(next[name].fields, epicollectFound[name].fields, next[name].timezone) }
+      return next
+    })
+    setFillMessage({ scope: 'all', text: `Filled in ${names.length} of ${chosen.length} from Epicollect5 — check the dates, and the camera, site and notes in More details.` })
+    setEpicollectFound({})
   }
 
   // As soon as the revision gives a deployment its id, its previous revision is looked up — once; copying from it is up to the user.
@@ -870,10 +934,10 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
                                 </button>
                               )}
                               {entry && located && (
-                                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2">
+                                <div className="text-xs mt-2">
                                   <LocationTimeNote locationId={fields!.location_id} latitude={fields!.latitude} longitude={fields!.longitude}
                                                     timezone={entry.timezone} ignoreDst={entry.ignoreDst ?? preSettings.ignore_dst} />
-                                </p>
+                                </div>
                               )}
                               {located && (fields!.latitude == null || fields!.longitude == null) && (
                                 <p className="text-xs text-red-600 dark:text-red-400 mt-2">This location has no coordinates, and a deployment needs them.</p>
@@ -962,6 +1026,41 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
                 Importing them again would be refused — pick another revision, or leave them out.
               </p>
             )}
+            {revisionValid && canFillFromPrevious && (() => {
+              const withEarlier = chosen.filter((d) => hasEarlierRevision(d.name))
+              const earlier = Math.max(...withEarlier.map((d) => previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]!.revision))
+              return (
+                <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                  <span className="flex-1 min-w-[14rem]">
+                    Revision {earlier} is on file for {withEarlier.length <= 3 ? listOf(withEarlier.map((d) => d.name)) : `${withEarlier.length} of these deployments`}.
+                    Copy their camera, site and notes? Locations and dates aren&rsquo;t copied — each revision has its own.
+                  </span>
+                  <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                          onClick={() => fillFromPrevious(withEarlier.map((d) => d.name), 'all')}>Copy from revision {earlier}</button>
+                </div>
+              )
+            })()}
+            {Object.keys(epicollectFound).length > 0 && (
+              <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                <span className="flex-1 min-w-[14rem]">
+                  Epicollect5 has an entry for revision {revisionNumber} of {Object.keys(epicollectFound).length === chosen.length ? 'every one of these deployments' : `${Object.keys(epicollectFound).length} of these ${chosen.length} deployments`}.
+                  The dates, camera, site and notes can be filled in from {Object.keys(epicollectFound).length === 1 ? 'it' : 'them'}.
+                </span>
+                <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={importFromEpicollect}>Import from Epicollect5</button>
+              </div>
+            )}
+            {epicollectDone && epicollectMissing !== null && previousChecked && !canFillFromPrevious && (
+              <div role="alert" className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/50 px-5 py-4 text-sm text-amber-900 dark:text-amber-100">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-amber-600 dark:text-amber-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>
+                <span className="flex-1 min-w-[14rem]">
+                  {epicollectMissing || `Epicollect5 has no entry for revision ${revisionNumber} of these deployments: their details have to be filled in here.`}
+                </span>
+                {onOpenSettings && <button type="button" className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-700" onClick={() => onOpenSettings('epicollect')}>Open Epicollect5 settings</button>}
+              </div>
+            )}
+            {fillMessage?.scope === 'all' && <p aria-live="polite" className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{fillMessage.text}</p>}
           </FormCard>
 
           {scan?.timestamp_log && (
@@ -1066,21 +1165,6 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
           <WizardStep n={3} title="More details" status={originStatus(3)} canEdit onEdit={() => { setOriginOpen(3); setOriginReached(3) }}
                       description="Everything here is optional. For each deployment, fill in what you know of its camera and its site now — you can add the rest later."
                       summary={`${chosen.filter((d) => moreFilledOf(d.name) > 0).length} of ${plural(chosen.length, 'deployment', 'deployments')} with details`}>
-          {canFillFromPrevious && (() => {
-            const withEarlier = chosen.filter((d) => hasEarlierRevision(d.name))
-            const earlier = Math.max(...withEarlier.map((d) => previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]!.revision))
-            return (
-              <div className="mb-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
-                <span className="flex-1 min-w-[14rem]">
-                  Revision {earlier} is on file for {withEarlier.length <= 3 ? listOf(withEarlier.map((d) => d.name)) : `${withEarlier.length} of these deployments`}.
-                  Copy their camera, site and notes? Locations and dates aren&rsquo;t copied — each revision has its own.
-                </span>
-                <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                        onClick={() => fillFromPrevious(withEarlier.map((d) => d.name), 'all')}>Copy from revision {earlier}</button>
-              </div>
-            )
-          })()}
-          {fillMessage?.scope === 'all' && <p aria-live="polite" className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{fillMessage.text}</p>}
           <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-200 dark:divide-zinc-700 mb-4">
             {chosen.filter((d) => d.name.toLowerCase().includes(filter.trim().toLowerCase())).map((d) => {
               const entry = drafts[d.name]
