@@ -7,7 +7,7 @@ import { APP_SETTINGS } from '../test/fixtures'
 
 vi.mock('../api', () => ({
   api: {
-    getSettings: vi.fn(), saveSettings: vi.fn(), clearLog: vi.fn(), browseFolder: vi.fn(), trapperTestConnection: vi.fn(),
+    getSettings: vi.fn(), saveSettings: vi.fn(), clearLog: vi.fn(), browseFolder: vi.fn(), trapperTestConnection: vi.fn(), epicollectTestConnection: vi.fn(),
     checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(),
   },
 }))
@@ -224,6 +224,32 @@ describe('SettingsPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
 
       expect(await screen.findByText('Invalid credentials')).toBeInTheDocument()
+    })
+  })
+
+  describe('Epicollect5 connection', () => {
+    it('tests the project with what is typed, and says what it found', async () => {
+      mockedApi.epicollectTestConnection.mockResolvedValue({ ok: true, project: 'Doñana cameras', slug: 'donana', forms: 1, inputs: 5 })
+      render(<SettingsPage onClose={vi.fn()} />)
+      await screen.findByLabelText('Level')
+      await section('Epicollect5')
+      await userEvent.type(screen.getByLabelText('Slug'), 'donana')
+      await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+
+      expect(mockedApi.epicollectTestConnection).toHaveBeenCalledWith({ project_slug: 'donana', client_id: '', client_secret: '' })
+      expect(await screen.findByText('Connected — Doñana cameras: 5 input(s) in 1 form(s).')).toBeInTheDocument()
+    })
+
+    it('needs a project, and says why it failed', async () => {
+      mockedApi.epicollectTestConnection.mockRejectedValue(new Error('Epicollect5 refused the client id and secret.'))
+      render(<SettingsPage onClose={vi.fn()} />)
+      await screen.findByLabelText('Level')
+      await section('Epicollect5')
+      expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled()
+
+      await userEvent.type(screen.getByLabelText('Slug'), 'donana')
+      await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+      expect(await screen.findByText('Epicollect5 refused the client id and secret.')).toBeInTheDocument()
     })
   })
 

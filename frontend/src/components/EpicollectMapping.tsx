@@ -5,7 +5,8 @@ import type { MappedField } from '../epicollectMapping'
 import type { EpicollectForm, EpicollectInput } from '../types'
 
 const btnSoft = 'px-4 py-2 text-sm rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-const selectClass = 'w-full rounded-lg px-3 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-transparent focus:border-blue-500 outline-none cursor-pointer'
+// color-scheme makes the browser draw the select (and its list) in the page's theme, so the text can't end up light on light.
+const selectClass = 'w-full rounded-lg px-3 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 focus:border-blue-500 outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark] [&>option]:bg-white dark:[&>option]:bg-zinc-800 [&_option]:text-zinc-900 dark:[&_option]:text-zinc-100 disabled:opacity-60 disabled:cursor-not-allowed'
 
 const TYPE_NAMES: Record<string, string> = {
   text: 'text', textarea: 'long text', integer: 'whole number', decimal: 'number', date: 'date', time: 'time', location: 'GPS', dropdown: 'dropdown',

@@ -1,3 +1,4 @@
+import type { EpicollectEntry } from './epicollectImport'
 import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
@@ -299,6 +300,13 @@ export const api = {
   getSettings: () => req<AppSettings>('/api/settings'),
   /** The inputs of the Epicollect5 project saved in the settings. */
   epicollectForm: () => req<EpicollectForm>('/api/epicollect/form'),
+  /** The entries of the Epicollect5 project that are this location's — and this revision's, when the form asks it — as the fields of a deployment. */
+  epicollectEntries: (locationId: string, revision: number | null) =>
+    post<{ results: EpicollectEntry[] }>('/api/epicollect/entries', { location_id: locationId, revision }),
+
+  /** Whether the project can be read with these values — saved or not; a blank secret is the saved one. Saves nothing. */
+  epicollectTestConnection: (values: { project_slug: string; client_id: string; client_secret: string }) =>
+    post<{ ok: boolean; project: string; slug: string; forms: number; inputs: number }>('/api/epicollect/test-connection', values),
 
   saveSettings: (settings: AppSettingsUpdate) =>
     req<AppSettings>('/api/settings', {

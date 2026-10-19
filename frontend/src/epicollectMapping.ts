@@ -1,7 +1,7 @@
 import type { EpicollectInput } from './types'
 
 /** What a deployment field holds — which Epicollect5 inputs can fill it. */
-export type FieldKind = 'text' | 'number' | 'date' | 'yesno' | 'choice' | 'list' | 'place'
+export type FieldKind = 'text' | 'number' | 'date' | 'time' | 'yesno' | 'choice' | 'list' | 'place'
 
 export interface MappedField {
   /** The key in DeploymentFields. */
@@ -28,10 +28,14 @@ export const DEPLOYMENT_FIELD_GROUPS: MappedGroup[] = [
     ],
   },
   {
-    id: 'period', label: 'Period',
+    // Epicollect5 has no input for a date and a time together: the day and the hour are two questions.
+    id: 'when', label: 'When',
     fields: [
-      { key: 'start_date', label: 'Start date', kind: 'date', hint: 'When the camera started recording.', aliases: ['start date', 'start', 'begin', 'setup date', 'deployment date', 'date start', 'fecha inicio', 'fecha de inicio', 'date'] },
-      { key: 'end_date', label: 'End date', kind: 'date', hint: 'When the camera stopped recording.', aliases: ['end date', 'end', 'retrieval date', 'pickup date', 'date end', 'fecha fin', 'fecha de fin', 'fecha de recogida'] },
+      { key: 'revision', label: 'Revision', kind: 'number', hint: 'The number of the visit to the location: 1, 2, 3…', aliases: ['revision', 'revision number', 'visit', 'visit number', 'visita', 'revisión'] },
+      { key: 'start_date', label: 'Start date', kind: 'date', hint: 'The day the camera started recording.', aliases: ['start date', 'start', 'begin', 'setup date', 'deployment date', 'date start', 'fecha inicio', 'fecha de inicio', 'date'] },
+      { key: 'start_time', label: 'Start time', kind: 'time', hint: 'The time of day it started, if the form asks it apart from the day.', aliases: ['start time', 'time start', 'begin time', 'setup time', 'hora inicio', 'hora de inicio'] },
+      { key: 'end_date', label: 'End date', kind: 'date', hint: 'The day the camera stopped recording.', aliases: ['end date', 'end', 'retrieval date', 'pickup date', 'date end', 'fecha fin', 'fecha de fin', 'fecha de recogida'] },
+      { key: 'end_time', label: 'End time', kind: 'time', hint: 'The time of day it stopped, if the form asks it apart from the day.', aliases: ['end time', 'time end', 'retrieval time', 'pickup time', 'hora fin', 'hora de fin', 'hora de recogida'] },
     ],
   },
   {
@@ -74,6 +78,7 @@ const FILLS: Record<FieldKind, string[]> = {
   text: ['text', 'textarea', 'dropdown', 'radio', 'searchsingle', 'barcode', 'integer', 'decimal', 'phone'],
   number: ['integer', 'decimal', 'text'],
   date: ['date', 'text'],
+  time: ['time', 'text'],
   yesno: ['radio', 'dropdown', 'checkbox', 'text'],
   choice: ['dropdown', 'radio', 'searchsingle', 'text'],
   list: ['checkbox', 'searchmultiple', 'text', 'textarea'],
@@ -87,12 +92,13 @@ export function canFill(kind: FieldKind, inputType: string): boolean {
 const normalise = (text: string) => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
 
 /** For each field not mapped yet, the input whose question is its name (or an alias of it) — never one that cannot fill it,
- * and an exact name before a partial one. Fields already mapped are kept. */
+ * an exact name before a partial one, and the input of the field's own kind before a text one. Fields already mapped are kept. */
 export function suggestMapping(inputs: EpicollectInput[], current: Record<string, string>): Record<string, string> {
   const next = { ...current }
   for (const field of ALL_MAPPED_FIELDS) {
     if (next[field.key]) continue
-    const fits = inputs.filter((i) => canFill(field.kind, i.type))
+    // The input whose type is the field's own comes before a text one that merely can hold it: a GPS input before "Location name".
+    const fits = inputs.filter((i) => canFill(field.kind, i.type)).sort((x, y) => FILLS[field.kind].indexOf(x.type) - FILLS[field.kind].indexOf(y.type))
     const names = [field.label, ...field.aliases].map(normalise)
     const exact = fits.find((i) => names.includes(normalise(i.label)))
     const partial = exact ?? fits.find((i) => names.some((n) => n.length > 3 && normalise(i.label).includes(n)))

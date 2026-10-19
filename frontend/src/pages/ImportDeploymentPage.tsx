@@ -12,6 +12,8 @@ import Combobox from '../components/Combobox'
 import OptionCards from '../components/OptionCards'
 import type { Option } from '../components/OptionCards'
 import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
+import { applyEntry, entryLabel } from '../epicollectImport'
+import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
 import { isValidTimezone, knownTimezones, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import type {
@@ -1265,6 +1267,10 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   // The closest earlier revision of this deployment, if one was kept — to offer filling the form in from it.
   const [previousRevision, setPreviousRevision] = useState<PreviousDeployment | null>(null)
   const [filledFrom, setFilledFrom] = useState<string | null>(null)
+  // The entry of the Epicollect5 form that fills the period, camera, site and notes in: the entries found, and what was said of them.
+  const [epicollectBusy, setEpicollectBusy] = useState(false)
+  const [epicollectEntries, setEpicollectEntries] = useState<EpicollectEntry[]>([])
+  const [epicollectMessage, setEpicollectMessage] = useState<{ kind: 'info' | 'error'; text: string } | null>(null)
   const [plannedCollection, setPlannedCollection] = useState<CollectionPath | null>(null)
   const [plannedCollectionError, setPlannedCollectionError] = useState<string | null>(null)
 
@@ -1809,6 +1815,29 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
       .catch(() => { if (!cancelled) setPreviousRevision(null) })
     return () => { cancelled = true }
   }, [stepKey, researchProjectId, deployment.deployment_id])
+
+  function fillFromEpicollect(entry: EpicollectEntry) {
+    setDeployment((d) => applyEntry(d, entry.fields, timezone))
+    setFilledFrom(`the Epicollect5 entry “${entryLabel(entry)}”`)
+    setEpicollectEntries([])
+    setEpicollectMessage({ kind: 'info', text: `Filled in from “${entryLabel(entry)}” — check the dates, and the camera, site and notes in More details.` })
+  }
+
+  /** Looks for the entry of this location and revision in the Epicollect5 project of the settings. */
+  async function handleImportFromEpicollect() {
+    if (!deployment.location_id || !revisionValid) return
+    setEpicollectBusy(true); setEpicollectMessage(null); setEpicollectEntries([])
+    try {
+      const { results } = await api.epicollectEntries(deployment.location_id, revisionNumber)
+      if (results.length === 0) setEpicollectMessage({ kind: 'info', text: `There is no entry for ${deployment.location_id}, revision ${revisionNumber}, in the Epicollect5 project.` })
+      else if (results.length === 1) fillFromEpicollect(results[0])
+      else setEpicollectEntries(results)
+    } catch (e) {
+      setEpicollectMessage({ kind: 'error', text: e instanceof Error ? e.message : 'Could not read the Epicollect5 project.' })
+    } finally {
+      setEpicollectBusy(false)
+    }
+  }
 
   function handleFillFromPrevious() {
     if (!previousRevision) return
@@ -2374,9 +2403,11 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
           </WizardStep>
 
           <WizardStep n={2} title="When was it collected?" status={originStatus(2)} canEdit onEdit={() => setOriginOpen(2)}
-                      action={<button type="button" disabled title="Coming soon"
-                                      className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
-                        Import info from Epicollect5 — coming soon
+                      action={<button type="button" disabled={epicollectBusy || guessing || !deployment.location_id || !revisionValid}
+                                      title="Fills in the period, camera, site and notes from this location's entry in the Epicollect5 project of the settings"
+                                      className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      onClick={() => void handleImportFromEpicollect()}>
+                        {epicollectBusy ? 'Reading Epicollect5…' : 'Import info from Epicollect5'}
                       </button>}
                       description={!timezone
                         ? <span className="text-red-600 dark:text-red-400">The location <strong>{deployment.location_id}</strong> has no timezone, and a deployment needs it: add it to the location.</span>
@@ -2420,6 +2451,23 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                       {filledFrom && <span role="status" className="block mt-1 text-xs text-blue-800 dark:text-blue-300">Filled in from {filledFrom} — check the camera, site and notes in More details.</span>}
                     </span>
                     <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
+                  </div>
+                )}
+                {epicollectMessage && (
+                  <p role={epicollectMessage.kind === 'error' ? 'alert' : 'status'}
+                     className={`mt-3 text-sm ${epicollectMessage.kind === 'error' ? 'text-red-600 dark:text-red-400' : 'text-blue-800 dark:text-blue-300'}`}>{epicollectMessage.text}</p>
+                )}
+                {epicollectEntries.length > 1 && (
+                  <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
+                    <p>The Epicollect5 project has {epicollectEntries.length} entries for {deployment.location_id}, revision {revisionNumber}. Which one?</p>
+                    <ul className="mt-2 space-y-2">
+                      {epicollectEntries.map((entry, i) => (
+                        <li key={entry.uuid ?? i} className="flex items-center justify-between gap-3">
+                          <span>{entryLabel(entry)}{entry.fields.start_date && <span className="text-blue-700 dark:text-blue-300"> — {entry.fields.start_date} → {entry.fields.end_date ?? '…'}</span>}</span>
+                          <button type="button" className="rounded-md border border-blue-400 dark:border-blue-700 px-3 py-1 text-xs font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40" onClick={() => fillFromEpicollect(entry)}>Use this one</button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
                 {existingFolder && (

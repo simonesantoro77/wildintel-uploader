@@ -8,10 +8,10 @@ describe('the deployment fields to map', () => {
   it('are every field of the deployment form, each once', () => {
     const keys = ALL_MAPPED_FIELDS.map((f) => f.key)
     expect(new Set(keys).size).toBe(keys.length)
-    for (const key of ['location_id', 'start_date', 'end_date', 'camera_model', 'camera_id', 'camera_height', 'habitat', 'bait_use', 'deployment_groups', 'tags', 'comments']) {
+    for (const key of ['location_id', 'revision', 'start_date', 'start_time', 'end_date', 'end_time', 'camera_model', 'camera_id', 'camera_height', 'habitat', 'bait_use', 'deployment_groups', 'tags', 'comments']) {
       expect(keys).toContain(key)
     }
-    expect(DEPLOYMENT_FIELD_GROUPS.map((g) => g.label)).toEqual(['Where', 'Period', 'Camera', 'Site', 'Grouping and notes'])
+    expect(DEPLOYMENT_FIELD_GROUPS.map((g) => g.label)).toEqual(['Where', 'When', 'Camera', 'Site', 'Grouping and notes'])
   })
 })
 
@@ -19,6 +19,9 @@ describe('what can fill a field', () => {
   it('is an input of a type that holds that kind of value — a text one can fill almost any', () => {
     expect(canFill('date', 'date')).toBe(true)
     expect(canFill('date', 'integer')).toBe(false)
+    expect(canFill('time', 'time')).toBe(true)
+    expect(canFill('time', 'date')).toBe(false)
+    expect(canFill('number', 'integer')).toBe(true)
     expect(canFill('number', 'decimal')).toBe(true)
     expect(canFill('number', 'photo')).toBe(false)
     expect(canFill('place', 'location')).toBe(true)
@@ -32,6 +35,21 @@ describe('suggesting a mapping', () => {
     input('a', 'Start date', 'date'), input('b', 'End date', 'date'), input('c', 'Camera model', 'text'), input('d', 'Camera height', 'decimal'),
     input('e', 'Notas', 'textarea'), input('f', 'Bait used', 'radio'), input('g', 'Photo of the site', 'photo'),
   ]
+
+  it('keeps the day and the time of a date apart, and finds the revision', () => {
+    const mapping = suggestMapping([
+      input('r', 'Revision', 'integer'), input('sd', 'Start date', 'date'), input('st', 'Start time', 'time'),
+      input('ed', 'End date', 'date'), input('et', 'End time', 'time'),
+    ], {})
+    expect(mapping).toMatchObject({ revision: 'r', start_date: 'sd', start_time: 'st', end_date: 'ed', end_time: 'et' })
+  })
+
+  it('prefers a GPS input to a text one that has "location" in its name', () => {
+    const mapping = suggestMapping([input('n', 'Location name', 'text'), input('g', 'Location (GPS)', 'location')], {})
+    expect(mapping.location_name).toBe('n')
+    expect(mapping.latitude).toBe('g')
+    expect(mapping.longitude).toBe('g')
+  })
 
   it('matches the questions by name, or by what they are usually called, and by type', () => {
     const mapping = suggestMapping(inputs, {})

@@ -27,6 +27,7 @@ vi.mock('../api', () => ({
     openFolder: vi.fn(),
     existingDeployments: vi.fn(),
     previousDeployments: vi.fn(),
+    epicollectEntries: vi.fn(),
     checkCollection: vi.fn(),
     collectionPath: vi.fn(),
     listResearchProjects: vi.fn(),
@@ -2056,6 +2057,64 @@ describe('ImportDeploymentPage', () => {
       await userEvent.clear(screen.getByLabelText('Revision'))
       await userEvent.type(screen.getByLabelText('Revision'), '2')
       await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    })
+  })
+
+  describe('the entry of the Epicollect5 form', () => {
+    const ENTRY = {
+      uuid: 'u1', title: 'DONA_01', created_at: '2026-10-01T10:00:00.000Z',
+      fields: { start_date: '2024-09-04', start_time: '13:10:00', end_date: '2024-10-12', end_time: '07:02:00', habitat: 'Pine forest', setup_by: 'Ana', comments: 'Near the pond', tags: ['forest'] },
+    }
+
+    it('is looked for by the location and the revision, and fills in the period, the site and the notes', async () => {
+      mockedApi.epicollectEntries.mockResolvedValue({ results: [ENTRY] })
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
+
+      expect(await screen.findByText(/Filled in from “DONA_01 · sent 1 Oct 2026”/)).toBeInTheDocument()
+      expect(mockedApi.epicollectEntries).toHaveBeenCalledWith('DONA_01', 2)
+      expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
+      expect(screen.getByLabelText('End')).toHaveValue('2024-10-12T07:02')
+      await openMoreDetails()
+      await openSection(/^Site/)
+      expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
+      expect(screen.getByLabelText('Set up by')).toHaveValue('Ana')
+      await openSection(/^Grouping and notes/)
+      expect(screen.getByLabelText('Comments')).toHaveValue('Near the pond')
+    })
+
+    it('needs a valid revision', async () => {
+      await goToNewDetailsStep()
+      expect(screen.getByRole('button', { name: 'Import info from Epicollect5' })).toBeDisabled()
+    })
+
+    it('says when there is no entry, and what Epicollect5 or the settings say when it fails', async () => {
+      mockedApi.epicollectEntries.mockResolvedValueOnce({ results: [] })
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
+      expect(await screen.findByText('There is no entry for DONA_01, revision 2, in the Epicollect5 project.')).toBeInTheDocument()
+
+      mockedApi.epicollectEntries.mockRejectedValueOnce(new Error('The location id is not mapped yet'))
+      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('The location id is not mapped yet')
+    })
+
+    it('asks which one when the location has several entries for the revision', async () => {
+      mockedApi.epicollectEntries.mockResolvedValue({ results: [
+        { ...ENTRY, uuid: 'new', fields: { ...ENTRY.fields, habitat: 'Marsh' } },
+        { ...ENTRY, uuid: 'old', created_at: '2026-09-01T10:00:00.000Z' },
+      ] })
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
+
+      expect(await screen.findByText(/has 2 entries for DONA_01, revision 2/)).toBeInTheDocument()
+      await userEvent.click(screen.getAllByRole('button', { name: 'Use this one' })[0])
+      await openMoreDetails()
+      await openSection(/^Site/)
+      expect(screen.getByLabelText('Habitat')).toHaveValue('Marsh')
     })
   })
 

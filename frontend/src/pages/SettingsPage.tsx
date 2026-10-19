@@ -565,6 +565,7 @@ export default function SettingsPage({ onClose }: Props) {
   const [status, setStatus] = useState<{ kind: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ kind: 'idle' })
   const [clearLog, setClearLog] = useState<{ kind: 'idle' | 'confirming' | 'clearing' | 'cleared' | 'error'; message?: string }>({ kind: 'idle' })
   const [conn, setConn] = useState<{ kind: 'idle' | 'testing' | 'ok' | 'error'; message?: string }>({ kind: 'idle' })
+  const [epiConn, setEpiConn] = useState<{ kind: 'idle' | 'testing' | 'ok' | 'error'; message?: string }>({ kind: 'idle' })
   const [browsing, setBrowsing] = useState(false)
 
   // Also called after switching config, which discards whatever wasn't saved.
@@ -673,6 +674,18 @@ export default function SettingsPage({ onClose }: Props) {
       setConn({ kind: 'ok', message: `Connected — ${result.research_projects_count} research project(s) available.` })
     } catch (e) {
       setConn({ kind: 'error', message: e instanceof Error ? e.message : 'Could not connect to Trapper.' })
+    }
+  }
+
+  async function handleTestEpicollect() {
+    if (!draft) return
+    setEpiConn({ kind: 'testing' })
+    try {
+      // A blank secret falls back to the saved one of the same client, as when saving.
+      const r = await api.epicollectTestConnection({ project_slug: draft.epicollectSlug.trim(), client_id: draft.epicollectClientId.trim(), client_secret: draft.epicollectClientSecret })
+      setEpiConn({ kind: 'ok', message: `Connected — ${r.project || r.slug}: ${r.inputs} input(s) in ${r.forms} form(s).` })
+    } catch (e) {
+      setEpiConn({ kind: 'error', message: e instanceof Error ? e.message : 'Could not connect to Epicollect5.' })
     }
   }
 
@@ -826,10 +839,20 @@ export default function SettingsPage({ onClose }: Props) {
             </Row>
             <Row
               label="API client"
-              description={saved.EPICOLLECT5.has_secret ? 'Only private projects need it. A secret is saved — leave it blank to keep it.' : 'Only private projects need it. No secret saved yet.'}
+              description={<>
+                {saved.EPICOLLECT5.has_secret ? 'Only private projects need it. A secret is saved — leave it blank to keep it.' : 'Only private projects need it. No secret saved yet.'}
+                {' '}Create the client app at <a href="https://developers.epicollect.net" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">developers.epicollect.net</a>.
+              </>}
             >
               <TextBox label="Client id" value={draft.epicollectClientId} onChange={(v) => set('epicollectClientId', v)} mono />
               <TextBox label="Client secret" type="password" value={draft.epicollectClientSecret} onChange={(v) => set('epicollectClientSecret', v)} />
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" className={btnSoft} disabled={!draft.epicollectSlug.trim() || epiConn.kind === 'testing'} onClick={handleTestEpicollect}>
+                  {epiConn.kind === 'testing' ? 'Testing…' : 'Test connection'}
+                </button>
+                {epiConn.kind === 'ok' && <span className="text-sm text-emerald-700 dark:text-emerald-400">{epiConn.message}</span>}
+                {epiConn.kind === 'error' && <span className="text-sm text-red-600 dark:text-red-400">{epiConn.message}</span>}
+              </div>
             </Row>
             <div className="py-5">
               <h3 className="text-sm font-medium mb-3">Mapping</h3>
