@@ -259,7 +259,7 @@ would be refused as it would mix two sets of images: choose another revision or 
     images, and this step says so. In an *Import session*, the same applies to each deployment
     that has a row in it.
 
-**Import info from Epicollect5** (top right of this step) fills in the period, the camera, the site and the notes from the
+When Epicollect5 has an entry for the location and the revision, a notice offers **Import from Epicollect5**, which fills in the period, the camera, the site and the notes from the
 project's form saved in [Settings › Epicollect5](#epicollect5). In that form **each row is one deployment**: the app looks
 for the entry whose **location id** is the location you chose and whose **revision** is the one above (if the revision isn't mapped,
 the location is enough). The location's own data — its id, name and coordinates — are never taken from the entry, and the camera

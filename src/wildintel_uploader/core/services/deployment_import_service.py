@@ -275,6 +275,11 @@ def _timestamp_log_periods(path: Path) -> tuple[dict[str, tuple[str, datetime, d
     return periods, warnings
 
 
+def _named(names: list[str], most: int = 5) -> str:
+    """Names for a warning: the first few, then how many more."""
+    return ", ".join(names[:most]) + (f" and {len(names) - most} more" if len(names) > most else "")
+
+
 def scan_session(session_dir: Path) -> dict:
     """A session folder — one subfolder per deployment — scanned: each subfolder's own scan_folder result (its files
     and images), named after it (hidden ones are left out), and how many loose files sit beside them.
@@ -308,11 +313,14 @@ def scan_session(session_dir: Path) -> dict:
         periods, log_warnings = _timestamp_log_periods(log_path)
         warnings += log_warnings
         matched = 0
+        used: set[str] = set()
         for deployment in deployments:
             name = deployment["name"].lower()
             # A log written by wildintel-tools names the full deployment id, R0033-DONA_01, for a subfolder DONA_01.
-            period = periods.get(name) or next((p for key, p in periods.items() if re.sub(r"^r\d{4}-", "", key) == name), None)
+            key = name if name in periods else next((k for k in periods if re.sub(r"^r\d{4}-", "", k) == name), None)
+            period = periods.get(key) if key else None
             if period:
+                used.add(key)
                 deployment["log_deployment_id"] = period[0]
                 deployment["start_date"], deployment["end_date"] = period[1].isoformat(), period[2].isoformat()
                 deployment["from_timestamp_log"] = True
@@ -320,8 +328,12 @@ def scan_session(session_dir: Path) -> dict:
         revisions = {int(m.group(1)) for d in deployments if d["log_deployment_id"] and (m := re.match(r"^R(\d{4})-", d["log_deployment_id"], re.IGNORECASE))}
         revision = next(iter(revisions)) if len(revisions) == 1 and 0 not in revisions else None  # R0000 is not a revision
         timestamp_log = {"name": log_path.name, "path": str(log_path), "rows": len(periods), "matched": matched, "revision": revision}
-        if len(periods) > matched:
-            warnings.append(f"{len(periods) - matched} row(s) of {log_path.name} match no subfolder.")
+        unmatched_rows = [period[0] for key, period in periods.items() if key not in used]
+        if unmatched_rows:
+            warnings.append(f"{len(unmatched_rows)} row(s) of {log_path.name} match no subfolder: {_named(unmatched_rows)}.")
+        without_row = [d["name"] for d in deployments if not d["from_timestamp_log"]]
+        if without_row:
+            warnings.append(f"{len(without_row)} subfolder(s) have no row in {log_path.name}, so their dates come from elsewhere: {_named(without_row)}.")
     return {"deployments": deployments, "loose_files": loose, "warnings": warnings, "timestamp_log": timestamp_log}
 
 

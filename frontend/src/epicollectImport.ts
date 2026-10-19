@@ -33,6 +33,15 @@ function moment(day: string | undefined, time: string | undefined, current: stri
   return stampTimezone(`${day}T${time || sameDay || fallback}`, timezone)
 }
 
+/** The period an entry gives — null unless it says both days. A day with no time is the whole day: from its first second to its last. */
+export function entryPeriod(fields: EntryFields | undefined, timezone: string): { start: string; end: string } | null {
+  if (!fields?.start_date || !fields.end_date) return null
+  return {
+    start: stampTimezone(`${fields.start_date}T${fields.start_time || '00:00:00'}`, timezone),
+    end: stampTimezone(`${fields.end_date}T${fields.end_time || '23:59:59'}`, timezone),
+  }
+}
+
 /** `current` filled in from an entry: its period, camera, site and notes. What the entry leaves blank stays as it was. */
 export function applyEntry(current: DeploymentFields, fields: EntryFields, timezone: string): DeploymentFields {
   const next: DeploymentFields = { ...current }

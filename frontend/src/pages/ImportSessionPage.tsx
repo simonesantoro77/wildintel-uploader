@@ -5,14 +5,14 @@ import type { ReactNode } from 'react'
 import WizardStep from '../components/WizardStep'
 import { formatDay } from '../dateFormat'
 import { api } from '../api'
-import { applyEntry } from '../epicollectImport'
+import { applyEntry, entryPeriod } from '../epicollectImport'
 import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
 import type {
   DeploymentCheck, DeploymentCheckResult, DeploymentFields, GuessedDetails, ImageCheck, ImportEvent, LocalLocation, LocalResearchProject,
-  PreprocessingOptions, PreviousDeployment, SessionScan, StatisticsParams, UploadTarget, ValidationResult,
+  PreprocessingOptions, PreviousDeployment, SessionScan, SessionScanDeployment, StatisticsParams, UploadTarget, ValidationResult,
 } from '../types'
 import {
   ALL_DEPLOYMENT_CHECKS, DEFAULT_CHECK_SETTINGS, DEPLOYMENT_CHECK_DISPLAY, DEPLOYMENT_CHECK_OPTIONS, DeploymentCheckReport, Field,
@@ -42,6 +42,12 @@ interface Entry {
   /** Where the location was deduced from, until it is picked by hand. */
   locationFrom?: 'folder' | 'log'
 }
+
+/** Where the period of a deployment comes from: Epicollect5, the collection's timestamp log, the images' EXIF data — in that order of
+ * preference — or typed by hand, the only one that lets it be edited. */
+type DateSource = 'exif' | 'epicollect' | 'log' | 'manual'
+const SOURCE_ORDER: DateSource[] = ['epicollect', 'log', 'exif', 'manual']
+const SOURCE_LABELS: Record<DateSource, string> = { exif: 'Camera metadata (EXIF)', epicollect: 'Epicollect5', log: 'Timestamp log file', manual: 'Manual entry' }
 
 interface Outcome<T> { result?: T; error?: string }
 
@@ -133,6 +139,9 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const [checksOpen, setChecksOpen] = useState(1)
   const [filter, setFilter] = useState('')
   const [onlyIncomplete, setOnlyIncomplete] = useState(false)
+  // The same, in the step of the camera, site and notes.
+  const [moreFilter, setMoreFilter] = useState('')
+  const [onlyWithoutDetails, setOnlyWithoutDetails] = useState(false)
   // Where each deployment is already kept, by its id — importing it again would be refused.
   const [existing, setExisting] = useState<Record<string, string | null>>({})
   // Whether each deployment is known to have an earlier revision (true) or not (false), by research project and id — until it is looked up, unknown.
@@ -143,6 +152,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const [epicollectFound, setEpicollectFound] = useState<Record<string, EpicollectEntry>>({})
   const [epicollectMissing, setEpicollectMissing] = useState<string | null>(null)
   const [epicollectDone, setEpicollectDone] = useState(false)
+  // Whether the other details of the entries have been imported — the dates are not part of that: they come from the source picked.
+  const [epicollectImported, setEpicollectImported] = useState(false)
+  // Where each deployment's dates come from; the ones picked by hand are not changed by what is found later.
+  const [dateSources, setDateSources] = useState<Record<string, DateSource>>({})
+  const sourcePicked = useRef(new Set<string>())
   const [fillMessage, setFillMessage] = useState<{ scope: 'one' | 'all'; text: string; undo?: { name: string; fields: DeploymentFields } } | null>(null)
   const [locFilter, setLocFilter] = useState('')
   const [locTab, setLocTab] = useState<'all' | 'missing' | 'ready'>('all')
@@ -306,7 +320,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       if (logged) { setRevision(String(logged)); setRevisionFromLog(result.timestamp_log!.name) }
       else if (revisionFromLog) { setRevision(''); setRevisionFromLog(null) }
       setIncluded(new Set(result.deployments.filter((d) => d.image_count > 0).map((d) => d.name)))
-      guessRequested.current.clear(); setGuessed({}); setGuessingLeft(0); setPreviousFound({}); setDrafts({}); setValidations({}); setChecks({}); setRuns({})
+      guessRequested.current.clear(); sourcePicked.current.clear(); setDateSources({}); setGuessed({}); setGuessingLeft(0); setPreviousFound({}); setDrafts({}); setValidations({}); setChecks({}); setRuns({})
     } catch (e) {
       setScanError(e instanceof Error ? e.message : 'Could not scan the folder.')
     } finally {
@@ -447,7 +461,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   // ...and, once the revision and the locations are known, the entries Epicollect5 has for them — one read for all.
   const locationKey = [...new Set(chosen.map((d) => fieldsOf(d.name).location_id).filter((l): l is string => Boolean(l)))].sort().join('\n')
   useEffect(() => {
-    setEpicollectFound({}); setEpicollectMissing(null); setEpicollectDone(false)
+    setEpicollectFound({}); setEpicollectMissing(null); setEpicollectDone(false); setEpicollectImported(false)
     if (!detailsActive || settingsOpen || !epicollectOn || !revisionValid || !locationKey) return
     let cancelled = false
     const timer = setTimeout(() => { // the revision may still be being typed
@@ -473,16 +487,60 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailsActive, settingsOpen, epicollectOn, revisionValid, revisionNumber, locationKey])
 
-  /** Fills the period, camera, site and notes of the deployments that have an entry in Epicollect5 from it. */
+  /** The period a source gives a deployment — null when it has none (the manual one is whatever is typed). */
+  function periodOf(d: SessionScanDeployment, source: DateSource, timezone: string): { start: string | null; end: string | null } | null {
+    if (source === 'log') return d.from_timestamp_log && d.start_date ? { start: stampTimezone(d.start_date, timezone), end: d.end_date ? stampTimezone(d.end_date, timezone) : null } : null
+    if (source === 'exif') { const g = guessed[d.name]; return g?.start_date ? { start: stampTimezone(g.start_date, timezone), end: g.end_date ? stampTimezone(g.end_date, timezone) : null } : null }
+    if (source === 'epicollect') return entryPeriod(epicollectFound[d.name]?.fields, timezone)
+    return null
+  }
+
+  function applyPeriod(changes: Record<string, { source: DateSource; period: { start: string | null; end: string | null } | null }>) {
+    setDateSources((all) => ({ ...all, ...Object.fromEntries(Object.entries(changes).map(([name, c]) => [name, c.source])) }))
+    setDrafts((all) => {
+      const next = { ...all }
+      for (const [name, { period }] of Object.entries(changes)) if (period && next[name]) next[name] = { ...next[name], fields: { ...next[name].fields, start_date: period.start ?? '', end_date: period.end } }
+      return next
+    })
+  }
+
+  // Each deployment takes the first source that has its dates: Epicollect5, the timestamp log, the images — and by hand if none does,
+  // once they have all been looked at. Better ones found later replace the ones taken, unless one was picked.
+  useEffect(() => {
+    if (!detailsActive) return
+    const looking = guessingLeft > 0 || (epicollectOn && !epicollectDone)
+    const changes: Record<string, { source: DateSource; period: { start: string | null; end: string | null } | null }> = {}
+    for (const d of chosen) {
+      const entry = drafts[d.name]
+      if (!entry || sourcePicked.current.has(d.name)) continue
+      const best = SOURCE_ORDER.find((s) => (s === 'manual' ? !looking : periodOf(d, s, entry.timezone) !== null))
+      if (best && best !== dateSources[d.name]) changes[d.name] = { source: best, period: periodOf(d, best, entry.timezone) }
+    }
+    if (Object.keys(changes).length > 0) applyPeriod(changes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsActive, drafts, guessed, guessingLeft, epicollectFound, epicollectOn, epicollectDone, scan])
+
+  /** Takes the dates from the source picked; "by hand" keeps what there is, and lets it be edited. */
+  function pickSource(d: SessionScanDeployment, source: DateSource) {
+    sourcePicked.current.add(d.name)
+    applyPeriod({ [d.name]: { source, period: periodOf(d, source, drafts[d.name]?.timezone ?? '') } })
+  }
+
+  /** Fills the camera, site and notes of the deployments that have an entry in Epicollect5 from it. */
   function importFromEpicollect() {
     const names = Object.keys(epicollectFound)
     setDrafts((all) => {
       const next = { ...all }
-      for (const name of names) if (next[name]) next[name] = { ...next[name], fields: applyEntry(next[name].fields, epicollectFound[name].fields, next[name].timezone) }
+      for (const name of names) {
+        const entry = next[name]
+        if (!entry) continue
+        const filled = applyEntry(entry.fields, epicollectFound[name].fields, entry.timezone)
+        next[name] = { ...entry, fields: { ...filled, start_date: entry.fields.start_date, end_date: entry.fields.end_date } } // the dates follow the source picked
+      }
       return next
     })
-    setFillMessage({ scope: 'all', text: `Filled in ${names.length} of ${chosen.length} from Epicollect5 — check the dates, and the camera, site and notes in More details.` })
-    setEpicollectFound({})
+    setFillMessage({ scope: 'all', text: `Filled in ${names.length} of ${chosen.length} from Epicollect5 — check the camera, site and notes in More details.` })
+    setEpicollectImported(true)
   }
 
   // As soon as the revision gives a deployment its id, its previous revision is looked up — once; copying from it is up to the user.
@@ -1041,12 +1099,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 </div>
               )
             })()}
-            {Object.keys(epicollectFound).length > 0 && (
+            {Object.keys(epicollectFound).length > 0 && !epicollectImported && (
               <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
                 <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
                 <span className="flex-1 min-w-[14rem]">
                   Epicollect5 has an entry for revision {revisionNumber} of {Object.keys(epicollectFound).length === chosen.length ? 'every one of these deployments' : `${Object.keys(epicollectFound).length} of these ${chosen.length} deployments`}.
-                  The dates, camera, site and notes can be filled in from {Object.keys(epicollectFound).length === 1 ? 'it' : 'them'}.
+                  The camera, site and notes can be filled in from {Object.keys(epicollectFound).length === 1 ? 'it' : 'them'}. 
                 </span>
                 <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={importFromEpicollect}>Import from Epicollect5</button>
               </div>
@@ -1080,80 +1138,98 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 </label>
               </div>
             </div>
-            <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-50 dark:bg-zinc-800">
-                  <tr className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    <th scope="col" className="px-4 py-2.5 text-left">Folder</th>
-                    <th scope="col" className="px-4 py-2.5 text-left">Start</th>
-                    <th scope="col" className="px-4 py-2.5 text-left">End</th>
-                    <th scope="col" className="px-4 py-2.5 text-left">Status</th>
-                    <th scope="col" className="w-10"><span className="sr-only">Open</span></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-                  {visible.map((d) => {
-                    const entry = drafts[d.name]
-                    const fields = entry?.fields
-                    const errors = entry ? errorsOf(d.name) : {}
-                    const start = fields?.start_date ?? null
-                    const end = fields?.end_date ?? null
-                    const open = d.name === activeName && Boolean(entry)
-                    const reading = !d.from_timestamp_log && guessingLeft > 0 && !(d.name in guessed)
-                    // Where the dates were first filled in from: the collection's csv, or the images — and "by hand" once they are not those any more.
-                    const original = d.from_timestamp_log ? { start: d.start_date, end: d.end_date } : { start: guessed[d.name]?.start_date ?? null, end: guessed[d.name]?.end_date ?? null }
-                    const same = (a: string | null, b: string | null) => (a ?? '').slice(0, 19) === (b ?? '').slice(0, 19)
-                    const source = !start ? null
-                      : same(start, original.start) && same(end, original.end)
-                        ? (d.from_timestamp_log ? `From ${scan?.timestamp_log?.name ?? 'the collection’s csv'}` : 'From the images')
-                        : 'Entered by hand'
-                    const datesOk = Boolean(start && end && !errors.start_date && !errors.end_date)
-                    const clash = existingFolder(d.name) ? 'Already exists' : duplicated(d.name) ? 'Duplicate id' : null
-                    const label = clash ?? (datesOk ? 'Ready' : start ? 'To fix' : 'Dates needed')
-                    const shown = (iso: string | null) => (iso ? `${formatDay(iso)} ${iso.slice(11, 16)}` : '—')
-                    return (
-                      <Fragment key={d.name}>
-                        <tr className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" onClick={() => selectDeployment(d.name)}>
-                          <td className="px-4 py-3 font-mono text-zinc-900 dark:text-zinc-100">{d.name}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-zinc-700 dark:text-zinc-300">{shown(start)}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-zinc-700 dark:text-zinc-300">{shown(end)}</td>
-                          <td className="px-4 py-3">
-                            {reading ? (
-                              <span className="text-xs text-zinc-500 dark:text-zinc-400">Reading the images…</span>
-                            ) : (
-                              <>
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${label === 'Ready' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'}`}>{label}</span>
-                                {source && <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{source}</span>}
-                              </>
-                            )}
-                          </td>
-                          <td className="px-2">
-                            <button type="button" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} ${d.name}`} onClick={(e) => { e.stopPropagation(); selectDeployment(d.name) }}
-                                    className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700">
-                              <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-                            </button>
-                          </td>
-                        </tr>
-                        {open && fields && entry && (
-                          <tr>
-                            <td colSpan={5} className="px-4 pb-4">
-                              <div aria-label={`Dates of ${d.name}`} role="group">
-                                <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
-                                <DeploymentFormBody collapsible periodOnly deployment={fields} timezone={entry.timezone} errors={activeErrors_of(d.name)}
-                                                    onField={(key, value) => updateField(d.name, key, value)}
-                                                    datesGuessed={Boolean(guessed[d.name]?.start_date) && !d.from_timestamp_log}
-                                                    datesFromLog={d.from_timestamp_log ? scan?.timestamp_log?.name : undefined} />
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    )
-                  })}
-                  {visible.length === 0 && <tr><td colSpan={5} className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">No deployment matches.</td></tr>}
-                </tbody>
-              </table>
+            <div className="mb-3 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden" role="progressbar" aria-label="Deployments complete" aria-valuemin={0} aria-valuemax={chosen.length} aria-valuenow={completed}>
+              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${chosen.length ? (completed / chosen.length) * 100 : 0}%` }} />
             </div>
+            <ul className="-mx-5 divide-y divide-zinc-200 dark:divide-zinc-700 border-y border-zinc-200 dark:border-zinc-700">
+              {visible.map((d) => {
+                const entry = drafts[d.name]
+                const fields = entry?.fields
+                const errors = entry ? errorsOf(d.name) : {}
+                const start = fields?.start_date ?? null
+                const end = fields?.end_date ?? null
+                const open = d.name === activeName && Boolean(entry)
+                const reading = !d.from_timestamp_log && guessingLeft > 0 && !(d.name in guessed)
+                const dateSource = dateSources[d.name]
+                const source = !start || !dateSource ? null
+                  : dateSource === 'log' ? `From ${scan?.timestamp_log?.name ?? 'the collection’s csv'}`
+                  : dateSource === 'exif' ? 'From the images'
+                  : dateSource === 'epicollect' ? 'From Epicollect5'
+                  : 'Entered by hand'
+                const datesOk = Boolean(start && end && !errors.start_date && !errors.end_date)
+                const clash = existingFolder(d.name) ? 'Already exists' : duplicated(d.name) ? 'Duplicate id' : null
+                const label = clash ?? (datesOk ? 'Ready' : start ? 'To fix' : 'Dates needed')
+                const shown = (iso: string) => `${formatDay(iso)}, ${iso.slice(11, 16)}`
+                return (
+                  <li key={d.name}>
+                    <button type="button" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} ${d.name}`} onClick={() => selectDeployment(d.name)}
+                            className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-zinc-100/60 dark:hover:bg-zinc-800/50">
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-mono font-semibold text-sm text-zinc-900 dark:text-zinc-100">{d.name}</span>
+                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          {start ? `${shown(start)} → ${end ? shown(end) : '…'}` : 'No dates yet'}
+                          {source && <> · {source}</>}
+                        </span>
+                      </span>
+                      {reading ? (
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">Reading the images…</span>
+                      ) : (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${label === 'Ready' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'}`}>{label}</span>
+                      )}
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {open && fields && entry && (
+                      <div aria-label={`Dates of ${d.name}`} role="group" className="mx-5 mb-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
+                        <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">Date source</p>
+                        <div role="radiogroup" aria-label={`Date source of ${d.name}`} className="space-y-1.5">
+                          {(['exif', 'epicollect', 'log', 'manual'] as DateSource[]).map((src) => {
+                            const available = src === 'manual' || periodOf(d, src, entry.timezone) !== null
+                            return (
+                              <label key={src} className={`flex items-center gap-2 text-sm ${available ? 'cursor-pointer text-zinc-800 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-600'}`}>
+                                <input type="radio" name={`date-source-${d.name}`} checked={dateSource === src} disabled={!available} onChange={() => pickSource(d, src)} />
+                                {SOURCE_LABELS[src]}{!available && <span className="text-xs"> — nothing found</span>}
+                              </label>
+                            )
+                          })}
+                        </div>
+                        {dateSource && dateSource !== 'manual' && (
+                          <div className="mt-3 flex items-center gap-3 rounded-md bg-white dark:bg-zinc-900 px-3 py-2.5 text-xs text-zinc-600 dark:text-zinc-400">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                {dateSource === 'log' ? <span className="font-mono">{scan?.timestamp_log?.name}</span> : SOURCE_LABELS[dateSource]}
+                              </p>
+                              <p>
+                                {dateSource === 'log' && 'Dates extracted from the selected log file'}
+                                {dateSource === 'epicollect' && 'Dates taken from the Epicollect5 entry of this location and revision'}
+                                {dateSource === 'exif' && 'Dates read from the photo data of the images'}
+                              </p>
+                            </div>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current text-emerald-600 dark:text-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></svg>
+                          </div>
+                        )}
+                        {dateSource === 'manual' ? (
+                          <div className="mt-3">
+                            <DeploymentFormBody collapsible periodOnly deployment={fields} timezone={entry.timezone} errors={activeErrors_of(d.name)}
+                                                onField={(key, value) => updateField(d.name, key, value)} datesGuessed={false} />
+                          </div>
+                        ) : (
+                          <div className="mt-3">
+                            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2">Recording period</p>
+                            <div className="grid grid-cols-2 gap-4 text-sm text-zinc-800 dark:text-zinc-200">
+                              <div><span className="block text-xs text-zinc-500 dark:text-zinc-400">Start date and time</span>{start ? shown(start) : '—'}</div>
+                              <div><span className="block text-xs text-zinc-500 dark:text-zinc-400">End date and time</span>{end ? shown(end) : '—'}</div>
+                            </div>
+                            {entry.timezone && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Times shown in the deployment&rsquo;s time zone, {entry.timezone}.</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+              {visible.length === 0 && <li className="px-5 py-3 text-sm text-zinc-500 dark:text-zinc-400">No deployment matches.</li>}
+            </ul>
           </FormCard>
           {detailsError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{detailsError}</p>}
           <div className="flex justify-end mt-4">
@@ -1165,8 +1241,26 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
           <WizardStep n={3} title="More details" status={originStatus(3)} canEdit onEdit={() => { setOriginOpen(3); setOriginReached(3) }}
                       description="Everything here is optional. For each deployment, fill in what you know of its camera and its site now — you can add the rest later."
                       summary={`${chosen.filter((d) => moreFilledOf(d.name) > 0).length} of ${plural(chosen.length, 'deployment', 'deployments')} with details`}>
-          <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-200 dark:divide-zinc-700 mb-4">
-            {chosen.filter((d) => d.name.toLowerCase().includes(filter.trim().toLowerCase())).map((d) => {
+          {(() => {
+            const withDetails = chosen.filter((d) => moreFilledOf(d.name) > 0).length
+            const shownMore = chosen.filter((d) => d.name.toLowerCase().includes(moreFilter.trim().toLowerCase()) && (!onlyWithoutDetails || moreFilledOf(d.name) === 0))
+            return (
+          <FormCard title="Camera, site and notes" description="What you know of each deployment's camera and site. Open a row to fill it in.">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400" role="status">{withDetails} of {chosen.length} deployment(s) with details.</p>
+            <div className="flex items-center gap-3">
+              <input aria-label="Filter the deployments" className={`${inputClass} !w-44`} placeholder="Filter by name…" value={moreFilter} onChange={(e) => setMoreFilter(e.target.value)} />
+              <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                <input type="checkbox" checked={onlyWithoutDetails} onChange={(e) => setOnlyWithoutDetails(e.target.checked)} />
+                Only the ones without details
+              </label>
+            </div>
+          </div>
+          <div className="mb-3 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden" role="progressbar" aria-label="Deployments with details" aria-valuemin={0} aria-valuemax={chosen.length} aria-valuenow={withDetails}>
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${chosen.length ? (withDetails / chosen.length) * 100 : 0}%` }} />
+          </div>
+          <div className="-mx-5 divide-y divide-zinc-200 dark:divide-zinc-700 border-y border-zinc-200 dark:border-zinc-700">
+            {shownMore.map((d) => {
               const entry = drafts[d.name]
               const fields = entry?.fields
               const open = d.name === moreName && Boolean(entry)
@@ -1174,7 +1268,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               return (
                 <div key={d.name}>
                   <button type="button" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} the details of ${d.name}`} onClick={() => selectMore(d.name)}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-zinc-100/60 dark:hover:bg-zinc-800/50">
                     <span className="flex-1 min-w-0">
                       <span className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono font-semibold text-sm text-zinc-900 dark:text-zinc-100">{d.name}</span>
@@ -1188,7 +1282,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                     <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                   </button>
                   {open && fields && entry && (
-                    <div aria-label={`Details of ${d.name}`} role="group" className="px-4 pb-4">
+                    <div aria-label={`Details of ${d.name}`} role="group" className="mx-5 mb-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
                       <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
                       {(hasEarlierRevision(d.name) || fillMessage?.scope === 'one') && (
                         <div className="mb-4 flex items-center gap-3 flex-wrap">
@@ -1213,7 +1307,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 </div>
               )
             })}
+            {shownMore.length === 0 && <p className="px-5 py-3 text-sm text-zinc-500 dark:text-zinc-400">No deployment matches.</p>}
           </div>
+          </FormCard>
+            )
+          })()}
           </WizardStep>
         </div>
         )

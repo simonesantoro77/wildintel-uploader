@@ -323,15 +323,17 @@ describe('ImportSessionPage', () => {
 
     await expectIdLater('R0003-DONA_01')
     expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('DONA_01')
-    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
+    expect(screen.getByText('4 Sep 2024, 13:10')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Camera metadata (EXIF)' })).toBeChecked() // nothing better is there
     await userEvent.click(screen.getByRole('button', { name: 'Open DONA_02' }))
     expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
     expectId('R0003-DONA_02')
-    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-05T09:00')
+    expect(screen.getByText('5 Sep 2024, 09:00')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument() // only a manual entry can be edited
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
   })
 
-  it('lists the period of each deployment in a table, with its state and where its dates come from', async () => {
+  it('lists the period of each deployment, with its state and where its dates come from', async () => {
     mockedApi.scanSession.mockResolvedValue({
       ...SCAN,
       deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
@@ -339,17 +341,21 @@ describe('ImportSessionPage', () => {
     })
     await toDetails()
 
-    const table = within((await screen.findByText('When was each one collected?')).closest('section')!)
-    const first = within(table.getByText('DONA_01').closest('tr')!)
+    const list = within((await screen.findByText('When was each one collected?')).closest('section')!)
+    const first = within(list.getByText('DONA_01').closest('li')!)
     expect(first.getByText('Ready')).toBeInTheDocument()
-    expect(first.getByText('From S_FileTimestampLog.csv')).toBeInTheDocument() // the csv that comes with the collection
-    expect(first.getByText('1 Sep 2024 08:00')).toBeInTheDocument()
-    const second = within(table.getByText('DONA_02').closest('tr')!)
-    await waitFor(() => expect(second.getByText('From the images')).toBeInTheDocument())
-    expect(second.getByText('5 Sep 2024 09:00')).toBeInTheDocument()
+    expect(first.getByText(/From S_FileTimestampLog\.csv/)).toBeInTheDocument() // the csv that comes with the collection
+    expect(first.getByText(/1 Sep 2024, 08:00 → 1 Nov 2024, 09:00/)).toBeInTheDocument()
+    const second = within(list.getByText('DONA_02').closest('li')!)
+    await waitFor(() => expect(second.getByText(/From the images/)).toBeInTheDocument())
+    expect(second.getByText(/5 Sep 2024, 09:00/)).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-02T10:00' } }) // DONA_01 is the one open
-    await waitFor(() => expect(within(table.getByText('DONA_01').closest('tr')!).getByText('Entered by hand')).toBeInTheDocument())
+    expect(screen.getByRole('radio', { name: 'Timestamp log file' })).toBeChecked() // DONA_01 is the one open
+    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit period' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('radio', { name: 'Manual entry' }))
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-02T10:00' } })
+    await waitFor(() => expect(within(list.getByText('DONA_01').closest('li')!).getByText(/Entered by hand/)).toBeInTheDocument())
   })
 
   it('has the camera, site and notes in a step of their own, locked until the dates are gone over', async () => {
@@ -363,6 +369,18 @@ describe('ImportSessionPage', () => {
     expect(screen.getByRole('button', { name: 'Edit When was it collected?' })).toBeInTheDocument()
   })
 
+  it('lists the camera, site and notes of the deployments in a card of its own, to filter by name or by what is missing', async () => {
+    await toMoreDetails()
+
+    expect(await screen.findByText('Camera, site and notes')).toBeInTheDocument()
+    expect(screen.getByText(/\d+ of \d+ deployment\(s\) with details/)).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Filter the deployments'), 'DONA_02')
+    expect(screen.queryByRole('button', { name: /the details of DONA_01/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /the details of DONA_02/ })).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Filter the deployments'), 'x')
+    expect(screen.getByText('No deployment matches.')).toBeInTheDocument()
+  })
+
   it('says in the details when the dates come from the collection’s FileTimestampLog', async () => {
     mockedApi.scanSession.mockResolvedValue({
       ...SCAN,
@@ -371,8 +389,8 @@ describe('ImportSessionPage', () => {
     })
     await toDetails()
     expect(await screen.findByText(/deployment\(s\) were taken from/)).toHaveTextContent('1 of these 2 deployment(s) were taken from S_FileTimestampLog.csv')
-    expect(screen.getByText(/^The dates were taken from/)).toBeInTheDocument()
-    expect(screen.queryByText(/guessed from the images/)).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Timestamp log file' })).toBeChecked()
+    expect(screen.getByText(/^Dates extracted from/)).toBeInTheDocument()
   })
 
   describe('the next revision', () => {
@@ -598,6 +616,35 @@ describe('ImportSessionPage', () => {
       expect(await screen.findByRole('button', { name: 'Copy from revision 1' })).toBeInTheDocument()
       await waitFor(() => expect(mockedApi.epicollectEntriesBatch).toHaveBeenCalled())
       expect(screen.queryByText(/Epicollect5 has no entry/)).not.toBeInTheDocument()
+    })
+
+    it('takes the dates from Epicollect5 before the timestamp log and the images, and lets the source be picked', async () => {
+      on()
+      mockedApi.scanSession.mockResolvedValue({
+        ...SCAN,
+        deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
+        timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null },
+      })
+      const dates = { start_date: '2025-01-10', start_time: '06:30:00', end_date: '2025-02-11', end_time: '18:00:00' }
+      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: { ...ENTRY, fields: dates }, DONA_02: null } })
+      await toDetails()
+
+      expect(await screen.findByText('10 Jan 2025, 06:30')).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: 'Epicollect5' })).toBeChecked()
+      await userEvent.click(screen.getByRole('radio', { name: 'Timestamp log file' }))
+      expect(await screen.findByText('1 Sep 2024, 08:00')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Open DONA_02' })) // nothing in Epicollect5 nor in a log for it
+      expect(screen.getByRole('radio', { name: /Epicollect5/ })).toBeDisabled()
+      expect(screen.getByRole('radio', { name: /Timestamp log file/ })).toBeDisabled()
+      expect(screen.getByRole('radio', { name: 'Camera metadata (EXIF)' })).toBeChecked()
+    })
+
+    it('lets the dates be edited only when the source is manual', async () => {
+      await toDetails()
+      expect(screen.queryByLabelText('Start')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('radio', { name: 'Manual entry' }))
+      expect(screen.getByLabelText('Start')).toBeInTheDocument()
     })
 
     it('says nothing while the settings turn it off', async () => {

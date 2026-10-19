@@ -134,7 +134,8 @@ def test_scan_session_takes_the_dates_from_the_timestamp_log(tmp_path: Path):
     assert (third["start_date"], third["from_timestamp_log"]) == (None, False)  # no row: no dates here — they are read from its images later
     assert result["timestamp_log"] == {"name": "R0033_FileTimestampLog.csv", "path": str(session / "R0033_FileTimestampLog.csv"), "rows": 3, "matched": 2, "revision": 33}
     assert (first["log_deployment_id"], second["log_deployment_id"], third["log_deployment_id"]) == ("R0033-DONA_01", "dona_02", None)
-    assert any("1 row(s)" in w and "match no subfolder" in w for w in result["warnings"])
+    assert any("1 row(s)" in w and "match no subfolder: R0033-OTHER" in w for w in result["warnings"])  # the log's row with no folder, by name
+    assert any("1 subfolder(s) have no row" in w and "DONA_03" in w for w in result["warnings"])  # and the folder with no row
     assert not any("loose" in w for w in result["warnings"])  # the log itself is not a stray file
 
 

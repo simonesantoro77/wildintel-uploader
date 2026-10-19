@@ -2074,7 +2074,7 @@ describe('ImportDeploymentPage', () => {
       mockedApi.epicollectEntries.mockResolvedValue({ results: [ENTRY] })
       await goToNewDetailsStep()
       await userEvent.type(screen.getByLabelText('Revision'), '2')
-      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Import from Epicollect5' }))
 
       expect(await screen.findByText(/Filled in from “DONA_01 · sent 1 Oct 2026”/)).toBeInTheDocument()
       expect(mockedApi.epicollectEntries).toHaveBeenCalledWith('DONA_01', 2)
@@ -2125,26 +2125,9 @@ describe('ImportDeploymentPage', () => {
       await goToNewDetailsStep()
       await userEvent.type(screen.getByLabelText('Revision'), '2')
       await screen.findByLabelText('Deployment Id')
-      expect(screen.queryByRole('button', { name: 'Import info from Epicollect5' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Import (info )?from Epicollect5/ })).not.toBeInTheDocument()
       expect(screen.queryByText(/Epicollect5 has/)).not.toBeInTheDocument()
       expect(mockedApi.epicollectEntries).not.toHaveBeenCalled()
-    })
-
-    it('needs a valid revision', async () => {
-      await goToNewDetailsStep()
-      expect(screen.getByRole('button', { name: 'Import info from Epicollect5' })).toBeDisabled()
-    })
-
-    it('says when there is no entry, and what Epicollect5 or the settings say when it fails', async () => {
-      mockedApi.epicollectEntries.mockResolvedValue({ results: [] })
-      await goToNewDetailsStep()
-      await userEvent.type(screen.getByLabelText('Revision'), '2')
-      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
-      expect(await screen.findByText('There is no entry for DONA_01, revision 2, in the Epicollect5 project.')).toBeInTheDocument()
-
-      mockedApi.epicollectEntries.mockRejectedValueOnce(new Error('The location id is not mapped yet'))
-      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
-      expect(await screen.findByRole('alert')).toHaveTextContent('The location id is not mapped yet')
     })
 
     it('takes the newest when the location has several entries for the revision', async () => {
@@ -2154,7 +2137,7 @@ describe('ImportDeploymentPage', () => {
       ] })
       await goToNewDetailsStep()
       await userEvent.type(screen.getByLabelText('Revision'), '2')
-      await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Import from Epicollect5' }))
 
       await openMoreDetails()
       await openSection(/^Site/)

@@ -2439,12 +2439,6 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
           </WizardStep>
 
           <WizardStep n={2} title="When was it collected?" status={originStatus(2)} canEdit onEdit={() => setOriginOpen(2)}
-                      action={!epicollectOn ? undefined : <button type="button" disabled={epicollectBusy || guessing || !deployment.location_id || !revisionValid}
-                                      title="Fills in the period, camera, site and notes from this location's entry in the Epicollect5 project of the settings"
-                                      className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      onClick={() => void handleImportFromEpicollect()}>
-                        {epicollectBusy ? 'Reading Epicollect5…' : 'Import info from Epicollect5'}
-                      </button>}
                       description={!timezone
                         ? <span className="text-red-600 dark:text-red-400">The location <strong>{deployment.location_id}</strong> has no timezone, and a deployment needs it: add it to the location.</span>
                         : <>Tell us when the images of <strong>{deployment.location_id}</strong> were collected. Times are in <strong>{timezone}</strong>, which {ignoreDst ? 'has no daylight saving time' : 'follows daylight saving time'}.</>}
