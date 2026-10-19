@@ -5,7 +5,7 @@ import BackButton from '../components/BackButton'
 import ReportPanel from '../components/ReportPanel'
 import WizardStep from '../components/WizardStep'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
-import type { LocalResearchProject, RepairCollection, RepairDeployment, RepairEvent, RepairState, RepairStep } from '../types'
+import type { LocalResearchProject, RepairCollection, RepairEvent, RepairState, RepairStep } from '../types'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
 

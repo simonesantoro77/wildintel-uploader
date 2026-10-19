@@ -98,12 +98,6 @@ const toChecksSubstep = async () => {
 const activeHeading = () => within(screen.getByRole('group', { name: /^(Dates|Details) of/ })).getAllByRole('heading', { level: 5 })[0]
 const expectId = (id: string) => expect(activeHeading()).toHaveTextContent(id)
 const expectIdLater = (id: string) => waitFor(() => expectId(id))
-/** Opens a tab of the "More details" panel, opening the panel first when it is closed. */
-const openTab = async (name: RegExp) => {
-  const more = screen.getByRole('button', { name: /More details/ })
-  if (more.getAttribute('aria-expanded') === 'false') await userEvent.click(more)
-  await userEvent.click(screen.getByRole('tab', { name }))
-}
 /** Picks a location in the select of a deployment — whose options are only there once it is used. */
 const chooseLocation = async (select: HTMLElement, id: string) => {
   await userEvent.click(select)

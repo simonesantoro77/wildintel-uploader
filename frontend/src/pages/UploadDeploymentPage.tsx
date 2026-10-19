@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
 import { FilesReady, PreparingFiles, btnPrimary as primaryButton, formatBytes } from '../components/PrepareFiles'
@@ -62,16 +61,6 @@ const images = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'image' 
 
 function megabytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)
-}
-
-function Card({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return (
-    <section className="mb-5 p-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40">
-      <h5 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h5>
-      {description && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{description}</p>}
-      <div className="mt-4">{children}</div>
-    </section>
-  )
 }
 
 /** What can be sent: a preprocessed deployment (the yaml needs the dates its preprocessing recorded). */
@@ -612,7 +601,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
           })}
           {finished && (
             <p className={`text-sm ${failures ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-              {succeeded} deployment(s) {mode === 'upload' ? 'uploaded' : mode === 'dry_run' ? 'checked' : 'generated'}{failures ? `, ${failures} failed` : ''}.
+              {succeeded} deployment(s) {'checked'}{failures ? `, ${failures} failed` : ''}.
             </p>
           )}
         </div>

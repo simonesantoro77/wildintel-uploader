@@ -3,7 +3,7 @@ import SessionResults from '../components/SessionResults'
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import WizardStep from '../components/WizardStep'
-import { formatDay, formatPeriod } from '../dateFormat'
+import { formatDay } from '../dateFormat'
 import { api } from '../api'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
@@ -14,7 +14,7 @@ import type {
 } from '../types'
 import {
   ALL_DEPLOYMENT_CHECKS, DEFAULT_CHECK_SETTINGS, DEPLOYMENT_CHECK_DISPLAY, DEPLOYMENT_CHECK_OPTIONS, DeploymentCheckReport, Field,
-  FormCard, IMAGE_CHECK_DESCRIPTIONS, IMAGE_CHECK_OPTIONS, SelectField, SmallSpinner, StepHeading, StrictnessTable,
+  FormCard, IMAGE_CHECK_DESCRIPTIONS, IMAGE_CHECK_OPTIONS, SmallSpinner, StepHeading, StrictnessTable,
   DeploymentFormBody, LocationTimeNote, MoreDetailsForm, ValidationReport, buildDeploymentId, fillFromPreviousRevision, btnOutline, btnPrimary, deploymentCheckPassed, describePreprocessing, imageCheckPassed,
   inputClass, labelClass, statParamsOf, statParamsValid, toggled,
 } from './ImportDeploymentPage'
@@ -131,7 +131,6 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
   const [existing, setExisting] = useState<Record<string, string | null>>({})
   // Whether each deployment is known to have an earlier revision (true) or not (false), by research project and id — until it is looked up, unknown.
   const [previousFound, setPreviousFound] = useState<Record<string, PreviousDeployment | null>>({})
-  const [filling, setFilling] = useState(false)
   // What the last fill said, and whether it was for one deployment or for all of them.
   const [fillMessage, setFillMessage] = useState<{ scope: 'one' | 'all'; text: string; undo?: { name: string; fields: DeploymentFields } } | null>(null)
   const [locFilter, setLocFilter] = useState('')
@@ -296,7 +295,7 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
       if (logged) { setRevision(String(logged)); setRevisionFromLog(result.timestamp_log!.name) }
       else if (revisionFromLog) { setRevision(''); setRevisionFromLog(null) }
       setIncluded(new Set(result.deployments.filter((d) => d.image_count > 0).map((d) => d.name)))
-      autoFilled.current.clear(); guessRequested.current.clear(); setGuessed({}); setGuessingLeft(0); setPreviousFound({}); setDrafts({}); setValidations({}); setChecks({}); setRuns({})
+      guessRequested.current.clear(); setGuessed({}); setGuessingLeft(0); setPreviousFound({}); setDrafts({}); setValidations({}); setChecks({}); setRuns({})
     } catch (e) {
       setScanError(e instanceof Error ? e.message : 'Could not scan the folder.')
     } finally {
@@ -345,8 +344,6 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
   /** How many things are wrong or missing in a deployment's details. */
   const problemsOf = (name: string) => (drafts[name] ? Object.keys(errorsOf(name)).length + (duplicated(name) ? 1 : 0) : 1)
   const completed = chosen.filter((d) => problemsOf(d.name) === 0).length
-  // The deployments whose id is known — the ones a previous revision can be looked up for.
-  const fillable = chosen.filter((d) => fieldsOf(d.name).deployment_id).map((d) => d.name)
   const existingFolder = (name: string) => existing[fieldsOf(name).deployment_id] ?? null
   const existingNames = chosen.filter((d) => existingFolder(d.name))
   // There can only be an earlier revision after the first, and once it is known that a deployment has none, it is not offered.
@@ -355,7 +352,6 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
     return revisionValid && revisionNumber > 1 && Boolean(id) && Boolean(previousFound[`${projectId}|${id}`])
   }
   const canFillFromPrevious = chosen.some((d) => hasEarlierRevision(d.name))
-  const deduced = chosen.filter((d) => drafts[d.name]?.locationFrom)
   const detailsReady = revisionValid && chosen.length > 0 && completed === chosen.length
 
   /** The location each deployment without one is named after: its folder's name first; failing that, the id its row in the timestamp log gives it. */
@@ -546,11 +542,7 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
   const allDone = chosen.length > 0 && pending.length === 0
   const failures = chosen.filter((d) => runs[d.name]?.error && !runs[d.name]?.done).length
 
-  const active = scan?.deployments.find((d) => d.name === activeName)
-  const activeIndex = chosen.findIndex((d) => d.name === activeName)
   const visible = chosen.filter((d) => d.name.toLowerCase().includes(filter.trim().toLowerCase()) && (!onlyIncomplete || problemsOf(d.name) > 0))
-  // The next deployment after this one (wrapping round) that still has something to fix.
-  const nextIncomplete = [...chosen.slice(activeIndex + 1), ...chosen.slice(0, Math.max(activeIndex, 0))].find((d) => d.name !== activeName && problemsOf(d.name) > 0)
   function selectDeployment(name: string) { setActiveName((current) => (current === name ? '' : name)); setAddingLocation(false); setFillMessage((m) => (m?.scope === 'one' ? null : m)) }
   const activeErrors_of = (name: string) => shownErrors(errorsOf(name))
   useEffect(() => { if (Object.keys(checks).length === 0 && !checking) setChecksOpen(1) }, [checks, checking])
@@ -562,9 +554,6 @@ export default function ImportSessionPage({ onUpload }: Props = {}) {
     return [f.camera_id, f.camera_model, f.camera_height, f.camera_depth, f.camera_tilt, f.camera_heading, f.camera_interval, f.detection_distance, f.feature_type, f.habitat,
       f.setup_by, f.bait_use, f.timestamp_issues, f.deployment_groups, f.comments, f.tags.length || null].filter((v) => v != null && v !== '' && v !== false).length
   }
-  const activeEntry = drafts[activeName]
-  const activeErrors = activeName && activeEntry ? shownErrors(errorsOf(activeName)) : {}
-  const activeFields = activeName && activeEntry ? fieldsOf(activeName) : null
 
   const imagesChecked = candidates.some((d) => validations[d.name])
   const canContinue: Record<StepKey, boolean> = {
