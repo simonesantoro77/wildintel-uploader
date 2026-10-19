@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.unit.test_trapper_upload_service import (  # noqa: F401 — the fixtures and fakes the service's own tests use
-    DEPLOYMENT_ID, FakeTrapper, _deployment, _imported, fake_uploader,
+    DEPLOYMENT_ID, FakeTrapper, _deployment, _imported, fake_uploader, uploader_login,
 )
 from wildintel_uploader.core import config
 from wildintel_uploader.core.services import trapper_service, trapper_upload_service
@@ -68,7 +68,7 @@ def test_uploading_streams_the_steps_and_ends_with_done(tmp_path: Path, fake_upl
 
     assert response.status_code == 200
     events = _events(response)
-    assert [e["step"] for e in events if e["type"] == "step" and e["status"] == "done"] == ["connect", "classification", "location", "deployment", "package", "upload", "process", "wait"]
+    assert [e["step"] for e in events if e["type"] == "step" and e["status"] == "done"] == ["connect", "classification", "uploader", "location", "deployment", "package", "upload", "process", "wait"]
     assert events[-1]["type"] == "done" and events[-1]["collection"] == "R0003" and events[-1]["deployment_id"] == DEPLOYMENT_ID
     assert len(fake.imported_locations) == 1 and len(fake.triggered) == 1
 

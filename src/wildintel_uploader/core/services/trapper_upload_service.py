@@ -43,6 +43,8 @@ from wildintel_uploader.core.services.deployment_import_service import Deploymen
 
 logger = logging.getLogger(__name__)
 
+PACK_REPORT_EVERY = 25  # images between two pack_progress events
+
 Mode = Literal["upload", "dry_run", "generate"]
 MODES: tuple[str, ...] = ("upload", "dry_run", "generate")
 UPLOAD_LOG_FILE = "upload.json"
@@ -69,6 +71,13 @@ def _read_json(path: Path):
         return None
 
 
+def _size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
 def list_collections(collections_dir: Path, research_project_id: str) -> list[dict]:
     """The collections kept for a research project, and the deployments in each: how many
     images, whether it was preprocessed (a requirement) and whether it was uploaded."""
@@ -86,12 +95,14 @@ def list_collections(collections_dir: Path, research_project_id: str) -> list[di
                 continue
             log = _read_json(folder / preprocessing_service.PREPROCESSING_LOG_FILE)
             upload = _read_json(folder / UPLOAD_LOG_FILE)
+            images = log["images"] if isinstance(log, dict) and isinstance(log.get("images"), list) else []
             deployments.append({
                 "deployment_id": folder.name,
                 "location_id": metadata.get("location_id"),
                 "start_date": metadata.get("start_date"),
                 "end_date": metadata.get("end_date"),
-                "images": len(log["images"]) if isinstance(log, dict) and isinstance(log.get("images"), list) else 0,
+                "images": len(images),
+                "bytes": sum(_size(folder / e["name"]) for e in images if isinstance(e, dict) and e.get("name")),
                 "preprocessed": isinstance(log, dict),
                 "uploaded_at": upload.get("uploaded_at") if isinstance(upload, dict) else None,
             })
@@ -198,6 +209,7 @@ def upsert_deployments_csv(path: Path, deployment: DeploymentFields, log: dict) 
 def build_packages(
     deployment_dir: Path, collection: str, deployment_id: str, log: dict, *, project_id: int, timezone_name: str, ignore_dst: bool,
     output_dir: Path, max_zip_bytes: int | None = DEFAULT_MAX_ZIP_BYTES, stamp: str | None = None, trapper_deployment_id: str | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> list[dict]:
     """Packs a deployment's images — as the preprocessing recorded them — into one or more
     zip + yaml pairs in output_dir. The yaml is what Trapper reads to build the collection:
@@ -207,7 +219,7 @@ def build_packages(
 
     The zip holds <collection>/<deployment>/<file>. The yaml and the zip name the deployment as Trapper has it
     (trapper_deployment_id, else the local id), in lower case — Trapper keeps its ids that way and looks them up as they are.
-    Returns [{"yaml", "zip", "files"}], one per part.
+    Returns [{"yaml", "zip", "files"}], one per part. `progress(done, total)` is called as each image goes into a zip.
 
     Raises:
         TrapperUploadError: there are no images to pack, or one the log mentions is missing.
@@ -220,6 +232,7 @@ def build_packages(
     output_dir.mkdir(parents=True, exist_ok=True)
     files = [(deployment_dir / e["name"], e) for e in entries]
     packages = []
+    packed = 0
     for index, part in enumerate(split_by_size(files, max_zip_bytes), start=1):
         base = f"{PACKAGE_NAME}_{project_id}_{stamp}_{collection}_{deployment_id}_part{index:03d}"
         definition = {"collections": [{
@@ -232,6 +245,9 @@ def build_packages(
         with zipfile.ZipFile(zip_path, "w", allowZip64=True) as z:
             for path, _ in part:
                 z.write(path, f"{collection}/{named}/{path.name}")
+                packed += 1
+                if progress:
+                    progress(packed, len(files))
         packages.append({"yaml": yaml_path, "zip": zip_path, "files": len(part)})
     return packages
 
@@ -567,7 +583,7 @@ def check_access(
 
 def check_selection(credentials: tuple[str, str, str], research_project: dict, collection: str, *, describe: Callable[[Exception], str] = str) -> list[dict]:
     """What the account sees of the research project and the collection about to be uploaded, changing nothing —
-    [{"check": "research_project" | "collection", "ok", "message"}]. The collection is "ok" whether it is already in Trapper
+    [{"check": "research_project" | "collection", "ok", "message"}] — the collection's also says whether it was "found" in Trapper. The collection is "ok" whether it is already in Trapper
     (the upload adds to it) or isn't yet (the upload creates it): what matters is that the account can read the research
     project's collections."""
     checks: list[dict] = []
@@ -584,7 +600,7 @@ def check_selection(credentials: tuple[str, str, str], research_project: dict, c
             message = f"You have access to the collection {collection} (#{found[0].pk}): it is already in Trapper, so the upload adds to it."
         else:
             message = f"You can read the collections of the research project; {collection} isn't in Trapper yet, so the upload creates it."
-        checks.append({"check": "collection", "ok": True, "message": message})
+        checks.append({"check": "collection", "ok": True, "found": bool(found), "message": message})
     except Exception as exc:
         checks.append({"check": "collection", "ok": False, "message": describe(exc)})
     return checks
@@ -614,11 +630,13 @@ def upload_stream(
     """Uploads one deployment of a collection to Trapper — or, as `mode` says, only shows what that
     would do ("dry_run"), or only writes the files ("generate"). Events:
       - {"type": "step", "step", "status": "running" | "done" | "skipped", "message"}, for the steps
-        "connect", "classification", "location", "deployment", "package", "csv", "upload", "process" and "wait";
+        "connect", "classification", "uploader", "location", "deployment", "package", "csv", "upload", "process" and "wait";
       - {"type": "upload_progress", "file", "bytes", "total"} while a file goes up;
+      - {"type": "pack_progress", "index", "total"} while the images are packed (every few images);
+      - {"type": "package_ready", "images", "parts", "bytes"} once they are packed — the bytes there are to send;
       - {"type": "done", "mode", "collection", "deployment_id", …}: for "upload", "location_created",
         "deployment_created" and "parts"; for "dry_run", "would_create_location",
-        "would_create_deployment" and "parts"; for "generate", "parts", "output_dir" and "files".
+        "would_create_deployment" and "parts"; for "generate", "parts", "output_dir", "files", "images" and "file_sizes" (each file's bytes).
 
     A dry run changes nothing — in Trapper it only reads, and it writes no file. Generating needs no
     connection to Trapper when the research project's pk there is already known (it was filled in from
@@ -687,6 +705,17 @@ def upload_stream(
     location_created = deployment_created = False
     trapper_deployment_id: str | None = None  # the deployment's id as Trapper has it, once known
 
+    # ── the uploader's door: a different one from the API's, so it can refuse an account the API accepts — found out before anything is created ──
+    if mode != "generate":
+        yield step("uploader", "running", "Checking that Trapper's uploader accepts the account…")
+        try:
+            _uploader_login(credentials)  # type: ignore[arg-type]
+        except httpx.HTTPStatusError as exc:
+            raise TrapperUploadError(_refused(exc)) from exc
+        except Exception as exc:
+            raise TrapperUploadError(f"Could not log in to Trapper's uploader: {_trapper_message(exc)}") from exc
+        yield step("uploader", "done", "Trapper's uploader accepts the account.")
+
     # ── what has to exist in Trapper ──
     if mode != "generate":
         yield step("location", "running", f"Looking for the location {deployment.location_id} in Trapper…")
@@ -737,22 +766,39 @@ def upload_stream(
         }
         return
 
+    if mode == "generate":
+        yield step("check", "running", f"Checking {len(log['images'])} image(s)…")
+        check_images(deployment_dir, log)
+        yield step("check", "done", f"{len(log['images'])} image(s) are there.")
     yield step("package", "running", f"Packing {len(log['images'])} image(s)…")
     output_dir = work_dir / collection
-    packages = build_packages(
-        deployment_dir, collection, deployment_id, log, project_id=classification_pk, timezone_name=timezone_name, ignore_dst=ignore_dst, trapper_deployment_id=trapper_deployment_id,
-        output_dir=output_dir, max_zip_bytes=max_zip_bytes,
-    )
+    built: list[list[dict]] = []
+
+    def pack(report: Callable[[dict], None]) -> None:
+        def on_packed(done: int, total: int) -> None:
+            if done == total or done % PACK_REPORT_EVERY == 0:
+                report({"type": "pack_progress", "index": done, "total": total})
+
+        built.append(build_packages(
+            deployment_dir, collection, deployment_id, log, project_id=classification_pk, timezone_name=timezone_name, ignore_dst=ignore_dst,
+            trapper_deployment_id=trapper_deployment_id, output_dir=output_dir, max_zip_bytes=max_zip_bytes, progress=on_packed,
+        ))
+
+    yield from _with_progress(pack)
+    packages = built[0]
+    package_bytes = sum(_size(p[k]) for p in packages for k in ("zip", "yaml"))
+    yield {"type": "package_ready", "images": sum(p["files"] for p in packages), "parts": len(packages), "bytes": package_bytes}
     yield step("package", "done", f"{len(packages)} package(s) of {sum(p['files'] for p in packages)} image(s).")
 
     if mode == "generate":
         yield step("csv", "running", f"Writing the deployments of {collection}…")
         csv_result = upsert_deployments_csv(output_dir / f"{collection}{DEPLOYMENTS_CSV_SUFFIX}", deployment, log)
         yield step("csv", "done", f"{Path(csv_result['path']).name}: {csv_result['action']} {deployment_id} ({csv_result['rows']} deployment(s)).")
-        files = [p[k].name for p in packages for k in ("zip", "yaml")] + [Path(csv_result["path"]).name]
+        written = [p[k] for p in packages for k in ("zip", "yaml")] + [Path(csv_result["path"])]
         yield {
             "type": "done", "mode": mode, "collection": collection, "deployment_id": deployment_id, "parts": len(packages),
-            "output_dir": str(output_dir), "files": files,
+            "output_dir": str(output_dir), "files": [f.name for f in written], "images": sum(p["files"] for p in packages),
+            "file_sizes": {f.name: f.stat().st_size for f in written},
         }
         return
 
@@ -786,4 +832,5 @@ def upload_stream(
     yield {
         "type": "done", "mode": mode, "collection": collection, "deployment_id": deployment_id, "location_created": location_created,
         "deployment_created": deployment_created, "parts": len(packages),
+        "images": sum(p["files"] for p in packages), "bytes": package_bytes,
     }

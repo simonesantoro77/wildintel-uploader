@@ -68,7 +68,7 @@ def test_the_collections_and_deployments_kept_for_a_research_project_are_listed(
     r1, r3, r4 = result
     assert r1["deployments"] == [{
         "deployment_id": "R0001-DONA_01", "location_id": "DONA_01", "start_date": "2024-01-01T00:00:00+01:00", "end_date": "2024-02-01T00:00:00+01:00",
-        "images": 0, "preprocessed": False, "uploaded_at": None,
+        "images": 0, "bytes": 0, "preprocessed": False, "uploaded_at": None,
     }]
     [dep] = r3["deployments"]
     assert (dep["deployment_id"], dep["images"], dep["preprocessed"], dep["uploaded_at"]) == (DEPLOYMENT_ID, 3, True, "2024-08-01T10:00:00+00:00")
@@ -216,7 +216,15 @@ class FakeTrapper:
 
 
 @pytest.fixture
-def fake_uploader(monkeypatch: pytest.MonkeyPatch):
+def uploader_login(monkeypatch: pytest.MonkeyPatch):
+    """The uploader's login is a different door from the API's: stood in for by one that accepts every account (the tests of the refusal replace it)."""
+    logins: list[tuple] = []
+    monkeypatch.setattr(up, "_uploader_login", lambda credentials: logins.append(credentials))
+    return logins
+
+
+@pytest.fixture
+def fake_uploader(monkeypatch: pytest.MonkeyPatch, uploader_login):
     """The SDK's HTTPUploader needs aiofiles and blake3 (its "upload" extra): a stand-in with the same shape."""
     uploads: list[tuple[str, str]] = []
 
@@ -332,13 +340,17 @@ def test_the_upload_creates_the_location_and_the_deployment_then_packs_uploads_a
 
     steps = [(e["step"], e["status"]) for e in events if e["type"] == "step"]
     assert steps == [
-        ("connect", "running"), ("connect", "done"), ("classification", "running"), ("classification", "done"), ("location", "running"), ("location", "done"), ("deployment", "running"), ("deployment", "done"),
+        ("connect", "running"), ("connect", "done"), ("classification", "running"), ("classification", "done"), ("uploader", "running"), ("uploader", "done"), ("location", "running"), ("location", "done"), ("deployment", "running"), ("deployment", "done"),
         ("package", "running"), ("package", "done"), ("upload", "running"), ("upload", "done"), ("process", "running"), ("process", "done"),
         ("wait", "running"), ("wait", "done"),
     ]
     assert events[-1] == {
         "type": "done", "mode": "upload", "collection": "R0003", "deployment_id": DEPLOYMENT_ID, "location_created": True, "deployment_created": True, "parts": 1,
+        "images": 3, "bytes": events[-1]["bytes"],
     }
+    assert events[-1]["bytes"] > 0
+    ready = next(e for e in events if e["type"] == "package_ready")
+    assert ready == {"type": "package_ready", "images": 3, "parts": 1, "bytes": events[-1]["bytes"]}
     assert len(fake.imported_locations) == 1 and len(fake.imported_deployments) == 1  # both created, the location first (it has to exist)
 
 
@@ -484,7 +496,7 @@ def test_what_is_already_in_trapper_is_not_created_again(tmp_path: Path, fake_up
     events = _upload(tmp_path, collection, fake)
 
     assert fake.imported_locations == [] and fake.imported_deployments == []
-    assert [e["message"] for e in events if e["type"] == "step" and e["status"] == "done"][2:4] == [
+    assert [e["message"] for e in events if e["type"] == "step" and e["status"] == "done"][3:5] == [
         "Location DONA_0006_B was already in Trapper.", f"Deployment {DEPLOYMENT_ID} was already in Trapper.",
     ]
     assert events[-1]["location_created"] is False and events[-1]["deployment_created"] is False
@@ -533,6 +545,35 @@ def test_a_failure_while_uploading_keeps_the_packages_for_another_try_and_does_n
     assert list((tmp_path / "packages").rglob("*.zip"))
     assert not (collection / DEPLOYMENT_ID / "upload.json").exists()
     fake_uploader.fail_on = None
+
+
+def test_the_uploader_refusing_the_account_stops_the_upload_before_anything_is_created(tmp_path: Path, fake_uploader, monkeypatch: pytest.MonkeyPatch):
+    import httpx
+
+    collection = _imported(tmp_path, 2)
+    request = httpx.Request("POST", "https://trapper.example.org/uploader/auth/login")
+    response = httpx.Response(403, request=request, text="Forbidden")
+
+    def refuse(credentials):
+        raise httpx.HTTPStatusError("403", request=request, response=response)
+
+    monkeypatch.setattr(up, "_uploader_login", refuse)
+    fake = FakeTrapper()
+
+    for mode in ("upload", "dry_run"):
+        with pytest.raises(up.TrapperUploadError, match="uploader refused POST .*403 Forbidden"):
+            _run(tmp_path, collection, fake, mode)
+
+    assert fake.imported_locations == [] and fake.imported_deployments == [] and fake.triggered == []
+    assert not (tmp_path / "packages").exists()  # nothing was packed either
+
+
+def test_generating_does_not_log_in_to_the_uploader(tmp_path: Path, fake_uploader, uploader_login):
+    collection = _imported(tmp_path, 2)
+
+    _run(tmp_path, collection, FakeTrapper(), "generate")
+
+    assert uploader_login == []
 
 
 def test_a_refused_login_says_who_refused_it_and_what_it_answered(tmp_path: Path, fake_uploader):
@@ -721,6 +762,10 @@ def test_generating_writes_the_zip_the_yaml_and_the_deployments_csv_and_leaves_t
     assert events[-1]["output_dir"] == str(out) and events[-1]["parts"] == 1
     assert sorted(events[-1]["files"]) == sorted(p.name for p in out.iterdir())
     assert "R0003_deployments.csv" in events[-1]["files"]
+    assert events[-1]["images"] == 3
+    assert events[-1]["file_sizes"] == {p.name: p.stat().st_size for p in out.iterdir()}
+    progress = [e for e in events if e["type"] == "pack_progress"]
+    assert progress and progress[-1] == {"type": "pack_progress", "index": 3, "total": 3}
     # nothing was sent, created or recorded as uploaded
     assert fake.imported_locations == [] and fake.imported_deployments == [] and fake.triggered == []
     assert fake_uploader.uploads == []
@@ -733,7 +778,7 @@ def test_generating_does_not_touch_trapper_when_the_research_project_pk_is_known
     events = _run(tmp_path, collection, FakeTrapper(projects=[]), "generate", credentials=None, classification_project_pk=9)  # no account, and Trapper has no projects either
 
     assert events[-1]["type"] == "done"
-    assert [e["step"] for e in events if e["type"] == "step"] == ["classification", "package", "package", "csv", "csv"]  # no connect, location or deployment
+    assert [e["step"] for e in events if e["type"] == "step"] == ["classification", "check", "check", "package", "package", "csv", "csv"]  # no connect, location or deployment
     yaml_file = next((tmp_path / "packages" / "DONA" / "R0003").glob("*.yaml"))
     assert yaml.safe_load(yaml_file.read_text(encoding="utf-8"))["collections"][0]["project_id"] == 9  # the classification project's pk, not the research project's
 
@@ -898,6 +943,7 @@ def test_checking_the_selection_says_whether_the_collection_is_there_or_would_be
     assert [(c["check"], c["ok"]) for c in there] == [("research_project", True), ("collection", True)]
     assert "R0003 (#26)" in there[1]["message"] and "already in Trapper" in there[1]["message"]
     assert "creates it" in new[1]["message"] and new[1]["ok"]
+    assert there[1]["found"] is True and new[1]["found"] is False
     assert [c["ok"] for c in nothing] == [False, False] and "Not checked" in nothing[1]["message"]
 
 

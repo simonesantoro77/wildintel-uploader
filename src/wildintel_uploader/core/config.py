@@ -87,6 +87,10 @@ class Epicollect5Settings(BaseModel):
     client_secret: Optional[str] = Field(
         default=None, description="Client secret of the Epicollect5 API client app. (EPICOLLECT5.client_secret)", json_schema_extra={"secret": True},
     )
+    mapping: dict[str, str] = Field(
+        default_factory=dict,
+        description="Which input of the Epicollect5 form (its ref) gives each field of a deployment: deployment field -> input ref. (EPICOLLECT5.mapping)",
+    )
 
 
 class DataSettings(BaseModel):
