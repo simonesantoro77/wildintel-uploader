@@ -111,6 +111,8 @@ interface Draft {
   maxZipMb: string
   trapperUser: string
   trapperPassword: string
+  epicollectEnabled: boolean
+  epicollectUnmappedToComments: boolean
   epicollectSlug: string
   epicollectClientId: string
   epicollectClientSecret: string
@@ -151,6 +153,8 @@ function toDraft(s: AppSettings): Draft {
     maxZipMb: String(s.TRAPPER.max_zip_mb),
     trapperUser: s.TRAPPER.user_name ?? '',
     trapperPassword: '',
+    epicollectEnabled: s.EPICOLLECT5.enabled,
+    epicollectUnmappedToComments: s.EPICOLLECT5.unmapped_to_comments,
     epicollectSlug: s.EPICOLLECT5.project_slug ?? '',
     epicollectClientId: s.EPICOLLECT5.client_id ?? '',
     epicollectClientSecret: '',
@@ -204,7 +208,7 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
   return {
     GENERAL: { log_level: d.logLevel, workers: Number(d.workers) },
     TRAPPER: { base_url: d.trapperUrl.trim() || null, user_name: d.trapperUser.trim() || null, user_password: d.trapperPassword, max_zip_mb: Number(d.maxZipMb) },
-    EPICOLLECT5: { project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret, mapping: d.epicollectMapping },
+    EPICOLLECT5: { enabled: d.epicollectEnabled, unmapped_to_comments: d.epicollectUnmappedToComments, project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret, mapping: d.epicollectMapping },
     DATA: { dir: d.dataDir.trim() || null },
     VALIDATION: d.validation,
     POSTVALIDATION: {
@@ -422,6 +426,8 @@ const SIMILARITY_METHODS: { value: SimilarityMethod; label: string }[] = [
 
 interface Props {
   onClose: () => void
+  /** The section to open on; the general one when left out. */
+  initialSection?: SectionId
 }
 
 type UpdateState =
@@ -558,8 +564,8 @@ function ConfigsEditor({ onSwitched, onError }: { onSwitched: () => void; onErro
 /** Edits the app's own settings.toml, one section at a time: the folder the
  * images are kept in and the log, the Trapper account, which validation
  * and postvalidation checks the wizard shows, and how the images are preprocessed. One Save saves every section. */
-export default function SettingsPage({ onClose }: Props) {
-  const [section, setSection] = useState<SectionId>('general')
+export default function SettingsPage({ onClose, initialSection }: Props) {
+  const [section, setSection] = useState<SectionId>(initialSection ?? 'general')
   const [saved, setSaved] = useState<AppSettings | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [status, setStatus] = useState<{ kind: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ kind: 'idle' })
@@ -834,7 +840,10 @@ export default function SettingsPage({ onClose }: Props) {
 
         {draft && saved && section === 'epicollect' && (
           <div className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-            <Row label="Project" description="The Epicollect5 project the deployment information will be imported from (coming soon): the name in its URL, five.epicollect.net/project/<slug>.">
+            <Row label="Use Epicollect5" description="Offers to fill in the dates, camera, site and notes of a deployment from its entry in the Epicollect5 project. Turned off, nothing is read from Epicollect5.">
+              <CheckOption label="Import deployment information from Epicollect5" checked={draft.epicollectEnabled} onChange={(v) => set('epicollectEnabled', v)} />
+            </Row>
+            <Row label="Project" description="The Epicollect5 project the deployment information is imported from: the name in its URL, five.epicollect.net/project/<slug>.">
               <TextBox label="Slug" value={draft.epicollectSlug} onChange={(v) => set('epicollectSlug', v)} placeholder="my-camera-trap-project" mono />
             </Row>
             <Row
@@ -853,6 +862,10 @@ export default function SettingsPage({ onClose }: Props) {
                 {epiConn.kind === 'ok' && <span className="text-sm text-emerald-700 dark:text-emerald-400">{epiConn.message}</span>}
                 {epiConn.kind === 'error' && <span className="text-sm text-red-600 dark:text-red-400">{epiConn.message}</span>}
               </div>
+            </Row>
+            <Row label="Unmapped answers" description="An entry may answer inputs of the form that no field of a deployment is related to.">
+              <CheckOption label="Add them to the comments" checked={draft.epicollectUnmappedToComments} onChange={(v) => set('epicollectUnmappedToComments', v)}
+                           hint="Each one goes in as a line, “question: answer”, after the comments the entry gives. Photos are left out." />
             </Row>
             <div className="py-5">
               <h3 className="text-sm font-medium mb-3">Mapping</h3>

@@ -359,10 +359,10 @@ export function StrictnessTable<T extends string>({ options, enabled, required, 
       <table className="w-full text-sm">
         <thead>
           <tr>
-            <th scope="col" className={`${th} w-12`}><span className="sr-only">Status</span></th>
+            {results && <th scope="col" className={`${th} w-12`}><span className="sr-only">Status</span></th>}
             <th scope="col" className={`${th} text-left`}>Check</th>
             <th scope="col" className={`${th} text-center`}>How strict</th>
-            <th scope="col" className={`${th} text-right`}>Result</th>
+            {results && <th scope="col" className={`${th} text-right`}>Result</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -375,7 +375,7 @@ export function StrictnessTable<T extends string>({ options, enabled, required, 
             return (
               <Fragment key={opt.value}>
               <tr>
-                <td className="pl-4 py-3 text-center align-middle"><CheckStatusIcon status={status} required={current === 'must'} label={opt.label} /></td>
+                {results && <td className="pl-4 py-3 text-center align-middle"><CheckStatusIcon status={status} required={current === 'must'} label={opt.label} /></td>}
                 <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">
                   <span className="font-medium">{opt.label}</span>
                   {describe?.(opt.value) && <span className="block text-xs text-zinc-500 dark:text-zinc-400">{describe(opt.value)}.</span>}
@@ -395,7 +395,7 @@ export function StrictnessTable<T extends string>({ options, enabled, required, 
                   </div>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right">
+                {results && <td className="px-4 py-3 text-right">
                   {!runs ? <span className="text-xs text-zinc-400 dark:text-zinc-500">Skipped</span> : result && (
                     <button type="button" disabled={!failed || !onOpen} aria-expanded={failed ? opened === opt.value : undefined}
                             aria-label={failed ? `${opened === opt.value ? 'Close' : 'Open'} the failures of ${opt.label}` : undefined}
@@ -406,10 +406,10 @@ export function StrictnessTable<T extends string>({ options, enabled, required, 
                       <span className="text-xs text-zinc-500 dark:text-zinc-400">{!failed ? '0' : unit ? `${result.failed.toLocaleString('en-US')} ${result.failed === 1 ? unit.one : unit.many}` : result.images === null ? 'Whole folder' : `${result.failed.toLocaleString('en-US')} ${result.failed === 1 ? 'image' : 'images'}`}</span>
                     </button>
                   )}
-                </td>
+                </td>}
               </tr>
               {failed && note?.(opt.value) && (
-                <tr><td /><td colSpan={3} className="px-4 pb-3 -mt-1 text-xs text-zinc-600 dark:text-zinc-400">{note(opt.value)}</td></tr>
+                <tr>{results && <td />}<td colSpan={3} className="px-4 pb-3 -mt-1 text-xs text-zinc-600 dark:text-zinc-400">{note(opt.value)}</td></tr>
               )}
               </Fragment>
             )
@@ -1197,14 +1197,16 @@ interface Props {
   resumeSession?: SessionSummary
   /** Offered once a deployment is imported: goes to the upload page, on the collection it went into. */
   onUpload?: (target: UploadTarget) => void
-  /** Opens the settings — where the owner and publisher written into the images are set. */
-  onOpenSettings?: () => void
+  /** Opens the settings — where the owner and publisher written into the images are set — on a section when given one. */
+  onOpenSettings?: (section?: 'epicollect') => void
+  /** Whether the settings are open over the wizard: what they hold is read again once they close. */
+  settingsOpen?: boolean
 }
 
 // Blank credentials: the backend uses the ones saved in the settings.
 const NO_CREDENTIALS: TrapperCredentials = {}
 
-export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSettings }: Props) {
+export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSettings, settingsOpen = false }: Props) {
   const [step, setStep] = useState(resumeSession ? STEPS.findIndex((s) => s.key === 'origin') : 0)
 
   // The Trapper account is the one saved in the settings: nothing is asked for here, and the backend
@@ -1270,6 +1272,12 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   // The entry of the Epicollect5 form that fills the period, camera, site and notes in: the entries found, and what was said of them.
   const [epicollectBusy, setEpicollectBusy] = useState(false)
   const [epicollectEntries, setEpicollectEntries] = useState<EpicollectEntry[]>([])
+  // Whether the settings turn Epicollect5 on — until they say so, nothing of it is offered.
+  const [epicollectOn, setEpicollectOn] = useState(false)
+  // How many entries the Epicollect5 project holds for the location and revision, once looked up — 0 when none, or when it can't be read.
+  const [epicollectAvailable, setEpicollectAvailable] = useState(0)
+  // Why the lookup found nothing to offer: Epicollect5 holds no entry for it (the empty string), or could not be read (what it said). Null while unknown or when there is something.
+  const [epicollectMissing, setEpicollectMissing] = useState<string | null>(null)
   const [epicollectMessage, setEpicollectMessage] = useState<{ kind: 'info' | 'error'; text: string } | null>(null)
   const [plannedCollection, setPlannedCollection] = useState<CollectionPath | null>(null)
   const [plannedCollectionError, setPlannedCollectionError] = useState<string | null>(null)
@@ -1804,6 +1812,16 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey, selectedProjectId, deployment.location_id])
 
+  // Whether the settings turn Epicollect5 on — read again when they are closed, as they may have changed.
+  useEffect(() => {
+    if (stepKey !== 'origin' || settingsOpen) return
+    let cancelled = false
+    api.getSettings()
+      .then((s) => { if (!cancelled) setEpicollectOn(s.EPICOLLECT5.enabled) })
+      .catch(() => { if (!cancelled) setEpicollectOn(false) })
+    return () => { cancelled = true }
+  }, [stepKey, settingsOpen])
+
   // ...and whether an earlier revision of it was kept, to offer its details.
   useEffect(() => {
     const id = deployment.deployment_id
@@ -1816,7 +1834,27 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
     return () => { cancelled = true }
   }, [stepKey, researchProjectId, deployment.deployment_id])
 
+  // ...and whether Epicollect5 has the details of this location and revision, to offer them.
+  useEffect(() => {
+    setEpicollectAvailable(0); setEpicollectMissing(null)
+    if (stepKey !== 'origin' || settingsOpen || !epicollectOn || !deployment.location_id || !revisionValid) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const { results } = await api.epicollectEntries(deployment.location_id!, revisionNumber)
+        if (cancelled) return
+        setEpicollectAvailable(results.length)
+        if (results.length === 0) setEpicollectMissing('')
+      } catch (e) {
+        if (!cancelled) setEpicollectMissing(e instanceof Error ? e.message : 'Could not read the Epicollect5 project.')
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepKey, settingsOpen, epicollectOn, deployment.location_id, revisionNumber, revisionValid])
+
   function fillFromEpicollect(entry: EpicollectEntry) {
+    setEpicollectAvailable(0); setEpicollectMissing(null)
     setDeployment((d) => applyEntry(d, entry.fields, timezone))
     setFilledFrom(`the Epicollect5 entry “${entryLabel(entry)}”`)
     setEpicollectEntries([])
@@ -2403,7 +2441,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
           </WizardStep>
 
           <WizardStep n={2} title="When was it collected?" status={originStatus(2)} canEdit onEdit={() => setOriginOpen(2)}
-                      action={<button type="button" disabled={epicollectBusy || guessing || !deployment.location_id || !revisionValid}
+                      action={!epicollectOn ? undefined : <button type="button" disabled={epicollectBusy || guessing || !deployment.location_id || !revisionValid}
                                       title="Fills in the period, camera, site and notes from this location's entry in the Epicollect5 project of the settings"
                                       className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                       onClick={() => void handleImportFromEpicollect()}>
@@ -2451,6 +2489,25 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                       {filledFrom && <span role="status" className="block mt-1 text-xs text-blue-800 dark:text-blue-300">Filled in from {filledFrom} — check the camera, site and notes in More details.</span>}
                     </span>
                     <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
+                  </div>
+                )}
+                {epicollectAvailable > 0 && !epicollectBusy && epicollectEntries.length === 0 && (
+                  <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                    <span className="flex-1 min-w-[14rem]">
+                      Epicollect5 has {epicollectAvailable === 1 ? 'an entry' : `${epicollectAvailable} entries`} for <strong>{deployment.location_id}</strong>, revision {revisionNumber}.
+                      The dates, camera, site and notes can be filled in from {epicollectAvailable === 1 ? 'it' : 'one of them'}.
+                    </span>
+                    <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => void handleImportFromEpicollect()}>Import from Epicollect5</button>
+                  </div>
+                )}
+                {epicollectMissing !== null && !epicollectBusy && !epicollectMessage && (
+                  <div role="alert" className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/50 px-5 py-4 text-sm text-amber-900 dark:text-amber-100">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-amber-600 dark:text-amber-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>
+                    <span className="flex-1 min-w-[14rem]">
+                      {epicollectMissing || <>Epicollect5 has no entry for <strong>{deployment.location_id}</strong>, revision {revisionNumber}: its details have to be filled in here.</>}
+                    </span>
+                    {onOpenSettings && <button type="button" className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-700" onClick={() => onOpenSettings('epicollect')}>Open Epicollect5 settings</button>}
                   </div>
                 )}
                 {epicollectMessage && (
@@ -2717,7 +2774,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                   <dt className="text-zinc-500 dark:text-zinc-400">Identifiers</dt>
                   <dd>The hash of each original and of the image kept, so each can be traced back.</dd>
                 </dl>
-                {onOpenSettings && <button type="button" className={`${btnOutline} mt-3`} onClick={onOpenSettings}>Open Settings</button>}
+                {onOpenSettings && <button type="button" className={`${btnOutline} mt-3`} onClick={() => onOpenSettings()}>Open Settings</button>}
                     </div>
                   )}
                 </div>

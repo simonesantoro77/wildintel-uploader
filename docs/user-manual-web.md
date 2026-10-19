@@ -67,7 +67,7 @@ deployment's images go up in zips of at most this size (500 by default, up to 50
 The Epicollect5 project the deployments' information will be imported from (see [When was it collected?](#stage-2-origin-and-dates)): its **slug**, the
 name in its URL (`five.epicollect.net/project/<slug>`), and, only if the project is private, the **client id** and **secret** of
 its API client, which you create at <https://developers.epicollect.net>. **Test connection** reads the project with what is typed — saved or not — and says its name and how many inputs
-it has; a blank secret is the saved one. Below, the **Mapping** relates each field of a deployment to an input of the project's form. Epicollect5 has no input for a date and a time together, so the day and the time of the start and of the end are mapped apart, along with the revision.
+it has; a blank secret is the saved one. The **Import deployment information from Epicollect5** switch turns the use of Epicollect5 on or off — it is off until you turn it on, and while it is off nothing is read from Epicollect5. **Add them to the comments** sends what an entry answers in the inputs that are not mapped to any field to the comments of the deployment, a line each (*question: answer*; photos are left out). Below, the **Mapping** relates each field of a deployment to an input of the project's form. Epicollect5 has no input for a date and a time together, so the day and the time of the start and of the end are mapped apart, along with the revision.
 
 ### Validation
 
@@ -266,7 +266,7 @@ the location is enough). The location's own data — its id, name and coordinate
 model and id only complete what the images didn't give. The day and the time of the start and the end come in two questions; a
 day with no time takes the time the images gave on that day, or the whole day (from its first second for the start, to its last
 for the end). If there are several entries, you pick one. It needs the *location id* mapped in the settings, and it
-reads the project with the client saved there, so it may be refused for a while if Epicollect5 limits the requests.
+reads the project with the client saved there, so it may be refused for a while if Epicollect5 limits the requests. When Epicollect5 has an entry for the location and the revision, a notice says so and offers to import it.
 
 **3. More details.**
 

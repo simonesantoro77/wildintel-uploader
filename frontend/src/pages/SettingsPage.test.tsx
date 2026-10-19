@@ -20,7 +20,7 @@ beforeEach(() => {
   mockedApi.saveSettings.mockImplementation(async (update) => ({
     GENERAL: { ...APP_SETTINGS.GENERAL, ...update.GENERAL },
     TRAPPER: { ...APP_SETTINGS.TRAPPER, base_url: update.TRAPPER.base_url, user_name: update.TRAPPER.user_name, has_password: APP_SETTINGS.TRAPPER.has_password || !!update.TRAPPER.user_password },
-    EPICOLLECT5: { project_slug: update.EPICOLLECT5.project_slug, client_id: update.EPICOLLECT5.client_id, has_secret: APP_SETTINGS.EPICOLLECT5.has_secret || !!update.EPICOLLECT5.client_secret, mapping: update.EPICOLLECT5.mapping },
+    EPICOLLECT5: { enabled: update.EPICOLLECT5.enabled, unmapped_to_comments: update.EPICOLLECT5.unmapped_to_comments, project_slug: update.EPICOLLECT5.project_slug, client_id: update.EPICOLLECT5.client_id, has_secret: APP_SETTINGS.EPICOLLECT5.has_secret || !!update.EPICOLLECT5.client_secret, mapping: update.EPICOLLECT5.mapping },
     DATA: { dir: update.DATA.dir ?? APP_SETTINGS.DATA.dir },
     VALIDATION: update.VALIDATION,
     POSTVALIDATION: update.POSTVALIDATION,
@@ -250,6 +250,25 @@ describe('SettingsPage', () => {
       await userEvent.type(screen.getByLabelText('Slug'), 'donana')
       await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
       expect(await screen.findByText('Epicollect5 refused the client id and secret.')).toBeInTheDocument()
+    })
+  })
+
+  describe('Epicollect5 switches', () => {
+    it('turns the use of Epicollect5 and the unmapped answers into comments on, and saves them', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      await screen.findByLabelText('Level')
+      await section('Epicollect5')
+      const use = screen.getByLabelText('Import deployment information from Epicollect5')
+      const unmapped = screen.getByLabelText(/^Add them to the comments/)
+      expect(use).not.toBeChecked()
+      expect(unmapped).not.toBeChecked()
+
+      await userEvent.click(use)
+      await userEvent.click(unmapped)
+      await userEvent.click(screen.getByRole('button', { name: /^Save/ }))
+
+      await waitFor(() => expect(mockedApi.saveSettings).toHaveBeenCalled())
+      expect(mockedApi.saveSettings.mock.calls[0][0].EPICOLLECT5).toMatchObject({ enabled: true, unmapped_to_comments: true })
     })
   })
 

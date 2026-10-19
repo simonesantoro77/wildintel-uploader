@@ -29,6 +29,9 @@ export default function App() {
   // The settings page is shown over the rest, which stays mounted (just
   // hidden) — so a run in progress isn't lost.
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // The section the settings open on, when something sends the user to one in particular.
+  const [settingsSection, setSettingsSection] = useState<'epicollect' | undefined>(undefined)
+  function openSettings(section?: 'epicollect') { setSettingsSection(section); setSettingsOpen(true) }
   // Back on the welcome screen by the title: it is shown ahead of anything else until "Get Started" is pressed again.
   const [home, setHome] = useState(false)
   // Where the upload page starts from, when it is reached from a finished import.
@@ -69,21 +72,21 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <Navbar version={currentVersion} onHome={goHome} settingsOpen={settingsOpen} onOpenSettings={() => setSettingsOpen(true)} />
+      <Navbar version={currentVersion} onHome={goHome} settingsOpen={settingsOpen} onOpenSettings={() => openSettings()} />
       {backendDown && (
         <div className="bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm text-center py-2">
           Backend not reachable — is the server running?
         </div>
       )}
       <main className="flex-1">
-        {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <SettingsPage initialSection={settingsSection} onClose={() => setSettingsOpen(false)} />}
         <div className={settingsOpen ? 'hidden' : ''}>
           {task === 'deployment'
-            ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} onOpenSettings={() => setSettingsOpen(true)} />
+            ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} />
             : task === 'session'
               ? <ImportSessionPage onUpload={goToUpload} />
               : task === 'upload'
-              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => setSettingsOpen(true)} />
+              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} />
               : task === 'utils'
               ? <UtilsPage onBack={() => setTask(null)} />
               : task === 'sync'

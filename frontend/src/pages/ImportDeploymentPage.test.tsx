@@ -2061,6 +2061,10 @@ describe('ImportDeploymentPage', () => {
   })
 
   describe('the entry of the Epicollect5 form', () => {
+    beforeEach(() => {
+      mockedApi.getSettings.mockResolvedValue({ ...APP_SETTINGS, EPICOLLECT5: { ...APP_SETTINGS.EPICOLLECT5, enabled: true } })
+    })
+
     const ENTRY = {
       uuid: 'u1', title: 'DONA_01', created_at: '2026-10-01T10:00:00.000Z',
       fields: { start_date: '2024-09-04', start_time: '13:10:00', end_date: '2024-10-12', end_time: '07:02:00', habitat: 'Pine forest', setup_by: 'Ana', comments: 'Near the pond', tags: ['forest'] },
@@ -2084,13 +2088,55 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getByLabelText('Comments')).toHaveValue('Near the pond')
     })
 
+    it('says that Epicollect5 has the details, once there is an entry for the location and the revision', async () => {
+      mockedApi.epicollectEntries.mockResolvedValue({ results: [ENTRY] })
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      expect(await screen.findByText(/Epicollect5 has an entry for/)).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Import from Epicollect5' }))
+      expect(await screen.findByText(/Filled in from “DONA_01 · sent 1 Oct 2026”/)).toBeInTheDocument()
+      expect(screen.queryByText(/Epicollect5 has an entry for/)).not.toBeInTheDocument()
+    })
+
+    it('warns when Epicollect5 has no entry for the location and the revision', async () => {
+      mockedApi.epicollectEntries.mockResolvedValue({ results: [] })
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      expect(await screen.findByText(/Epicollect5 has no entry for/)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Import from Epicollect5' })).not.toBeInTheDocument()
+    })
+
+    it('warns with what Epicollect5 or the settings say when it can not be read, and goes to its settings', async () => {
+      const onOpenSettings = vi.fn()
+      pageProps = { onOpenSettings }
+      mockedApi.epicollectEntries.mockRejectedValue(new Error('The location id is not mapped yet'))
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      expect(await screen.findByText(/The location id is not mapped yet/)).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Open Epicollect5 settings' }))
+      expect(onOpenSettings).toHaveBeenCalledWith('epicollect')
+    })
+
+    it('is neither offered nor looked at while the settings turn it off', async () => {
+      mockedApi.getSettings.mockResolvedValue(APP_SETTINGS)
+      mockedApi.epicollectEntries.mockResolvedValue({ results: [ENTRY] })
+      await goToNewDetailsStep()
+      await userEvent.type(screen.getByLabelText('Revision'), '2')
+      await screen.findByLabelText('Deployment Id')
+      expect(screen.queryByRole('button', { name: 'Import info from Epicollect5' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/Epicollect5 has/)).not.toBeInTheDocument()
+      expect(mockedApi.epicollectEntries).not.toHaveBeenCalled()
+    })
+
     it('needs a valid revision', async () => {
       await goToNewDetailsStep()
       expect(screen.getByRole('button', { name: 'Import info from Epicollect5' })).toBeDisabled()
     })
 
     it('says when there is no entry, and what Epicollect5 or the settings say when it fails', async () => {
-      mockedApi.epicollectEntries.mockResolvedValueOnce({ results: [] })
+      mockedApi.epicollectEntries.mockResolvedValue({ results: [] })
       await goToNewDetailsStep()
       await userEvent.type(screen.getByLabelText('Revision'), '2')
       await userEvent.click(screen.getByRole('button', { name: 'Import info from Epicollect5' }))

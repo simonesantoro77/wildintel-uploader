@@ -184,6 +184,7 @@ def test_a_feature_type_the_standard_does_not_have_is_left_out():
 
 def test_the_entries_of_a_location_and_revision_are_found_newest_first():
     settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
     settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", MAPPING
     answer = {"meta": {"last_page": 1}, "data": {"entries": [
         entry("old", created="2026-09-01T10:00:00.000Z"), entry("new"), entry("rev2", revision="2"), entry("other", location="dona_0007"),
@@ -197,6 +198,7 @@ def test_the_entries_of_a_location_and_revision_are_found_newest_first():
 
 def test_without_a_revision_in_the_mapping_the_location_is_enough():
     settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
     settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", {"location_id": "loc"}
     with patch("pyepicollect.api.get_entries", return_value={"data": {"entries": [entry("a", revision="7")]}}):
         assert [e["uuid"] for e in epicollect_service.find_entries("dona_0006", 3, settings)] == ["a"]
@@ -204,6 +206,7 @@ def test_without_a_revision_in_the_mapping_the_location_is_enough():
 
 def test_every_page_of_entries_is_read():
     settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
     settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", {"location_id": "loc"}
     pages = [{"meta": {"last_page": 2}, "data": {"entries": [entry("a")]}}, {"meta": {"last_page": 2}, "data": {"entries": [entry("b")]}}]
     with patch("pyepicollect.api.get_entries", side_effect=pages) as get_entries:
@@ -213,6 +216,7 @@ def test_every_page_of_entries_is_read():
 
 def test_the_location_must_be_mapped_and_chosen_and_what_epicollect5_says_is_said():
     settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
     settings.EPICOLLECT5.project_slug = "p"
     with pytest.raises(epicollect_service.EpicollectError, match="location id is not mapped"):
         epicollect_service.find_entries("dona_0006", 3, settings)
@@ -224,11 +228,42 @@ def test_the_location_must_be_mapped_and_chosen_and_what_epicollect5_says_is_sai
             epicollect_service.find_entries("dona_0006", 3, settings)
 
 
+def test_nothing_is_read_while_epicollect5_is_turned_off():
+    settings = config.Settings()
+    settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", MAPPING
+    with patch("pyepicollect.api.get_entries") as get_entries:
+        with pytest.raises(epicollect_service.EpicollectError, match="turned off"):
+            epicollect_service.find_entries("dona_0006", 3, settings)
+    get_entries.assert_not_called()
+
+
+FORM = {"data": {"project": {"name": "P", "slug": "p", "forms": [{"ref": "f", "name": "Visit", "inputs": [
+    {"ref": "loc", "type": "text", "question": "Location"}, {"ref": "note", "type": "text", "question": "Weather"},
+    {"ref": "place", "type": "location", "question": "Spot"}, {"ref": "shot", "type": "photo", "question": "Photo"},
+    {"ref": "kinds", "type": "checkbox", "question": "Seen"}, {"ref": "empty", "type": "text", "question": "Blank"},
+    {"ref": "comments", "type": "text", "question": "Remarks"},
+]}]}}}
+
+
+def test_what_no_mapping_takes_goes_to_the_comments_when_asked():
+    settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
+    settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", {"location_id": "loc", "comments": "comments"}
+    row = {"ec5_uuid": "u", "title": "t", "created_at": "", "loc": "dona_0006", "note": "Rain", "place": {"latitude": 37.1, "longitude": -6.4, "accuracy": 3},
+           "shot": "a.jpg", "kinds": ["fox", "lynx"], "empty": " ", "comments": "Near the pond"}
+    with patch("pyepicollect.api.get_entries", return_value={"data": {"entries": [row]}}), patch("pyepicollect.api.get_project", return_value=FORM):
+        assert "Rain" not in epicollect_service.find_entries("dona_0006", None, settings)[0]["fields"].get("comments", "")
+        settings.EPICOLLECT5.unmapped_to_comments = True
+        comments = epicollect_service.find_entries("dona_0006", None, settings)[0]["fields"]["comments"]
+    assert comments == "Near the pond\nWeather: Rain\nSpot: 37.1, -6.4\nSeen: fox, lynx"  # no photo, no blank answer
+
+
 def test_the_entries_endpoint_answers_them_or_a_400():
     client = TestClient(app)
     assert client.post("/api/epicollect/entries", json={"location_id": "dona_0006"}).status_code == 400
 
     settings = config.Settings()
+    settings.EPICOLLECT5.enabled = True
     settings.EPICOLLECT5.project_slug, settings.EPICOLLECT5.mapping = "p", MAPPING
     config.save_settings(settings)
     with patch("pyepicollect.api.get_entries", return_value={"data": {"entries": [entry("a")]}}):

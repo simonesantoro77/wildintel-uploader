@@ -497,7 +497,7 @@ export interface AppSettings {
   GENERAL: { log_level: LogLevel; workers: number; cpu_count: number; log_file: string; log_level_override: string | null }
   TRAPPER: { base_url: string | null; user_name: string | null; has_password: boolean; max_zip_mb: number }
   /** mapping: the ref of the Epicollect5 input that gives each field of a deployment (deployment field → ref). */
-  EPICOLLECT5: { project_slug: string | null; client_id: string | null; has_secret: boolean; mapping: Record<string, string> }
+  EPICOLLECT5: { enabled: boolean; unmapped_to_comments: boolean; project_slug: string | null; client_id: string | null; has_secret: boolean; mapping: Record<string, string> }
   /** The folder where the app keeps the images — its collections go in a "collections" folder inside. */
   DATA: { dir: string }
   VALIDATION: ValidationSettings
@@ -509,7 +509,7 @@ export interface AppSettings {
 export interface AppSettingsUpdate {
   GENERAL: { log_level: LogLevel; workers: number }
   TRAPPER: { base_url: string | null; user_name: string | null; user_password: string; max_zip_mb: number }
-  EPICOLLECT5: { project_slug: string | null; client_id: string | null; client_secret: string; mapping: Record<string, string> }
+  EPICOLLECT5: { enabled: boolean; unmapped_to_comments: boolean; project_slug: string | null; client_id: string | null; client_secret: string; mapping: Record<string, string> }
   DATA: { dir: string | null }
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings

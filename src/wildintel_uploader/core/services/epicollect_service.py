@@ -266,11 +266,40 @@ def entry_fields(entry: dict, mapping: dict[str, str]) -> dict:
     return found
 
 
+# Inputs whose answer is a file, not something to read.
+_MEDIA = {"photo", "audio", "video"}
+
+
+def _answer_text(value: Any) -> str | None:
+    """An answer as a line of text: a place as "lat, lon", a list joined, anything else as it is. Nothing answered is None."""
+    if isinstance(value, dict):
+        lat, lon = value.get("latitude"), value.get("longitude")
+        return f"{lat}, {lon}" if lat not in (None, "") and lon not in (None, "") else None
+    if isinstance(value, list):
+        return ", ".join(str(v).strip() for v in value if str(v).strip()) or None
+    return _text(value)
+
+
+def unmapped_notes(entry: dict, inputs: list[dict], mapping: dict[str, str]) -> str | None:
+    """What the entry answers in the inputs of the form that no field of a deployment is mapped to, a line each as
+    "question: answer". None when there is nothing."""
+    mapped = set(mapping.values())
+    lines = []
+    for item in inputs:
+        if item["ref"] in mapped or item["type"] in _MEDIA:
+            continue
+        if (answer := _answer_text(entry.get(item["ref"]))) is not None:
+            lines.append(f"{item['label'] or item['ref']}: {answer}")
+    return "\n".join(lines) or None
+
+
 def find_entries(location_id: str, revision: int | None, settings: config.Settings | None = None) -> list[dict]:
     """The entries that are this location's — and this revision's, when the form asks it —, newest first. Each is
     {"uuid", "title", "created_at", "fields"}. The location is compared without regard to case, as Trapper keeps it in
     lower case."""
     cfg = (settings or config.load_settings()).EPICOLLECT5
+    if not cfg.enabled:
+        raise EpicollectError("Epicollect5 is turned off — turn it on in Settings › Epicollect5.")
     if not cfg.project_slug:
         raise EpicollectError("There is no Epicollect5 project saved yet — set its slug in Settings › Epicollect5.")
     mapping = {k: v for k, v in cfg.mapping.items() if v}
@@ -287,6 +316,7 @@ def find_entries(location_id: str, revision: int | None, settings: config.Settin
         logger.warning("Reading the entries of the Epicollect5 project %s failed: %s", cfg.project_slug, exc)
         raise EpicollectError(f"Could not reach Epicollect5: {exc}") from exc
 
+    inputs = _read_project(cfg.project_slug, cfg.client_id, cfg.client_secret)["inputs"] if cfg.unmapped_to_comments else []
     found: list[dict] = []
     for entry in entries:
         fields = entry_fields(entry, mapping)
@@ -294,5 +324,7 @@ def find_entries(location_id: str, revision: int | None, settings: config.Settin
             continue
         if revision is not None and "revision" in mapping and fields.get("revision") != revision:
             continue
+        if cfg.unmapped_to_comments and (notes := unmapped_notes(entry, inputs, mapping)):
+            fields["comments"] = "\n".join(filter(None, [fields.get("comments"), notes]))
         found.append({"uuid": entry.get("ec5_uuid"), "title": entry.get("title") or "", "created_at": entry.get("created_at") or "", "fields": fields})
     return sorted(found, key=lambda e: e["created_at"], reverse=True)

@@ -55,6 +55,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The package names the deployment in lower case, as Trapper keeps it, and declares the timezone and summer-time
   setting of the location it goes to (Trapper refuses a package that disagrees with it).
 - **Import info from Epicollect5**: in *When was it collected?*, the period, camera, site and notes of the deployment are filled in from the entry of the Epicollect5 form (one row per deployment) of that location and revision, through the mapping of Settings › Epicollect5, whose *When* group keeps the day and the time apart and maps the revision; *Test connection* tries the project and client typed there.
+- **Epicollect5 settings**: a switch turns the use of Epicollect5 on or off (off by default), and another sends what an entry answers in inputs with no mapping to the comments of the deployment. *When was it collected?* says when Epicollect5 has an entry for the location and revision.
 - **Utils** (menu): *Repair local deployments* and *Sync local collections* are kept under one button, apart from the import and upload tasks.
 - **Sync local collections**: pick a research project and one of its classification projects in Trapper, and the collections
   folder gets what it lacks — the research project (`research_project.json`) and its `locations.json`, the collections

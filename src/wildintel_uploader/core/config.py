@@ -82,6 +82,11 @@ class TrapperSettings(BaseModel):
 
 
 class Epicollect5Settings(BaseModel):
+    enabled: bool = Field(default=False, description="Whether the details of a deployment can be imported from Epicollect5. (EPICOLLECT5.enabled)")
+    unmapped_to_comments: bool = Field(
+        default=False,
+        description="What an entry says in an input that is not mapped to any field goes to the comments of the deployment. (EPICOLLECT5.unmapped_to_comments)",
+    )
     project_slug: Optional[str] = Field(default=None, description="Slug of the Epicollect5 project — the name in its URL (five.epicollect.net/project/<slug>). (EPICOLLECT5.project_slug)")
     client_id: Optional[str] = Field(default=None, description="Client id of the Epicollect5 API client app, for private projects. (EPICOLLECT5.client_id)")
     client_secret: Optional[str] = Field(
