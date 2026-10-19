@@ -320,6 +320,14 @@ export interface SyncResult {
   kept: Record<'research_project' | 'locations' | 'collections' | 'deployments' | 'timestamp_log' | 'images', string[]>
   unassigned: string[]
   failed: { deployment_id: string; error: string }[]
+  /** Only when the images were asked for: what came, by deployment; what failed; and the images Trapper lists that the classification project doesn't hold. */
+  downloaded?: {
+    images: number
+    bytes: number
+    deployments: Record<string, number>
+    failed: { deployment_id: string; name: string; error: string }[]
+    not_held: Record<string, string[]>
+  }
 }
 
 /** A collection the sync can bring, and the deployments in it. */

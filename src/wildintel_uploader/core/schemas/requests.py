@@ -448,6 +448,8 @@ class SyncCollectionsRequest(TrapperCredentials):
     collections: Optional[list[str]] = None
     # The deployments to sync, by id, within those collections; left out, all of them are.
     deployments: Optional[list[str]] = None
+    # Also download the images of those deployments from Trapper (through the classification project's media), into their folders.
+    download_images: bool = False
 
 
 class SyncCollectionNamesRequest(TrapperCredentials):

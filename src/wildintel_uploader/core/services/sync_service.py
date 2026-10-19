@@ -13,11 +13,17 @@ The collections are those of the classification project whose name starts with R
 research project goes to the one its id starts with (R0003-DONA_01 → R0003). The images are not downloaded, so
 there is no preprocessing log; images.json is made from what Trapper holds for each deployment's images (names,
 when they were taken, what they show) — not the size, the pixels nor the hashes, which Trapper doesn't have.
+
+The images can be downloaded too (download_images): each into its deployment's folder, as the file Trapper holds. They come
+through the classification project's media, the only place that gives a file's access token, so what the project doesn't hold
+can't be brought. The deployment is still a synced one: not preprocessed, sealed or modified here.
 """
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -28,6 +34,9 @@ from wildintel_uploader.core.schemas.requests import DeploymentFields, ResearchP
 from wildintel_uploader.core.services import deployment_import_service, local_folder_service, trapper_service
 
 logger = logging.getLogger(__name__)
+
+DOWNLOAD_WORKERS = 4  # images downloaded at once
+PROGRESS_EVERY = 25  # a message each so many images
 
 
 def collection_names(credentials: tuple[str, str, str], classification_project_pk: int) -> list[str]:
@@ -118,15 +127,63 @@ def image_entries(resources: list[dict], timezone_name: str | None, ignore_dst: 
     return sorted(entries, key=lambda e: (e["local_time"] or "", e["name"]))
 
 
+def _names_in_images_file(deployment_dir: Path) -> list[str]:
+    try:
+        info = json.loads((deployment_dir / local_folder_service.IMAGES_FILE).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [i["name"] for i in info.get("images", []) if isinstance(i, dict) and i.get("name")]
+
+
+def _download_images(
+    credentials: tuple[str, str, str], classification_project_pk: int, deployment: dict, deployment_id: str, target: Path, prefix: str,
+) -> Iterator[dict]:
+    """Downloads into the deployment's folder the images of the deployment the classification project holds and the folder lacks,
+    a few at a time — what is there is kept. Yields progress messages and returns {"downloaded", "bytes", "failed": [{"name", "error"}],
+    "not_held": [names of the images Trapper lists for the deployment that the project doesn't hold], "already"}."""
+    media = trapper_service.list_deployment_media(*credentials, classification_project_pk, deployment["pk"])
+    held = {m["name"] for m in media}
+    not_held = sorted(set(_names_in_images_file(target)) - held)
+    todo = [m for m in media if Path(m["name"]).name == m["name"] and not (target / m["name"]).is_file()]
+    already = len(media) - len(todo)
+    result: dict = {"downloaded": 0, "bytes": 0, "failed": [], "not_held": not_held, "already": already}
+    yield {"type": "progress", "message": f"{prefix}: {len(todo)} image(s) to download" + (f", {already} already here" if already else "")
+           + (f", {len(not_held)} not in the classification project" if not_held else "") + "."}
+    if not todo:
+        return result
+
+    download = trapper_service.file_downloader(*credentials)
+    pool = ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS)
+    try:
+        futures = {pool.submit(download, m["url"], target / m["name"]): m["name"] for m in todo}
+        for count, future in enumerate(as_completed(futures), 1):
+            name = futures[future]
+            try:
+                result["bytes"] += future.result()
+                result["downloaded"] += 1
+            except Exception as exc:  # one image that fails doesn't stop the rest
+                logger.warning("%s: downloading %s failed: %s", deployment_id, name, exc)
+                result["failed"].append({"name": name, "error": str(exc)})
+            if count % PROGRESS_EVERY == 0 and count < len(todo):
+                yield {"type": "progress", "message": f"{prefix}: {count}/{len(todo)} images ({result['bytes'] / 1e6:.1f} MB)."}
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)  # a stop doesn't leave the rest queued
+    yield {"type": "progress", "message": f"{prefix}: {result['downloaded']} image(s) downloaded ({result['bytes'] / 1e6:.1f} MB)"
+           + (f", {len(result['failed'])} failed." if result["failed"] else ".")}
+    return result
+
+
 def sync_stream(
     credentials: tuple[str, str, str], root: Path, research_project: dict, classification_project_pk: int,
-    only: list[str] | None = None, only_deployments: list[str] | None = None,
+    only: list[str] | None = None, only_deployments: list[str] | None = None, download_images: bool = False,
 ) -> Iterator[dict]:
     """Creates, under root, what Trapper has for the classification project and the folder lacks — one deployment at a time.
 
     research_project is {"pk", "name", "acronym"} — the one the classification project belongs to.
     only limits the sync to the collections of those names (any case), and only_deployments to the deployments of
-    those ids (any case); None syncs them all.
+    those ids (any case); None syncs them all. download_images also brings the images of the deployments into their folders
+    (see _download_images); the "done" event then has a "downloaded" with what came — {"images", "bytes", "deployments":
+    {id: count}, "failed": [{"deployment_id", "name", "error"}], "not_held": {id: [names]}}.
     The deployments' and locations' ids, which Trapper keeps in lower case, are written in upper case.
 
     Yields {"type": "progress", "message"} as each step starts or ends, and last {"type": "done", ...} with the lists
@@ -177,6 +234,7 @@ def sync_stream(
         names = [n for n in names if n.lower() in wanted]
     claimed: set[str] = set()
     failed: list[dict] = []
+    downloaded: dict = {"images": 0, "bytes": 0, "deployments": {}, "failed": [], "not_held": {}}
     for number, name in enumerate(names, 1):
         collection_dir = folder / name
         if (collection_dir / local_folder_service.COLLECTION_METADATA_FILE).is_file():
@@ -215,6 +273,15 @@ def sync_stream(
                 entries = image_entries(resources, location.get("timezone"), bool(location.get("ignore_dst")))
                 local_folder_service.write_images_file(target, deployment_id, entries, source="trapper")
                 created["images"].append(deployment_id)
+            if download_images:
+                got = yield from _download_images(credentials, classification_project_pk, deployment, deployment_id, target, prefix)
+                downloaded["images"] += got["downloaded"]
+                downloaded["bytes"] += got["bytes"]
+                if got["downloaded"]:
+                    downloaded["deployments"][deployment_id] = got["downloaded"]
+                downloaded["failed"] += [{"deployment_id": deployment_id, **f} for f in got["failed"]]
+                if got["not_held"]:
+                    downloaded["not_held"][deployment_id] = got["not_held"]
             if deployment_id.upper() in log_rows:
                 kept["timestamp_log"].append(deployment_id)
             elif deployment.get("start_date") and deployment.get("end_date"):
@@ -229,16 +296,17 @@ def sync_stream(
             yield say(f"{prefix}: done.")
 
     unassigned = sorted(d["deployment_id"].upper() for d in deployments if d["deployment_id"] and d["deployment_id"].upper() not in claimed)
-    yield {"type": "done", "research_project_id": project_id, "folder": str(folder), "created": created, "kept": kept, "unassigned": unassigned, "failed": failed, "collections": names}
+    yield {"type": "done", "research_project_id": project_id, "folder": str(folder), "created": created, "kept": kept, "unassigned": unassigned, "failed": failed, "collections": names,
+           **({"downloaded": downloaded} if download_images else {})}
 
 
 def sync(
     credentials: tuple[str, str, str], root: Path, research_project: dict, classification_project_pk: int,
-    only: list[str] | None = None, only_deployments: list[str] | None = None,
+    only: list[str] | None = None, only_deployments: list[str] | None = None, download_images: bool = False,
 ) -> dict:
     """sync_stream run to its end: what it created and kept, without the progress."""
     result: dict = {}
-    for event in sync_stream(credentials, root, research_project, classification_project_pk, only, only_deployments):
+    for event in sync_stream(credentials, root, research_project, classification_project_pk, only, only_deployments, download_images):
         if event["type"] == "done":
             result = {k: v for k, v in event.items() if k != "type"}
     return result

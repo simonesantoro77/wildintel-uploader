@@ -17,6 +17,11 @@ const KINDS: { key: keyof SyncResult['created']; label: string }[] = [
   { key: 'images', label: 'Images files (images.json)' },
 ]
 
+/** "12.3 MB", or "1.20 GB" from a gigabyte on. */
+function formatMegabytes(bytes: number): string {
+  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${(bytes / 1e6).toFixed(1)} MB`
+}
+
 /** The collection prefixes (R0003…) of deployment ids, each once — what the ones not synced belong to. */
 function unassignedCollections(ids: string[]): string[] {
   return [...new Set(ids.map((id) => id.match(/^R\d+/i)?.[0].toUpperCase() ?? id))].sort()
@@ -31,6 +36,7 @@ export default function SyncCollectionsPage() {
   const [collections, setCollections] = useState<SyncCollection[]>([])
   const [collectionName, setCollectionName] = useState('')
   const [chosenDeployments, setChosenDeployments] = useState<Set<string>>(new Set())
+  const [downloadImages, setDownloadImages] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [started, setStarted] = useState(false)
@@ -88,7 +94,7 @@ export default function SyncCollectionsPage() {
     if (!project || !classificationPk || !collection || chosenDeployments.size === 0) return
     setStarted(true); setSyncing(true); setError(null); setResult(null); setProgress([])
     try {
-      await api.syncCollections({}, project, Number(classificationPk), [collection.name], deployments.filter((d) => chosenDeployments.has(d)), (event) => {
+      await api.syncCollections({}, project, Number(classificationPk), [collection.name], deployments.filter((d) => chosenDeployments.has(d)), downloadImages, (event) => {
         if (event.type === 'progress') setProgress((lines) => [...lines, event.message])
         else setResult(event)
       })
@@ -106,7 +112,7 @@ export default function SyncCollectionsPage() {
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Sync local collections</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         The local folders are checked against what Trapper has for a classification project, and what is missing is created: the research project and its locations, the collection
-        (with its timestamp log) and the chosen deployments. What is already there is left as it is, and the images are not downloaded.
+        (with its timestamp log) and the chosen deployments. What is already there is left as it is. The images are only downloaded if you ask for it.
       </p>
 
       <WizardStep n={1} title="Choose what to sync" status={started ? 'done' : 'open'} canEdit={!syncing} onEdit={startOver}
@@ -180,6 +186,21 @@ export default function SyncCollectionsPage() {
           </div>
         )}
 
+        {collection && deployments.length > 0 && (
+          <div className="mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={downloadImages} disabled={syncing} onChange={(e) => setDownloadImages(e.target.checked)} />
+              <span>
+                <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-200">Also download the images from Trapper</span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Each image goes into its deployment&rsquo;s folder, as Trapper holds it. A deployment can have thousands, so this can take a long time and a lot of disk space.
+                  Only the images in this classification project can be downloaded, and the ones already in the folder are kept. The deployments stay <em>synced</em>: read-only, not preprocessed.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
+
         {error && !started && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
         <div className="flex justify-end">
           <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!collection || chosenDeployments.size === 0 || syncing} onClick={() => void handleSync()}>
@@ -212,6 +233,26 @@ export default function SyncCollectionsPage() {
                 </li>
               ))}
             </ul>
+            {result.downloaded && (
+              <div className="text-sm mt-3" aria-label="Downloaded images">
+                <p><strong>Images downloaded:</strong> {result.downloaded.images.toLocaleString('en-US')} ({formatMegabytes(result.downloaded.bytes)})</p>
+                {Object.keys(result.downloaded.not_held).length > 0 && (
+                  <p className="text-amber-700 dark:text-amber-400 mt-1">
+                    Trapper lists images that this classification project does not hold, so they could not be downloaded:{' '}
+                    {Object.entries(result.downloaded.not_held).map(([id, names]) => `${id} (${names.length})`).join(', ')}.
+                  </p>
+                )}
+                {result.downloaded.failed.length > 0 && (
+                  <div className="text-red-600 dark:text-red-400 mt-1">
+                    <p>{result.downloaded.failed.length} image{result.downloaded.failed.length === 1 ? '' : 's'} could not be downloaded. Sync again to retry them:</p>
+                    <ul className="list-disc ml-5">
+                      {result.downloaded.failed.slice(0, 10).map((f) => <li key={`${f.deployment_id}/${f.name}`}><span className="font-mono">{f.name}</span> — {f.error}</li>)}
+                      {result.downloaded.failed.length > 10 && <li>…and {result.downloaded.failed.length - 10} more.</li>}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
             {result.collections.length === 0 && (
               <p className="text-sm text-amber-700 dark:text-amber-400 mt-3">The classification project has no collection starting with R.</p>
             )}

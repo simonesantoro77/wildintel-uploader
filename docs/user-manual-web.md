@@ -481,7 +481,8 @@ holds.
 1. Pick a **research project**, then one of its **classification projects**.
 2. Pick a **collection** (those of the classification project whose name starts with `R`) and,
    under it, the **deployments** to sync — with *Select all*.
-3. Press **Sync**.
+3. Tick **Also download the images from Trapper** if you want them too (see below).
+4. Press **Sync**.
 
 What is missing is created, one deployment at a time, and a live log says what is happening:
 
@@ -492,9 +493,22 @@ What is missing is created, one deployment at a time, and a live log says what i
   observations).
 
 What is already in the folder is **left as it is**, whatever Trapper says. **Nothing is changed in
-Trapper**, and **no image is downloaded** — so there is no `preprocessing.json`, and the size,
+Trapper**, and **no image is downloaded unless you ask for it** — so there is no `preprocessing.json`, and the size,
 pixels and hashes are missing from `images.json`, which is marked `"source": "trapper"`. A
 deployment synced this way is *read-only* for the app: what Trapper holds isn't modified here.
+
+#### Downloading the images
+
+With **Also download the images from Trapper** ticked, each chosen deployment's images are also downloaded, four at a time, into
+its folder — named as Trapper names them (`R0003-DONA_01__20240901_1.JPEG`), the file Trapper holds. A deployment can have
+thousands of images, so it can take long and need a lot of disk space. The log says how far each deployment is.
+
+- The files come through the **classification project** you picked: Trapper only gives the access token of a file — private
+  ones too, for an account that can see them — in the media of a classification project, so an image that isn't in a collection of
+  that project can't be downloaded. The result says how many of each deployment weren't.
+- What is already in the folder is kept, so syncing again **completes** a download that was stopped, or retries the images that failed.
+  A file is written under a temporary name and moved into place when whole: a stop never leaves half an image.
+- The deployment is still a *synced* one: its images aren't preprocessed, renamed or sealed, so it can't be uploaded or repaired from here.
 
 The result lists, per kind, what was created and what was already there, the deployments no
 collection of the classification project claims, and any that Trapper holds in a way that isn't a

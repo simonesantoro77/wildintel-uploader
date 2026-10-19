@@ -14,6 +14,7 @@ CSV this builds from a DeploymentFields."""
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -180,6 +181,35 @@ def list_deployment_resources(url: str, username: str, password: str, deployment
         }
         for r in resources
     ]
+
+
+def list_deployment_media(url: str, username: str, password: str, classification_project_pk: int, deployment_pk: int) -> list[dict]:
+    """The files of a deployment's images, as a classification project holds them — {"pk", "name", "url"}. The url is the one
+    Trapper serves the file from, with the access token it asks for in its query: without it the file is a 404, even for the
+    account that owns it. The token is made for the account asking, so private images have it too — but only the images that
+    are in a collection of that classification project are listed."""
+    media = _client(url, username, password).classification_media.where_project_media(
+        classification_project_pk, deployment=[deployment_pk], page_size=LIST_PAGE_SIZE,
+    )
+    return [{"pk": int(m.mediaID), "name": m.fileName, "url": str(m.filePath)} for m in media]
+
+
+def file_downloader(url: str, username: str, password: str) -> Callable[[str, Path], int]:
+    """A function that downloads a file of Trapper (the url of list_deployment_media) to a path and says its size. It is written
+    under a temporary name and moved into place when it is whole, so a stop never leaves half an image. One client serves
+    every call, from as many threads as wanted."""
+    media = _client(url, username, password).classification_media
+
+    def download(file_url: str, destination: Path) -> int:
+        partial = destination.with_name(destination.name + ".part")
+        try:
+            media.download_media_file(file_url, partial)
+            partial.replace(destination)
+        finally:
+            partial.unlink(missing_ok=True)
+        return destination.stat().st_size
+
+    return download
 
 
 def _csv_value(value) -> str:

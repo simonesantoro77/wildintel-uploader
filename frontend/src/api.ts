@@ -156,11 +156,11 @@ export const api = {
   // onEvent gets a progress message per step, and the last event is the done one with the result.
   syncCollections: (
     creds: TrapperCredentials, researchProject: ResearchProject, classificationProjectPk: number, collections: string[], deployments: string[],
-    onEvent: (event: SyncEvent) => void,
+    downloadImages: boolean, onEvent: (event: SyncEvent) => void,
   ) =>
     streamNdjson<SyncEvent>('/api/sync/collections', {
       ...creds, research_project_pk: researchProject.pk, research_project_name: researchProject.name,
-      research_project_acronym: researchProject.acronym ?? null, classification_project_pk: classificationProjectPk, collections, deployments,
+      research_project_acronym: researchProject.acronym ?? null, classification_project_pk: classificationProjectPk, collections, deployments, download_images: downloadImages,
     }, onEvent, 'The sync ended unexpectedly.'),
 
   saveLocalLocation: (researchProjectId: string, location: LocalLocation) =>

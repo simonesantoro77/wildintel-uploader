@@ -158,3 +158,14 @@ def test_a_deployment_cannot_end_before_it_starts(tmp_path: Path):
         svc.upsert_timestamp_log(tmp_path / "R0003", "R0003-DONA_01", END, START)
 
     assert not (tmp_path / "R0003").exists()  # nothing was created
+
+
+def test_a_research_project_in_two_folders_is_listed_once_from_the_one_named_by_its_acronym(tmp_path):
+    for folder in ("DONA_24_", "DONA_24", "WICP_01"):  # the first renamed by hand, the second made by a sync
+        (tmp_path / folder).mkdir()
+        acronym = "WICP_01" if folder == "WICP_01" else "DONA_24"
+        (tmp_path / folder / "research_project.json").write_text(json.dumps({"name": acronym, "acronym": acronym, "marker": folder}), encoding="utf-8")
+
+    listed = svc.list_research_projects(tmp_path)
+
+    assert [(p["acronym"], p["marker"]) for p in listed] == [("DONA_24", "DONA_24"), ("WICP_01", "WICP_01")]

@@ -331,9 +331,11 @@ Trapper is refused. The routes are `POST /api/repair/collections`, `/inspect` an
 
 `sync_service.sync_stream` reads Trapper only. Collections are those of the classification project
 whose name starts with `R`; a deployment goes to the one its id starts with
-(`R0003-DONA_01` → `R0003`); what the folder already has is kept; and the images aren't
-downloaded, so `images.json` is built from the resources Trapper lists, in the location's
-timezone. Deployments Trapper holds in a way that isn't a valid `DeploymentFields` are reported
+(`R0003-DONA_01` → `R0003`); what the folder already has is kept; and `images.json` is built from the resources Trapper lists, in the location's
+timezone. The images are downloaded only with `download_images`: `trapper_service.list_deployment_media` lists the files through the
+classification project's media — the URL that carries the access token (`?rt=`), without which Trapper answers 404 — and
+`file_downloader` fetches them, `DOWNLOAD_WORKERS` at a time, each written as `*.part` and moved into place; an image the project doesn't
+hold is reported in `downloaded.not_held`. Deployments Trapper holds in a way that isn't a valid `DeploymentFields` are reported
 in `failed`, not raised.
 
 ### Sessions

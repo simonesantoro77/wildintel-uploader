@@ -60,7 +60,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   folder gets what it lacks — the research project (`research_project.json`) and its `locations.json`, the collections
   starting with R (each with its `collection.json` and `<collection>_FileTimestampLog.csv`) and each deployment's
   `deployment.json`, a deployment going to the collection its id starts with. What is already there is kept as it is, nothing is
-  changed in Trapper and no image is downloaded, so no `preprocessing.json` is made. Each deployment also gets an `images.json` made
+  changed in Trapper and no image is downloaded unless asked for (*Also download the images from Trapper*: through the classification project's media, four at a time, the ones already there kept), so no `preprocessing.json` is made. Each deployment also gets an `images.json` made
   from what Trapper holds for its images (names, Trapper's pk, when they were taken, observation types, species and tags — not the
   size, the pixels nor the hashes), marked `"source": "trapper"`.
 - Every deployment kept locally gets an **`images.json`** beside its `deployment.json`: the number of images, the first and the

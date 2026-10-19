@@ -105,7 +105,7 @@ case.
 For deployments Trapper holds that this computer doesn't know: a classification project's
 collections (those starting with `R`), its research project, locations and chosen deployments are
 created in the collections folder — nothing is changed in Trapper, nothing already there is
-overwritten, and no image is downloaded. Their `images.json`, marked `"source": "trapper"`, is
+overwritten, and no image is downloaded unless asked for (four at a time, only those of the classification project: Trapper gives a file's access token only there). Their `images.json`, marked `"source": "trapper"`, is
 built from what Trapper lists for each image, so they feed the statistical checks of later
 revisions. Deployments Trapper holds in an invalid way are reported, not fatal.
 

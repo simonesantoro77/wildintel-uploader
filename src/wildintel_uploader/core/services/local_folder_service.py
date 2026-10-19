@@ -12,9 +12,12 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 COLLECTION_METADATA_FILE = "collection.json"
 DEPLOYMENT_METADATA_FILE = "deployment.json"
@@ -149,12 +152,21 @@ def list_research_projects(root: Path) -> list[dict]:
     exist yet (the first run)."""
     if not root.is_dir():
         return []
-    projects = []
+    # Two folders can say the same acronym (one renamed by hand, say): the project is listed once, from the folder the app itself
+    # would look in — the one named by the acronym — or else the first.
+    projects: dict[str, tuple[dict, bool]] = {}
     for entry in sorted(root.iterdir(), key=lambda e: e.name.lower()):
         metadata = _read_json(entry / RESEARCH_PROJECT_METADATA_FILE) if entry.is_dir() else None
-        if isinstance(metadata, dict):
-            projects.append(metadata)
-    return projects
+        if not isinstance(metadata, dict):
+            continue
+        key = str(metadata.get("acronym") or entry.name).lower()
+        named_by_acronym = entry.name == metadata.get("acronym")
+        if key in projects:
+            logger.warning("The research project %s is in more than one folder of %s (%s too): it is listed once.", key, root, entry.name)
+            if not named_by_acronym or projects[key][1]:
+                continue
+        projects[key] = (metadata, named_by_acronym)
+    return [metadata for metadata, _ in projects.values()]
 
 
 def write_research_project(root: Path, project: dict) -> dict:

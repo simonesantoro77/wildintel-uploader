@@ -43,7 +43,7 @@ def sync_collections(req: SyncCollectionsRequest) -> StreamingResponse:
         local_folder_service.project_dir(config.collections_dir(), project["acronym"] or str(project["pk"]))
     except local_folder_service.LocalFolderError as exc:
         raise HTTPException(400, str(exc)) from exc
-    events = sync_service.sync_stream(credentials, config.collections_dir(), project, req.classification_project_pk, req.collections, req.deployments)
+    events = sync_service.sync_stream(credentials, config.collections_dir(), project, req.classification_project_pk, req.collections, req.deployments, req.download_images)
 
     def lines() -> Iterator[str]:
         try:

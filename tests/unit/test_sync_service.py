@@ -151,3 +151,86 @@ def test_the_endpoint_lists_the_collections_and_their_deployments():
 
     assert response.json()["results"][0]["name"] == "R0003"
     assert "R0003-DONA_01" in response.json()["results"][0]["deployments"]
+
+
+# ── Downloading the images ───────────────────────────────────────────────────────────────────────────────────────────
+
+MEDIA = [  # what the classification project holds of R0003-DONA_01 (resource 91 is not in it)
+    {"pk": 90, "name": "R0003-DONA_01__20240701_1.JPEG", "url": "https://trapper.example.org/storage/resource/media/90/file/?rt=tok"},
+]
+
+
+def _fake_downloader(fail=()):
+    def download(url: str, destination: Path) -> int:
+        if destination.name in fail:
+            raise OSError("connection reset")
+        destination.write_bytes(b"\xff\xd8\xff" + url.encode())
+        return destination.stat().st_size
+    return lambda *credentials: download
+
+
+def _run_downloading(root: Path, media=MEDIA, fail=(), only=("R0003-DONA_01",)):
+    with patch("wildintel_uploader.core.services.sync_service.trapper_service.list_deployment_resources", return_value=RESOURCES), \
+         patch("wildintel_uploader.core.services.sync_service.trapper_service.list_deployment_media", return_value=media) as listed, \
+         patch("wildintel_uploader.core.services.sync_service.trapper_service.file_downloader", side_effect=_fake_downloader(fail)), \
+         patch("wildintel_uploader.core.services.sync_service.trapper_service.list_locations", return_value=LOCATIONS), \
+         patch("wildintel_uploader.core.services.sync_service.trapper_service.list_deployments", return_value=DEPLOYMENTS), \
+         patch("wildintel_uploader.core.services.sync_service.collection_names", return_value=["R0003"]):
+        return sync_service.sync(CREDS, root, PROJECT, 10, only_deployments=list(only), download_images=True), listed
+
+
+def test_the_images_are_not_downloaded_unless_asked(tmp_path: Path):
+    result = _run(tmp_path)
+
+    assert "downloaded" not in result
+    assert not list((tmp_path / "DONA" / "R0003" / "R0003-DONA_01").glob("*.JPEG"))
+
+
+def test_the_images_the_classification_project_holds_are_downloaded_into_the_deployment_folder(tmp_path: Path):
+    result, listed = _run_downloading(tmp_path)
+
+    folder = tmp_path / "DONA" / "R0003" / "R0003-DONA_01"
+    assert (folder / "R0003-DONA_01__20240701_1.JPEG").read_bytes().startswith(b"\xff\xd8\xff")
+    assert not list(folder.glob("*.part"))
+    listed.assert_called_once_with(*CREDS, 10, 1)  # the classification project, and the deployment's pk
+    assert result["downloaded"]["images"] == 1 and result["downloaded"]["deployments"] == {"R0003-DONA_01": 1}
+    assert result["downloaded"]["bytes"] > 3 and result["downloaded"]["failed"] == []
+    # Trapper lists two images for the deployment; the project holds one — the other is said, not hidden.
+    assert result["downloaded"]["not_held"] == {"R0003-DONA_01": ["R0003-DONA_01__20240702_2.JPEG"]}
+    assert json.loads((folder / "images.json").read_text(encoding="utf-8"))["source"] == "trapper"  # still a synced deployment
+
+
+def test_what_is_already_downloaded_is_kept_and_a_failure_does_not_stop_the_rest(tmp_path: Path):
+    media = MEDIA + [{"pk": 92, "name": "R0003-DONA_01__20240703_3.JPEG", "url": "https://trapper.example.org/x/92/?rt=t"},
+                     {"pk": 93, "name": "R0003-DONA_01__20240704_4.JPEG", "url": "https://trapper.example.org/x/93/?rt=t"}]
+    folder = tmp_path / "DONA" / "R0003" / "R0003-DONA_01"
+    folder.mkdir(parents=True)
+    (folder / "R0003-DONA_01__20240701_1.JPEG").write_bytes(b"mine")
+
+    result, _ = _run_downloading(tmp_path, media=media, fail={"R0003-DONA_01__20240703_3.JPEG"})
+
+    assert (folder / "R0003-DONA_01__20240701_1.JPEG").read_bytes() == b"mine"
+    assert (folder / "R0003-DONA_01__20240704_4.JPEG").is_file() and not (folder / "R0003-DONA_01__20240703_3.JPEG").exists()
+    assert result["downloaded"]["images"] == 1
+    assert result["downloaded"]["failed"] == [{"deployment_id": "R0003-DONA_01", "name": "R0003-DONA_01__20240703_3.JPEG", "error": "connection reset"}]
+
+
+def test_a_name_that_would_leave_the_deployment_folder_is_not_downloaded(tmp_path: Path):
+    result, _ = _run_downloading(tmp_path, media=[{"pk": 1, "name": "../../escape.JPEG", "url": "https://trapper.example.org/x/1/?rt=t"}])
+
+    assert result["downloaded"]["images"] == 0 and not (tmp_path / "escape.JPEG").exists()
+
+
+def test_the_download_is_asked_for_by_the_endpoint(tmp_path: Path):
+    from wildintel_uploader.web.main import app
+    seen = {}
+
+    def fake_stream(*args, **kwargs):
+        seen["download_images"] = args[6] if len(args) > 6 else kwargs.get("download_images")
+        yield {"type": "done"}
+
+    with patch("wildintel_uploader.web.api.routers.sync.sync_service.sync_stream", side_effect=fake_stream), \
+         patch("wildintel_uploader.web.api.routers.sync.resolve", return_value=CREDS):
+        TestClient(app).post("/api/sync/collections", json={"research_project_pk": 2, "research_project_acronym": "DONA", "classification_project_pk": 10, "download_images": True})
+
+    assert seen["download_images"] is True
