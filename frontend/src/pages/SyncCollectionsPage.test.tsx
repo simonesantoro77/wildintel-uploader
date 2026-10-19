@@ -30,6 +30,7 @@ describe('SyncCollectionsPage', () => {
 
     const sync = screen.getByRole('button', { name: 'Sync' })
     expect(sync).toBeDisabled()
+    expect(screen.getByRole('img', { name: 'Locked' })).toBeInTheDocument() // the sync waits for the choice
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByText('DONA — Doñana'))
     await userEvent.click(screen.getByLabelText('Classification project'))
@@ -50,6 +51,9 @@ describe('SyncCollectionsPage', () => {
     expect(result).toHaveTextContent('Images files (images.json): 1 created, 0 already there')
     expect(result).toHaveTextContent('R0003-DONA_04 — start_date: Value error')
     expect(result).toHaveTextContent('1 deployment of the research project are not in the collections of this classification project, so they were not created (collections R0009).')
+    expect(screen.getByText(/DONA › Doñana 2024 › R0003 · 1 deployment/)).toBeInTheDocument() // the summary of step 1
+    await userEvent.click(screen.getByRole('button', { name: 'Sync another collection' }))
+    expect(screen.queryByLabelText('Sync result')).not.toBeInTheDocument()
   })
 
   it('says why when Trapper cannot be read', async () => {

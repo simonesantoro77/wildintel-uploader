@@ -2,7 +2,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  Report, ReportSummary, RepairCollection, RepairEvent, RepairState,
+  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm,
 } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
@@ -31,12 +31,13 @@ function post<T>(url: string, body: unknown): Promise<T> {
  * onEvent; resolves on {"type": "done"}, rejects on {"type": "error"} — or
  * with endedEarly if the stream ends before either. */
 async function streamNdjson<E extends { type: string }>(
-  url: string, body: unknown, onEvent: (event: E) => void, endedEarly: string,
+  url: string, body: unknown, onEvent: (event: E) => void, endedEarly: string, signal?: AbortSignal,
 ): Promise<void> {
   const r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   })
   if (!r.ok || !r.body) throw new Error(await errorMessage(r))
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -258,12 +259,12 @@ export const api = {
   // as `mode` says, only shows what that would do, or only writes the files. The Trapper credentials are the saved ones.
   uploadDeployment: (
     researchProjectId: string, collection: string, deploymentId: string, mode: UploadMode,
-    onEvent: (event: UploadEvent) => void, classificationProjectPk: number | null = null,
+    onEvent: (event: UploadEvent) => void, classificationProjectPk: number | null = null, signal?: AbortSignal,
   ) =>
     streamNdjson<UploadEvent>('/api/upload/deployment', {
       research_project_id: researchProjectId, collection, deployment_id: deploymentId, mode,
       classification_project_pk: classificationProjectPk,
-    }, onEvent, 'The upload ended unexpectedly.'),
+    }, onEvent, 'The upload ended unexpectedly.', signal),
 
   // Whether ExifTool is installed — adding metadata needs it.
   // Opens a folder kept by the app (inside its data folder) in the system's file explorer.
@@ -296,6 +297,8 @@ export const api = {
     req<{ status: string }>(`/api/sessions/${taskId}`, { method: 'DELETE' }),
 
   getSettings: () => req<AppSettings>('/api/settings'),
+  /** The inputs of the Epicollect5 project saved in the settings. */
+  epicollectForm: () => req<EpicollectForm>('/api/epicollect/form'),
 
   saveSettings: (settings: AppSettingsUpdate) =>
     req<AppSettings>('/api/settings', {

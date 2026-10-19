@@ -4,11 +4,8 @@ import type { Task } from '../types'
 
 const TASK_OPTIONS: Option<Task>[] = [
   { value: 'deployment', emoji: '📷', title: 'Import deployment', description: 'Organize a folder of camera-trap images locally, then register the deployment in Trapper.', available: true },
-  { value: 'upload', emoji: '☁️', title: 'Upload deployment to Trapper', description: 'Pick a collection kept locally and send a deployment to Trapper — creating its location and the deployment there if they are missing.', available: true },
   { value: 'session', emoji: '🗂️', title: 'Import session', description: 'A folder with one subfolder per deployment: the revision, the checks and the preprocessing are common, the location and dates are asked for each.', available: true },
-  { value: 'upload-session', emoji: '📦', title: 'Upload session to Trapper', description: 'Send every deployment of a session kept locally to Trapper in one go.', available: false },
-  { value: 'repair', emoji: '🛠️', title: 'Repair local deployments', description: 'Check which deployments of a local collection are still valid — as their seal says — and write the metadata files of the others again from what their folders hold.', available: true },
-  { value: 'sync', emoji: '🔄', title: 'Sync local collections', description: 'Check the local folders against what Trapper has for a classification project, and create the ones missing: research project, locations, collections and deployments.', available: true },
+  { value: 'upload', emoji: '☁️', title: 'Upload deployment to Trapper', description: 'Pick a collection kept locally and send a deployment to Trapper — creating its location and the deployment there if they are missing.', available: true },
 ]
 
 interface Props {
@@ -21,6 +18,14 @@ export default function MenuPage({ onChoose }: Props) {
       <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
       <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">Choose one of the following.</p>
       <OptionCards options={TASK_OPTIONS} selected={null} onChoose={onChoose} />
+      <button
+        type="button" onClick={() => onChoose('utils')}
+        className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-600 dark:text-zinc-300 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+      >
+        <span className="text-lg">🧰</span>
+        <strong>Utils</strong>
+        <span className="text-zinc-500 dark:text-zinc-400">— repair local deployments, sync local collections</span>
+      </button>
     </div>
   )
 }

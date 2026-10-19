@@ -309,7 +309,7 @@ export interface PreprocessingOptions {
 }
 
 /** What the app's menu offers — import a deployment, import a whole session of them, or upload one to Trapper. */
-export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'sync' | 'repair'
+export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair'
 
 /** What syncing the local collections folder with Trapper did: for each kind of thing, what it created and what was already there. */
 export interface SyncResult {
@@ -488,7 +488,8 @@ export interface AppSettings {
   /** workers: how many images are validated or preprocessed at once; cpu_count: the CPUs this machine has (read-only). */
   GENERAL: { log_level: LogLevel; workers: number; cpu_count: number; log_file: string; log_level_override: string | null }
   TRAPPER: { base_url: string | null; user_name: string | null; has_password: boolean; max_zip_mb: number }
-  EPICOLLECT5: { project_slug: string | null; client_id: string | null; has_secret: boolean }
+  /** mapping: the ref of the Epicollect5 input that gives each field of a deployment (deployment field → ref). */
+  EPICOLLECT5: { project_slug: string | null; client_id: string | null; has_secret: boolean; mapping: Record<string, string> }
   /** The folder where the app keeps the images — its collections go in a "collections" folder inside. */
   DATA: { dir: string }
   VALIDATION: ValidationSettings
@@ -500,7 +501,7 @@ export interface AppSettings {
 export interface AppSettingsUpdate {
   GENERAL: { log_level: LogLevel; workers: number }
   TRAPPER: { base_url: string | null; user_name: string | null; user_password: string; max_zip_mb: number }
-  EPICOLLECT5: { project_slug: string | null; client_id: string | null; client_secret: string }
+  EPICOLLECT5: { project_slug: string | null; client_id: string | null; client_secret: string; mapping: Record<string, string> }
   DATA: { dir: string | null }
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
@@ -560,6 +561,8 @@ export interface UploadDeploymentInfo {
   end_date: string | null
   /** The images the preprocessing recorded — 0 for one imported before it existed. */
   images: number
+  /** What those images take on disk. */
+  bytes: number
   /** Only a preprocessed deployment can be uploaded. */
   preprocessed: boolean
   /** When it was last uploaded, if it was. */
@@ -578,9 +581,11 @@ export interface AccessCheck {
   check: 'research_project' | 'collection' | 'classification_project' | 'location' | 'uploader'
   ok: boolean
   message: string
+  /** For the collection: whether it is already in Trapper (else the upload creates it). */
+  found?: boolean
 }
 
-export type UploadStep = 'connect' | 'classification' | 'location' | 'deployment' | 'package' | 'csv' | 'upload' | 'process' | 'wait'
+export type UploadStep = 'check' | 'connect' | 'classification' | 'uploader' | 'location' | 'deployment' | 'package' | 'csv' | 'upload' | 'process' | 'wait'
 
 /** What an upload run does: send the deployment to Trapper; say what that would do, changing nothing
  * (a dry run); or only write the files (the zips, the yamls and the collection's deployments csv). */
@@ -590,14 +595,20 @@ export type UploadEvent =
   /** url: the page of what the step made or found, in Trapper's own web interface (the location, the deployment, the collection). */
   | { type: 'step'; step: UploadStep; status: 'running' | 'done' | 'skipped'; message: string; url?: string }
   | { type: 'upload_progress'; file: string; bytes: number; total: number }
+  /** The images going into the zips, a few at a time. */
+  | { type: 'pack_progress'; index: number; total: number }
+  /** The images are packed: how many went in, in how many packages, and what the packages weigh — what is to be sent. */
+  | { type: 'package_ready'; images: number; parts: number; bytes: number }
   | {
     type: 'done'; mode: UploadMode; collection: string; deployment_id: string; parts: number
     /** upload */
-    location_created?: boolean; deployment_created?: boolean
+    location_created?: boolean; deployment_created?: boolean; bytes?: number
     /** dry run */
     would_create_location?: boolean; would_create_deployment?: boolean
     /** generate */
-    output_dir?: string; files?: string[]
+    output_dir?: string; files?: string[]; images?: number
+    /** Each written file's size in bytes, by name. */
+    file_sizes?: Record<string, number>
   }
 
 // ── Reports ─────────────────────────────────────────────────────────────
@@ -671,3 +682,20 @@ export type RepairStep = 'inspect' | 'dates' | 'deployment' | 'preprocessing' | 
 export type RepairEvent =
   | { type: 'step'; step: RepairStep; status: 'running' | 'done' | 'skipped'; message: string }
   | { type: 'done'; deployment_id: string; images: number; written: string[]; problems: number; status: RepairState['status']; report_id: string | null }
+
+/** One input of the Epicollect5 project's form — what can be mapped onto a field of a deployment. */
+export interface EpicollectInput {
+  ref: string
+  label: string
+  /** Epicollect5's own: text, integer, decimal, date, time, location, dropdown, radio, checkbox… */
+  type: string
+  form: string
+  group: string | null
+  branch: string | null
+  options: string[]
+}
+
+export interface EpicollectForm {
+  project: { name: string; slug: string }
+  inputs: EpicollectInput[]
+}

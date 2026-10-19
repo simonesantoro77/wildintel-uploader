@@ -33,47 +33,56 @@ async function pickCollection() {
   await userEvent.click(await screen.findByRole('option', { name: /^R0003/ }))
 }
 
+const check = async () => userEvent.click(await screen.findByRole('button', { name: 'Check the deployments' }))
+
 describe('RepairPage', () => {
-  it('asks for a local research project and a collection, and lists the deployment folders of the collection', async () => {
+  it('asks for a local research project and a collection, and lists the deployment folders to check', async () => {
     await pickCollection()
 
     expect(mockedApi.repairCollections).toHaveBeenCalledWith('DONA')
     expect(await screen.findByText('R0003-DONA_01')).toBeInTheDocument()
     expect(screen.getByText('R0003-DONA_02')).toBeInTheDocument()
-    expect(screen.getAllByText('Not checked')).toHaveLength(3)
-    expect(screen.getByRole('button', { name: 'Repair 2 deployments' })).toBeEnabled() // the one from Trapper can't be
+    expect(screen.getByText('2 of 2 selected')).toBeInTheDocument() // the one from Trapper can't be
     expect(screen.getByRole('checkbox', { name: 'R0003-DONA_03' })).toBeDisabled()
+    expect(screen.getAllByRole('img', { name: 'Locked' })).toHaveLength(2) // the results and the repairs wait
   })
 
-  it('checks the deployments: valid is what the seal says, and it says what is wrong with the others and selects them', async () => {
+  it('checks only the chosen deployments: valid is what the seal says, and it says what is wrong with the others and selects them', async () => {
     await pickCollection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Check the deployments' }))
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'R0003-DONA_01' })) // leave this one out
+    await check()
 
     await screen.findByText('⚠ Not valid')
-    expect(mockedApi.repairInspect.mock.calls.map((c) => c[2])).toEqual(['R0003-DONA_01', 'R0003-DONA_02', 'R0003-DONA_03'])
-    expect(screen.getByText('✔ Valid')).toBeInTheDocument()
-    expect(screen.getByText('From Trapper')).toBeInTheDocument()
+    expect(mockedApi.repairInspect.mock.calls.map((c) => c[2])).toEqual(['R0003-DONA_02'])
     const problems = screen.getByLabelText('Problems of R0003-DONA_02')
     expect(problems).toHaveTextContent('deployment.json is missing')
     expect(problems).toHaveTextContent('1 image(s) changed since they were sealed')
-    expect(screen.getByRole('checkbox', { name: 'R0003-DONA_01' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'R0003-DONA_02' })).toBeChecked() // the not valid ones are what is left to do
+    expect(screen.getByRole('checkbox', { name: 'Repair R0003-DONA_02' })).toBeChecked() // the not valid ones are what is left to do
     expect(screen.getByRole('button', { name: 'Repair 1 deployment' })).toBeEnabled()
+    expect(screen.getByText('1 of 1 selected')).toBeInTheDocument()
   })
 
-  it('selects all, the not valid, or none', async () => {
+  it('shows the valid ones and says when there is nothing to repair', async () => {
     await pickCollection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Check the deployments' }))
-    await screen.findByText('⚠ Not valid')
-    const ticked = () => ['01', '02', '03'].filter((n) => (screen.getByRole('checkbox', { name: `R0003-DONA_${n}` }) as HTMLInputElement).checked)
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'R0003-DONA_02' }))
+    await check()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Select all' }))
-    expect(ticked()).toEqual(['01', '02']) // not the one synced from Trapper
-    await userEvent.click(screen.getByRole('button', { name: 'Select none' }))
-    expect(ticked()).toEqual([])
+    expect(await screen.findByText('✔ Valid')).toBeInTheDocument()
+    expect(await screen.findByText(/nothing to repair\./)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Repair \d/ })).not.toBeInTheDocument()
+  })
+
+  it('chooses which of the not valid to repair, and goes back to the first step', async () => {
+    await pickCollection()
+    await check()
+    await screen.findByText('⚠ Not valid')
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Select none' })[1]) // the one of the results
     expect(screen.getByRole('button', { name: 'Repair 0 deployments' })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Select the not valid' }))
-    expect(ticked()).toEqual(['02'])
+    expect(screen.getByRole('button', { name: 'Repair 1 deployment' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(await screen.findByRole('button', { name: 'Check the deployments' })).toBeEnabled()
   })
 
   it('repairs the chosen deployments in turn, shows each step and what it wrote, and looks at the deployment again', async () => {
@@ -82,9 +91,8 @@ describe('RepairPage', () => {
       onEvent({ type: 'step', step: 'dates', status: 'done', message: '2024-07-01 09:00:00 → 2024-07-01 12:00:00 (the timestamp log says so).' })
       onEvent({ type: 'done', deployment_id: id, images: 3, written: ['deployment.json', 'seal.json'], problems: 0, status: 'valid', report_id: null })
     })
-    mockedApi.repairInspect.mockResolvedValueOnce(state('R0003-DONA_01')).mockResolvedValueOnce(state('R0003-DONA_02', { status: 'broken' })).mockResolvedValueOnce(state('R0003-DONA_03', { status: 'synced' }))
     await pickCollection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Check the deployments' }))
+    await check()
     await screen.findByText('⚠ Not valid')
     mockedApi.repairInspect.mockResolvedValue(state('R0003-DONA_02')) // valid once repaired
     await userEvent.click(screen.getByRole('button', { name: 'Repair 1 deployment' }))
@@ -95,14 +103,18 @@ describe('RepairPage', () => {
     expect(await within(card).findByText(/Valid again — wrote deployment.json, seal.json/)).toBeInTheDocument()
     expect(await screen.findByText('1 deployment(s) repaired.')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByText('✔ Valid')).toHaveLength(2)) // both are valid now
+    await userEvent.click(screen.getByRole('button', { name: 'Check another collection' }))
+    expect(await screen.findByRole('button', { name: 'Check the deployments' })).toBeInTheDocument()
   })
 
   it('says when a repair fails, and goes on with the others', async () => {
+    mockedApi.repairInspect.mockImplementation(async (_rp, _c, id) => state(id, { status: 'broken' }))
     mockedApi.repairDeployment.mockImplementation(async (_rp, _c, id, onEvent) => {
       if (id === 'R0003-DONA_01') throw new Error("deployment.json can't be rebuilt: latitude: Input should be a valid number.")
       onEvent({ type: 'done', deployment_id: id, images: 3, written: ['seal.json'], problems: 0, status: 'valid', report_id: null })
     })
     await pickCollection()
+    await check()
     await userEvent.click(await screen.findByRole('button', { name: 'Repair 2 deployments' }))
 
     expect(await screen.findByText(/can't be rebuilt: latitude/)).toBeInTheDocument()

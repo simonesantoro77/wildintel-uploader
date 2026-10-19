@@ -9,6 +9,7 @@ import ResumeSessionsPage from './pages/ResumeSessionsPage'
 import SettingsPage from './pages/SettingsPage'
 import SyncCollectionsPage from './pages/SyncCollectionsPage'
 import UploadDeploymentPage from './pages/UploadDeploymentPage'
+import UtilsPage from './pages/UtilsPage'
 import WelcomePage from './pages/WelcomePage'
 import { api } from './api'
 import type { SessionSummary, Task, UploadTarget } from './types'
@@ -78,11 +79,13 @@ export default function App() {
         {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
         <div className={settingsOpen ? 'hidden' : ''}>
           {task === 'deployment'
-            ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} />
+            ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} onOpenSettings={() => setSettingsOpen(true)} />
             : task === 'session'
               ? <ImportSessionPage onUpload={goToUpload} />
               : task === 'upload'
-              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} />
+              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => setSettingsOpen(true)} />
+              : task === 'utils'
+              ? <UtilsPage onBack={() => setTask(null)} />
               : task === 'sync'
               ? <SyncCollectionsPage />
               : task === 'repair'

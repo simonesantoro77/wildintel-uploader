@@ -152,7 +152,7 @@ export default function ResearchProjectPicker({ value, onSelect, onError }: Prop
     <FormCard title="Research project" description="Those found in the collections folder.">
       {!adding ? (
         <>
-          <label className={labelClass} htmlFor="origin-research-project">Research project</label>
+          <label className="sr-only" htmlFor="origin-research-project">Research project</label>
           <Combobox
             id="origin-research-project" options={projects.map((p) => ({ value: p.acronym, label: `${p.acronym} — ${p.name}` }))}
             value={value} onChange={(id) => onSelect(projects.find((p) => p.acronym === id))}

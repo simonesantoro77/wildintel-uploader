@@ -1,7 +1,9 @@
-import ValidationDashboard from '../components/ValidationDashboard'
+import ValidationDashboard, { formatRun } from '../components/ValidationDashboard'
+import WizardStep from '../components/WizardStep'
+import { formatDay, formatPeriod } from '../dateFormat'
 import TrapperAccountNotice, { trapperAccountReady } from '../components/TrapperAccountNotice'
 import type { TrapperAccount } from '../components/TrapperAccountNotice'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { TrapperCredentials } from '../api'
@@ -13,7 +15,7 @@ import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
 import { isValidTimezone, knownTimezones, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import type {
-  AppSettings, CameraGroup, CollectionPath, PreprocessingOptions, SimilarityMethod, StatisticCheck, StatisticsParams, ExifField, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
+  Report, AppSettings, CameraGroup, CollectionPath, PreprocessingOptions, SimilarityMethod, StatisticCheck, StatisticsParams, ExifField, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   FeatureType, GuessedDetails, ImageCheck, ImportEvent, Location, LocalLocation, LocalResearchProject, PreviousDeployment, ResearchProject, ScanResult,
   SessionSummary, UploadTarget, ValidationResult,
 } from '../types'
@@ -127,6 +129,22 @@ function CheckboxField({ label, checked, onChange, hint }: { label: string; chec
   )
 }
 
+/** A yes/no field as a card with a switch — off means "not recorded", not "no". */
+function SwitchRow({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-5 py-4">
+      <div className="flex-1 min-w-0">
+        <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{label}</p>
+        <p className={`${hintClass} mt-0.5`}>{hint}</p>
+      </div>
+      <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)}
+              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${checked ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : ''}`} />
+      </button>
+    </div>
+  )
+}
+
 /** Each field's description, as worded by Camtrap DP's own
  * deployments-table-schema.json. */
 const DESCRIPTIONS = {
@@ -138,14 +156,14 @@ const DESCRIPTIONS = {
   coordinateUncertainty: 'Horizontal distance from the given latitude and longitude describing the smallest circle containing the deployment location. Expressed in meters. Especially relevant when coordinates are rounded to protect sensitive species.',
   timezone: "IANA timezone the camera's clock was set to (e.g. Europe/Madrid). It gives both dates their timezone designator.",
   setupBy: 'Name or identifier of the person or organization that deployed the camera.',
-  cameraID: 'Identifier of the camera used for the deployment (e.g. the camera device serial number).',
-  cameraModel: 'Manufacturer and model of the camera. Formatted as manufacturer-model.',
-  cameraDelay: 'Predefined duration after detection when further activity is ignored. Expressed in seconds.',
+  cameraID: 'The camera’s serial number.',
+  cameraModel: 'Manufacturer and model, written as manufacturer-model.',
+  cameraDelay: 'Predefined duration after detection when further activity is ignored.',
   cameraHeight: 'Height at which the camera was deployed. Expressed in meters. Not to be combined with camera depth.',
   cameraDepth: 'Depth at which the camera was deployed. Expressed in meters. Not to be combined with camera height.',
   cameraTilt: 'Angle at which the camera was deployed in the vertical plane. Expressed in degrees, with -90 facing down, 0 horizontal and 90 facing up.',
   cameraHeading: 'Angle at which the camera was deployed in the horizontal plane. Expressed in decimal degrees clockwise from north, with values ranging from 0 to 360: 0 = north, 90 = east, 180 = south, 270 = west.',
-  detectionDistance: 'Maximum distance at which the camera can reliably detect activity. Expressed in meters. Typically measured by having a human move in front of the camera.',
+  detectionDistance: 'Maximum distance at which the camera can reliably detect activity.',
   timestampIssues: 'True if timestamps in the media resource for the deployment are known to have (unsolvable) issues (e.g. unknown timezone, am/pm switch).',
   baitUse: 'True if bait was used for the deployment. More information can be provided in tags or comments.',
   featureType: 'Type of the feature (if any) associated with the deployment.',
@@ -303,6 +321,103 @@ export function CheckTable<T extends string>({ options, enabled, required, statu
   )
 }
 
+/** How strict a check is: it is skipped, only warns about what it finds, or must pass for the step to go on. */
+export type Strictness = 'skip' | 'warn' | 'must'
+
+const STRICTNESS_CHOICES: { value: Strictness; label: string }[] = [
+  { value: 'skip', label: 'Skip' }, { value: 'warn', label: 'Warn' }, { value: 'must', label: 'Must pass' },
+]
+
+export function strictnessOf(enabled: boolean, required: boolean): Strictness {
+  return !enabled ? 'skip' : required ? 'must' : 'warn'
+}
+
+/** The checks as a table of one row each, with how strict each is (skip, warn, must pass) and how it ended — the failed ones open
+ * the images that failed them. */
+export function StrictnessTable<T extends string>({ options, enabled, required, running, results = false, unit, describe, outcome, opened, onOpen, note, onChoose }: {
+  options: { value: T; label: string }[]; enabled: Set<T>; required: Set<T>
+  /** Whether the checks are being run now. */
+  running: boolean
+  /** The table of results: how strict each check was is only told, not chosen, and the checks are not editable. */
+  results?: boolean
+  /** What a failure counts, when it is not images — "deployment" for a session, whose checks are counted by the deployments that failed them. */
+  unit?: { one: string; many: string }
+  describe?: (value: T) => string | undefined
+  /** How a check ended: the images that failed it (null for a check of the whole folder). Undefined while it has no result. */
+  outcome: (value: T) => { failed: number; images: number | null } | undefined
+  opened?: T | null
+  onOpen?: (value: T) => void
+  /** What to say under a check that failed — its row gets a line of its own. */
+  note?: (value: T) => ReactNode
+  onChoose?: (value: T, strictness: Strictness) => void
+}) {
+  const th = 'px-4 py-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 sticky top-0 bg-zinc-50 dark:bg-zinc-800'
+  return (
+    <div className="max-h-[26rem] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-3">
+      <table className="w-full text-sm">
+        <thead>
+          <tr>
+            <th scope="col" className={`${th} w-12`}><span className="sr-only">Status</span></th>
+            <th scope="col" className={`${th} text-left`}>Check</th>
+            <th scope="col" className={`${th} text-center`}>How strict</th>
+            <th scope="col" className={`${th} text-right`}>Result</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+          {options.map((opt) => {
+            const runs = enabled.has(opt.value)
+            const current = strictnessOf(runs, required.has(opt.value))
+            const result = runs && !running ? outcome(opt.value) : undefined
+            const failed = result !== undefined && result.failed > 0
+            const status = checkStatus(runs, running, result ? !failed : null)
+            return (
+              <Fragment key={opt.value}>
+              <tr>
+                <td className="pl-4 py-3 text-center align-middle"><CheckStatusIcon status={status} required={current === 'must'} label={opt.label} /></td>
+                <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">
+                  <span className="font-medium">{opt.label}</span>
+                  {describe?.(opt.value) && <span className="block text-xs text-zinc-500 dark:text-zinc-400">{describe(opt.value)}.</span>}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {results ? (
+                    <span className="text-xs text-zinc-600 dark:text-zinc-300">{STRICTNESS_CHOICES.find((c) => c.value === current)!.label}</span>
+                  ) : (
+                  <div role="radiogroup" aria-label={`How strict: ${opt.label}`} className="inline-flex rounded-md border border-zinc-300 dark:border-zinc-600 overflow-hidden">
+                    {STRICTNESS_CHOICES.map((c) => (
+                      <button key={c.value} type="button" role="radio" aria-checked={current === c.value}
+                              className={`px-3 py-1.5 text-xs font-medium leading-tight transition-colors ${
+                                current === c.value ? 'bg-blue-600 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                              }`}
+                              onClick={() => onChoose?.(opt.value, c.value)}>{c.label}</button>
+                    ))}
+                  </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {!runs ? <span className="text-xs text-zinc-400 dark:text-zinc-500">Skipped</span> : result && (
+                    <button type="button" disabled={!failed || !onOpen} aria-expanded={failed ? opened === opt.value : undefined}
+                            aria-label={failed ? `${opened === opt.value ? 'Close' : 'Open'} the failures of ${opt.label}` : undefined}
+                            className="inline-flex flex-col items-end gap-0.5 enabled:hover:opacity-80" onClick={() => onOpen?.(opt.value)}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${failed ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'}`}>
+                        {failed ? 'Failed' : 'Passed'}
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">{!failed ? '0' : unit ? `${result.failed.toLocaleString('en-US')} ${result.failed === 1 ? unit.one : unit.many}` : result.images === null ? 'Whole folder' : `${result.failed.toLocaleString('en-US')} ${result.failed === 1 ? 'image' : 'images'}`}</span>
+                    </button>
+                  )}
+                </td>
+              </tr>
+              {failed && note?.(opt.value) && (
+                <tr><td /><td colSpan={3} className="px-4 pb-3 -mt-1 text-xs text-zinc-600 dark:text-zinc-400">{note(opt.value)}</td></tr>
+              )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 /** Whether a check is running, or how it ended: passed, or failed — which stops you if it is required to continue. */
 export function CheckStatusIcon({ status, required, label }: { status: CheckStatus; required: boolean; label: string }) {
   if (status === 'running') return <span role="status" aria-label={`${label}: running`} title="Running…" className="inline-flex"><SmallSpinner /></span>
@@ -341,9 +456,9 @@ export const ORIGIN_SOURCE_OPTIONS: Option<OriginSource>[] = [
 export const IMAGE_CHECK_OPTIONS: { value: ImageCheck; label: string }[] = [
   { value: 'corrupted', label: 'Corrupted images' },
   { value: 'sequence', label: 'Shooting order vs. filename sequence' },
-  { value: 'structure', label: 'Folder structure (subdirectories)' },
-  { value: 'camera', label: 'Same camera (model and id) on every image' },
-  { value: 'exif', label: 'Required EXIF fields (capture date, camera model and id)' },
+  { value: 'structure', label: 'Folder structure (subfolders)' },
+  { value: 'camera', label: 'Same camera on every image' },
+  { value: 'exif', label: 'Required photo data' },
   { value: 'duplicates', label: 'Duplicate images (same content)' },
 ]
 
@@ -367,6 +482,19 @@ export const DEPLOYMENT_CHECK_OPTIONS: { value: DeploymentCheck; label: string }
   { value: 'sequence_count', label: 'Number of sequences is like the previous revisions' },
   { value: 'sequence_length', label: 'Length of the sequences is like the previous revisions' },
 ]
+
+/** How the postvalidation names each check, and what it says it does. */
+export const DEPLOYMENT_CHECK_DISPLAY: Record<DeploymentCheck, { label: string; description: (locationId: string) => string }> = {
+  deployment_id: { label: 'Deployment id format', description: () => 'It follows the pattern R + revision number + location, like R0033-DONA_01.' },
+  collection_prefix: { label: 'Deployment id starts with its collection', description: () => 'The id begins with the collection you chose.' },
+  collection_name: { label: 'Collection name', description: () => 'The collection name is written correctly.' },
+  location: { label: "Deployment id's location is the one you chose", description: (id) => `The location in the id matches ${id}.` },
+  time_range: { label: 'Image dates fit the deployment', description: () => 'The first image is at the start and the last one at the end.' },
+  camera: { label: 'Camera consistency', description: () => 'Every image comes from one camera, the one the deployment says.' },
+  image_count: { label: 'Number of images is like the previous revisions', description: () => 'The number of images is close to that of the previous revisions.' },
+  sequence_count: { label: 'Number of sequences is like the previous revisions', description: () => 'The number of sequences is close to that of the previous revisions.' },
+  sequence_length: { label: 'Length of the sequences is like the previous revisions', description: () => 'The length of the sequences is close to that of the previous revisions.' },
+}
 
 export const STATISTIC_CHECKS: StatisticCheck[] = ['image_count', 'sequence_count', 'sequence_length']
 
@@ -446,23 +574,20 @@ const FEATURE_TYPE_OPTIONS: { value: FeatureType; label: string }[] = [
 ]
 
 // ── Step model ───────────────────────────────────────────────────────────────
-// The wizard's screens, in order: the folder of images, what can be checked of
-// it without knowing the deployment, where it was taken, the deployment's own
+// The wizard's screens, in order: the folder of images and what can be checked of
+// it without knowing the deployment (one screen, in three steps), where it was taken, the deployment's own
 // details, what can be checked once they are known, the list of what is done to
 // the images, and the import into the local collections folder.
 
-type StepKey = 'folder' | 'validate' | 'origin' | 'deployment' | 'checks' | 'preprocessing' | 'import'
+type StepKey = 'images' | 'origin' | 'checks' | 'prepare'
 
 interface StepDescriptor { key: StepKey; label: string }
 
 const STEPS: StepDescriptor[] = [
-  { key: 'folder', label: 'Folder' },
-  { key: 'validate', label: 'Validate' },
-  { key: 'origin', label: 'Origin' },
-  { key: 'deployment', label: 'Details' },
-  { key: 'checks', label: 'Postvalidation' },
-  { key: 'preprocessing', label: 'Preprocessing' },
-  { key: 'import', label: 'Import' },
+  { key: 'images', label: 'Images' },
+  { key: 'origin', label: 'Origin and dates' },
+  { key: 'checks', label: 'Check details' },
+  { key: 'prepare', label: 'Prepare and save' },
 ]
 
 /** The naming wildintel-tools expects: R + the revision as four digits, a
@@ -544,15 +669,223 @@ const DETAILS_SECTIONS: { id: DetailsSection; label: string; icon: ReactNode }[]
   { id: 'notes', label: 'Grouping and notes', icon: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /><line x1="10" x2="8" y1="9" y2="9" /></> },
 ]
 
+
+/** A list of short values — typed in and added one by one, shown as chips that can be taken out again. */
+function ChipEditor({ label, values, onChange, addLabel, placeholder, hint, suggestions }: {
+  label: string; values: string[]; onChange: (values: string[]) => void; addLabel: string; placeholder: string; hint?: string; suggestions?: string[]
+}) {
+  const [text, setText] = useState('')
+  const add = (value: string) => {
+    const v = value.trim()
+    if (v && !values.includes(v)) onChange([...values, v])
+    setText('')
+  }
+  const id = fieldId(label)
+  return (
+    <div>
+      <label className="block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300" htmlFor={id}>{label}</label>
+      {hint && <p className={`${hintClass} mb-2 mt-0`}>{hint}</p>}
+      <div className="flex gap-2">
+        <input id={id} className={`${inputClass} flex-1`} placeholder={placeholder} value={text} onChange={(e) => setText(e.target.value)}
+               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(text) } }} />
+        <button type="button" aria-label={addLabel} className={btnOutline} disabled={!text.trim()} onClick={() => add(text)}>Add</button>
+      </div>
+      {values.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {values.map((v) => (
+            <span key={v} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 dark:border-zinc-600 px-3 py-1 text-xs font-mono text-zinc-700 dark:text-zinc-300">
+              {v}
+              <button type="button" aria-label={`Remove ${v}`} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => onChange(values.filter((x) => x !== v))}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      {suggestions && suggestions.filter((x) => !values.includes(x)).length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <span>Suggestions:</span>
+          {suggestions.filter((x) => !values.includes(x)).map((x) => (
+            <button key={x} type="button" className="rounded-full border border-dashed border-zinc-300 dark:border-zinc-600 px-2.5 py-0.5 font-mono hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => add(x)}>{x}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A section of the details — shut until it is opened, with how much of it is filled in on its header: "3 of 7". */
+function SectionCard({ title, icon, filled, total, summary, optional = false, children }: { title: string; icon: ReactNode; filled: number; total: number; summary?: string; optional?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="rounded-lg border border-zinc-200 dark:border-zinc-700 mb-3" aria-label={title}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-zinc-500 dark:text-zinc-400">{icon}</svg>
+        <span className="min-w-0">
+          <span className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">{title}{optional && <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">optional</span>}</span>
+          {!open && summary && <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{summary}</span>}
+        </span>
+        <span className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${filled > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{filled} of {total} filled</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </section>
+  )
+}
+
+const HEADINGS: { label: string; degrees: number }[] = [
+  { label: 'N', degrees: 0 }, { label: 'NE', degrees: 45 }, { label: 'E', degrees: 90 }, { label: 'SE', degrees: 135 },
+  { label: 'S', degrees: 180 }, { label: 'SW', degrees: 225 }, { label: 'W', degrees: 270 }, { label: 'NW', degrees: 315 },
+]
+const roundPill = (active: boolean) => `px-4 py-2 text-sm font-medium rounded-full border transition-colors ${active ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`
+
+/** An angle in degrees: its label, a short input with the degree sign, the quick picks beside it, and one line on what it means. */
+function AngleRow({ label, value, onChange, min, max, placeholder, hint, error, children }: {
+  label: string; value: number | null | undefined; onChange: (v: number | null) => void; min: number; max: number; placeholder: string
+  hint: string; error?: string; children: ReactNode
+}) {
+  const id = fieldId(label)
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5" htmlFor={id}>{label}</label>
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative w-32">
+          <input id={id} type="number" min={min} max={max} step={1} placeholder={placeholder} aria-invalid={error ? true : undefined}
+                 className={`${inputClass} pr-8 ${error ? 'border-red-500 dark:border-red-500' : ''}`}
+                 value={value?.toString() ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)} />
+          <span aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500 dark:text-zinc-400 pointer-events-none">°</span>
+        </div>
+        {children}
+      </div>
+      {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
+      <p className={hintClass}>{hint}</p>
+    </div>
+  )
+}
+
+const TILTS: { label: string; degrees: number }[] = [{ label: 'Down −90°', degrees: -90 }, { label: 'Level 0°', degrees: 0 }, { label: 'Up 90°', degrees: 90 }]
+
+/** The optional details of a deployment — its camera, its site, its groups, tags and comments — as three cards, every field in view. */
+export function MoreDetailsForm({ deployment, errors, onField }: {
+  deployment: DeploymentFields; errors: ReturnType<typeof shownErrors>
+  onField: <K extends keyof DeploymentFields>(key: K, value: DeploymentFields[K]) => void
+}) {
+  const [mount, setMount] = useState<'above' | 'below'>(deployment.camera_depth != null ? 'below' : 'above')
+  const groups = (deployment.deployment_groups ?? '').split('|').map((g) => g.trim()).filter(Boolean)
+  const count = (values: unknown[]) => values.filter((v) => v != null && v !== '' && v !== false).length
+  const chooseMount = (next: 'above' | 'below') => {
+    setMount(next)
+    if (next === 'above') onField('camera_depth', null); else onField('camera_height', null)
+  }
+  const pill = (active: boolean) => `px-4 py-2 text-sm rounded-md border transition-colors ${active ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`
+  const small = (active: boolean) => `px-2.5 py-1 text-xs rounded-md border ${active ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`
+  const [camera, site, notes] = DETAILS_SECTIONS
+  const sum = (parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' · ')
+  const cameraSummary = sum([
+    deployment.camera_model, deployment.camera_id,
+    mount === 'above' ? deployment.camera_height != null && `${deployment.camera_height} m above the ground` : deployment.camera_depth != null && `${deployment.camera_depth} m below the surface`,
+    deployment.camera_tilt != null && `tilt ${deployment.camera_tilt}°`, deployment.camera_heading != null && `heading ${deployment.camera_heading}°`,
+    deployment.camera_interval != null && `delay ${deployment.camera_interval} s`, deployment.detection_distance != null && `detects up to ${deployment.detection_distance} m`,
+  ])
+  const siteSummary = sum([
+    FEATURE_TYPE_OPTIONS.find((o) => o.value === deployment.feature_type)?.label, deployment.habitat, deployment.setup_by && `set up by ${deployment.setup_by}`,
+    deployment.bait_use && 'bait used', deployment.timestamp_issues && 'photo dates may be wrong',
+  ])
+  const notesSummary = sum([groups.length > 0 && groups.join(', '), deployment.tags.length > 0 && `${deployment.tags.length} ${deployment.tags.length === 1 ? 'tag' : 'tags'}`, deployment.comments && 'comments'])
+  return (
+    <div>
+      <SectionCard title="Camera" icon={camera.icon} total={7} summary={cameraSummary}
+                   filled={count([deployment.camera_model, deployment.camera_id, mount === 'above' ? deployment.camera_height : deployment.camera_depth, deployment.camera_tilt, deployment.camera_heading, deployment.camera_interval, deployment.detection_distance])}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Camera model" placeholder="e.g. Reconyx-PC800" hint={DESCRIPTIONS.cameraModel}
+                 value={deployment.camera_model ?? ''} onChange={(v) => onField('camera_model', v || null)} />
+          <Field label="Camera id" placeholder="e.g. P800HG08192031" hint={DESCRIPTIONS.cameraID}
+                 value={deployment.camera_id ?? ''} onChange={(v) => onField('camera_id', v || null)} />
+        </div>
+
+        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mt-5 mb-1">How was it mounted?</p>
+        <p className={`${hintClass} mt-0 mb-2`}>A camera is either above the ground or below the surface (snow, ice, water) — so there is one measurement.</p>
+        <div className="flex gap-2 mb-3" role="group" aria-label="How was it mounted?">
+          <button type="button" aria-pressed={mount === 'above'} className={pill(mount === 'above')} onClick={() => chooseMount('above')}>Above the ground</button>
+          <button type="button" aria-pressed={mount === 'below'} className={pill(mount === 'below')} onClick={() => chooseMount('below')}>Below the surface</button>
+        </div>
+        <div className="max-w-xs">
+          {mount === 'above' ? (
+            <Field label="Height above the ground (m)" type="number" min={0} step="any" placeholder="e.g. 1.2" hint="Measured from the ground to the camera, in meters." error={errors.camera_height}
+                   value={deployment.camera_height?.toString() ?? ''} onChange={(v) => onField('camera_height', v ? Number(v) : null)} />
+          ) : (
+            <Field label="Depth below the surface (m)" type="number" min={0} step="any" placeholder="e.g. 4.8" hint="For underwater cameras, measured down from the surface, in meters." error={errors.camera_depth}
+                   value={deployment.camera_depth?.toString() ?? ''} onChange={(v) => onField('camera_depth', v ? Number(v) : null)} />
+          )}
+        </div>
+
+        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mt-5 mb-2">Where does it point?</p>
+        <div className="space-y-4">
+          <AngleRow label="Tilt" placeholder="e.g. -90" min={-90} max={90} value={deployment.camera_tilt} error={errors.camera_tilt}
+                    hint="Angle up or down: -90° faces the ground, 0° is level, 90° faces the sky." onChange={(v) => onField('camera_tilt', v)}>
+            {TILTS.map((t) => <button key={t.label} type="button" className={roundPill(deployment.camera_tilt === t.degrees)} onClick={() => onField('camera_tilt', t.degrees)}>{t.label}</button>)}
+          </AngleRow>
+          <AngleRow label="Heading" placeholder="e.g. 225" min={0} max={360} value={deployment.camera_heading} error={errors.camera_heading}
+                    hint="Compass direction, from 0° to 360°: 0 is north, 90 east, 180 south, 270 west." onChange={(v) => onField('camera_heading', v)}>
+            {HEADINGS.map((h) => <button key={h.label} type="button" aria-label={`Heading ${h.label}`} className={roundPill(deployment.camera_heading === h.degrees)} onClick={() => onField('camera_heading', h.degrees)}>{h.label}</button>)}
+          </AngleRow>
+        </div>
+
+        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mt-5 mb-2">How does it detect?</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Camera delay (s)" type="number" min={0} step={1} placeholder="e.g. 120" hint={DESCRIPTIONS.cameraDelay} error={errors.camera_interval}
+                 value={deployment.camera_interval?.toString() ?? ''} onChange={(v) => onField('camera_interval', v ? Number(v) : null)} />
+          <Field label="Detection distance (m)" type="number" min={0} step="any" placeholder="e.g. 9.5" hint={DESCRIPTIONS.detectionDistance} error={errors.detection_distance}
+                 value={deployment.detection_distance?.toString() ?? ''} onChange={(v) => onField('detection_distance', v ? Number(v) : null)} />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Site" icon={site.icon} total={5} summary={siteSummary} filled={count([deployment.feature_type, deployment.habitat, deployment.setup_by, deployment.bait_use, deployment.timestamp_issues])}>
+        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-1">What is the camera aimed at?</p>
+        <p className={`${hintClass} mt-0 mb-2`}>The kind of feature in view, if any.</p>
+        <div className="flex flex-wrap gap-2 mb-5" role="group" aria-label="Feature type">
+          {FEATURE_TYPE_OPTIONS.map((o) => (
+            <button key={o.value} type="button" aria-pressed={deployment.feature_type === o.value} className={small(deployment.feature_type === o.value)}
+                    onClick={() => onField('feature_type', deployment.feature_type === o.value ? null : o.value)}>{o.label}</button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Habitat" placeholder="e.g. Mediterranean scrub" hint={DESCRIPTIONS.habitat}
+                 value={deployment.habitat ?? ''} onChange={(v) => onField('habitat', v || null)} />
+          <Field label="Set up by" placeholder="e.g. Jakub Bubnicki" hint={DESCRIPTIONS.setupBy}
+                 value={deployment.setup_by ?? ''} onChange={(v) => onField('setup_by', v || null)} />
+        </div>
+        <div className="mt-4 space-y-3">
+          <SwitchRow label="Bait was used" hint="Say what it was in the tags or comments below." checked={!!deployment.bait_use} onChange={(v) => onField('bait_use', v || null)} />
+          <SwitchRow label="Photo dates may be wrong" hint="Turn on if the dates in the photos are known to be off and can’t be fixed, for example an unknown or wrong camera clock." checked={!!deployment.timestamp_issues} onChange={(v) => onField('timestamp_issues', v || null)} />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Grouping and notes" icon={notes.icon} optional total={3} summary={notesSummary} filled={count([groups.length || null, deployment.tags.length || null, deployment.comments])}>
+        <div className="space-y-5">
+          <ChipEditor label="Groups" values={groups} onChange={(v) => onField('deployment_groups', v.length ? v.join(' | ') : null)} addLabel="Add group"
+                      placeholder="e.g. season:winter 2025" hint="Which set the deployment belongs to — an array, a grid, a season. Preferably as key:value." />
+          <ChipEditor label="Tags" values={deployment.tags} onChange={(v) => onField('tags', v)} addLabel="Add tag" placeholder="e.g. forest edge"
+                      hint="Short words describing the deployment. Use key:value if you like." suggestions={['forest edge', 'bait:food', 'near water']} />
+          <TextAreaField label="Comments" hint={DESCRIPTIONS.deploymentComments} value={deployment.comments ?? ''} onChange={(v) => onField('comments', v || null)} />
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
 /** The period, then the rest of the fields one section at a time — chosen from a row of buttons, as a segmented control. */
-export function DeploymentFormBody({ deployment, timezone, errors, onField, datesGuessed, datesFromLog }: {
+export function DeploymentFormBody({ deployment, timezone, errors, onField, datesGuessed, datesFromLog, collapsible = false, periodOnly = false }: {
   deployment: DeploymentFields; timezone: string; errors: ReturnType<typeof shownErrors>
   onField: <K extends keyof DeploymentFields>(key: K, value: DeploymentFields[K]) => void
   datesGuessed: boolean
   /** The FileTimestampLog the dates were read from, if they were. */
   datesFromLog?: string
+  /** The import's look: the period in a card of its own, and the rest of the fields behind an "optional" panel that opens. */
+  collapsible?: boolean
+  /** With `collapsible`: the period only — the rest of the details have a step of their own. */
+  periodOnly?: boolean
 }) {
   const [section, setSection] = useState<DetailsSection>('camera')
+  const [moreOpen, setMoreOpen] = useState(false)
   // A section with a field that is wrong says so on its button, whichever is open.
   const flagged: Record<DetailsSection, boolean> = {
     camera: Boolean(errors.camera_interval || errors.detection_distance || errors.camera_height || errors.camera_depth || errors.camera_tilt || errors.camera_heading
@@ -560,25 +893,8 @@ export function DeploymentFormBody({ deployment, timezone, errors, onField, date
     site: false,
     notes: false,
   }
-  return (
+  const details = (
     <>
-    <div className="flex justify-end mb-3">
-      <button type="button" disabled title="Coming soon"
-              className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
-        Import info from Epicollect5 — coming soon
-      </button>
-    </div>
-    <FormCard title="Period" description="When the camera was recording. Pick a date from the calendar or type it.">
-      <div className="grid grid-cols-2 gap-4">
-        <DateTimeField label="Start date" required error={errors.start_date}
-                       value={deployment.start_date} onChange={(v) => onField('start_date', stampTimezone(v, timezone))} />
-        <DateTimeField label="End date" required error={errors.end_date}
-                       value={deployment.end_date ?? ''} onChange={(v) => onField('end_date', v ? stampTimezone(v, timezone) : null)} />
-      </div>
-      {datesGuessed && <p className={hintClass}>The dates were guessed from the images' EXIF data.</p>}
-      {datesFromLog && <p className={hintClass}>The dates were taken from {datesFromLog}, not from the images' EXIF data.</p>}
-    </FormCard>
-
     <div role="tablist" aria-label="Section of the details" className="grid grid-cols-3 gap-1 p-1 mb-4 rounded-lg bg-zinc-100 dark:bg-zinc-800/70">
       {DETAILS_SECTIONS.map(({ id, label, icon }) => (
         <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)}
@@ -655,6 +971,59 @@ export function DeploymentFormBody({ deployment, timezone, errors, onField, date
         </FormCard>
       </>
     )}
+    </>
+  )
+  return (
+    <>
+    {!collapsible && (
+    <div className="flex justify-end mb-3">
+      <button type="button" disabled title="Coming soon"
+              className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
+        Import info from Epicollect5 — coming soon
+      </button>
+    </div>
+    )}
+    {collapsible ? (
+      <FormCard title="Period" description="When the camera was recording.">
+        <div className="grid grid-cols-2 gap-4">
+          <DateTimeField label="Start" required error={errors.start_date}
+                         value={deployment.start_date} onChange={(v) => onField('start_date', stampTimezone(v, timezone))} />
+          <DateTimeField label="End" required error={errors.end_date}
+                         value={deployment.end_date ?? ''} onChange={(v) => onField('end_date', v ? stampTimezone(v, timezone) : null)} />
+        </div>
+        {datesGuessed && <p className="mt-3 flex items-center gap-2 rounded-md bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-xs text-blue-800 dark:text-blue-300"><span aria-hidden="true">ⓘ</span>Filled in from the images' photo data — change them if they're wrong</p>}
+        {datesFromLog && <p className={hintClass}>The dates were taken from {datesFromLog}, not from the images' EXIF data.</p>}
+      </FormCard>
+    ) : (
+      <FormCard title="Period" description="When the camera was recording. Pick a date from the calendar or type it.">
+            <div className="grid grid-cols-2 gap-4">
+              <DateTimeField label="Start date" required error={errors.start_date}
+                             value={deployment.start_date} onChange={(v) => onField('start_date', stampTimezone(v, timezone))} />
+              <DateTimeField label="End date" required error={errors.end_date}
+                             value={deployment.end_date ?? ''} onChange={(v) => onField('end_date', v ? stampTimezone(v, timezone) : null)} />
+            </div>
+            {datesGuessed && <p className={hintClass}>The dates were guessed from the images' EXIF data.</p>}
+            {datesFromLog && <p className={hintClass}>The dates were taken from {datesFromLog}, not from the images' EXIF data.</p>}
+          </FormCard>
+    )}
+
+    {collapsible && periodOnly ? null : collapsible ? (
+      <div className="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+          <span>
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">More details <span className="font-normal text-zinc-500 dark:text-zinc-400">optional</span></span>
+            <span className="block text-xs text-zinc-500 dark:text-zinc-400">Camera, site, grouping and notes. You can fill these in later.</span>
+          </span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${moreOpen ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        {moreOpen && (
+          <div className="px-4 pb-4">
+            {details}
+          </div>
+        )}
+      </div>
+    ) : details}
     </>
   )
 }
@@ -826,12 +1195,14 @@ interface Props {
   resumeSession?: SessionSummary
   /** Offered once a deployment is imported: goes to the upload page, on the collection it went into. */
   onUpload?: (target: UploadTarget) => void
+  /** Opens the settings — where the owner and publisher written into the images are set. */
+  onOpenSettings?: () => void
 }
 
 // Blank credentials: the backend uses the ones saved in the settings.
 const NO_CREDENTIALS: TrapperCredentials = {}
 
-export default function ImportDeploymentPage({ resumeSession, onUpload }: Props) {
+export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSettings }: Props) {
   const [step, setStep] = useState(resumeSession ? STEPS.findIndex((s) => s.key === 'origin') : 0)
 
   // The Trapper account is the one saved in the settings: nothing is asked for here, and the backend
@@ -924,10 +1295,15 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
   const [checkingDeployment, setCheckingDeployment] = useState(false)
   const [deploymentCheck, setDeploymentCheck] = useState<DeploymentCheckResult | null>(null)
   const [deploymentCheckError, setDeploymentCheckError] = useState<string | null>(null)
+  // Which section of the checks is open: 1 to choose them, 2 for how they went.
+  const [checksOpen, setChecksOpen] = useState(1)
+  const [deploymentCheckReport, setDeploymentCheckReport] = useState<Report | null>(null)
 
   // The preprocessing runs in its own step and leaves the deployment pending; the import step then consolidates (seals) it.
   const [preprocessing, setPreprocessing] = useState(false)
   const [preprocessEvents, setPreprocessEvents] = useState<ImportEvent[]>([])
+  // Whether the results of the preprocessing were gone over: step 2 shuts, and the saving opens.
+  const [resultsDone, setResultsDone] = useState(false)
   const [preprocessError, setPreprocessError] = useState<string | null>(null)
   const [preprocessed, setPreprocessed] = useState<ImportEvent | null>(null)
   const [importing, setImporting] = useState(false)
@@ -937,8 +1313,18 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
 
   const stepKey = STEPS[step]?.key
 
+  // The images screen is three steps: the folder, the checks, their results. The one open, and the furthest reached.
+  const [imagesOpen, setImagesOpen] = useState(1)
+  const [imagesReached, setImagesReached] = useState(1)
+  const [imagesReport, setImagesReport] = useState<Report | null>(null)
+  // The origin screen is two steps: where, and when. The one open, and the furthest reached.
+  const [originOpen, setOriginOpen] = useState(1)
+  const [originReached, setOriginReached] = useState(1)
+  const [moreMetadataOpen, setMoreMetadataOpen] = useState(false)
+  function openImagesStep(n: number) { setImagesOpen(n); setImagesReached((r) => Math.max(r, n)) }
+
   useEffect(() => {
-    if (stepKey !== 'validate' && stepKey !== 'checks' && stepKey !== 'preprocessing') return
+    if (stepKey !== 'images' && stepKey !== 'checks' && stepKey !== 'prepare') return
     let cancelled = false
     api.getSettings()
       .then((s) => {
@@ -953,7 +1339,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
 
   // Adding metadata needs ExifTool: find out when the preprocessing is listed.
   useEffect(() => {
-    if (stepKey !== 'preprocessing') return
+    if (stepKey !== 'prepare') return
     let cancelled = false
     api.exiftoolStatus()
       .then((s) => { if (!cancelled) setExiftool(s.available) })
@@ -999,7 +1385,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
   }, [resumeSession])
 
   useEffect(() => {
-    if (stepKey !== 'deployment' || !sourceDir || guessedFor.current === sourceDir) return
+    if (stepKey !== 'origin' || originOpen < 2 || !sourceDir || guessedFor.current === sourceDir) return
     guessedFor.current = sourceDir
     let cancelled = false
     let finished = false
@@ -1019,7 +1405,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
       .finally(() => { if (!cancelled) setGuessing(false) })
     return () => { cancelled = true; if (!finished) guessedFor.current = null; setGuessing(false) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepKey, sourceDir])
+  }, [stepKey, sourceDir, originOpen])
 
   async function handleBrowse() {
     setBrowsing(true); setBrowseError(null)
@@ -1027,6 +1413,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
       const { path } = await api.browseFolder()
       if (path) {
         setSourceDir(path); setScan(null); setValidation(null); setValidationError(null)
+        await handleScan(path)
       }
     } catch (e) {
       setBrowseError(e instanceof Error ? e.message : 'Could not open the folder browser.')
@@ -1035,14 +1422,14 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
     }
   }
 
-  async function handleScan() {
+  async function handleScan(dir: string = sourceDir) {
     setScanning(true); setScanError(null); setScan(null); setValidation(null); setValidationError(null)
     try {
-      const result = await api.scanFolder(sourceDir)
+      const result = await api.scanFolder(dir)
       setScan(result)
       setGuess(null); guessedFor.current = null  // the details are read from the images when they are asked for
       try {
-        const session = await api.saveScan(sourceDir, result, taskId ?? undefined)
+        const session = await api.saveScan(dir, result, taskId ?? undefined)
         setTaskId(session.task_id)
       } catch {
         // Best-effort — the run still works even if the session can't be saved.
@@ -1054,12 +1441,9 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
     }
   }
 
-  function toggleImageCheck(check: ImageCheck) {
-    setImageChecks((prev) => {
-      const next = toggled(prev, check)
-      if (!next.has(check)) setRequiredImageChecks((r) => (r.has(check) ? toggled(r, check) : r))
-      return next
-    })
+  function chooseImageCheckStrictness(check: ImageCheck, strictness: Strictness) {
+    setImageChecks((prev) => { const next = new Set(prev); if (strictness === 'skip') next.delete(check); else next.add(check); return next })
+    setRequiredImageChecks((prev) => { const next = new Set(prev); if (strictness === 'must') next.add(check); else next.delete(check); return next })
   }
 
   async function handleValidate() {
@@ -1323,13 +1707,14 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
     }))
   }
 
-  function toggleDeploymentCheck(check: DeploymentCheck) {
-    setDeploymentChecks((prev) => {
-      const next = toggled(prev, check)
-      if (!next.has(check)) setRequiredDeploymentChecks((r) => (r.has(check) ? toggled(r, check) : r))
-      return next
-    })
+  function chooseDeploymentCheckStrictness(check: DeploymentCheck, strictness: Strictness) {
+    setDeploymentChecks((prev) => { const next = new Set(prev); if (strictness === 'skip') next.delete(check); else next.add(check); return next })
+    setRequiredDeploymentChecks((prev) => { const next = new Set(prev); if (strictness === 'must') next.add(check); else next.delete(check); return next })
   }
+
+  useEffect(() => {
+    if (!deploymentCheck && !checkingDeployment && !deploymentCheckError) setChecksOpen(1)
+  }, [deploymentCheck, checkingDeployment, deploymentCheckError])
 
   async function handleCheckDeployment() {
     setCheckingDeployment(true); setDeploymentCheckError(null); setDeploymentCheck(null)
@@ -1372,7 +1757,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
   // deployment is known, work out where its collection goes by default — for the
   // postvalidation's checks and to say so at the import.
   useEffect(() => {
-    if (stepKey !== 'checks' && stepKey !== 'preprocessing' && stepKey !== 'import') return
+    if (stepKey !== 'checks' && stepKey !== 'prepare') return
     if (!researchProjectId || !deployment.deployment_id) return
     let cancelled = false
     api.collectionPath(researchProjectId, deployment.deployment_id)
@@ -1388,7 +1773,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
   // Whether the deployment the revision and the location name is already kept — said as soon as it can be known.
   useEffect(() => {
     const id = deployment.deployment_id
-    if (stepKey !== 'deployment' || !researchProjectId || !id) { setExistingFolder(null); return }
+    if (stepKey !== 'origin' || !researchProjectId || !id) { setExistingFolder(null); return }
     let cancelled = false
     api.existingDeployments(researchProjectId, [id])
       .then(({ results }) => { if (!cancelled) setExistingFolder(results[id] ?? null) })
@@ -1398,7 +1783,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
 
   // The revision starts as the next one expected for the location — one after the highest kept — until it is typed.
   useEffect(() => {
-    if (stepKey !== 'deployment' || !selectedProjectId || !deployment.location_id || revisionTouched.current) return
+    if (stepKey !== 'origin' || !selectedProjectId || !deployment.location_id || revisionTouched.current) return
     let cancelled = false
     api.nextRevision(selectedProjectId, deployment.location_id)
       .then(({ last, next }) => {
@@ -1417,7 +1802,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
   useEffect(() => {
     const id = deployment.deployment_id
     setFilledFrom(null)
-    if (stepKey !== 'deployment' || !researchProjectId || !id) { setPreviousRevision(null); return }
+    if (stepKey !== 'origin' || !researchProjectId || !id) { setPreviousRevision(null); return }
     let cancelled = false
     api.previousDeployments(researchProjectId, [id])
       .then(({ results }) => { if (!cancelled) setPreviousRevision(results[id] ?? null) })
@@ -1485,7 +1870,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
 
   // Going back to change anything before the preprocessing makes what it did stale: it is run again (the pending folder is simply redone).
   useEffect(() => {
-    if (STEPS[step].key !== 'preprocessing' && STEPS[step].key !== 'import') { setPreprocessed(null); setPreprocessEvents([]) }
+    if (STEPS[step].key !== 'prepare') { setPreprocessed(null); setPreprocessEvents([]) }
   }, [step])
 
   function preprocessOptions(): PreprocessingOptions {
@@ -1495,6 +1880,13 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
       coverage: preSettings.coverage, license_url: preSettings.license_url, research_project: selectedProject?.name ?? '',
       convert_to_utc: preSettings.convert_to_utc,
     }
+  }
+
+  useEffect(() => { if (preprocessed?.type !== 'done') setResultsDone(false) }, [preprocessed])
+
+  /** Back to choosing the steps: what was prepared is put aside, to prepare again. */
+  function handleEditPreprocessSteps() {
+    setPreprocessed(null); setPreprocessEvents([]); setPreprocessError(null)
   }
 
   async function handlePreprocess() {
@@ -1540,7 +1932,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
   }
 
   function handleStartOver() {
-    setStep(0)
+    setStep(0); setImagesOpen(1); setImagesReached(1); setOriginOpen(1); setOriginReached(1)
     setSourceDir(''); setScan(null); setScanError(null); setValidation(null); setValidationError(null)
     setGuess(null); guessedFor.current = null
     setImageChecks(new Set(['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates'])); setRequiredImageChecks(new Set())
@@ -1559,6 +1951,12 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
     setTaskId(null)
   }
 
+  /** Takes back what was copied from the previous revision: the optional details start empty again. */
+  function handleStartEmpty() {
+    setDeployment((d) => ({ ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) }))
+    setFilledFrom(null)
+  }
+
   function updateField<K extends keyof DeploymentFields>(key: K, value: DeploymentFields[K]) {
     setDeployment((d) => ({ ...d, [key]: value }))
   }
@@ -1575,105 +1973,210 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
       {/* Step indicator */}
       <div className="flex items-start mb-10">
         {STEPS.map((s, i) => (
-          <div key={s.key} className="flex items-start flex-1">
-            <div className="flex flex-col items-center" style={{ minWidth: 56 }}>
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold mb-1 text-sm ${
-                  i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
-                }`}
-              >
-                {i < step ? '✓' : i + 1}
-              </div>
-              <small className={`text-xs whitespace-nowrap ${i === step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                {s.label}
-              </small>
-            </div>
+          <div key={s.key} className="relative flex-1 flex flex-col items-center">
             {i < STEPS.length - 1 && (
-              <div className={`flex-1 border-t mx-1 mt-[18px] ${i < step ? 'border-emerald-500' : 'border-zinc-300 dark:border-zinc-700'}`} />
+              <div aria-hidden="true" className={`absolute top-[18px] left-[calc(50%+26px)] w-[calc(100%-52px)] border-t ${i < step ? 'border-emerald-500' : 'border-zinc-300 dark:border-zinc-700'}`} />
             )}
+            <div
+              className={`relative w-9 h-9 rounded-full flex items-center justify-center font-bold mb-1 text-sm ${
+                i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
+              }`}
+            >
+              {i < step ? '✓' : i + 1}
+            </div>
+            <small className={`text-xs text-center ${i === step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
+              {s.label}
+            </small>
           </div>
         ))}
       </div>
 
-      {/* ── Step: source folder ── */}
-      {stepKey === 'folder' && (
+      {/* ── Step: the images — their folder, the checks, the results ── */}
+      {stepKey === 'images' && (() => {
+        const folderName = sourceDir.split(/[\\/]/).filter(Boolean).pop() ?? sourceDir
+        const imageCount = scan ? `${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'image' : 'images'}` : ''
+        const mustCount = shownImageChecks.filter((o) => imageChecks.has(o.value) && requiredImageChecks.has(o.value)).length
+        const imagesUnlocked = (n: number) => (n === 1 ? true : n === 2 ? Boolean(scan) : Boolean(validation || validating || validationError))
+        const imagesStatus = (n: number): 'open' | 'done' | 'locked' | 'running' | 'error' => {
+          if (n === 3 && n === imagesOpen) return validating ? 'running' : validationError ? 'error' : 'open'
+          return n === imagesOpen ? 'open' : n <= imagesReached && imagesUnlocked(n) ? 'done' : 'locked'
+        }
+        const runChecks = () => { openImagesStep(3); handleValidate() }
+        return (
         <div>
-          <StepHeading>Source images folder</StepHeading>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Where the deployment's camera-trap images are, on this machine.</p>
-          <div className="mb-4 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-            Copy the images from the camera's memory card to a local folder first — don't point this at the card itself.
-          </div>
-          <div className="mb-2">
-            <label className={labelClass} htmlFor="source-dir">Folder path</label>
-            <div className="flex gap-2">
-              <input id="source-dir" className={`${inputClass} flex-1`} placeholder="/home/me/Pictures/R0001-SITE_01"
-                     value={sourceDir} onChange={(e) => { setSourceDir(e.target.value); setScan(null); setValidation(null); setValidationError(null) }} />
-              <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={browsing} onClick={handleBrowse}>
-                {browsing && <SmallSpinner />}
-                {browsing ? 'Browsing…' : 'Browse…'}
-              </button>
-              <button type="button" className={btnOutline} disabled={!sourceDir || scanning} onClick={handleScan}>
-                {scanning ? <SmallSpinner /> : 'Scan'}
+          <StepHeading>Images</StepHeading>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+            Select a folder with the camera-trap images, choose which checks to run, and validate the images before they go any further.
+          </p>
+          <div className="border-t border-zinc-200 dark:border-zinc-700" />
+          <WizardStep n={1} title="Select the folder" status={imagesStatus(1)} canEdit={!validating} onEdit={() => setImagesOpen(1)}
+                      description="Where the deployment's camera-trap images are, on this computer."
+                      summary={scan && <>{folderName}<br />{imageCount}</>}>
+            <div className="mb-4 flex items-center gap-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+              <span aria-hidden="true">⚠</span>
+              <span>Copy the images from the camera's memory card to a local folder first — don't point this at the card itself.</span>
+            </div>
+            <div className="mb-4">
+              <label className={labelClass} htmlFor="source-dir">Folder</label>
+              <div className="flex gap-2">
+                <input id="source-dir" className={`${inputClass} flex-1`} placeholder="/home/me/Pictures/R0001-SITE_01"
+                       value={sourceDir} onChange={(e) => { setSourceDir(e.target.value); setScan(null); setValidation(null); setValidationError(null) }} />
+                <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={browsing} onClick={handleBrowse}>
+                  {browsing && <SmallSpinner />}
+                  {browsing ? 'Browsing…' : 'Browse…'}
+                </button>
+              </div>
+              {browseError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{browseError}</p>}
+            </div>
+            {scanError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{scanError}</p>}
+            {scanning ? (
+              <div className="flex items-center gap-3 rounded border border-zinc-300 dark:border-zinc-700 px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                <SmallSpinner /> Scanning the folder…
+              </div>
+            ) : scan ? (
+              <div className={`flex items-center gap-3 rounded border px-4 py-3 ${
+                scan.image_count > 0
+                  ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40'
+                  : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40'
+              }`}>
+                <div aria-hidden="true" className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white font-bold ${scan.image_count > 0 ? 'bg-emerald-600' : 'bg-amber-600'}`}>
+                  {scan.image_count > 0 ? '✓' : '!'}
+                </div>
+                <div className="flex-1 min-w-0 text-sm">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {scan.image_count > 0 ? `${imageCount} found` : 'No images found'}
+                  </p>
+                  <p className="text-zinc-600 dark:text-zinc-400">
+                    {scan.file_count.toLocaleString('en-US')} {scan.file_count === 1 ? 'file' : 'files'} in the folder
+                    {scan.file_count > 0 && ` · ${scan.image_count === scan.file_count ? 'every file is an image' : `${(scan.file_count - scan.image_count).toLocaleString('en-US')} not ${scan.file_count - scan.image_count === 1 ? 'an image' : 'images'}`}`}
+                  </p>
+                  {scan.warnings.map((w, i) => <p key={i} className="text-amber-700 dark:text-amber-400">{w}</p>)}
+                </div>
+                <button type="button" className={btnOutline} onClick={() => handleScan()}>Scan again</button>
+              </div>
+            ) : sourceDir ? (
+              <button type="button" className={btnOutline} onClick={() => handleScan()}>Scan</button>
+            ) : null}
+            <div className="flex justify-end mt-4">
+              <button type="button" aria-label="Continue to the checks" className={btnPrimary} disabled={!scan || scanning} onClick={() => openImagesStep(2)}>Continue<span aria-hidden="true"> →</span></button>
+            </div>
+          </WizardStep>
+
+          <WizardStep n={2} title="Choose the checks" status={imagesStatus(2)} canEdit={!validating} onEdit={() => setImagesOpen(2)}
+                      description="Choose which checks to run over the images, and how strict each one should be."
+                      summary={<>{runnableImageChecks.length} {runnableImageChecks.length === 1 ? 'check' : 'checks'} to run{mustCount > 0 && ` · ${mustCount} must pass`}</>}>
+            {shownImageChecks.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
+                Every validation check is turned off in the settings, so there is nothing to run here — go on.
+              </p>
+            ) : (
+              <>
+                <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={false}
+                                 describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]} outcome={() => undefined} onChoose={chooseImageCheckStrictness} />
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+                  <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Skip</strong> doesn't run the check · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Warn</strong> shows the problems but lets you continue · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Must pass</strong> blocks you until it passes.
+                </p>
+              </>
+            )}
+            <div className="flex items-center justify-between gap-3 mt-4">
+              <button type="button" className={btnOutline} onClick={() => setImagesOpen(1)}><span aria-hidden="true">← </span>Back</button>
+              <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={runnableImageChecks.length === 0 || validating} onClick={runChecks}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>Run checks
               </button>
             </div>
-            {browseError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{browseError}</p>}
-            {scanError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{scanError}</p>}
-            {scan && (
-              <div className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {scan.file_count} file(s), {scan.image_count} image(s)
-                {scan.warnings.map((w, i) => <p key={i} className="text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+          </WizardStep>
 
-      {/* ── Step: validate folder contents ── */}
-      {stepKey === 'validate' && (
-        <div>
-          <StepHeading>Validate folder contents</StepHeading>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            Pick which checks to run over the scanned images, and which of them must pass before moving on.
-          </p>
-          {shownImageChecks.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-              Every validation check is turned off in the settings, so there is nothing to run here — go on.
-            </p>
-          ) : (
+          <WizardStep n={3} title="Results" status={imagesStatus(3)} canEdit={!validating} onEdit={() => setImagesOpen(3)}
+                      description={imagesReport && !validating
+                        ? <>Last run {formatRun(imagesReport.created_at)} · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={api.reportUrl(imagesReport.id, 'csv')} download>Download report</a></>
+                        : 'How each check went, and the images that failed them.'}
+                      summary={validation && (requiredImageChecksOk ? 'Checks run — you can continue' : 'A check set to Must pass failed')}
+                      badge={validating ? 'Checking…' : undefined} expanded={imagesOpen === 3}
+                      action={validation && imagesOpen === 3 ? (
+                        <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={validating || runnableImageChecks.length === 0} onClick={handleValidate}>
+                          {validating ? <SmallSpinner /> : null}{validating ? 'Checking…' : 'Run again'}
+                        </button>
+                      ) : undefined}>
             <ValidationDashboard
-              title="Validation" subtitle={`${sourceDir.split(/[\\/]/).filter(Boolean).pop() ?? sourceDir}${scan ? ` · ${scan.image_count} image(s)` : ''}`}
+              variant="steps" onReport={setImagesReport} runLabel="Run again" runningLabel="Checking…" title={folderName} subtitle={imageCount}
               reportId={validation?.report_id ?? null} running={validating} canRun={runnableImageChecks.length > 0} onRun={handleValidate}
             >
-              {({ report, openCheck, open }) => (
-                <CheckTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks}
-                            status={(c) => checkStatus(imageChecks.has(c), validating, imageCheckPassed(c, validation))}
-                            describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]}
-                            outcome={(c) => { const r = report?.checks[c]; return r ? { failed: r.failed, images: r.scope === 'images' ? r.failed : null } : undefined }}
-                            opened={openCheck as ImageCheck | null} onOpen={open}
-                            onToggleEnabled={toggleImageCheck} onToggleRequired={(v) => setRequiredImageChecks((s) => toggled(s, v))}
-                            onSetEnabled={setImageChecks} onSetRequired={setRequiredImageChecks} />
-              )}
+              {({ report, openCheck, open }) => {
+                const problems = report ? shownImageChecks.filter((o) => (report.checks[o.value]?.failed ?? 0) > 0) : []
+                const blocking = problems.filter((o) => requiredImageChecks.has(o.value) && imageChecks.has(o.value))
+                const issueImages = report?.totals.images_with_issues ?? 0
+                const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
+                return (
+                  <>
+                    {report && (
+                      <div role="status" className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+                        problems.length === 0
+                          ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                          : blocking.length > 0
+                            ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
+                            : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                      }`}>
+                        {problems.length === 0
+                          ? 'Every check passed.'
+                          : <>{plural(problems.length, 'check found', 'checks found')} problems in {plural(issueImages, 'image', 'images')}. {
+                              blocking.length > 0
+                                ? `${plural(blocking.length, 'is', 'are')} set to Must pass — resolve ${blocking.length === 1 ? 'it' : 'them'} to continue.`
+                                : requiredImageChecks.size === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
+                            }</>}
+                      </div>
+                    )}
+                    <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={validating} results
+                                     describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]}
+                                     outcome={(c) => { const r = report?.checks[c]; return r ? { failed: r.failed, images: r.scope === 'images' ? r.failed : null } : undefined }}
+                                     opened={openCheck as ImageCheck | null} onOpen={open} />
+                  </>
+                )
+              }}
             </ValidationDashboard>
-          )}
-          {validationError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{validationError}</p>}
-          {/* The report says it all; the plain lines are only for when it couldn't be written. */}
-          {validation && !validation.report_id && <ValidationReport validation={validation} />}
+            {validationError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{validationError}</p>}
+            {/* The report says it all; the plain lines are only for when it couldn't be written. */}
+            {validation && !validation.report_id && <ValidationReport validation={validation} />}
+          </WizardStep>
         </div>
-      )}
+        )
+      })()}
 
-      {/* ── Step: where the images were taken ── */}
-      {stepKey === 'origin' && (
+      {/* ── Step: where and when the images were taken ── */}
+      {stepKey === 'origin' && (() => {
+        const folderName = sourceDir.split(/[\\/]/).filter(Boolean).pop() ?? sourceDir
+        const chip = 'rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1 text-xs text-zinc-700 dark:text-zinc-300'
+        const whenOpen = originOpen === 2 && originReady
+        const moreOpen = originOpen === 3 && originReady
+        const originStatus = (n: number): 'open' | 'done' | 'locked' => {
+          if (n === 1) return !whenOpen && !moreOpen ? 'open' : 'done'
+          if (n === 2) return whenOpen ? 'open' : originReady && originReached >= 2 ? 'done' : 'locked'
+          return moreOpen ? 'open' : originReady && originReached >= 3 ? 'done' : 'locked'
+        }
+        const moreFilled = [deployment.camera_id, deployment.camera_model, deployment.camera_height, deployment.camera_depth, deployment.camera_tilt, deployment.camera_heading, deployment.camera_interval,
+          deployment.detection_distance, deployment.feature_type, deployment.habitat, deployment.setup_by, deployment.bait_use, deployment.timestamp_issues, deployment.deployment_groups, deployment.comments,
+          deployment.tags.length || null].filter((v) => v != null && v !== '' && v !== false).length
+        return (
         <div>
-          <StepHeading>Where was it taken?</StepHeading>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-            The research project and the location the images come from. They are kept in the collections folder — pick one that
-            is already there, or add a new one, by hand or from Trapper.
-          </p>
+          <div className="flex flex-wrap gap-2 mb-6">
+            {scan && <span className={chip}>{scan.image_count.toLocaleString('en-US')} {scan.image_count === 1 ? 'image' : 'images'}</span>}
+            <span className={`${chip} font-mono`}>{folderName}</span>
+          </div>
 
+          <StepHeading>Origin and dates</StepHeading>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+            Say where the images were taken and when they were collected, then add what you know about the camera and the site — the rest can wait.
+          </p>
+          <div className="border-t border-zinc-200 dark:border-zinc-700" />
+          <WizardStep n={1} title="Where was it taken?" status={originStatus(1)} canEdit onEdit={() => setOriginOpen(1)}
+                      description="The research project and the location the images come from. They are kept in the collections folder — pick one that is already there, or add a new one, by hand or from Trapper."
+                      summary={selectedProject && selectedLocation && <>
+                        {selectedProject.acronym} · {selectedLocation.location_id}{selectedLocation.name ? `, ${selectedLocation.name}` : ''}<br />
+                        {selectedLocation.latitude != null && selectedLocation.longitude != null && <>GPS {selectedLocation.latitude}, {selectedLocation.longitude} · </>}Timezone {timezone || 'unknown'}
+                      </>}>
           <FormCard title="Research project" description="Those found in the collections folder.">
             {!addingProject ? (
               <>
-                <label className={labelClass} htmlFor="origin-research-project">Research project</label>
+                <label className="sr-only" htmlFor="origin-research-project">Research project</label>
                 <Combobox
                   id="origin-research-project" options={localProjects.map((p) => ({ value: p.acronym, label: `${p.acronym} — ${p.name}` }))}
                   value={selectedProjectId} onChange={(id) => selectProject(localProjects.find((p) => p.acronym === id))}
@@ -1865,42 +2368,58 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
           )}
 
           {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
-        </div>
-      )}
+            <div className="flex justify-end mt-4">
+              <button type="button" aria-label="Continue to the dates" className={btnPrimary} disabled={!originReady} onClick={() => { setOriginOpen(2); setOriginReached(2) }}>Continue<span aria-hidden="true"> →</span></button>
+            </div>
+          </WizardStep>
 
-      {/* ── Step: deployment details ── */}
-      {stepKey === 'deployment' && (
-        <div>
-          <StepHeading>Deployment details</StepHeading>
-          {guessing && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Reading the dates and the camera from the images…</p>}
-
-          {(
-            <>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 mb-5">
-                <LocationTimeNote locationId={deployment.location_id} latitude={deployment.latitude} longitude={deployment.longitude} timezone={timezone} ignoreDst={ignoreDst} />
-                Tell us about the deployment. Its names and dates are checked next.
-              </p>
-
-              <FormCard title="Identification" description="The revision number and the location give the deployment its id.">
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Revision" type="number" required min={1} max={9999} step={1} placeholder="e.g. 3"
-                         hint={revisionHint ?? 'The revision the images belong to: 1, 2, 3…'}
-                         error={revision.trim() !== '' && !revisionValid ? 'Must be a whole number between 1 and 9999.' : undefined}
-                         value={revision} onChange={handleRevisionChange} />
-                  <Field label="Deployment id" readOnly placeholder="Filled in from the revision and the location"
-                         hint={`R + the revision as four digits + “-” + the location id, e.g. R0003-DONA_01. ${DESCRIPTIONS.deploymentID}`}
-                         error={fieldErrors.deployment_id} value={deployment.deployment_id} onChange={() => {}} />
-                </div>
-                {previousRevision && (
-                  <div className="mt-3 rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm text-blue-900 dark:text-blue-200">
-                    <p>
-                      There is an earlier revision of this deployment, <span className="font-mono">{previousRevision.deployment_id}</span>.
-                      Do you want to fill this form in from it? Everything is copied except the start and end dates.
-                    </p>
-                    <div className="mt-2 flex items-center gap-3 flex-wrap">
-                      <button type="button" className={btnOutline} onClick={handleFillFromPrevious}>Fill in from {previousRevision.deployment_id}</button>
-                      {filledFrom && <span role="status" className="text-xs text-blue-800 dark:text-blue-300">Filled in from {filledFrom} — check the camera, site and notes below.</span>}
+          <WizardStep n={2} title="When was it collected?" status={originStatus(2)} canEdit onEdit={() => setOriginOpen(2)}
+                      action={<button type="button" disabled title="Coming soon"
+                                      className="rounded-md border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-sm text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
+                        Import info from Epicollect5 — coming soon
+                      </button>}
+                      description={!timezone
+                        ? <span className="text-red-600 dark:text-red-400">The location <strong>{deployment.location_id}</strong> has no timezone, and a deployment needs it: add it to the location.</span>
+                        : <>Tell us when the images of <strong>{deployment.location_id}</strong> were collected. Times are in <strong>{timezone}</strong>, which {ignoreDst ? 'has no daylight saving time' : 'follows daylight saving time'}.</>}
+                      summary={deployment.start_date && <>{deployment.deployment_id}<br />{deployment.start_date.slice(0, 10)} → {deployment.end_date?.slice(0, 10) ?? '…'}</>}>
+            {guessing && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">Reading the dates and the camera from the images…</p>}
+              <FormCard title="Which revision is this?">
+                <div className="flex items-end gap-6 flex-wrap">
+                  <div>
+                    <div className="flex items-baseline gap-3 mb-1.5">
+                      <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300" htmlFor="field-revision">Revision</label>
+                      <span className="text-xs text-blue-600 dark:text-blue-400">Required</span>
                     </div>
+                    <div className="inline-flex items-stretch rounded-lg border border-zinc-300 dark:border-zinc-600 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                      <button type="button" aria-label="Lower the revision number" disabled={!revisionValid || Number(revision) <= 1}
+                              className="w-12 text-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-40"
+                              onClick={() => handleRevisionChange(String(Number(revision) - 1))}>−</button>
+                      <input id="field-revision" type="number" min={1} max={9999} step={1} placeholder="e.g. 3" value={revision}
+                             onChange={(e) => handleRevisionChange(e.target.value)}
+                             className="w-20 text-center bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                      <button type="button" aria-label="Raise the revision number" disabled={revisionValid && Number(revision) >= 9999}
+                              className="w-12 text-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-40"
+                              onClick={() => handleRevisionChange(String((revisionValid ? Number(revision) : 0) + 1))}>+</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5" htmlFor="field-deployment-id">Deployment Id</label>
+                    <input id="field-deployment-id" readOnly value={deployment.deployment_id} placeholder="Filled in from the revision"
+                           className="rounded-full border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-4 py-2 font-mono text-sm text-zinc-800 dark:text-zinc-200 w-64 max-w-full" />
+                  </div>
+                </div>
+                {revision.trim() !== '' && !revisionValid && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Must be a whole number between 1 and 9999.</p>}
+                {fieldErrors.deployment_id && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.deployment_id}</p>}
+                <p className={hintClass}>1 for the first visit to this location, 2 for the second, and so on.{revisionHint ? ` ${revisionHint}` : ''}</p>
+                {previousRevision && (
+                  <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                    <span className="flex-1 min-w-[14rem]">
+                      Revision {previousRevision.revision} is on file for <strong>{deployment.location_id}</strong> (<span className="font-mono">{previousRevision.deployment_id}</span>).
+                      Copy its camera, site and notes? Dates are never copied — each revision has its own.
+                      {filledFrom && <span role="status" className="block mt-1 text-xs text-blue-800 dark:text-blue-300">Filled in from {filledFrom} — check the camera, site and notes in More details.</span>}
+                    </span>
+                    <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
                   </div>
                 )}
                 {existingFolder && (
@@ -1911,52 +2430,145 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
                 )}
               </FormCard>
 
-              <DeploymentFormBody deployment={deployment} timezone={timezone} errors={fieldErrors}
+              <DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors}
                                   onField={updateField}
                                   datesGuessed={Boolean(guess?.start_date)} />
-            </>
-          )}
-        </div>
-      )}
+              <div className="flex justify-end mt-4">
+                <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
+              </div>
+          </WizardStep>
 
-      {/* ── Step: postvalidation ── */}
-      {stepKey === 'checks' && (
+          <WizardStep n={3} title="More details" status={originStatus(3)} canEdit onEdit={() => { setOriginOpen(3); setOriginReached(3) }}
+                      description="Everything here is optional. Fill in what you know now — you can add the rest later."
+                      summary={moreFilled > 0 ? `${moreFilled} ${moreFilled === 1 ? 'detail' : 'details'} filled in` : 'Nothing filled in yet'}>
+            {filledFrom && (
+              <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 text-sm text-emerald-900 dark:text-emerald-100">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg>
+                <span className="flex-1"><strong className="font-semibold">Filled in from {filledFrom}.</strong> Change anything that&rsquo;s different this time.</span>
+                <button type="button" className="rounded-lg border border-emerald-400 dark:border-emerald-800 px-4 py-2 text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40" onClick={handleStartEmpty}>Start empty</button>
+              </div>
+            )}
+            <MoreDetailsForm deployment={deployment} errors={fieldErrors} onField={updateField} />
+          </WizardStep>
+        </div>
+        )
+      })()}
+
+      {/* ── Step: check the details ── */}
+      {stepKey === 'checks' && (() => {
+        const chip = 'rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1 text-xs text-zinc-700 dark:text-zinc-300'
+        const date = (iso: string | null | undefined, year: boolean) => (iso ? formatDay(iso, year) : '…')
+        const sameYear = deployment.start_date.slice(0, 4) === (deployment.end_date ?? '').slice(0, 4)
+        const location = localLocations.find((l) => l.location_id === deployment.location_id)
+        const imageCount = scan ? `${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'image' : 'images'}` : ''
+        return (
         <div>
-          <StepHeading>Postvalidation</StepHeading>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            Now that you know when, how and where the images were taken, new validation tests are run: the deployment's names and
-            dates against wildintel-tools' own rules, and the images against the deployment. Pick which to run, and which must pass
-            before moving on.
-          </p>
-          {shownDeploymentChecks.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-              Every postvalidation check is turned off in the settings, so there is nothing to run here — go on.
-            </p>
-          ) : (
-            <ValidationDashboard
-              title="Postvalidation" subtitle={`${deployment.deployment_id}${scan ? ` · ${scan.image_count} image(s)` : ''}`}
-              reportId={deploymentCheck?.report_id ?? null} running={checkingDeployment} canRun={runnableDeploymentChecks.length > 0}
-              onRun={handleCheckDeployment} runLabel="Run checks" runningLabel="Checking…"
-            >
-              {({ report, openCheck, open }) => (
-                <CheckTable options={shownDeploymentChecks} enabled={deploymentChecks} required={requiredDeploymentChecks}
-                            status={(c) => checkStatus(deploymentChecks.has(c), checkingDeployment, deploymentCheckPassed(c, deploymentCheck))}
-                            outcome={(c) => { const r = report?.checks[c]; return r ? { failed: r.failed, images: r.scope === 'images' ? r.failed : null } : undefined }}
-                            opened={openCheck as DeploymentCheck | null} onOpen={open}
-                            onToggleEnabled={toggleDeploymentCheck} onToggleRequired={(v) => setRequiredDeploymentChecks((s) => toggled(s, v))}
-                            onSetEnabled={setDeploymentChecks} onSetRequired={setRequiredDeploymentChecks} />
-              )}
-            </ValidationDashboard>
-          )}
-          {deploymentCheckError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{deploymentCheckError}</p>}
-          {deploymentCheck && !deploymentCheck.report_id && <DeploymentCheckReport result={deploymentCheck} toleranceHours={toleranceHours} />}
-        </div>
-      )}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {imageCount && <span className={chip}>{imageCount}</span>}
+            <span className={`${chip} font-mono`}>{deployment.deployment_id}</span>
+            {location?.name && <span className={chip}>{location.name}</span>}
+            {deployment.start_date && <span className={chip}>{date(deployment.start_date, !sameYear)} → {date(deployment.end_date, true)}</span>}
+          </div>
 
-      {/* ── Step: preprocessing ── */}
-      {stepKey === 'preprocessing' && (() => {
+          <StepHeading>Check the details</StepHeading>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+            Now that we know when and where the images were taken, we check the deployment's names and dates, and that the images fit it.
+            Choose how strict each check should be.
+          </p>
+          <div className="border-t border-zinc-200 dark:border-zinc-700" />
+
+          <WizardStep n={1} title="Choose the checks" status={checksOpen === 1 ? 'open' : 'done'} canEdit={!checkingDeployment} onEdit={() => setChecksOpen(1)}
+                      description="Choose how strict each check should be: skip it, warn about what it finds, or make it a must."
+                      summary={<>{runnableDeploymentChecks.length} {runnableDeploymentChecks.length === 1 ? 'check' : 'checks'} to run{requiredDeploymentChecks.size > 0 && ` · ${requiredDeploymentChecks.size} must pass`}</>}>
+            {shownDeploymentChecks.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
+                Every postvalidation check is turned off in the settings, so there is nothing to run here — go on.
+              </p>
+            ) : (
+              <>
+                <StrictnessTable
+                  options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
+                  enabled={deploymentChecks} required={requiredDeploymentChecks} running={false}
+                  describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description(deployment.location_id ?? '').replace(/\.$/, '')}
+                  outcome={() => undefined} onChoose={chooseDeploymentCheckStrictness} />
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+                  <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Skip</strong> doesn't run the check · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Warn</strong> shows the problems but lets you continue · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Must pass</strong> blocks you until it passes.
+                </p>
+                <div className="flex justify-end mt-4">
+                  <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={runnableDeploymentChecks.length === 0 || checkingDeployment}
+                          onClick={() => { setChecksOpen(2); void handleCheckDeployment() }}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>Run checks
+                  </button>
+                </div>
+              </>
+            )}
+          </WizardStep>
+
+          <WizardStep n={2} title="Check results" status={checkingDeployment ? 'running' : deploymentCheckError ? 'error' : deploymentCheck ? (checksOpen === 2 ? 'open' : 'done') : 'locked'}
+                      canEdit={!checkingDeployment} onEdit={() => setChecksOpen(2)} expanded={checksOpen === 2}
+                      description={deploymentCheckReport && !checkingDeployment
+                        ? <>{imageCount} · last run {formatRun(deploymentCheckReport.created_at)} · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={api.reportUrl(deploymentCheckReport.id, 'csv')} download>Download report</a></>
+                        : 'How each check went.'}
+                      summary={deploymentCheck && (requiredDeploymentChecksOk ? 'Checks run — you can continue' : 'A check set to Must pass failed')}
+                      badge={checkingDeployment ? 'Checking…' : undefined}
+                      action={deploymentCheck && checksOpen === 2 ? (
+                        <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={checkingDeployment || runnableDeploymentChecks.length === 0} onClick={() => void handleCheckDeployment()}>
+                          {checkingDeployment ? <SmallSpinner /> : null}{checkingDeployment ? 'Checking…' : 'Run again'}
+                        </button>
+                      ) : undefined}>
+            {shownDeploymentChecks.length > 0 && (
+              <ValidationDashboard
+                variant="steps" onReport={setDeploymentCheckReport} title={deployment.deployment_id} subtitle={imageCount}
+                reportId={deploymentCheck?.report_id ?? null} running={checkingDeployment} canRun={runnableDeploymentChecks.length > 0}
+                onRun={handleCheckDeployment} runLabel="Run again" runningLabel="Checking…"
+              >
+                {({ report, openCheck, open }) => {
+                  const problems = report ? shownDeploymentChecks.filter((o) => (report.checks[o.value]?.failed ?? 0) > 0) : []
+                  const passed = report ? shownDeploymentChecks.filter((o) => deploymentChecks.has(o.value) && report.checks[o.value] && report.checks[o.value].failed === 0).length : 0
+                  const blocking = problems.filter((o) => requiredDeploymentChecks.has(o.value) && deploymentChecks.has(o.value))
+                  const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
+                  return (
+                    <>
+                      {report && (
+                        <div role="status" className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+                          problems.length === 0
+                            ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                            : blocking.length > 0
+                              ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
+                              : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                        }`}>
+                          {problems.length === 0
+                            ? 'Every check passed.'
+                            : <>{plural(passed, 'check', 'checks')} passed, {plural(problems.length, 'check found', 'checks found')} problems — see below. {
+                                blocking.length > 0
+                                  ? `${plural(blocking.length, 'is', 'are')} set to Must pass — resolve ${blocking.length === 1 ? 'it' : 'them'} to continue.`
+                                  : requiredDeploymentChecks.size === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
+                              }</>}
+                        </div>
+                      )}
+                      <StrictnessTable
+                        options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
+                        enabled={deploymentChecks} required={requiredDeploymentChecks} running={checkingDeployment} results
+                        describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description(deployment.location_id ?? '').replace(/\.$/, '')}
+                        outcome={(c) => { const r = report?.checks[c]; return r ? { failed: r.failed, images: r.scope === 'images' ? r.failed : null } : undefined }}
+                        note={(c) => report?.entries.find((e) => e.check === c && e.status === 'failed')?.message}
+                        opened={openCheck as DeploymentCheck | null} onOpen={open} />
+                    </>
+                  )
+                }}
+              </ValidationDashboard>
+            )}
+            {deploymentCheckError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{deploymentCheckError}</p>}
+            {deploymentCheck && !deploymentCheck.report_id && <DeploymentCheckReport result={deploymentCheck} toleranceHours={toleranceHours} />}
+          </WizardStep>
+        </div>
+        )
+      })()}
+
+      {/* ── Step: prepare the images and save the deployment ── */}
+      {stepKey === 'prepare' && (() => {
         const rows: { key: string; label: string; always?: boolean; step?: PreprocessStep; text: ReactNode; disabledReason?: string }[] = [
-          { key: 'copy', label: 'Copy into the collection', always: true, text: <>Into <span className="font-mono break-all">{plannedCollection ? `${plannedCollection.path}/${deployment.deployment_id}` : 'the deployment’s folder in the collections folder'}</span>; anything that isn&rsquo;t an image is copied as it is.</> },
+          { key: 'copy', label: 'Copy into the collection', always: true, text: <>Copies every image into the deployment&rsquo;s folder. Anything that isn&rsquo;t an image is copied as it is.</> },
           { key: 'dates', label: 'Read the capture dates', always: true, text: <>From each image&rsquo;s EXIF, as the camera&rsquo;s local time in <span className="font-mono">{timezone || 'the timezone of the details'}</span>{ignoreDst ? ', ignoring summer time' : ''}{preSettings.convert_to_utc ? ', converted to UTC' : ''}. An image with no EXIF date uses its file&rsquo;s date.</> },
           { key: 'rename', label: 'Rename the images', step: 'rename', text: <><span className="font-mono">{'<deployment>__<YYYYMMDD>_<n>.<EXT>'}</span> in upper case — for example <span className="font-mono">{exampleImageName}</span>.</> },
           { key: 'resize', label: 'Resize the images', step: 'resize', text: <>Images wider than <strong>{preSettings.resize_width} px</strong> are resized to that width, keeping their proportions, EXIF and colour profile.</> },
@@ -1964,74 +2576,84 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
         ]
         const doneRun = preprocessed?.type === 'done'
         const active = (r: (typeof rows)[number]) => r.always || (r.step !== undefined && effectivePreprocessSteps.has(r.step))
+        const chip = 'rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1 text-xs text-zinc-700 dark:text-zinc-300'
+        const location = localLocations.find((l) => l.location_id === deployment.location_id)
+        const missingMetadata = [!preSettings.owner && 'Owner', !preSettings.publisher && 'Publisher'].filter(Boolean) as string[]
+        // The images go through copy, dates, rename and resize in one pass, then the metadata is written: the pass's steps share its progress out between them.
+        const activeRows = rows.filter(active)
+        const passRows = activeRows.filter((r) => r.key !== 'metadata')
+        const lastCopy = [...preprocessEvents].reverse().find((e) => e.type === 'copy')
+        const writingMetadata = preprocessEvents.some((e) => e.type === 'metadata' || e.type === 'sealing')
+        const currentStep = writingMetadata && activeRows.length > passRows.length
+          ? activeRows.length - 1
+          : lastCopy && lastCopy.type === 'copy' && lastCopy.total > 0 ? Math.min(passRows.length - 1, Math.floor((lastCopy.index / lastCopy.total) * passRows.length)) : 0
+        const stepStatus = (r: (typeof rows)[number]): 'done' | 'running' | 'pending' => {
+          if (doneRun) return 'done'
+          const at = activeRows.indexOf(r)
+          return !preprocessing ? 'pending' : at < currentStep ? 'done' : at === currentStep ? 'running' : 'pending'
+        }
+        const prepStarted = preprocessing || doneRun || Boolean(preprocessError)
+        const prepStatus2 = importing ? 'running' : importError ? 'error' : destDir ? 'done' : resultsDone ? 'open' : 'locked'
         return (
           <div>
-            <StepHeading>Preprocessing</StepHeading>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {scan && <span className={chip}>{scan.image_count.toLocaleString('en-US')} {scan.image_count === 1 ? 'image' : 'images'}</span>}
+              <span className={`${chip} font-mono`}>{deployment.deployment_id}</span>
+              {location?.name && <span className={chip}>{location.name}</span>}
+            </div>
+
+            <StepHeading>Prepare and save</StepHeading>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Pick what to do to the images and run it: they are copied, renamed, resized and tagged into the deployment&rsquo;s folder in the collections
-              folder. The originals in the source folder are never touched, and nothing is final until the next step. Its values come from Settings › Preprocessing.
+              Choose what is done to the images, see how it went, and save the deployment in your local collection. Nothing is uploaded to Trapper yet.
             </p>
-            <ValidationDashboard
-              title="Preprocessing" subtitle={`${deployment.deployment_id}${scan ? ` · ${scan.image_count} image(s)` : ''}`} preprocessing
-              reportId={preprocessed?.type === 'done' ? preprocessed.report_id ?? null : null}
-              running={preprocessing} canRun={Boolean(plannedCollection) && !preprocessing} onRun={handlePreprocess} runLabel="Run preprocessing" runningLabel="Preprocessing…"
-            >
-              {({ report, openCheck, open }) => (
-                <table className="w-full text-sm mb-4 border border-zinc-200 dark:border-zinc-700 rounded">
-                  <thead className="bg-zinc-50 dark:bg-zinc-800/50">
+            <div className="border-t border-zinc-200 dark:border-zinc-700" />
+
+            <WizardStep n={1} title="Preprocessing steps" status={prepStarted ? 'done' : 'open'} canEdit={!preprocessing} onEdit={handleEditPreprocessSteps}
+                        summary={`${activeRows.length} ${activeRows.length === 1 ? 'step' : 'steps'} chosen`}
+                        description="Choose what to do to the images. They're copied, renamed, resized and tagged into the deployment's folder. Your originals are never touched, and nothing is final until you save.">
+              <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-50 dark:bg-zinc-800">
                     <tr className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      <th scope="col" className="px-3 py-2 w-12 text-center"><span className="sr-only">Status</span></th>
-                      <th scope="col" className="px-3 py-2 text-left">Steps</th>
-                      <th scope="col" className="px-3 py-2 text-center">Run</th>
-                      <th scope="col" className="px-3 py-2 text-center">Status</th>
-                      <th scope="col" className="px-3 py-2 text-center">Skipped images</th>
-                      <th scope="col" className="px-3 py-2 w-8"><span className="sr-only">Open</span></th>
+                      <th scope="col" className="px-4 py-2.5 text-left">Step</th>
+                      <th scope="col" className="px-4 py-2.5 text-center">Include</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-                    {rows.map((r) => {
-                      const skipped = report?.checks.preprocessing?.failed ?? 0
-                      return (
-                        <tr key={r.key}>
-                          <td className="px-3 py-2 text-center">
-                            <CheckStatusIcon label={r.label} required={false} status={!active(r) ? 'none' : preprocessing ? 'running' : doneRun ? 'passed' : 'none'} />
-                          </td>
-                          <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
-                            {r.label}
-                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">{r.text}</span>
-                            {r.disabledReason && <span className="block text-xs text-red-600 dark:text-red-400">{r.disabledReason}</span>}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {r.always
-                              ? <span className="text-xs uppercase tracking-wide px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">Always</span>
-                              : <input type="checkbox" aria-label={r.label} checked={active(r)} disabled={Boolean(r.disabledReason) || preprocessing}
-                                       onChange={() => togglePreprocessStep(r.step!)} />}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {doneRun && active(r) && (
-                              <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${skipped ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'}`}>
-                                {skipped ? '▲ With skipped images' : '▲ Done'}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-center">{doneRun && r.key === 'copy' ? skipped : ''}</td>
-                          <td className="px-3 py-2 text-center">
-                            {doneRun && r.key === 'copy' && skipped > 0 && (
-                              <button type="button" aria-label={`${openCheck === 'preprocessing' ? 'Close' : 'Open'} the skipped images`} aria-expanded={openCheck === 'preprocessing'}
-                                      className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => open('preprocessing')}>{openCheck === 'preprocessing' ? '⌄' : '›'}</button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {rows.map((r) => (
+                      <tr key={r.key}>
+                        <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">
+                          <span className="font-medium">{r.label}</span>
+                          <span className="block text-xs text-zinc-500 dark:text-zinc-400">{r.text}</span>
+                          {r.disabledReason && <span className="block text-xs text-red-600 dark:text-red-400">{r.disabledReason}</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {r.always
+                            ? <span className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">Always</span>
+                            : <input type="checkbox" aria-label={r.label} checked={active(r)} disabled={Boolean(r.disabledReason) || preprocessing}
+                                     onChange={() => togglePreprocessStep(r.step!)} />}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-              )}
-            </ValidationDashboard>
-
-            {effectivePreprocessSteps.has('metadata') && (
-              <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 mb-4">
-                <h5 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">The metadata written into each image</h5>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+              </div>
+              {effectivePreprocessSteps.has('metadata') && (
+                <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
+                  <button type="button" aria-expanded={moreMetadataOpen} onClick={() => setMoreMetadataOpen((o) => !o)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                    <span>
+                      <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">What gets written into each image</span>
+                      {missingMetadata.length > 0 && (
+                        <span className="block text-xs text-amber-600 dark:text-amber-400">
+                          {missingMetadata.length} {missingMetadata.length === 1 ? 'field isn’t' : 'fields aren’t'} set in Settings yet: {missingMetadata.join(' and ')}
+                        </span>
+                      )}
+                    </span>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${moreMetadataOpen ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                  {moreMetadataOpen && (
+                    <div className="px-4 pb-4">
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                   <dt className="text-zinc-500 dark:text-zinc-400">Creator</dt>
                   <dd className="font-mono">{`CT (<camera make and model> ${selectedProject?.name || 'Unknown'})`}</dd>
                   <dt className="text-zinc-500 dark:text-zinc-400">Owner</dt>
@@ -2047,116 +2669,184 @@ export default function ImportDeploymentPage({ resumeSession, onUpload }: Props)
                   <dt className="text-zinc-500 dark:text-zinc-400">Identifiers</dt>
                   <dd>The hash of each original and of the image kept, so each can be traced back.</dd>
                 </dl>
+                {onOpenSettings && <button type="button" className={`${btnOutline} mt-3`} onClick={onOpenSettings}>Open Settings</button>}
+                    </div>
+                  )}
+                </div>
+              )}
+              {plannedCollectionError && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{plannedCollectionError}</p>}
+              <div className="flex justify-end">
+                <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!plannedCollection || preprocessing} onClick={handlePreprocess}><svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>Start preparing</button>
               </div>
-            )}
+            </WizardStep>
 
-            {preprocessEvents.length > 0 && (
-              <div className="rounded border border-zinc-200 dark:border-zinc-700 p-3 text-sm text-zinc-600 dark:text-zinc-400 max-h-48 overflow-y-auto mb-4">
-                {preprocessEvents.map((e, i) => (
-                  <p key={i}>
-                    {e.type === 'copy' && `[${e.index}/${e.total}] ${e.name}`}
-                    {e.type === 'metadata' && `Writing the metadata of ${e.total} image(s)…`}
-                    {e.type === 'skipped' && <span className="text-amber-600 dark:text-amber-400">⚠ Skipped {e.name}: {e.detail}</span>}
-                  </p>
-                ))}
-              </div>
-            )}
-            {plannedCollectionError && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{plannedCollectionError}</p>}
-            {preprocessError && <p className="text-sm text-red-600 dark:text-red-400">{preprocessError}</p>}
-          </div>
-        )
-      })()}
+            <WizardStep n={2} title="Preprocessing results" status={preprocessing ? 'running' : preprocessError ? 'error' : doneRun ? 'done' : 'locked'} canEdit={resultsDone && !importing && !destDir} onEdit={() => setResultsDone(false)} expanded={doneRun && !resultsDone} badge={preprocessing ? 'Preparing…' : undefined}
+                        action={!preprocessing && !destDir && !resultsDone && (doneRun || preprocessError) ? <button type="button" className={btnOutline} disabled={importing} onClick={handlePreprocess}>Prepare again</button> : undefined}
+                        summary={preprocessed?.type === 'done' ? `${(preprocessed.processed ?? 0).toLocaleString('en-US')} ${preprocessed.processed === 1 ? 'image' : 'images'} prepared${preprocessed.skipped ? `, ${preprocessed.skipped} skipped` : ''}` : undefined}
+                        description="How each step went, and which images, if any, had to be skipped.">
+              {preprocessing && (
+                <div className="mb-4" role="status" aria-label={`Step ${currentStep + 1} of ${activeRows.length}`}>
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">Step {currentStep + 1} of {activeRows.length}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400">{Math.round((currentStep / activeRows.length) * 100)}%</span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                    <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${(currentStep / activeRows.length) * 100}%` }} />
+                  </div>
+                </div>
+              )}
+              <ValidationDashboard
+                variant="steps" preprocessing lastRunLine
+                title="Preprocessing" subtitle={scan ? `${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'image' : 'images'}` : ''}
+                reportId={preprocessed?.type === 'done' ? preprocessed.report_id ?? null : null}
+                running={preprocessing} canRun={Boolean(plannedCollection) && !preprocessing} onRun={handlePreprocess} runLabel="Start preparing" runningLabel="Preparing…"
+              >
+                {({ report, openCheck, open }) => (
+                  <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-50 dark:bg-zinc-800">
+                        <tr className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          <th scope="col" className="px-4 py-2.5 text-left">Step</th>
+                          <th scope="col" className="px-4 py-2.5 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        {rows.filter(active).map((r) => {
+                          const skipped = report?.checks.preprocessing?.failed ?? 0
+                          return (
+                            <tr key={r.key}>
+                              <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200">
+                                <span className="font-medium">{r.label}</span>
+                                <span className="block text-xs text-zinc-500 dark:text-zinc-400">{r.text}</span>
+                                {r.disabledReason && <span className="block text-xs text-red-600 dark:text-red-400">{r.disabledReason}</span>}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {active(r) && preprocessing && stepStatus(r) === 'running' && <span role="status" aria-label={`${r.label}: running`} className="inline-flex"><SmallSpinner /></span>}
+                                {active(r) && preprocessing && stepStatus(r) === 'done' && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Done</span>}
+                                {doneRun && active(r) && (r.key === 'copy' && skipped > 0 ? (
+                                  <button type="button" aria-label={`${openCheck === 'preprocessing' ? 'Close' : 'Open'} the skipped images`} aria-expanded={openCheck === 'preprocessing'}
+                                          className="rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300" onClick={() => open('preprocessing')}>
+                                    {skipped.toLocaleString('en-US')} skipped {openCheck === 'preprocessing' ? '⌄' : '›'}
+                                  </button>
+                                ) : (
+                                  <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Done</span>
+                                ))}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </ValidationDashboard>
+              {preprocessError && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{preprocessError}</p>}
+              {!preprocessing && !destDir && !resultsDone && (doneRun || preprocessError) && (
+                <div className="flex justify-between items-center">
+                  <button type="button" className={btnOutline} disabled={importing} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
+                  <div className="flex items-center gap-3">
+                    {doneRun && <button type="button" aria-label="Continue to save" className={btnPrimary} disabled={importing} onClick={() => setResultsDone(true)}>Continue<span aria-hidden="true"> →</span></button>}
+                  </div>
+                </div>
+              )}
+            </WizardStep>
 
-      {/* ── Step: import ── */}
-      {stepKey === 'import' && (
-        <div>
-          <StepHeading>Import</StepHeading>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            The images are ready{preprocessed?.type === 'done' ? ` — ${preprocessed.processed ?? 0} preprocessed${preprocessed.skipped ? `, ${preprocessed.skipped} skipped` : ''}` : ''}.
-            Importing consolidates the deployment: its metadata is written and it is <strong>sealed</strong>, so it can&rsquo;t be modified afterwards
-            — the app notices if an image or its details change — and it can then be uploaded.
-          </p>
-          {plannedCollection && (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              It is kept locally in <span className="font-mono font-bold">{`${plannedCollection.path}/${deployment.deployment_id}`}</span> before it is uploaded.
-            </p>
-          )}
-          {plannedCollectionError && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{plannedCollectionError}</p>}
-          {!destDir && (
-            <div className="flex justify-end mb-6">
-              <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!canImport || importing} onClick={handleImport}>
-                {importing && <SmallSpinner />}{importing ? 'Importing…' : 'Import deployment'}
-              </button>
-            </div>
-          )}
-
-          {events.length > 0 && (
-            <div className="rounded border border-zinc-200 dark:border-zinc-700 p-3 text-sm text-zinc-600 dark:text-zinc-400 max-h-48 overflow-y-auto mb-4">
-              {events.map((e, i) => (
-                <p key={i}>
-                  {e.type === 'sealing' && 'Checking the images and sealing the deployment…'}
-                  {e.type === 'done' && `✔ Imported${e.processed !== undefined ? ` ${e.processed} image(s)${e.skipped ? `, ${e.skipped} skipped` : ''}` : ''} — organized in ${e.dest_dir}${e.sealed === false ? ' (could not be sealed — see the log)' : ''}`}
-                </p>
-              ))}
-            </div>
-          )}
+            <WizardStep n={3} title="Save to your collection" status={prepStatus2} canEdit={false} onEdit={() => {}} expanded={Boolean(destDir)} badge={importing ? 'Saving…' : undefined}
+                        description="Available once the images are prepared.">
+              <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4">
+                Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to Trapper yet.
+              </p>
+              {(() => {
+                const done = preprocessed?.type === 'done' ? preprocessed : null
+                const savedLocation = localLocations.find((l) => l.location_id === deployment.location_id)
+                const did = [effectivePreprocessSteps.has('rename') && 'renamed', effectivePreprocessSteps.has('resize') && 'resized', effectivePreprocessSteps.has('metadata') && 'tagged'].filter(Boolean) as string[]
+                const rows: [string, ReactNode][] = [
+                  ['Deployment', <span className="font-mono font-semibold">{deployment.deployment_id}</span>],
+                  ['Taken at', [selectedProject?.acronym, [deployment.location_id, savedLocation?.name].filter(Boolean).join(', ')].filter(Boolean).join(' · ')],
+                  ['Period', `${formatPeriod(deployment.start_date, deployment.end_date)}${timezone ? ` (${timezone})` : ''}`],
+                  ['Images', done ? `${(done.processed ?? 0).toLocaleString('en-US')} prepared${did.length ? ` · ${did.join(', ').replace(/, ([^,]*)$/, ' and $1')}` : ''}${done.skipped ? ` · ${done.skipped} skipped` : ''}` : ''],
+                  ['Saved to', plannedCollection ? <span className="font-mono break-all">{`${plannedCollection.path}/${deployment.deployment_id}`}</span> : ''],
+                ]
+                return (
+                  <dl className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-6 divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
+                    {rows.map(([term, value]) => (
+                      <div key={term} className="grid grid-cols-[7rem_1fr] gap-4 py-4">
+                        <dt className="text-zinc-500 dark:text-zinc-400">{term}</dt>
+                        <dd className="text-zinc-900 dark:text-zinc-100">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )
+              })()}
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+                Saving consolidates the deployment: its metadata is written and it is <strong>sealed</strong>, so it can&rsquo;t be modified afterwards
+                — the app notices if an image or its details change — and it can then be uploaded.
+              </p>
           {importError && <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>}
           {destDir && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">✔ Deployment imported.</p>
-              <button type="button" className={btnOutline} onClick={handleOpenFolder}>Open folder in file explorer</button>
+            <div>
+              <div role="status" className="mb-4 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
+                <p className="text-lg font-semibold">Deployment saved</p>
+                <p className="text-sm text-emerald-800/90 dark:text-emerald-200/80">
+                  {deployment.deployment_id} is now in your local collection.
+                  {events.some((e) => e.type === 'done' && e.sealed === false) && ' It could not be sealed — see the log.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+              <button type="button" className={btnOutline} onClick={handleOpenFolder}>Open folder</button>
               {onUpload && selectedProjectId && plannedCollection && (
                 <button type="button" className={btnPrimary} onClick={() => onUpload({ researchProjectId: selectedProjectId, collection: plannedCollection.collection })}>
                   Upload to Trapper
                 </button>
               )}
               {openFolderError && <p className="text-sm text-red-600 dark:text-red-400">{openFolderError}</p>}
+              </div>
             </div>
           )}
-        </div>
-      )}
+            </WizardStep>
+          </div>
+        )
+      })()}
 
       {/* Navigation */}
       <div className="flex justify-between items-start mt-10">
         {destDir ? (
           <button type="button" className={btnOutline} onClick={handleStartOver}>Start over</button>
-        ) : step > 0 ? (
-          <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={handleBack}>Back</button>
+        ) : step > 0 && !(stepKey === 'prepare' && !preprocessing && !resultsDone && (preprocessed?.type === 'done' || preprocessError)) ? (
+          <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
+        ) : stepKey === 'images' && imagesOpen === 3 ? (
+          <button type="button" className={btnOutline} disabled={validating} onClick={() => setImagesOpen(2)}><span aria-hidden="true">← </span>Back</button>
         ) : (
           <div />
         )}
 
-        {!destDir && stepKey === 'folder' && (
-          <button type="button" className={btnPrimary} disabled={!scan} onClick={() => setStep((s) => s + 1)}>Next</button>
-        )}
-        {!destDir && stepKey === 'validate' && (
+        {!destDir && stepKey === 'images' && (
           <div className="flex flex-col items-end gap-1">
-            {!requiredImageChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run validation and resolve the required checks to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={!requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue</button>
+            {scan && !requiredImageChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
+            <button type="button" className={btnPrimary} disabled={!scan || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
         {!destDir && stepKey === 'origin' && (
-          <button type="button" className={btnPrimary} disabled={!originReady} onClick={() => setStep((s) => s + 1)}>Next</button>
-        )}
-        {!destDir && stepKey === 'deployment' && (
           <div className="flex flex-col items-end gap-1 max-w-md">
             {timestampLogError && <p className="text-xs text-red-600 dark:text-red-400 text-right">{timestampLogError}</p>}
-            <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!newDetailsReady || savingDetails} onClick={handleContinueFromDeployment}>
+            <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!originReady || !newDetailsReady || savingDetails} onClick={handleContinueFromDeployment}>
               {savingDetails && <SmallSpinner />}
-              {savingDetails ? 'Saving…' : 'Next'}
+              {savingDetails ? 'Saving…' : <>Continue<span aria-hidden="true"> →</span></>}
             </button>
           </div>
         )}
-        {!destDir && stepKey === 'preprocessing' && (
-          <div className="flex flex-col items-end gap-1">
-            {preprocessed?.type !== 'done' && !preprocessing && <p className="text-xs text-amber-600 dark:text-amber-400">Run the preprocessing to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={preprocessed?.type !== 'done' || preprocessing} onClick={() => setStep((s) => s + 1)}>Continue</button>
+        {!destDir && stepKey === 'prepare' && (
+          <div className="flex items-center gap-3">
+            {preprocessed?.type !== 'done' && !preprocessing && <p className="text-xs text-amber-600 dark:text-amber-400">Prepare the images to save.</p>}
+            <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={preprocessed?.type !== 'done' || !resultsDone || !canImport || importing || preprocessing} onClick={handleImport}>
+              {importing && <SmallSpinner />}{importing ? 'Saving…' : 'Save deployment'}
+            </button>
           </div>
         )}
         {!destDir && stepKey === 'checks' && (
           <div className="flex flex-col items-end gap-1">
-            {!requiredDeploymentChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the required ones to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={!requiredDeploymentChecksOk} onClick={() => setStep((s) => s + 1)}>Continue</button>
+            {!requiredDeploymentChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
+            <button type="button" className={btnPrimary} disabled={!requiredDeploymentChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
       </div>

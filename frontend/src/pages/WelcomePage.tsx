@@ -7,7 +7,7 @@ export default function WelcomePage({ onStart }: Props) {
       style={{ minHeight: 'calc(100vh - 56px)' }}
     >
       <div className="text-center px-4" style={{ maxWidth: 580 }}>
-        <div className="mb-3 text-7xl">🐾</div>
+        <div className="mb-3 text-7xl">📤</div>
         <h1 className="text-4xl font-bold mb-3">WildINTEL Uploader</h1>
         <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-lg">
           Bring camera-trap images from a memory card into the WildINTEL project, organized and registered in Trapper.

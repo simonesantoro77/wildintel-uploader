@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { api } from '../api'
 import ImportSessionPage, { matchLocation } from './ImportSessionPage'
@@ -84,22 +84,69 @@ async function scanSession() {
 
 const next = () => userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
+/** How strict a check is — one of the radio buttons of its row: Skip, Warn or Must pass. */
+const chooseStrictness = (check: string, choice: 'Skip' | 'Warn' | 'Must pass') =>
+  userEvent.click(within(screen.getByRole('radiogroup', { name: `How strict: ${check}` })).getByRole('radio', { name: choice }))
+
+/** From the folder's step to the choosing of the checks. */
+const toChecksSubstep = async () => {
+  await scanSession()
+  await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
+  await screen.findByText('Choose the checks')
+}
+/** The id the deployment being edited gets, which its heading tells. */
+const activeHeading = () => within(screen.getByRole('group', { name: /^(Dates|Details) of/ })).getAllByRole('heading', { level: 5 })[0]
+const expectId = (id: string) => expect(activeHeading()).toHaveTextContent(id)
+const expectIdLater = (id: string) => waitFor(() => expectId(id))
+/** Opens a tab of the "More details" panel, opening the panel first when it is closed. */
+const openTab = async (name: RegExp) => {
+  const more = screen.getByRole('button', { name: /More details/ })
+  if (more.getAttribute('aria-expanded') === 'false') await userEvent.click(more)
+  await userEvent.click(screen.getByRole('tab', { name }))
+}
+/** Picks a location in the select of a deployment — whose options are only there once it is used. */
+const chooseLocation = async (select: HTMLElement, id: string) => {
+  await userEvent.click(select)
+  await userEvent.selectOptions(select, id)
+}
+const toDetailsSubstep = () => userEvent.click(screen.getByRole('button', { name: /Continue to the details/ }))
+
 async function pickProject() {
   await userEvent.click(await screen.findByLabelText('Research project'))
   await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
 }
 
+/** The locations the folders are named after, assigned from the banner that offers them. */
+const assignLocations = async () => userEvent.click(await screen.findByRole('button', { name: /^Assign \d+$/ }))
+
 async function toOrigin() {
   await scanSession()
-  await next() // validate
-  await next() // origin
+  await next() // images → origin
   await pickProject()
+  await assignLocations()
+}
+
+/** The step "More details": the camera, the site and the notes of each deployment, after their dates. */
+const toMoreDetailsSubstep = () => userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
+/** Opens a deployment's details in that step — and one of their sections, when given. */
+const openMore = async (name: string, section?: RegExp) => {
+  const header = screen.getByRole('button', { name: new RegExp(`(Open|Close) the details of ${name}$`) })
+  if (header.getAttribute('aria-expanded') === 'false') await userEvent.click(header)
+  if (section) {
+    const card = screen.getByRole('button', { name: section })
+    if (card.getAttribute('aria-expanded') === 'false') await userEvent.click(card)
+  }
 }
 
 async function toDetails() {
   await toOrigin()
-  await next()
+  await toDetailsSubstep()
   fireEvent.change(await screen.findByLabelText('What revision number are you importing?'), { target: { value: '3' } })
+}
+
+async function toMoreDetails() {
+  await toDetails()
+  await toMoreDetailsSubstep()
 }
 
 describe('matchLocation', () => {
@@ -141,34 +188,74 @@ describe('ImportSessionPage', () => {
     expect(await screen.findByText(/no subfolders/)).toBeInTheDocument()
   })
 
-  it('validates every chosen deployment and holds back when a required check fails in one of them', async () => {
+  it('checks every deployment as a unit, and leaves out of the next steps the one that fails a check set to Must pass', async () => {
     mockedApi.validateImages.mockImplementation(async (path) => ({ checked_count: 5, corrupted: path === '/s/DONA_02' ? [{ path: 'bad.jpg', error: 'truncated' }] : [] }))
-    await scanSession()
-    await next()
-    await userEvent.click(screen.getAllByRole('checkbox', { name: 'Required to continue' })[0]) // corrupted images
-    await userEvent.click(screen.getByRole('button', { name: 'Run validation' }))
+    await toChecksSubstep()
+    await chooseStrictness('Corrupted images', 'Must pass')
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not checked yet: nothing is known to be free of errors
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
     await screen.findByText(/1 corrupted image/)
     expect(mockedApi.validateImages.mock.calls.map((c) => c[0])).toEqual(['/s/DONA_01', '/s/DONA_02'])
+    expect(screen.getByRole('status')).toHaveTextContent('1 folder fails a check set to Must pass')
+    expect(screen.getByRole('button', { name: /DONA_02/ })).toHaveTextContent('left out')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with 1 folder' }))
+    await pickProject()
+    await toDetailsSubstep()
+    expect(await screen.findByRole('group', { name: 'Dates of DONA_01' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'DONA_02' })).not.toBeInTheDocument()
+  })
+
+  it('cannot go on when every deployment fails a required check', async () => {
+    mockedApi.validateImages.mockResolvedValue({ checked_count: 5, corrupted: [{ path: 'bad.jpg', error: 'truncated' }] })
+    await toChecksSubstep()
+    await chooseStrictness('Corrupted images', 'Must pass')
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+
+    await screen.findByText(/No deployment is free of errors/)
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
   })
 
-  it('ticks and unticks all the checks to run, or all the required ones, from the table header', async () => {
-    await scanSession()
-    await next()
-    await userEvent.click(screen.getByLabelText('Require all checks'))
-    expect(screen.getAllByLabelText('Required to continue').every((b) => (b as HTMLInputElement).checked)).toBe(true)
-    await userEvent.click(screen.getByLabelText('Run all checks')) // none run now, so none is required either
-    expect(screen.getByLabelText('Require all checks')).toBeDisabled()
+  it('lets a check be skipped, warned about or required — and a required one holds back until it has passed', async () => {
+    await toChecksSubstep()
+    await chooseStrictness('Corrupted images', 'Must pass')
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
+    await chooseStrictness('Corrupted images', 'Skip') // skipped, so no longer required
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
-    await userEvent.click(screen.getByLabelText('Run all checks'))
-    expect(screen.getByLabelText('Require all checks')).not.toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+
+    await waitFor(() => expect(mockedApi.validateImages).toHaveBeenCalledTimes(2))
+    expect(mockedApi.validateImages.mock.calls[0][1]).not.toContain('corrupted')
+  })
+
+  it('leaves out the folders with problems with one click, and goes on with the rest', async () => {
+    mockedApi.validateImages.mockImplementation(async (path) => ({ checked_count: 5, corrupted: path === '/s/DONA_02' ? [{ path: 'bad.jpg', error: 'truncated' }] : [] }))
+    await toChecksSubstep()
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Leave them out' }))
+
+    expect(screen.getByRole('button', { name: 'Continue with 1 folder' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with 1 folder' }))
+    await pickProject()
+    await toDetailsSubstep()
+    expect(screen.queryByRole('button', { name: 'DONA_02' })).not.toBeInTheDocument()
+  })
+
+  it('counts the deployments that failed each check in the results', async () => {
+    mockedApi.validateImages.mockImplementation(async (path) => ({ checked_count: 5, corrupted: path === '/s/DONA_02' ? [{ path: 'bad.jpg', error: 'truncated' }] : [] }))
+    await toChecksSubstep()
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('1 check found problems in 1 of 2 folders')
+    expect(screen.getByLabelText('Summary')).toHaveTextContent('Folders passed')
+    await userEvent.click(screen.getByRole('tab', { name: 'By check' }))
+    expect(screen.getByText('1 folder')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with 2 folders' })).toBeEnabled() // none is required
   })
 
   describe('the research project', () => {
     async function openOrigin() {
       await scanSession()
-      await next()
       await next()
       await screen.findByLabelText('Research project')
     }
@@ -180,9 +267,9 @@ describe('ImportSessionPage', () => {
 
       expect(screen.queryByRole('option', { name: 'DONA — Doñana' })).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('option', { name: 'TATR — Tatra' }))
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /Continue to the details/ })).toBeEnabled()
       await userEvent.click(screen.getByRole('button', { name: 'Clear research project' }))
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /Continue to the details/ })).toBeDisabled()
     })
 
     it('says there is none yet, and offers to add the first one', async () => {
@@ -208,7 +295,7 @@ describe('ImportSessionPage', () => {
 
       await waitFor(() => expect(mockedApi.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({ name: 'Doñana', acronym: 'DONA', event_interval: 120, trapper_pk: null })))
       expect(await screen.findByLabelText('Research project')).toHaveValue('DONA — Doñana')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /Continue to the details/ })).toBeEnabled()
     })
 
     it('adds the ones ticked in Trapper, and picks the first', async () => {
@@ -231,23 +318,55 @@ describe('ImportSessionPage', () => {
   it('needs a research project before the details', async () => {
     await scanSession()
     await next()
-    await next()
     await screen.findByLabelText('Research project')
 
+    expect(screen.getByRole('button', { name: /Continue to the details/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
   })
 
   it('fills each deployment’s location from its folder name, and its dates from the scan', async () => {
     await toDetails()
 
-    expect(await screen.findByLabelText('Deployment id')).toHaveValue('R0003-DONA_01')
-    expect(screen.getByLabelText('Location')).toHaveValue('DONA_01')
-    expect(screen.getByLabelText('Start date')).toHaveValue('2024-09-04T13:10')
-    await userEvent.click(screen.getByRole('button', { name: 'DONA_02' }))
-    expect(screen.getByLabelText('Location')).toHaveValue('DONA_02')
-    expect(screen.getByLabelText('Deployment id')).toHaveValue('R0003-DONA_02')
-    expect(screen.getByLabelText('Start date')).toHaveValue('2024-09-05T09:00')
+    await expectIdLater('R0003-DONA_01')
+    expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('DONA_01')
+    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
+    await userEvent.click(screen.getByRole('button', { name: 'Open DONA_02' }))
+    expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
+    expectId('R0003-DONA_02')
+    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-05T09:00')
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  })
+
+  it('lists the period of each deployment in a table, with its state and where its dates come from', async () => {
+    mockedApi.scanSession.mockResolvedValue({
+      ...SCAN,
+      deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
+      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null },
+    })
+    await toDetails()
+
+    const table = within((await screen.findByText('When was each one collected?')).closest('section')!)
+    const first = within(table.getByText('DONA_01').closest('tr')!)
+    expect(first.getByText('Ready')).toBeInTheDocument()
+    expect(first.getByText('From S_FileTimestampLog.csv')).toBeInTheDocument() // the csv that comes with the collection
+    expect(first.getByText('1 Sep 2024 08:00')).toBeInTheDocument()
+    const second = within(table.getByText('DONA_02').closest('tr')!)
+    await waitFor(() => expect(second.getByText('From the images')).toBeInTheDocument())
+    expect(second.getByText('5 Sep 2024 09:00')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-02T10:00' } }) // DONA_01 is the one open
+    await waitFor(() => expect(within(table.getByText('DONA_01').closest('tr')!).getByText('Entered by hand')).toBeInTheDocument())
+  })
+
+  it('has the camera, site and notes in a step of their own, locked until the dates are gone over', async () => {
+    await toDetails()
+    expect(screen.queryByRole('button', { name: /the details of DONA_01/ })).not.toBeInTheDocument() // locked
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()
+
+    await toMoreDetailsSubstep()
+
+    expect(await screen.findByRole('button', { name: /Open the details of DONA_01/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit When was it collected?' })).toBeInTheDocument()
   })
 
   it('says in the details when the dates come from the collection’s FileTimestampLog', async () => {
@@ -263,7 +382,7 @@ describe('ImportSessionPage', () => {
   })
 
   describe('the next revision', () => {
-    const toSuggested = async () => { await toOrigin(); await next() }
+    const toSuggested = async () => { await toOrigin(); await toDetailsSubstep() }
 
     it('suggests the highest next revision of the deployments’ locations, says so, and keeps what is typed', async () => {
       mockedApi.nextRevision.mockImplementation(async (_project, location) => (location === 'DONA_01' ? { last: 2, next: 3 } : { last: 4, next: 5 }))
@@ -271,11 +390,11 @@ describe('ImportSessionPage', () => {
 
       await waitFor(() => expect(screen.getByLabelText('What revision number are you importing?')).toHaveValue(5))
       expect(screen.getByText(/Filled in as the next one expected for these locations/)).toBeInTheDocument()
-      expect(screen.getByLabelText('Deployment id')).toHaveValue('R0005-DONA_01')
+      expectId('R0005-DONA_01')
 
       fireEvent.change(screen.getByLabelText('What revision number are you importing?'), { target: { value: '7' } })
       expect(screen.queryByText(/Filled in as the next one expected/)).not.toBeInTheDocument()
-      expect(screen.getByLabelText('Deployment id')).toHaveValue('R0007-DONA_01')
+      expectId('R0007-DONA_01')
     })
 
     it('does not ask the timezone nor summer time: it says the location’s', async () => {
@@ -283,7 +402,7 @@ describe('ImportSessionPage', () => {
 
       expect(screen.queryByLabelText('Timezone (IANA)')).not.toBeInTheDocument()
       expect(screen.queryByRole('checkbox', { name: /ignore summer time/ })).not.toBeInTheDocument()
-      await screen.findByText(/You are entering the details of a deployment taken at location/)
+      await screen.findAllByText(/You are entering the details of a deployment taken at location/)
       for (const bold of ['Europe/Madrid', 'ignores']) expect(screen.getAllByText(bold)[0].tagName).toBe('STRONG')
     })
   })
@@ -303,10 +422,10 @@ describe('ImportSessionPage', () => {
       await screen.findByDisplayValue('/s')
       await userEvent.click(screen.getByRole('button', { name: 'Scan' }))
       await screen.findByRole('checkbox', { name: 'SITE_A' })
-      await next() // validate
-      await next() // origin
+      await next() // images → origin
       await pickProject()
-      await next()
+      await assignLocations()
+      await toDetailsSubstep()
     }
 
     it('fills in the revision from the ids in the log, says so, and lets it be changed', async () => {
@@ -314,28 +433,86 @@ describe('ImportSessionPage', () => {
       const field = await screen.findByLabelText('What revision number are you importing?')
       expect(field).toHaveValue(33)
       expect(screen.getByText(/Taken from the deployment ids in R0033_FileTimestampLog.csv/)).toBeInTheDocument()
-      expect(screen.getByLabelText('Deployment id')).toHaveValue('R0033-DONA_01')
+      expectId('R0033-DONA_01')
 
       fireEvent.change(field, { target: { value: '34' } })
       expect(screen.queryByText(/Taken from the deployment ids/)).not.toBeInTheDocument()
-      expect(screen.getByLabelText('Deployment id')).toHaveValue('R0034-DONA_01')
+      expectId('R0034-DONA_01')
     })
 
     it('deduces the location from the log’s id when the folder’s name is no help, says so, and lets it be changed', async () => {
       await toDeducedDetails()
-      expect(await screen.findByLabelText('Location')).toHaveValue('DONA_01')
-      expect(screen.getByText(/of these 2 deployment\(s\) was deduced from the name of their folder or the deployment id in the timestamp log/)).toBeInTheDocument()
-      expect(screen.getByText(/Deduced from the deployment id in the timestamp log, R0033-DONA_01/)).toBeInTheDocument()
+      expect(await screen.findByLabelText('Location of SITE_A')).toHaveValue('DONA_01')
+      expect(screen.getByText(/Assigned from the deployment id in the timestamp log, R0033-DONA_01/)).toBeInTheDocument()
 
-      await userEvent.selectOptions(screen.getByLabelText('Location'), 'DONA_02')
-      expect(screen.queryByText(/Deduced from the deployment id/)).not.toBeInTheDocument()
+      await chooseLocation(screen.getByLabelText('Location of SITE_A'), 'DONA_02')
+      expect(screen.queryByText(/Assigned from the deployment id in the timestamp log, R0033-DONA_01/)).not.toBeInTheDocument()
     })
   })
 
-  it('says a location was deduced from the folder’s name, with no log involved', async () => {
-    await toDetails()
-    expect(await screen.findByText(/Deduced from the folder's name, DONA_01/)).toBeInTheDocument()
-    expect(screen.getByText(/of these 2 deployment\(s\) was deduced from the name of their folder, as it is already registered/)).toBeInTheDocument()
+  describe('where were they taken', () => {
+    const toLocations = async () => { await scanSession(); await next(); await pickProject() }
+
+    it('offers the locations the folders are named after, and assigns them only when asked', async () => {
+      await toLocations()
+
+      expect(await screen.findByText(/The names of DONA_01 and DONA_02 match locations in DONA/)).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('0 of 2 folders have a location')
+      expect(screen.getByRole('progressbar', { name: 'Folders with a location' })).toHaveAttribute('aria-valuenow', '0')
+      expect(screen.getAllByText('Missing')).toHaveLength(2)
+      expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('')
+      await userEvent.click(screen.getByRole('button', { name: /^Assign \d+$/ }))
+
+      expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('DONA_01')
+      expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
+      expect(screen.getByText(/Assigned from the folder's name, DONA_01/)).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('2 of 2 folders have a location')
+      expect(screen.getByRole('progressbar', { name: 'Folders with a location' })).toHaveAttribute('aria-valuenow', '100')
+      expect(screen.queryByText('Missing')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Assign \d+$/ })).not.toBeInTheDocument()
+    })
+
+    it('counts the folders in tabs and in a percentage, and assigns only the ticked ones when some are', async () => {
+      await toLocations()
+      expect(await screen.findByRole('tab', { name: 'All 2' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Missing 2' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Ready 0' })).toBeInTheDocument()
+      expect(screen.getByText('0%')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByLabelText('Select DONA_02'))
+      await userEvent.click(screen.getByRole('button', { name: 'Assign 1' }))
+
+      expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('')
+      expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
+      expect(screen.getByRole('tab', { name: 'Ready 1' })).toBeInTheDocument()
+      expect(screen.getByText('50%')).toBeInTheDocument()
+    })
+
+    it('says so when no folder name matches a location of the research project', async () => {
+      mockedApi.listLocalLocations.mockResolvedValue({ results: [loc('OTHER_01')] })
+      await toLocations()
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('No folder name matches a location in DONA')
+      expect(screen.queryByRole('button', { name: /^Assign \d+$/ })).not.toBeInTheDocument()
+    })
+
+    it('says so when the research project has no locations yet', async () => {
+      mockedApi.listLocalLocations.mockResolvedValue({ results: [] })
+      await toLocations()
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('DONA has no locations yet')
+    })
+
+    it('shows the images of each folder, and lists only those missing a location', async () => {
+      await toLocations()
+      await screen.findByRole('button', { name: /^Assign \d+$/ })
+      await chooseLocation(screen.getByLabelText('Location of DONA_01'), 'DONA_01')
+      expect(await screen.findByText('10 images')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('tab', { name: /Missing/ }))
+      expect(screen.queryByLabelText('Location of DONA_01')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Location of DONA_02')).toBeInTheDocument()
+    })
   })
 
   it('says nothing about a log when the session has none', async () => {
@@ -346,10 +523,9 @@ describe('ImportSessionPage', () => {
 
   it('does not accept two deployments with the same location', async () => {
     await toDetails()
-    await userEvent.click(await screen.findByRole('button', { name: 'DONA_02' }))
-    await userEvent.selectOptions(screen.getByLabelText('Location'), 'DONA_01')
+    await chooseLocation(screen.getByLabelText('Location of DONA_02'), 'DONA_01')
 
-    expect(await screen.findByText(/Another deployment of the session has this id/)).toBeInTheDocument()
+    expect((await screen.findAllByText(/Another deployment of the session has this id/)).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
   })
 
@@ -369,31 +545,36 @@ describe('ImportSessionPage', () => {
     expect(screen.getByText('R0003-DONA_01, R0003-DONA_02', { selector: 'span' })).toBeInTheDocument()
   })
 
-  it('fills every deployment in from its previous revision as soon as the revision is known, without being asked', async () => {
+  it('offers to copy every deployment from its previous revision once the revision is known, and copies when asked', async () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: {
       'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': previous('R0002-DONA_02', { habitat: 'Oak forest' }),
     } })
-    await toDetails()
+    await toMoreDetails()
+
+    expect(await screen.findByText(/Revision 1 is on file for DONA_01 and DONA_02/)).toBeInTheDocument()
+    expect(screen.queryByText(/Filled in \d+ of/)).not.toBeInTheDocument() // nothing is copied unasked
+    await userEvent.click(screen.getByRole('button', { name: 'Copy from revision 1' }))
 
     expect(await screen.findByText(/Filled in 2 of 2 from their previous revision/)).toBeInTheDocument()
     expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    await userEvent.click(screen.getByRole('tab', { name: /Site/ }))
+    await openMore('DONA_01', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-    await userEvent.click(screen.getByRole('button', { name: 'DONA_02' }))
+    await openMore('DONA_02', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('Oak forest')
-    expect(screen.getByLabelText('Start date')).toHaveValue('2024-09-05T09:00') // the dates are this revision's own
   })
 
-  it('fills in once: what is typed afterwards is kept, and it says nothing when there is no earlier revision', async () => {
+  it('copies only what is on file, and what is typed afterwards is kept', async () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': null } })
-    await toDetails()
-    await screen.findByText(/Filled in 1 of 2/)
-    await userEvent.click(screen.getByRole('tab', { name: /Site/ }))
+    await toMoreDetails()
+    await userEvent.click(await screen.findByRole('button', { name: 'Copy from revision 1' }))
+    await screen.findByText('Filled in from R0002-DONA_01.')
+    await openMore('DONA_01', /^Site/)
     fireEvent.change(screen.getByLabelText('Habitat'), { target: { value: 'My own habitat' } })
-    await userEvent.click(screen.getByRole('button', { name: 'DONA_02' }))
-    await userEvent.click(screen.getByRole('button', { name: 'DONA_01' }))
+    await openMore('DONA_02')
+    await openMore('DONA_01')
 
     await waitFor(() => expect(mockedApi.previousDeployments).toHaveBeenCalledTimes(1))
+    await openMore('DONA_01', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('My own habitat')
   })
 
@@ -403,10 +584,9 @@ describe('ImportSessionPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(`${COLLECTION}/R0003-DONA_01`)
     expect(screen.getByRole('alert')).toHaveTextContent('This deployment already exists')
-    expect(screen.getAllByText('⚠ Already exists')).toHaveLength(1)
+    expect(screen.getAllByText('Already exists')).toHaveLength(1) // in the list of periods
     expect(mockedApi.existingDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    await userEvent.click(screen.getByRole('button', { name: 'DONA_02' }))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('alert')).toHaveLength(1) // only the deployment that exists
   })
 
   it('needs the revision', async () => {
@@ -420,15 +600,14 @@ describe('ImportSessionPage', () => {
     mockedApi.listLocalLocations.mockResolvedValue({ results: [loc('DONA_01')] })
     mockedApi.saveLocalLocation.mockImplementation(async (_rp, location) => location)
     await toDetails()
-    await userEvent.click(await screen.findByRole('button', { name: 'DONA_02' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Add a location' }))
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Add a new location' }))[1]) // DONA_02's
     expect(screen.getByLabelText('Location id')).toHaveValue('DONA_02')
     fireEvent.change(screen.getByLabelText('Location timezone'), { target: { value: 'Europe/Madrid' } })
     fireEvent.change(screen.getByLabelText('Location latitude'), { target: { value: '37.1' } })
     fireEvent.change(screen.getByLabelText('Location longitude'), { target: { value: '-6.4' } })
     await userEvent.click(screen.getByRole('button', { name: 'Save location' }))
 
-    await waitFor(() => expect(screen.getByLabelText('Location')).toHaveValue('DONA_02'))
+    await waitFor(() => expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02'))
     expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_02', latitude: 37.1, longitude: -6.4 }))
   })
 
@@ -439,6 +618,19 @@ describe('ImportSessionPage', () => {
     expect(await screen.findByText(/Some of these checks can be customized in the settings \(Settings › Postvalidation\)/)).toBeInTheDocument()
     expect(screen.queryByLabelText('Tolerance (hours)')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Sequence gap (seconds)')).not.toBeInTheDocument()
+  })
+
+  it('has a section to choose the checks and another for how they went', async () => {
+    await toDetails()
+    await next()
+
+    expect(await screen.findByText('Choose the checks', { selector: 'h4' })).toBeInTheDocument()
+    expect(screen.getByText('Check results', { selector: 'h4' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run again' })).not.toBeInTheDocument() // nothing has run yet
+
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+    expect(await screen.findByRole('button', { name: 'Run again' })).toBeInTheDocument()
+    expect(screen.getByText('1. Choose the checks', { selector: 'h4' })).toBeInTheDocument() // done, shut, with its pencil
   })
 
   it('writes each deployment’s timestamp log and checks each one after the details', async () => {
@@ -454,9 +646,8 @@ describe('ImportSessionPage', () => {
 
   it('imports every deployment into the revision’s collection and offers to open it', async () => {
     await toDetails()
-    await next() // checks
-    await next() // preprocessing
-    await next() // import
+    await next() // details → checks
+    await next() // checks → prepare
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/Session imported — 2 deployment/)
@@ -465,17 +656,40 @@ describe('ImportSessionPage', () => {
     ])
     expect(mockedApi.importLocal.mock.calls[0][2]).toBe('R0003')
     expect(mockedApi.importLocal.mock.calls[0][4]).toEqual(expect.objectContaining({ rename: true, research_project: 'Doñana' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Open folder in file explorer' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Open folder' }))
     expect(mockedApi.openFolder).toHaveBeenCalledWith(COLLECTION)
+  })
+
+  it('has Preprocessing steps to choose what to do, Preprocessing results for how it went, and Save to your collection', async () => {
+    await toDetails()
+    await next(); await next()
+
+    expect(await screen.findByText('Preprocessing steps', { selector: 'h4' })).toBeInTheDocument()
+    expect(screen.getByText('Preprocessing results', { selector: 'h4' })).toBeInTheDocument()
+    expect(screen.getByText('Save to your collection', { selector: 'h4' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Import 2 deployments' }))
+
+    await screen.findByText(/Session imported — 2 deployment/)
+    expect(screen.getByRole('progressbar', { name: 'Deployments imported' })).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByText('2 of 2 deployments imported')).toBeInTheDocument()
+  })
+
+  it('lets the optional preparation steps be switched off before importing', async () => {
+    await toDetails()
+    await next(); await next()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Resize the images' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Import 2 deployments' }))
+
+    await screen.findByText(/Session imported/)
+    expect(mockedApi.importLocal.mock.calls[0][4]).toEqual(expect.objectContaining({ rename: true, resize: false }))
   })
 
   it('offers to go on to the upload of the revision’s collection once the session is imported', async () => {
     const onUpload = vi.fn()
     pageProps = { onUpload }
     await toDetails()
-    await next() // checks
-    await next() // preprocessing
-    await next() // import
+    await next() // details → checks
+    await next() // checks → prepare
     expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
@@ -491,7 +705,7 @@ describe('ImportSessionPage', () => {
       onEvent({ type: 'done', dest_dir: `${COLLECTION}/${deployment.deployment_id}`, processed: 1, skipped: 0 })
     })
     await toDetails()
-    await next(); await next(); await next()
+    await next(); await next()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/disk full/)
@@ -505,14 +719,14 @@ describe('ImportSessionPage', () => {
   })
 
   it('asks the same fields as a single deployment — and sends them with the deployment', async () => {
-    await toDetails()
-    await userEvent.click(await screen.findByRole('tab', { name: /Site/ }))
+    await toMoreDetails()
+    await openMore('DONA_01', /^Site/)
     fireEvent.change(screen.getByLabelText('Set up by'), { target: { value: 'Ana' } })
-    await userEvent.click(screen.getByRole('tab', { name: /Grouping/ }))
+    await openMore('DONA_01', /^Grouping and notes/)
     fireEvent.change(screen.getByLabelText('Comments'), { target: { value: 'Near the pond' } })
-    await userEvent.click(screen.getByRole('tab', { name: /Camera/ }))
-    fireEvent.change(screen.getByLabelText('Camera height (m)'), { target: { value: '1.2' } })
-    await next(); await next(); await next()
+    await openMore('DONA_01', /^Camera/)
+    fireEvent.change(screen.getByLabelText('Height above the ground (m)'), { target: { value: '1.2' } })
+    await next(); await next()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/Session imported/)
@@ -531,21 +745,19 @@ describe('ImportSessionPage', () => {
 
   it('fills one deployment from its previous revision, keeping its own id, location and dates', async () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': previous('R0002-DONA_01') } })
-    await toDetails()
+    await toMoreDetails()
+    await openMore('DONA_01')
     await userEvent.click(await screen.findByRole('button', { name: 'Fill from the previous revision' }))
 
     expect(await screen.findByText('Filled in from R0002-DONA_01.')).toBeInTheDocument()
-    expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01'])
-    await userEvent.click(screen.getByRole('tab', { name: /Site/ }))
+    expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
+    await openMore('DONA_01', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
     expect(screen.getByLabelText('Set up by')).toHaveValue('Ana')
-    expect(screen.getByLabelText('Timestamps have issues')).not.toBeChecked() // not carried over
-    await userEvent.click(screen.getByRole('tab', { name: /Grouping/ }))
+    expect(screen.getByRole('switch', { name: 'Photo dates may be wrong' })).toHaveAttribute('aria-checked', 'false') // not carried over
+    await openMore('DONA_01', /^Grouping and notes/)
     expect(screen.getByLabelText('Comments')).toHaveValue('Near the pond')
-    expect(screen.getByLabelText('Tags (comma-separated)')).toHaveValue('forest')
-    expect(screen.getByLabelText('Deployment id')).toHaveValue('R0003-DONA_01')
-    expect(screen.getByLabelText('Location')).toHaveValue('DONA_01')
-    expect(screen.getByLabelText('Start date')).toHaveValue('2024-09-04T13:10') // this revision's own
+    expect(screen.getByText('forest')).toBeInTheDocument()
   })
 
   it('does not offer to fill in from a previous revision once it is known there is none', async () => {
@@ -553,7 +765,7 @@ describe('ImportSessionPage', () => {
     await toDetails()
     await waitFor(() => expect(mockedApi.previousDeployments).toHaveBeenCalled())
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Fill all from the previous revision' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
   })
 
@@ -563,7 +775,7 @@ describe('ImportSessionPage', () => {
     await new Promise((resolve) => setTimeout(resolve, 600)) // longer than the wait before looking
 
     expect(mockedApi.previousDeployments).not.toHaveBeenCalledWith('DONA', expect.arrayContaining(['R0001-DONA_01']))
-    expect(screen.queryByRole('button', { name: 'Fill all from the previous revision' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
   })
 
@@ -571,15 +783,14 @@ describe('ImportSessionPage', () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: {
       'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': null,
     } })
-    await toDetails()
-    await userEvent.click(await screen.findByRole('button', { name: 'Fill all from the previous revision' }))
+    await toMoreDetails()
+    await userEvent.click(await screen.findByRole('button', { name: /Copy from revision/ }))
 
-    expect(await screen.findByText(/Filled in 1 of 2 from their previous revision — the other 1 have none/)).toBeInTheDocument()
+    expect(await screen.findByText('Filled in from R0002-DONA_01.')).toBeInTheDocument()
     expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    await userEvent.click(screen.getByRole('tab', { name: /Site/ }))
+    await openMore('DONA_01', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-    await userEvent.click(screen.getByRole('button', { name: 'DONA_02' }))
-    expect(screen.getByLabelText('Location')).toHaveValue('DONA_02')
+    await openMore('DONA_02', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('') // nothing filled in
   })
 
@@ -587,7 +798,7 @@ describe('ImportSessionPage', () => {
     await toDetails()
     fireEvent.change(screen.getByLabelText('What revision number are you importing?'), { target: { value: '' } })
 
-    expect(screen.queryByRole('button', { name: 'Fill all from the previous revision' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
   })
 
@@ -604,23 +815,24 @@ describe('ImportSessionPage', () => {
     it('says how many are complete, and filters the list', async () => {
       await toDetails()
 
-      expect(await screen.findByRole('status')).toHaveTextContent('60 of 66 deployment(s) complete.')
+      expect(await screen.findByText('60 of 66 deployment(s) complete.')).toBeInTheDocument()
       fireEvent.change(screen.getByLabelText('Filter deployments'), { target: { value: '_6' } })
-      const rows = screen.getAllByRole('row').slice(1)
-      expect(rows.map((r) => r.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('DONA_60'), expect.stringContaining('DONA_66')]))
+      const rows = screen.getAllByRole('button', { name: /^(Open|Close) DONA_/ })
+      expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(expect.arrayContaining([expect.stringContaining('DONA_60'), expect.stringContaining('DONA_66')]))
       expect(rows).toHaveLength(7) // DONA_06 and DONA_60 to DONA_66
     })
 
-    it('lists only the incomplete ones, and jumps to the next one that is', async () => {
+    it('lists only the incomplete ones, and opens one of them', async () => {
       await toDetails()
       await userEvent.click(await screen.findByLabelText('Only the incomplete ones'))
 
-      expect(screen.getAllByRole('row').slice(1)).toHaveLength(6)
+      expect(screen.getAllByRole('button', { name: /^(Open|Close) DONA_/ })).toHaveLength(6)
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-      await userEvent.click(screen.getByRole('button', { name: 'Next incomplete' }))
-      expect(screen.getByRole('group', { name: 'Details of DONA_61' })).toBeInTheDocument()
-      await userEvent.selectOptions(screen.getByLabelText('Location'), 'DONA_01')
-      expect(await screen.findByText(/Another deployment of the session has this id/)).toBeInTheDocument()
+      expect(screen.getByText('6 deployments need details.')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Open DONA_61' }))
+      expect(screen.getByRole('group', { name: 'Dates of DONA_61' })).toBeInTheDocument()
+      await chooseLocation(screen.getByLabelText('Location of DONA_61'), 'DONA_01')
+      expect((await screen.findAllByText(/Another deployment of the session has this id/)).length).toBeGreaterThan(0)
     })
   })
 })

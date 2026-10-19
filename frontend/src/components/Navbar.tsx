@@ -25,7 +25,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
       <div className="max-w-screen-2xl mx-auto px-4 h-14 flex items-center">
         <button type="button" className="flex items-center rounded hover:opacity-80 transition-opacity" title="Go to the welcome screen" onClick={onHome}>
           <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">
-            🐾 WildINTEL Uploader
+            📤 WildINTEL Uploader
           </span>
           {version && (
             <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500 font-mono">

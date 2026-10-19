@@ -32,29 +32,23 @@ describe('MenuPage', () => {
     expect(onChoose).toHaveBeenCalledWith('upload')
   })
 
-  it('offers to sync the local collections with Trapper, and says the session upload is coming soon', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
+  it('offers the three tasks in the order import deployment, import session, upload deployment', () => {
+    render(<MenuPage onChoose={vi.fn()} />)
 
-    const syncButton = screen.getByRole('button', { name: /sync local collections/i })
-    expect(syncButton).toBeEnabled()
-    await userEvent.click(syncButton)
-    expect(onChoose).toHaveBeenCalledWith('sync')
-
-    const sessionUpload = screen.getByRole('button', { name: /upload session to trapper/i })
-    expect(sessionUpload).toBeDisabled()
-    expect(sessionUpload).toHaveTextContent(/coming soon/i)
+    const titles = screen.getAllByRole('button').map((b) => b.textContent ?? '').filter((t) => /Import deployment|Import session|Upload deployment/.test(t))
+    expect(titles.map((t) => t.match(/Import deployment|Import session|Upload deployment/)![0])).toEqual(['Import deployment', 'Import session', 'Upload deployment'])
+    expect(screen.queryByRole('button', { name: /upload session to trapper/i })).not.toBeInTheDocument()
   })
 
-  it('offers to repair the local deployments', async () => {
+  it('offers the utilities, with the repair and the sync inside them rather than in the menu', async () => {
     const onChoose = vi.fn()
     render(<MenuPage onChoose={onChoose} />)
 
-    const repairButton = screen.getByRole('button', { name: /repair local deployments/i })
-    expect(repairButton).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /^🛠️/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^🔄/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^reports/i })).not.toBeInTheDocument() // the reports are in the settings now
 
-    await userEvent.click(repairButton)
-    expect(onChoose).toHaveBeenCalledWith('repair')
+    await userEvent.click(screen.getByRole('button', { name: /utils/i }))
+    expect(onChoose).toHaveBeenCalledWith('utils')
   })
 })

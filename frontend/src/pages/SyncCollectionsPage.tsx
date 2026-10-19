@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
+import WizardStep from '../components/WizardStep'
+import { SmallSpinner, btnOutline } from './ImportDeploymentPage'
 import type { ClassificationProject, ResearchProject, SyncCollection, SyncResult } from '../types'
 
 const btnPrimary = 'px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
@@ -31,6 +33,7 @@ export default function SyncCollectionsPage() {
   const [chosenDeployments, setChosenDeployments] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [started, setStarted] = useState(false)
   const [result, setResult] = useState<SyncResult | null>(null)
   const [progress, setProgress] = useState<string[]>([])
   const logRef = useRef<HTMLDivElement>(null)
@@ -76,12 +79,14 @@ export default function SyncCollectionsPage() {
     setChosenDeployments(new Set(collections.find((c) => c.name === name)?.deployments ?? []))
   }
 
+  function startOver() { setStarted(false); setResult(null); setProgress([]); setError(null) }
+
   const toggle = (id: string) => setChosenDeployments((s) => { const next = new Set(s); if (!next.delete(id)) next.add(id); return next })
 
   async function handleSync() {
     const project = projects.find((p) => String(p.pk) === projectPk)
     if (!project || !classificationPk || !collection || chosenDeployments.size === 0) return
-    setSyncing(true); setError(null); setResult(null); setProgress([])
+    setStarted(true); setSyncing(true); setError(null); setResult(null); setProgress([])
     try {
       await api.syncCollections({}, project, Number(classificationPk), [collection.name], deployments.filter((d) => chosenDeployments.has(d)), (event) => {
         if (event.type === 'progress') setProgress((lines) => [...lines, event.message])
@@ -94,126 +99,144 @@ export default function SyncCollectionsPage() {
     }
   }
 
+  const step2Status = syncing ? 'running' : !started ? 'locked' : error && !result ? 'error' : 'done'
+
   return (
-    <div className="mx-auto px-4 py-8" style={{ maxWidth: 700 }}>
-      <h1 className="text-2xl font-bold mb-1">Sync local collections</h1>
-      <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">
-        Pick a classification project of Trapper, one of its collections, and the deployments to sync. The local folders are checked against them, and what is missing is created: the research
-        project and its locations, the collection (with its timestamp log) and the chosen deployments. What is
-        already there is left as it is, and the images are not downloaded.
+    <div className="max-w-screen-md mx-auto px-4 py-8">
+      <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Sync local collections</h2>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+        The local folders are checked against what Trapper has for a classification project, and what is missing is created: the research project and its locations, the collection
+        (with its timestamp log) and the chosen deployments. What is already there is left as it is, and the images are not downloaded.
       </p>
 
-      <div className="mb-4">
-        <label className={labelClass} htmlFor="sync-research-project">Research project</label>
-        <Combobox
-          id="sync-research-project" options={projects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
-          value={projectPk} onChange={chooseProject} disabled={syncing}
-          placeholder={projects.length === 0 ? 'No research projects' : 'Select a research project…'} clearLabel="Clear research project"
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className={labelClass} htmlFor="sync-classification-project">Classification project</label>
-        <Combobox
-          id="sync-classification-project" options={classifications.map((c) => ({ value: String(c.pk), label: c.name }))}
-          value={classificationPk} onChange={chooseClassification} disabled={!projectPk || syncing}
-          placeholder="Select a classification project…" clearLabel="Clear classification project"
-        />
-      </div>
-
-      {classificationPk && (
+      <WizardStep n={1} title="Choose what to sync" status={started ? 'done' : 'open'} canEdit={!syncing} onEdit={startOver}
+                  summary={collection && <>{projects.find((p) => String(p.pk) === projectPk)?.acronym ?? projectPk} › {classifications.find((c) => String(c.pk) === classificationPk)?.name} › {collection.name} · {chosenDeployments.size} {chosenDeployments.size === 1 ? 'deployment' : 'deployments'}</>}
+                  description="A classification project of Trapper, one of its collections, and the deployments to sync.">
         <div className="mb-4">
-          <label className={labelClass} htmlFor="sync-collection">Collection</label>
+          <label className={labelClass} htmlFor="sync-research-project">Research project</label>
           <Combobox
-            id="sync-collection" options={collections.map((c) => ({ value: c.name, label: `${c.name} — ${c.deployments.length} deployment(s)` }))}
-            value={collectionName} onChange={chooseCollection} disabled={syncing}
-            placeholder={collections.length === 0 ? 'No collections starting with R' : 'Select a collection…'} clearLabel="Clear collection"
+            id="sync-research-project" options={projects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
+            value={projectPk} onChange={chooseProject} disabled={syncing}
+            placeholder={projects.length === 0 ? 'No research projects' : 'Select a research project…'} clearLabel="Clear research project"
           />
         </div>
-      )}
 
-      {collection && (
         <div className="mb-4">
-          <div className="flex items-center justify-between mb-1.5">
-            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Deployments</p>
-            {deployments.length > 0 && (
-              <button type="button" className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50" disabled={syncing}
-                      onClick={() => setChosenDeployments(new Set(allChosen ? [] : deployments))}>
-                {allChosen ? 'Deselect all' : 'Select all'}
-              </button>
+          <label className={labelClass} htmlFor="sync-classification-project">Classification project</label>
+          <Combobox
+            id="sync-classification-project" options={classifications.map((c) => ({ value: String(c.pk), label: c.name }))}
+            value={classificationPk} onChange={chooseClassification} disabled={!projectPk || syncing}
+            placeholder="Select a classification project…" clearLabel="Clear classification project"
+          />
+        </div>
+
+        {classificationPk && (
+          <div className="mb-4">
+            <label className={labelClass} htmlFor="sync-collection">Collection</label>
+            <Combobox
+              id="sync-collection" options={collections.map((c) => ({ value: c.name, label: `${c.name} — ${c.deployments.length} deployment(s)` }))}
+              value={collectionName} onChange={chooseCollection} disabled={syncing}
+              placeholder={collections.length === 0 ? 'No collections starting with R' : 'Select a collection…'} clearLabel="Clear collection"
+            />
+          </div>
+        )}
+
+        {collection && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Deployments</p>
+              {deployments.length > 0 && (
+                <button type="button" className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50" disabled={syncing}
+                        onClick={() => setChosenDeployments(new Set(allChosen ? [] : deployments))}>
+                  {allChosen ? 'Deselect all' : 'Select all'}
+                </button>
+              )}
+            </div>
+            {deployments.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">This collection has no deployments.</p>
+            ) : (
+              <table className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded">
+                <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-xs text-zinc-500 dark:text-zinc-400">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 text-center w-12">
+                      <input type="checkbox" aria-label="Select all deployments" checked={allChosen} disabled={syncing}
+                             onChange={() => setChosenDeployments(new Set(allChosen ? [] : deployments))} />
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-left">Deployment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+                  {deployments.map((id) => (
+                    <tr key={id}>
+                      <td className="px-3 py-2 text-center">
+                        <input type="checkbox" aria-label={id} checked={chosenDeployments.has(id)} disabled={syncing} onChange={() => toggle(id)} />
+                      </td>
+                      <td className="px-3 py-2 font-mono">{id}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
-          {deployments.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">This collection has no deployments.</p>
-          ) : (
-            <table className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-xs text-zinc-500 dark:text-zinc-400">
-                <tr>
-                  <th scope="col" className="px-3 py-2 text-center w-12">
-                    <input type="checkbox" aria-label="Select all deployments" checked={allChosen} disabled={syncing}
-                           onChange={() => setChosenDeployments(new Set(allChosen ? [] : deployments))} />
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left">Deployment</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-                {deployments.map((id) => (
-                  <tr key={id}>
-                    <td className="px-3 py-2 text-center">
-                      <input type="checkbox" aria-label={id} checked={chosenDeployments.has(id)} disabled={syncing} onChange={() => toggle(id)} />
-                    </td>
-                    <td className="px-3 py-2 font-mono">{id}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        )}
+
+        {error && !started && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
+        <div className="flex justify-end">
+          <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!collection || chosenDeployments.size === 0 || syncing} onClick={() => void handleSync()}>
+            Sync
+          </button>
         </div>
-      )}
+      </WizardStep>
 
-      <button type="button" className={btnPrimary} disabled={!collection || chosenDeployments.size === 0 || syncing} onClick={handleSync}>
-        {syncing ? 'Syncing…' : 'Sync'}
-      </button>
+      <WizardStep n={2} title="Sync" status={step2Status} canEdit={false} onEdit={() => {}} expanded
+                  description="Creates in your collections folder what Trapper has and is missing here.">
+        {progress.length > 0 && (
+          <div ref={logRef} role="log" aria-label="Sync progress"
+               className="mb-4 max-h-56 overflow-y-auto rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-3 py-2 text-xs font-mono text-zinc-600 dark:text-zinc-400 space-y-0.5">
+            {progress.map((line, i) => <p key={i}>{line}</p>)}
+          </div>
+        )}
 
-      {progress.length > 0 && (
-        <div ref={logRef} role="log" aria-label="Sync progress"
-             className="mt-4 max-h-56 overflow-y-auto rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-3 py-2 text-xs font-mono text-zinc-600 dark:text-zinc-400 space-y-0.5">
-          {progress.map((line, i) => <p key={i}>{line}</p>)}
-        </div>
-      )}
+        {error && <p className="text-sm text-red-600 dark:text-red-400 mt-4">{error}</p>}
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400 mt-4">{error}</p>}
-
-      {result && (
-        <section className="mt-6 p-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40" aria-label="Sync result">
-          <h2 className="text-sm font-semibold mb-1">Synced into <span className="font-mono">{result.folder}</span></h2>
-          <ul className="text-sm mt-2 space-y-1">
-            {KINDS.map(({ key, label }) => (
-              <li key={key}>
-                <strong>{label}:</strong> {result.created[key].length} created, {result.kept[key].length} already there
-                {result.created[key].length > 0 && <span className="block text-xs text-zinc-500 dark:text-zinc-400">{result.created[key].join(', ')}</span>}
-              </li>
-            ))}
-          </ul>
-          {result.collections.length === 0 && (
-            <p className="text-sm text-amber-700 dark:text-amber-400 mt-3">The classification project has no collection starting with R.</p>
-          )}
-          {result.failed.length > 0 && (
-            <div className="text-sm text-red-600 dark:text-red-400 mt-3">
-              <p>{result.failed.length} deployment{result.failed.length === 1 ? '' : 's'} could not be created, as Trapper holds {result.failed.length === 1 ? 'it' : 'them'} with invalid values:</p>
-              <ul className="list-disc ml-5">
-                {result.failed.map((f) => <li key={f.deployment_id}><span className="font-mono">{f.deployment_id}</span> — {f.error}</li>)}
-              </ul>
-            </div>
-          )}
-          {result.unassigned.length > 0 && (
-            <p className="text-sm text-amber-700 dark:text-amber-400 mt-3">
-              {result.unassigned.length} deployment{result.unassigned.length === 1 ? '' : 's'} of the research project are not in the collections of this classification project, so they were not created
-              {' '}(collections {unassignedCollections(result.unassigned).join(', ')}).
-            </p>
-          )}
-        </section>
-      )}
+        {syncing && progress.length === 0 && <p className="text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-2"><SmallSpinner />Syncing…</p>}
+        {error && started && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
+        {result && (
+          <section className="p-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40" aria-label="Sync result">
+            <h2 className="text-sm font-semibold mb-1">Synced into <span className="font-mono">{result.folder}</span></h2>
+            <ul className="text-sm mt-2 space-y-1">
+              {KINDS.map(({ key, label }) => (
+                <li key={key}>
+                  <strong>{label}:</strong> {result.created[key].length} created, {result.kept[key].length} already there
+                  {result.created[key].length > 0 && <span className="block text-xs text-zinc-500 dark:text-zinc-400">{result.created[key].join(', ')}</span>}
+                </li>
+              ))}
+            </ul>
+            {result.collections.length === 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-3">The classification project has no collection starting with R.</p>
+            )}
+            {result.failed.length > 0 && (
+              <div className="text-sm text-red-600 dark:text-red-400 mt-3">
+                <p>{result.failed.length} deployment{result.failed.length === 1 ? '' : 's'} could not be created, as Trapper holds {result.failed.length === 1 ? 'it' : 'them'} with invalid values:</p>
+                <ul className="list-disc ml-5">
+                  {result.failed.map((f) => <li key={f.deployment_id}><span className="font-mono">{f.deployment_id}</span> — {f.error}</li>)}
+                </ul>
+              </div>
+            )}
+            {result.unassigned.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-3">
+                {result.unassigned.length} deployment{result.unassigned.length === 1 ? '' : 's'} of the research project are not in the collections of this classification project, so they were not created
+                {' '}(collections {unassignedCollections(result.unassigned).join(', ')}).
+              </p>
+            )}
+          </section>
+        )}
+        {started && !syncing && (
+          <div className="flex justify-end mt-4">
+            <button type="button" className={btnOutline} onClick={startOver}>{result ? 'Sync another collection' : 'Back'}</button>
+          </div>
+        )}
+      </WizardStep>
     </div>
   )
 }

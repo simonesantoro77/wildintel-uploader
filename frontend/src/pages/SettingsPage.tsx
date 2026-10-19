@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
+import EpicollectMapping from '../components/EpicollectMapping'
 import { COVERAGE_AREAS, ENTITIES } from '../entities'
 import ReportsList from '../components/ReportsList'
 import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, ImageCheck, LogLevel, SimilarityMethod, UpdateCheck } from '../types'
@@ -113,6 +114,7 @@ interface Draft {
   epicollectSlug: string
   epicollectClientId: string
   epicollectClientSecret: string
+  epicollectMapping: Record<string, string>
   validation: AppSettings['VALIDATION']
   postvalidation: Record<DeploymentCheck, boolean>
   toleranceHours: string
@@ -152,6 +154,7 @@ function toDraft(s: AppSettings): Draft {
     epicollectSlug: s.EPICOLLECT5.project_slug ?? '',
     epicollectClientId: s.EPICOLLECT5.client_id ?? '',
     epicollectClientSecret: '',
+    epicollectMapping: { ...s.EPICOLLECT5.mapping },
     validation: { ...s.VALIDATION },
     postvalidation: checks,
     toleranceHours: String(post.tolerance_hours),
@@ -201,7 +204,7 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
   return {
     GENERAL: { log_level: d.logLevel, workers: Number(d.workers) },
     TRAPPER: { base_url: d.trapperUrl.trim() || null, user_name: d.trapperUser.trim() || null, user_password: d.trapperPassword, max_zip_mb: Number(d.maxZipMb) },
-    EPICOLLECT5: { project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret },
+    EPICOLLECT5: { project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret, mapping: d.epicollectMapping },
     DATA: { dir: d.dataDir.trim() || null },
     VALIDATION: d.validation,
     POSTVALIDATION: {
@@ -828,6 +831,14 @@ export default function SettingsPage({ onClose }: Props) {
               <TextBox label="Client id" value={draft.epicollectClientId} onChange={(v) => set('epicollectClientId', v)} mono />
               <TextBox label="Client secret" type="password" value={draft.epicollectClientSecret} onChange={(v) => set('epicollectClientSecret', v)} />
             </Row>
+            <div className="py-5">
+              <h3 className="text-sm font-medium mb-3">Mapping</h3>
+              <EpicollectMapping
+                mapping={draft.epicollectMapping} onChange={(m) => set('epicollectMapping', m)}
+                projectSaved={Boolean(saved.EPICOLLECT5.project_slug)}
+                unsavedProject={draft.epicollectSlug.trim() !== (saved.EPICOLLECT5.project_slug ?? '') || draft.epicollectClientId.trim() !== (saved.EPICOLLECT5.client_id ?? '') || draft.epicollectClientSecret !== ''}
+              />
+            </div>
           </div>
         )}
 
