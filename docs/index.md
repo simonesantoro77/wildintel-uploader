@@ -18,16 +18,21 @@ quick jobs:
 - **Upload to Trapper** — pick a collection kept locally and send its deployments: the location and
   the deployment are created in Trapper if they are missing, and the images go up in zips for Trapper
   to process. A dry run says what would happen first.
-- **Repair local deployments** — check which deployments of a local collection are still valid and write the
-  metadata of the others again from what their folders hold.
-- **Sync local collections** — bring the collections folder up to date with what Trapper already
-  holds for a classification project.
+- **Utils** — maintenance of the local collections: **Repair local deployments** checks which deployments are
+  still valid and writes the metadata of the others again from what their folders hold, and **Sync local
+  collections** brings the collections folder up to date with what Trapper already holds for a
+  classification project.
 
 ## Documentation Map
 
+### [User Manual](user-manual.md)
+
+What the web app and the command line have in common: installation, the general concepts
+(deployment, revision, location, collection) and the folders and files the app creates. Start here.
+
 ### [User Manual — web app](user-manual-web.md)
 
-Installation, settings, and a step-by-step guide to every task in the web interface: importing a
+Settings, and a step-by-step guide to every task in the web interface: importing a
 deployment or a session, uploading to Trapper and syncing.
 
 ### [User Manual — command line](user-manual-cli.md)

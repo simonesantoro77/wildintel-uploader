@@ -48,7 +48,7 @@ flowchart LR
 directly, in the same process, without HTTP.)
 
 - **Local first.** The app's own data — the **collections folder** — is plain files and JSON
-  (see the [user manual](user-manual-web.md#the-collections-folder)); there is no database. Trapper
+  (see the [user manual](user-manual.md#the-collections-folder)); there is no database. Trapper
   is only talked to when asked: looking things up, registering and uploading deployments, syncing.
   The source folder of an import is only ever *read*.
 - **No server-side login session.** Every request carries the credentials it needs; blank ones
@@ -252,7 +252,7 @@ deployment form — is the command line's flow.
 
 The **timezone** is read from the location, in the research project's `locations.json`
 (`local_folder_service.location_time`), never from the request: `import-local` refuses a location
-with none. This is deliberate — see the [user manual](user-manual-web.md#the-location-owns-the-timezone).
+with none. This is deliberate — see the [user manual](user-manual.md#the-location-owns-the-timezone).
 
 ### Reports
 
@@ -378,9 +378,11 @@ the current task and shows one page.
 |---|---|
 | `WelcomePage`, `MenuPage` | The first screen and the task menu (`OptionCards`; a task with `available: false` is *coming soon*). |
 | `ResumeSessionsPage` | The unfinished runs, shown before the menu when there are any. |
-| `ImportDeploymentPage` | The seven-step wizard. The biggest file: its step components and the forms. |
-| `ImportSessionPage` | The same steps for a folder of deployments. Reuses the wizard's pieces, exported from `ImportDeploymentPage`. |
-| `UploadDeploymentPage` | Research project → collection → deployments → mode, and a card per deployment. |
+| `ImportDeploymentPage` | The wizard of four stages (images, origin and dates, check details, prepare and save), each with steps of its own (`WizardStep`). The biggest file: its step components and the forms. |
+| `ImportSessionPage` | The same stages for a folder of deployments. Reuses the wizard's pieces, exported from `ImportDeploymentPage`. |
+| `UploadDeploymentPage` | Steps: what to upload (research project → collection → deployments), what to do (mode), then the upload, with a card per deployment. |
+| `UtilsPage` | The menu's *Utils* button: a list of maintenance tasks, each shown in place of the list once chosen — `RepairPage` and `SyncCollectionsPage`. |
+| `RepairPage` | Research project → collection → state of each deployment, and what each repair did. |
 | `SyncCollectionsPage` | Classification project → collection → deployments, and a live log. |
 | `SettingsPage` | Shown *over* the rest, which stays mounted but hidden, so a run in progress isn't lost. |
 
@@ -441,6 +443,9 @@ bodies are JSON, and every `POST` that talks to Trapper takes optional `url`, `u
 | repair | `POST /repair/collections` | The collections of a local research project and their deployment folders, whatever their state. |
 | | `…/inspect` | A deployment's state: valid as its seal says, what is wrong with it. |
 | | `…/deployment` | **Streams** its repair. |
+| epicollect | `GET /epicollect/form` | The inputs of the project saved in the settings, flattened. |
+| | `POST /epicollect/test-connection` | Whether the project can be read with the values typed (saved or not). Saves nothing. |
+| | `POST /epicollect/entries` | The entries of a location (and revision), as the fields of a deployment through the mapping: `epicollect_service.find_entries`. |
 | sync | `POST /sync/collection-names` | The classification project's collections starting with `R`. |
 | | `…/collections` | **Streams** the sync. |
 

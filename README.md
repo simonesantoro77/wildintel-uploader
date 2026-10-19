@@ -16,12 +16,12 @@ platform.
   is never touched.
 - **Upload to Trapper** — send the deployments kept locally: location and deployment are created in
   Trapper if missing, and the images go up in zips. With a dry run.
-- **Sync local collections** — bring the local folder up to date with what Trapper holds.
+- **Utils** — repair local deployments, and sync the local collections folder with what Trapper holds.
 
 The command line is a smaller flow: connection test, settings, Trapper lookups and a quick import.
 
-See the [documentation](https://wildintelproject.github.io/wildintel-uploader/) for the web and
-command-line user manuals and the developer manual.
+See the [documentation](https://wildintelproject.github.io/wildintel-uploader/) for the user manual (installation, concepts and folders), the web and
+command-line manuals and the developer manual.
 
 ## Quick start
 

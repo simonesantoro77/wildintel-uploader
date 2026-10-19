@@ -6,7 +6,9 @@ deployment.
 
 The command line and the web app are two faces of one application: they share **the same
 settings and the same log**, and the deployments they import end up in the same collections
-folder.
+folder. The [common part of the manual](user-manual.md) explains what they share — the
+installation, the concepts and the folders and files; `wildintel-uploader config path` prints where
+they are on your machine.
 
 !!! warning "The web app does more"
     The command line is the app's first, simpler flow. It **does not** run the validation and
@@ -18,21 +20,20 @@ folder.
 
 ## Table of Contents
 
-1. [Installation](#1-installation)
+1. [Running it](#1-running-it)
 2. [Getting started](#2-getting-started)
 3. [Settings](#3-settings)
 4. [Finding the ids](#4-finding-the-ids)
 5. [Importing a deployment](#5-importing-a-deployment)
 6. [Command reference](#6-command-reference)
-7. [Where the app keeps its files](#7-where-the-app-keeps-its-files)
-8. [Troubleshooting](#8-troubleshooting)
+7. [Troubleshooting](#7-troubleshooting)
 
 ---
 
-## 1. Installation
+## 1. Running it
 
-The command line is in the same package as the web app — see the
-[web manual's installation](user-manual-web.md#1-installation). Run with no arguments, the
+The command line is in the same package as the web app — see
+[Installation](user-manual.md#1-installation) in the common part. Run with no arguments, the
 package opens the web app; run with any, it's the command line:
 
 <div class="termy">
@@ -131,7 +132,7 @@ $ wildintel-uploader config set DATA.dir relative/path
 
 The sections are `GENERAL`, `TRAPPER`, `DATA`, `VALIDATION`, `POSTVALIDATION` and
 `PREPROCESSING`; each setting is described in the
-[web manual's Settings](user-manual-web.md#4-settings). A value is checked before it is saved. The
+[web manual's Settings](user-manual-web.md#2-settings). A value is checked before it is saved. The
 file can also be edited by hand.
 
 Which settings file is in use (the web app lets you keep several) is the one chosen there; the
@@ -264,13 +265,7 @@ error, printed as `✘  …` on the standard error.
 | `trapper locations --rp PK` | A research project's locations, with their timezones. |
 | `import-deployment` | Imports a deployment, interactively — see [above](#5-importing-a-deployment). |
 
-## 7. Where the app keeps its files
-
-The same as the web app — see
-[its manual](user-manual-web.md#10-where-the-app-keeps-its-files). `wildintel-uploader config path`
-prints them for your machine.
-
-## 8. Troubleshooting
+## 7. Troubleshooting
 
 **`✘  Missing Trapper username, password — …`**
 :   A Trapper setting is missing — it names which. Set the URL, the username and the password as in

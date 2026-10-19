@@ -106,6 +106,20 @@ def open_task(page: Page, title: str) -> None:
     page.locator("button", has=page.locator("strong", has_text=re.compile(f"^{re.escape(title)}$"))).click()
 
 
+def open_util(page: Page, title: str) -> None:
+    """A task of the Utils page, under the menu's last button."""
+    open_task(page, "Utils")
+    expect(heading(page, "Utilities")).to_be_visible()
+    page.locator("button", has=page.locator("strong", has_text=re.compile(f"^{re.escape(title)}$"))).click()
+
+
+@shot("utils")
+def utils(page: Page) -> None:
+    open_task(page, "Utils")
+    expect(heading(page, "Utilities")).to_be_visible()
+    save(page, "utils")
+
+
 @shot("settings")
 def settings(page: Page) -> None:
     start(page)
@@ -121,13 +135,13 @@ SOURCE = "/home/me/Pictures/R0003-DONA_01"
 
 def to_folder(page: Page) -> None:
     open_task(page, "Import deployment")
-    expect(page.get_by_text("Source images folder")).to_be_visible()
+    expect(heading(page, "Select the folder")).to_be_visible()
 
 
 def scan(page: Page) -> None:
     page.locator("#source-dir").fill(SOURCE)
     button(page, "Scan").click()
-    expect(page.get_by_text("241 file(s)")).to_be_visible()
+    expect(page.get_by_text("241 images found")).to_be_visible()
 
 
 @shot("step-folder")
@@ -137,36 +151,38 @@ def step_folder(page: Page) -> None:
     save(page, "step-folder")
 
 
-def to_validate(page: Page) -> None:
+def to_checks_choice(page: Page) -> None:
     to_folder(page)
     scan(page)
-    button(page, "Next").click()
-    expect(heading(page, "Validate folder contents")).to_be_visible()
+    button(page, "Continue to the checks").click()
+    expect(heading(page, "Choose the checks")).to_be_visible()
 
 
 @shot("step-validate")
 def step_validate(page: Page) -> None:
-    to_validate(page)
-    button(page, "Run validation").click()
-    expect(page.get_by_role("link", name="Download CSV")).to_be_visible()
-    save(page, "step-validate", top=heading(page, "Validate folder contents"), bottom=button(page, "Continue"))
+    to_checks_choice(page)
+    save(page, "step-validate")
+
+
+def run_validation(page: Page) -> None:
+    to_checks_choice(page)
+    button(page, "Run checks").click()
+    expect(page.get_by_role("link", name="Download report")).to_be_visible()
 
 
 @shot("validation-failures")
 def validation_failures(page: Page) -> None:
-    to_validate(page)
-    button(page, "Run validation").click()
-    expect(page.get_by_role("link", name="Download CSV")).to_be_visible()
-    page.get_by_role("button", name=re.compile("^Open the failures of Required EXIF fields")).click()
-    section = page.get_by_role("region", name="Failures of Required EXIF fields")
+    run_validation(page)
+    page.get_by_role("button", name=re.compile("^Open the failures of Required")).click()
+    section = page.get_by_role("region", name=re.compile("^Failures of Required"))
     expect(section.get_by_role("button", name="View details of IMG_0012.JPG")).to_be_visible()
     page.wait_for_load_state("networkidle")
-    save(page, "validation-failures", top=heading(page, "Validate folder contents"), bottom=section)
+    save(page, "validation-failures", top=heading(page, "Results"), bottom=section)
 
 
 def to_origin(page: Page) -> None:
-    to_validate(page)
-    button(page, "Continue").click()
+    run_validation(page)
+    button(page, "Continue").last.click()
     expect(heading(page, "Where was it taken?")).to_be_visible()
 
 
@@ -175,7 +191,7 @@ def step_origin(page: Page) -> None:
     to_origin(page)
     choose(page, "origin-research-project", "DONA")
     choose(page, "origin-location", "DONA_01")
-    expect(button(page, "Next")).to_be_enabled()
+    expect(button(page, "Continue to the dates")).to_be_enabled()
     save(page, "step-origin")
 
 
@@ -183,58 +199,68 @@ def to_details(page: Page) -> None:
     to_origin(page)
     choose(page, "origin-research-project", "DONA")
     choose(page, "origin-location", "DONA_01")
-    button(page, "Next").click()
-    expect(heading(page, "Deployment details")).to_be_visible()
-    expect(page.get_by_label("Deployment id")).to_have_value("R0003-DONA_01")
+    button(page, "Continue to the dates").click()
+    expect(heading(page, "When was it collected?")).to_be_visible()
+    button(page, "Continue to more details").click()
+    expect(heading(page, "More details")).to_be_visible()
 
 
 @shot("step-details")
 def step_details(page: Page) -> None:
     to_details(page)
-    page.get_by_role("tab", name="Camera").click()
-    expect(page.get_by_label("Camera model")).to_be_visible()
-    save(page, "step-details", bottom=button(page, "Next"))
+    save(page, "step-details")
+
+
+def to_dates(page: Page) -> None:
+    to_origin(page)
+    choose(page, "origin-research-project", "DONA")
+    choose(page, "origin-location", "DONA_01")
+    button(page, "Continue to the dates").click()
+    expect(heading(page, "When was it collected?")).to_be_visible()
+
+
+@shot("step-dates")
+def step_dates(page: Page) -> None:
+    to_dates(page)
+    save(page, "step-dates")
 
 
 def to_checks(page: Page) -> None:
     to_details(page)
-    button(page, "Next").click()
-    expect(heading(page, "Postvalidation")).to_be_visible()
+    button(page, "Continue").last.click()
+    expect(heading(page, "Check the details")).to_be_visible()
 
 
 @shot("step-checks")
 def step_checks(page: Page) -> None:
     to_checks(page)
     button(page, "Run checks").click()
-    expect(page.get_by_text("like the previous revisions").first).to_be_visible()
+    expect(page.get_by_text("Every check passed.")).to_be_visible()
     save(page, "step-checks")
 
 
 def to_preprocessing(page: Page) -> None:
     to_checks(page)
     button(page, "Run checks").click()
-    expect(page.get_by_text("like the previous revisions").first).to_be_visible()
-    button(page, "Continue").click()
-    expect(heading(page, "Preprocessing")).to_be_visible()
+    expect(page.get_by_text("Every check passed.")).to_be_visible()
+    button(page, "Continue").last.click()
+    expect(heading(page, "Prepare and save")).to_be_visible()
 
 
 @shot("step-preprocessing")
 def step_preprocessing(page: Page) -> None:
     to_preprocessing(page)
-    button(page, "Run preprocessing").click()
-    expect(page.get_by_text("Images processed")).to_be_visible()
     save(page, "step-preprocessing")
 
 
 @shot("step-import")
 def step_import(page: Page) -> None:
     to_preprocessing(page)
-    button(page, "Run preprocessing").click()
-    expect(page.get_by_text("Images processed")).to_be_visible()
-    button(page, "Continue").click()
-    expect(heading(page, "Import")).to_be_visible()
-    button(page, "Import deployment").click()
-    expect(page.get_by_text("Deployment imported.")).to_be_visible()
+    button(page, "Start preparing").click()
+    expect(button(page, "Continue to save")).to_be_visible()
+    button(page, "Continue to save").click()
+    button(page, "Save deployment").click()
+    expect(page.get_by_text("Deployment saved", exact=True)).to_be_visible()
     save(page, "step-import")
 
 
@@ -256,13 +282,15 @@ def session_details(page: Page) -> None:
     page.locator("input").first.fill("/home/me/Pictures/trip-2024-09")
     button(page, "Scan").click()
     expect(page.get_by_text("3 subfolder(s)")).to_be_visible()
-    button(page, "Continue").click()
-    button(page, "Continue").click()
+    button(page, "Continue to the checks").click()
+    button(page, "Run checks").click()
+    expect(page.get_by_role("link", name="Download report")).to_be_visible()
+    button(page, "Continue with 3 folders", exact=False).click()
     choose(page, "origin-research-project", "DONA")
-    button(page, "Continue").click()
-    expect(heading(page, "Deployment details")).to_be_visible()
-    expect(page.get_by_text("deployment(s) complete")).to_be_visible()
-    save(page, "session-details", top=heading(page, "Deployment details"))
+    button(page, "Continue", exact=False).first.click()
+    expect(heading(page, "When was it collected?")).to_be_visible()
+    page.get_by_placeholder("e.g. 3").fill("3")
+    save(page, "session-details", top=heading(page, "When was it collected?"))
 
 
 # ── Upload ───────────────────────────────────────────────────────────────────
@@ -277,26 +305,33 @@ def to_upload(page: Page) -> None:
 @shot("upload")
 def upload(page: Page) -> None:
     to_upload(page)
-    button(page, "Test connection").click()
-    expect(page.get_by_text("The uploader accepted the login.")).to_be_visible()
     save(page, "upload")
+
+
+@shot("upload-mode")
+def upload_mode(page: Page) -> None:
+    to_upload(page)
+    button(page, "Continue to step 2").click()
+    expect(heading(page, "Choose what to do")).to_be_visible()
+    save(page, "upload-mode")
 
 
 @shot("upload-running")
 def upload_running(page: Page) -> None:
     page.add_init_script("window.__mock.holdSecond = true")
     to_upload(page)
-    button(page, "Upload 2 deployments", ).click()
-    expect(page.get_by_label("Upload of R0003-DONA_02")).to_be_visible()
-    expect(page.get_by_text("Uploading R0003-DONA_02_part1.zip").first).to_be_visible()
-    save(page, "upload-running", top=page.get_by_text("What to do", exact=True).first, bottom=page.get_by_label("Upload of R0003-DONA_02"))
+    button(page, "Continue to step 2").click()
+    page.get_by_role("radio", name=re.compile("^Upload")).first.check()
+    button(page, "Continue to step 3").click()
+    expect(page.get_by_text("1 of 2")).to_be_visible()
+    save(page, "upload-running", top=heading(page, "Upload to Trapper"))
 
 
 # ── Repair ───────────────────────────────────────────────────────────────────
 
 @shot("repair")
 def repair(page: Page) -> None:
-    open_task(page, "Repair local deployments")
+    open_util(page, "Repair local deployments")
     choose(page, "repair-research-project", "DONA")
     choose(page, "repair-collection", "R0003")
     button(page, "Check the deployments").click()
@@ -310,7 +345,7 @@ def repair(page: Page) -> None:
 
 @shot("sync")
 def sync(page: Page) -> None:
-    open_task(page, "Sync local collections")
+    open_util(page, "Sync local collections")
     choose(page, "sync-research-project", "DONA")
     choose(page, "sync-classification-project", "DONA 2024")
     choose(page, "sync-collection", "R0002")

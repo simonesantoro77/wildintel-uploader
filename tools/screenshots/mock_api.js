@@ -108,6 +108,22 @@
     out_of_range: [], tolerance_hours: 1, camera_mismatches: [], camera_models_found: [CAMERA.model],
   }
 
+  // The report of the deployment's checks: one row for each, all passed.
+  const POSTVALIDATION_REPORT_ID = '20261006-094700_postvalidation_R0003-DONA_01'
+  const postvalidationReport = () => {
+    const rows = [['deployment_id', 'Deployment id format'], ['collection_prefix', 'Deployment id starts with its collection'], ['collection_name', 'Collection name'],
+      ['location', 'Deployment id’s location'], ['time_range', 'Image dates fit the deployment'], ['camera', 'Camera consistency'],
+      ['image_count', 'Number of images'], ['sequence_count', 'Number of sequences'], ['sequence_length', 'Length of the sequences']]
+    const checks = {}
+    rows.forEach(([c, label]) => { checks[c] = { label, scope: 'deployment', ok: 1, failed: 0 } })
+    const entries = rows.map(([c]) => ({ identifier: '(deployment)', check: c, status: 'ok', message: POSTVALIDATION[c]?.message ?? 'ok' }))
+    return {
+      id: POSTVALIDATION_REPORT_ID, kind: 'postvalidation', title: 'Checks of R0003-DONA_01', created_at: '2026-10-06T09:47:00+00:00',
+      source_dir: '/home/me/Pictures/R0003-DONA_01', deployment_id: 'R0003-DONA_01', checked: 241, parameters: {}, checks,
+      totals: { entries: entries.length, ok: entries.length, failed: 0, images_with_issues: 0 }, entries,
+    }
+  }
+
   const PREVIOUS = {
     revision: 2, deployment_id: 'R0002-DONA_01',
     deployment: {
@@ -122,6 +138,7 @@
   const SETTINGS = {
     GENERAL: { log_level: 'INFO', workers: 4, cpu_count: 8, log_file: '/home/me/.config/wildintel-uploader/logs/wildintel-uploader.log', log_level_override: null },
     TRAPPER: { base_url: TRAPPER_URL, user_name: 'field.team@example.org', has_password: true, max_zip_mb: 500 },
+    EPICOLLECT5: { project_slug: 'donana-cameras', client_id: null, has_secret: false, mapping: {} },
     DATA: { dir: DATA_DIR },
     VALIDATION: { corrupted: true, sequence: true, structure: true, camera: true, exif: true, duplicates: true },
     POSTVALIDATION: {
@@ -155,6 +172,7 @@
   const VALIDATION_REPORT_ID = '20261006-094512_validation_R0003-DONA_01'
   const REPORTS = {
     [VALIDATION_REPORT_ID]: validationReport(VALIDATION_REPORT_ID),
+    [POSTVALIDATION_REPORT_ID]: postvalidationReport(),
     '20261006-094930_preprocessing_R0003-DONA_01': {
       id: '20261006-094930_preprocessing_R0003-DONA_01', kind: 'preprocessing', title: 'Preprocessing of R0003-DONA_01', created_at: '2026-10-06T09:49:30+00:00',
       source_dir: '/home/me/Pictures/R0003-DONA_01', deployment_id: 'R0003-DONA_01', checked: 241, parameters: { rename: true, resize: true, metadata: true },
@@ -176,6 +194,7 @@
       step('location', 'done', `Location ${id.split('-')[1]} already in Trapper.`, `${TRAPPER_URL}/geomap/location/detail/${12 + Number(id.slice(-1))}/`),
       step('deployment', 'done', `Deployment ${id} created in Trapper.`, `${TRAPPER_URL}/geomap/deployment/detail/${46 + Number(id.slice(-1))}/`),
       step('package', 'done', `Packed ${images} images in 1 zip (${Math.round(images * 0.49)} MB).`),
+      { type: 'package_ready', images, parts: 1, bytes: Math.round(images * 0.49 * 1048576) },
       step('csv', 'done', 'R0003_deployments.csv updated.'),
     ]
     if (halfway) {
@@ -187,7 +206,7 @@
       step('upload', 'done', 'Uploaded R0003-DONA_01_part1.zip.'),
       step('process', 'done', 'Trapper is processing the collection.'),
       step('wait', 'done', 'The collection is ready.', `${TRAPPER_URL}/storage/collection/detail/26/`),
-      { type: 'done', mode: body.mode, collection: 'R0003', deployment_id: id, parts: 1, location_created: false, deployment_created: true },
+      { type: 'done', mode: body.mode, collection: 'R0003', deployment_id: id, parts: 1, location_created: false, deployment_created: true, bytes: Math.round(images * 0.49 * 1048576) },
     )
     return events
   }
@@ -283,7 +302,7 @@
       },
       'POST /api/deployment-import/scan-session': () => ({ ...SESSION_SCAN, deployments: SESSION_SCAN.deployments.map(({ guess, ...d }) => d) }),
       'POST /api/deployment-import/validate-images': () => ({ ...VALIDATION, report_id: VALIDATION_REPORT_ID }),
-      'POST /api/deployment-import/validate-deployment': () => POSTVALIDATION,
+      'POST /api/deployment-import/validate-deployment': () => ({ ...POSTVALIDATION, report_id: POSTVALIDATION_REPORT_ID }),
       'POST /api/deployment-import/research-projects/list': () => ({ results: [{
         ...PROJECT, sampling_design: 1, sensor_method: 1, animal_types: 1, bait_use: 1, event_interval: 0, keywords: '', abstract: '', methods: '', description: '',
       }] }),
@@ -295,6 +314,15 @@
       'POST /api/deployment-import/check-collection': () => ({ exists: true, name: 'R0003' }),
       'POST /api/deployment-import/timestamp-log': () => ({ path: `${COLLECTIONS}/DONA/R0003/R0003_FileTimestampLog.csv`, action: 'added', rows: 1, collection: 'R0003' }),
       'POST /api/deployment-import/open-folder': () => ({ opened: '' }),
+      'GET /api/epicollect/form': () => ({ project: { name: 'Doñana cameras', slug: 'donana-cameras' }, inputs: [
+        { ref: 'l', label: 'Location id', type: 'searchsingle', form: 'Visit', group: 'Where', branch: null, options: [] },
+        { ref: 'n', label: 'Location name', type: 'text', form: 'Visit', group: 'Where', branch: null, options: [] },
+        { ref: 'g', label: 'Location (GPS)', type: 'location', form: 'Visit', group: 'Where', branch: null, options: [] },
+        { ref: 'r', label: 'Revision', type: 'integer', form: 'Visit', group: 'When', branch: null, options: [] },
+        { ref: 'sd', label: 'Start date', type: 'date', form: 'Visit', group: 'When', branch: null, options: [] },
+        { ref: 'st', label: 'Start time', type: 'time', form: 'Visit', group: 'When', branch: null, options: [] },
+        { ref: 'm', label: 'Camera model', type: 'text', form: 'Visit', group: 'Camera', branch: null, options: [] },
+      ] }),
       'GET /api/reports': () => Object.values(REPORTS).map(reportSummary).sort((a, b) => b.created_at.localeCompare(a.created_at)),
       'GET /api/sessions': () => mock.sessions,
       'POST /api/sessions/scan': (body) => ({ ...UNFINISHED[0], task_id: body.task_id ?? 'new', phase: 'scanned' }),

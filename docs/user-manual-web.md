@@ -1,164 +1,40 @@
 # WildINTEL Uploader — User Manual (web)
 
-**WildINTEL Uploader** is a desktop web application: it runs on your own computer and opens in your
-browser. It takes the images of a camera-trap deployment — copied off the camera's memory card —
-checks them, organizes them in a local **collections folder**, and sends them to
-[Trapper](https://gitlab.com/trapper-project/trapper).
-
-This manual covers the web interface. Part of it can also be done from a terminal: see the
+This manual covers the web interface. What it shares with the command line — [installation, the
+general concepts and the folders it creates](user-manual.md) — is in the common part; read that
+first. Part of what the web app does can also be done from a terminal: see the
 [command-line manual](user-manual-cli.md).
 
 ---
 
 ## Table of Contents
 
-1. [Installation](#1-installation)
-2. [Getting started](#2-getting-started)
-3. [How the app works](#3-how-the-app-works)
-4. [Settings](#4-settings)
+1. [Getting started](#1-getting-started)
+2. [Settings](#2-settings)
+3. [The task menu](#3-the-task-menu)
+4. [Unfinished runs](#4-unfinished-runs)
 5. [Import a deployment](#5-import-a-deployment)
 6. [Import a session](#6-import-a-session)
 7. [Upload a deployment to Trapper](#7-upload-a-deployment-to-trapper)
-8. [Sync local collections](#8-sync-local-collections)
-9. [Repair local deployments](#9-repair-local-deployments)
-10. [Where the app keeps its files](#10-where-the-app-keeps-its-files)
-11. [Troubleshooting](#11-troubleshooting)
+8. [Utils: sync and repair](#8-utils)
+9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
-## 1. Installation
+## 1. Getting started
 
-Download the file for your system from the
-[releases page](https://github.com/wildintelproject/wildintel-uploader/releases). Nothing else has
-to be installed — Python, the interface and [ExifTool](https://exiftool.org/) (which reads the
-cameras' metadata) are all inside.
-
-=== "Linux"
-
-    Download `wildintel-uploader-X.Y.Z-linux-x86_64.AppImage`, make it executable and run it:
-
-    ```bash
-    chmod +x wildintel-uploader-X.Y.Z-linux-x86_64.AppImage
-    ./wildintel-uploader-X.Y.Z-linux-x86_64.AppImage
-    ```
-
-=== "Windows"
-
-    Download `wildintel-uploader-X.Y.Z-windows-x64.exe` and double-click it. If Windows SmartScreen
-    warns that the publisher is unknown, choose **More info → Run anyway**.
-
-=== "macOS"
-
-    Download `wildintel-uploader-X.Y.Z-macos-arm64.dmg` (Apple Silicon), open it and drag the app
-    to *Applications*. The first time, open it with a right click → **Open**, as it isn't signed.
-
-Running it starts a small server on your computer and opens the app in your default browser
-(<http://127.0.0.1:8769>, or the next free port). **Keep the window it opened until you finish** —
-closing it stops the app. Everything stays on your machine: the only thing the app talks to is the
-Trapper server you configure.
-
-!!! tip "Running it from the source code"
-    To run the app from its source code — or to change it — see the
-    [developer manual](developer-manual.md#2-development-setup).
-
-## 2. Getting started
+[Install](user-manual.md#1-installation) the app and run it with no arguments. It starts a small server on your computer
+and opens the app in your default browser (<http://127.0.0.1:8769>, or the next free port). **Keep the window it
+opened until you finish** — closing it stops the app. Everything stays on your machine: the only thing the app talks to is
+the Trapper server you configure. The welcome screen says what it does; press **Get Started**.
 
 ![Welcome](img/screenshots/welcome.png)
 
-1. Open the app. The welcome screen says what it does; press **Get Started**.
-2. Press **⚙️ Settings** (top right) and fill in the **Trapper** server, username and password —
-   see [Settings](#4-settings). You can test them right there. Also fill in who owns the images
-   (Preprocessing › Authorship) if you are going to import some.
-3. Back on the menu, choose what you want to do:
+Before you start using the application it has to be configured. To do so, press **⚙️ Settings** (top right) and fill in the
+**Trapper** server, username and password — see [Settings](#2-settings); you can test them right there. Also fill in who owns the
+images (Preprocessing › Authorship) if you are going to import some.
 
-| Task | What it's for |
-|---|---|
-| 📷 **Import deployment** | Check one folder of images and organize it in the collections folder. |
-| 🗂️ **Import session** | The same for a folder holding several deployments, one subfolder each. |
-| ☁️ **Upload deployment to Trapper** | Send deployments already kept locally to Trapper. |
-| 🔄 **Sync local collections** | Bring the collections folder up to date with what Trapper already has. |
-| 🛠️ **Repair local deployments** | Check which deployments of a local collection are still valid, and write the metadata files of the others again from their folders. |
-| 📦 *Upload session to Trapper* | Coming soon. |
-
-![The task menu](img/screenshots/menu.png)
-
-Reports are in the settings — [Settings › Reports](#reports).
-
-The usual order is **Import** (or **Import session**) first, then **Upload**. *Sync* is for when
-Trapper already holds deployments that this computer's collections folder doesn't know about.
-
-The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this
-documentation, and the sun/moon button switches between dark and light.
-
-If the app was closed in the middle of an import, the first thing you see is the list of
-**unfinished runs** — see [Unfinished runs](#unfinished-runs).
-
-## 3. How the app works
-
-### Deployments, revisions and collections
-
-A **deployment** is one camera at one **location**, between the day it was set up and the day it
-was collected. A location is visited again and again, so each visit is a **revision** — the 1st,
-the 2nd, the 3rd one. The app names everything after that:
-
-| | Example | |
-|---|---|---|
-| Revision | `3` | |
-| Location id | `DONA_01` | |
-| **Deployment id** | `R0003-DONA_01` | `R` + the revision as four digits + `-` + the location id |
-| **Collection** | `R0003` | all the deployments of one revision |
-| Research project | `DONA` | the project they all belong to, by its acronym |
-
-The deployment id is never typed: you give the revision and the location, and the app builds it.
-
-### The collections folder
-
-Imported deployments are kept in your **collections folder** until they are uploaded — by default
-`Documents/wildintel-uploader/collections`:
-
-```text
-collections/
-└── DONA/                                   ← research project
-    ├── research_project.json
-    ├── locations.json                      ← its locations, with timezone and coordinates
-    └── R0003/                              ← collection (one revision)
-        ├── collection.json
-        ├── R0003_FileTimestampLog.csv      ← the start and end of each deployment
-        └── R0003-DONA_01/                  ← deployment
-            ├── R0003-DONA_01__20240904_1.JPEG …    the images
-            ├── deployment.json             ← its details
-            ├── images.json                 ← what is known of each image
-            ├── preprocessing.json          ← what was done to each image
-            ├── seal.json                   ← what was checked, tied to the content
-            └── upload.json                 ← written once it has been uploaded
-```
-
-Your **source folder is never touched**: the images are copied, and the copy is what gets renamed,
-resized and tagged.
-
-!!! warning "Copy the images off the camera's memory card first"
-    Point the app at a folder on your computer, not at the memory card. The app only *reads* the
-    source folder, but working from the card is slow and risks losing files if it is removed
-    half-way.
-
-### The location owns the timezone
-
-A camera's clock has no timezone of its own: its images say "13:10", and the same camera,
-elsewhere, would say it too. So the **timezone** (and whether the cameras there **ignore summer
-time**) belongs to the **location**, never to a deployment. They are asked for when a location is
-added, and every deployment there is read in them. The details step says it, in bold, before you
-fill anything in. A location without a timezone is reported — the app doesn't guess one.
-
-### Unfinished runs
-
-An import saves its progress as you go. If you close the app, or it fails, the next time you start
-it the first screen lists the **unfinished runs** — the folder, the research project and when it
-was started — each with **Resume** and **Discard**. Resuming takes you back to the step after the
-folder was chosen. Passwords are never saved with a run.
-
-![Unfinished runs](img/screenshots/unfinished-runs.png)
-
-## 4. Settings
+## 2. Settings
 
 Press **⚙️ Settings**. It has its own sections on the left; one **Save** saves them all, and a red
 dot marks a section with an invalid value.
@@ -186,14 +62,21 @@ see. The password is saved in `settings.toml` but never sent back to your browse
 **Upload packages — Largest zip** is the size, in MB, of the zips an [upload](#7-upload-a-deployment-to-trapper) makes: a
 deployment's images go up in zips of at most this size (500 by default, up to 5000), each with its own yaml.
 
+### Epicollect5
+
+The Epicollect5 project the deployments' information will be imported from (see [When was it collected?](#stage-2-origin-and-dates)): its **slug**, the
+name in its URL (`five.epicollect.net/project/<slug>`), and, only if the project is private, the **client id** and **secret** of
+its API client, which you create at <https://developers.epicollect.net>. **Test connection** reads the project with what is typed — saved or not — and says its name and how many inputs
+it has; a blank secret is the saved one. Below, the **Mapping** relates each field of a deployment to an input of the project's form. Epicollect5 has no input for a date and a time together, so the day and the time of the start and of the end are mapped apart, along with the revision.
+
 ### Validation
 
-Which of the [folder checks](#step-2-validate) the wizard shows. Each is an entry with a switch;
+Which of the [folder checks](#stage-1-images) the wizard shows. Each is an entry with a switch;
 turn off the ones you never want to see. They are all on by default.
 
 ### Postvalidation
 
-Which of the [postvalidation checks](#step-5-postvalidation) the wizard shows, and what the ones
+Which of the [postvalidation checks](#stage-3-check-details) the wizard shows, and what the ones
 that take a value mean:
 
 | Setting | Default | |
@@ -206,7 +89,7 @@ that take a value mean:
 
 ### Preprocessing
 
-What a new import does to the images — the wizard lists it before importing, and a run can still
+What a new import does to the images — the wizard lists it before preparing, and a run can still
 switch each step off.
 
 - **Steps** — rename, resize, add metadata.
@@ -246,34 +129,72 @@ What each report holds:
 asks again). They are kept in the `reports` folder of the images folder until you delete them. A check you run twice
 makes two reports.
 
-### Config
+### Multiple configs
 
-The settings are saved in a file, `settings.toml`. Here you can keep **several**: **+** adds one
-with the default values, and choosing one makes it the active one — handy to switch between two
-Trapper servers (a test one and the real one) or two sets of authorship. Each can be downloaded,
-and its folder opened.
+The application lets you define several different configurations: **+** adds one with the default
+values, and choosing one makes it the active one — handy to switch between two Trapper servers (a
+test one and the real one) or two sets of authorship. Each can be downloaded, and its folder opened.
+
+## 3. The task menu
+
+Once it is configured, the menu is where you choose what you want to do:
+
+| Task | What it's for |
+|---|---|
+| 📷 **Import deployment** | Check one folder of images and organize it in the collections folder. |
+| 🗂️ **Import session** | The same for a folder holding several deployments, one subfolder each. |
+| ☁️ **Upload deployment to Trapper** | Send deployments already kept locally to Trapper. |
+| 🧰 **Utils** | Maintenance of the local collections: *Sync local collections* brings the collections folder up to date with what Trapper already has, and *Repair local deployments* checks which deployments are still valid and writes the metadata files of the others again from their folders. |
+
+![The task menu](img/screenshots/menu.png)
+
+Reports are in the settings — [Settings › Reports](#reports).
+
+The usual order is **Import** (or **Import session**) first, then **Upload**. *Sync* is for when
+Trapper already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
+
+The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this
+documentation, and the sun/moon button switches between dark and light.
+
+If the app was closed in the middle of an import, the first thing you see is the list of
+**unfinished runs** — see [Unfinished runs](#4-unfinished-runs).
+
+## 4. Unfinished runs
+
+An import saves its progress as you go. If you close the app, or it fails, the next time you start
+it the first screen lists the **unfinished runs** — the folder, the research project and when it
+was started — each with **Resume** and **Discard**. Resuming takes you back to the step after the
+folder was chosen. Passwords are never saved with a run.
+
+![Unfinished runs](img/screenshots/unfinished-runs.png)
 
 ## 5. Import a deployment
 
-Press **📷 Import deployment**. A wizard of seven steps — the bar at the top shows where you are;
-**Back** and **Next** move between them.
+Press **📷 Import deployment**. A wizard of four stages — the bar at the top shows where you are, and a
+stage can have steps of its own, which open one after the other. Each stage is **done** (a tick and a
+summary, with a pencil to go back and change it), **open** or **locked** until the ones before it are
+done. **Back** and **Continue** move between them.
 
-### Step 1 — Folder
+| Stage | What it asks |
+|---|---|
+| 1. **Images** | Which folder, which checks, and how the images did. |
+| 2. **Origin and dates** | Where and when the images were taken, and what you know of the camera and the site. |
+| 3. **Check details** | The deployment's names and dates, and that the images fit them. |
+| 4. **Prepare and save** | The preprocessing, and saving the deployment in the collection. |
 
-![Step 1 — Folder](img/screenshots/step-folder.png)
+### Stage 1 — Images
 
-Press **Browse…** and choose the folder with the deployment's images (or type its path), then
+![Stage 1 — Images, select the folder](img/screenshots/step-folder.png)
+
+**1. Select the folder.** Press **Browse…** and choose the folder with the deployment's images (or type its path), then
 **Scan**. The scan only **counts**: how many files there are and how many of them are images (by
-their extension) — *241 file(s), 241 image(s)* — with a warning if the folder is empty or has no
+their extension) — *241 images found* — with a warning if the folder is empty or has no
 images. It doesn't open them, which is why it is instant however many there are: reading the
-images is what the next steps are for. The dates and the camera model are read later, when the
-[details](#step-4-details) are asked for.
+images is what the next steps are for. Copy the images off the camera's memory card first; don't point the app at the card.
 
-### Step 2 — Validate
+**2. Choose the checks.** Checks over the images alone, before anything is known about the deployment:
 
-![Step 2 — Validate](img/screenshots/step-validate.png)
-
-Checks over the images alone, before anything is known about the deployment:
+![Stage 1 — Choose the checks](img/screenshots/step-validate.png)
 
 | Check | Looks for |
 |---|---|
@@ -281,37 +202,36 @@ Checks over the images alone, before anything is known about the deployment:
 | Shooting order vs. filename sequence | Images whose order by name differs from their order by time. |
 | Folder structure | Subfolders inside the deployment's folder. |
 | Same camera | More than one camera model or id among the images. |
-| Required EXIF fields | Images missing the capture date, camera model or id. |
+| Required photo data | Images missing the capture date, camera model or id. |
 | Duplicate images | Files with the same content. |
 
-The step is a small dashboard. At the top, what is being validated, **when it was last run**, the
-downloads of its [report](#reports) and the **Run validation** button. Once it has run, four figures
-sum it up: the **valid images**, the **images with issues**, the **tests executed** and the **tests
-with errors**.
+For each check you choose **how strict** it is: **Skip** doesn't run it, **Warn** shows the problems but lets you
+continue, **Must pass** stops you from going on while it fails. The ones that are turned off in the
+[settings](#validation) are not shown. Press **Run checks**.
 
-Under them, the **tests**. For each you choose whether to **run** it, and whether it is
-**required**: a required check that doesn't pass stops you from going on. The *all* boxes at the top
-of each column do it for the whole table. The first column shows a test running and then how it
-ended — ✔ passed, ⚠ failed, ✘ failed and required —, and the last ones say how many images failed it.
+**3. Results.** A small dashboard: when it was last run, the downloads of its [report](#reports) and four figures —
+the **valid images**, the **images with issues**, the **checks run** and the ones **with problems**. Under them, one
+row per check with its status (✔ passed, ⚠ failed, ✘ failed and *Must pass*) and how many images failed it.
 
-Open a test that failed (the **›** at its end) to see **which images failed it**: as pictures, each
+Open a check that failed to see **which images failed it**: as pictures, each
 with what is wrong with it (*No date*, *Duplicate*, *Out of order*…) and when it was taken, or as a
 list. You can **search by file name**, filter by the kind of error, sort by name or by date, and go
-through the pages; **View details** opens the image bigger with everything the report says of it — what
-failed and what passed. A test of the whole folder (the structure, or the camera) has no pictures: it
-says what it found.
+through the pages; **View details** opens the image bigger with everything the report says of it. A check of the whole folder (the
+structure, or the camera) has no pictures: it says what it found. **Run again** repeats it.
 
-![The images that failed a test](img/screenshots/validation-failures.png)
+![The images that failed a check](img/screenshots/validation-failures.png)
 
 Reading the camera's model and id uses ExifTool, because the serial number of a camera trap lives
 in the manufacturer's own metadata. Without it the app falls back to the standard EXIF tags,
 which are less complete — it says which it used.
 
-### Step 3 — Origin
+### Stage 2 — Origin and dates
 
-![Step 3 — Origin](img/screenshots/step-origin.png)
+**1. Where was it taken?**
 
-*Where was it taken?* The **research project** and the **location** the images come from. They are
+![Stage 2 — Where was it taken?](img/screenshots/step-origin.png)
+
+The **research project** and the **location** the images come from. They are
 kept in the collections folder; pick one already there, or add a new one:
 
 - **By hand** — the project's name and acronym (which names its folder); a location's id, name,
@@ -321,34 +241,17 @@ kept in the collections folder; pick one already there, or add a new one:
   copied here, with their coordinates and timezone. The app connects by itself with the account
   saved in the settings — it never asks for the credentials again; if there isn't one, it says so.
 
-### Step 4 — Details
+**2. When was it collected?**
 
-![Step 4 — Details](img/screenshots/step-details.png)
+![Stage 2 — When was it collected?](img/screenshots/step-dates.png)
 
-The deployment's own data. **Revision** starts as the next one expected for that location — one
-more than the highest kept — and says so; change it if needed, and the **Deployment id** is built.
+The **revision** starts as the next one expected for that location — one more than the highest kept — and says
+so; change it if needed, and the **deployment id** is built (`R0003-DONA_01`). The **period** — start and end, as
+the camera's local time — is read from the images' EXIF (the earliest and the latest capture date) and can be changed.
 
-If an earlier revision of this deployment is kept, the app offers to **fill in the form from it**:
-everything is copied except the start and end dates. If the deployment **already exists** in the
-collections folder you are told, and the import would be refused as it would mix two sets of
-images: choose another revision or location, or move that folder away.
-
-The rest of the form follows [Camtrap DP](https://camtrap-dp.tdwg.org)'s deployment table — the
-same fields as Trapper's own deployment form. Only the **start and end dates** are required (and
-are read from the images' EXIF as this step opens — the earliest and the latest capture date —, along
-with the camera model and id, when every image has the same); everything else is optional, and can be completed later in
-Trapper. The **Period** is always in view — start and end, as the camera's local time. Under it, a row of buttons — **Camera**,
-**Site** and **Grouping and notes** — picks the section to fill in, one at a time; a red dot on a button says that
-section has a wrong field.
-
-| Section | Fields |
-|---|---|
-| **Camera** | Camera id and model, delay between triggers, height *or* depth (not both), tilt, heading, detection distance, timestamp issues. |
-| **Site** | Set up by, feature type (road, trail, burrow, water source…), habitat, bait used. |
-| **Grouping and notes** | Deployment groups, tags, comments. |
-
-The form is validated as you type, in the browser and again in the server: dates in order,
-latitude and longitude in range, tilt between −90 and 90, heading between 0 and 360.
+If an earlier revision of this deployment is kept, the app offers to **copy from it** its camera, site and notes —
+the dates are never copied. If the deployment **already exists** in the collections folder you are told, and the import
+would be refused as it would mix two sets of images: choose another revision or location, or move that folder away.
 
 !!! info "A timestamp log can set the dates"
     If the collection has a `<COLLECTION>_FileTimestampLog.csv` — the file wildintel-tools asks
@@ -356,20 +259,46 @@ latitude and longitude in range, tilt between −90 and 90, heading between 0 an
     images, and this step says so. In an *Import session*, the same applies to each deployment
     that has a row in it.
 
-When you press **Next**, the deployment is added to the collection's timestamp log.
+**Import info from Epicollect5** (top right of this step) fills in the period, the camera, the site and the notes from the
+project's form saved in [Settings › Epicollect5](#epicollect5). In that form **each row is one deployment**: the app looks
+for the entry whose **location id** is the location you chose and whose **revision** is the one above (if the revision isn't mapped,
+the location is enough). The location's own data — its id, name and coordinates — are never taken from the entry, and the camera
+model and id only complete what the images didn't give. The day and the time of the start and the end come in two questions; a
+day with no time takes the time the images gave on that day, or the whole day (from its first second for the start, to its last
+for the end). If there are several entries, you pick one. It needs the *location id* mapped in the settings, and it
+reads the project with the client saved there, so it may be refused for a while if Epicollect5 limits the requests.
 
-### Step 5 — Postvalidation
+**3. More details.**
 
-![Step 5 — Postvalidation](img/screenshots/step-checks.png)
+![Stage 2 — More details](img/screenshots/step-details.png)
 
-Now that you know when, how and where the images were taken, new validation tests are run: the deployment's names and dates, and the images against it:
+Everything here is optional, and can be completed later in Trapper. The form follows
+[Camtrap DP](https://camtrap-dp.tdwg.org)'s deployment table — the same fields as Trapper's own deployment form. Each
+section is a card that says how many of its fields are filled in; open it to fill it in.
+
+| Section | Fields |
+|---|---|
+| **Camera** | Camera id and model (read from the images when they all share them), delay between triggers, height *or* depth (not both), tilt, heading, detection distance. |
+| **Site** | Feature type (road, trail, burrow, water source…), habitat, set up by, bait used, timestamp issues. |
+| **Grouping and notes** | Deployment groups, tags, comments. |
+
+The form is validated as you type, in the browser and again in the server: dates in order,
+latitude and longitude in range, tilt between −90 and 90, heading between 0 and 360.
+
+When you continue, the deployment is added to the collection's timestamp log.
+
+### Stage 3 — Check details
+
+![Stage 3 — Check results](img/screenshots/step-checks.png)
+
+Now that you know when, how and where the images were taken, new checks are run: the deployment's names and dates, and the images against it:
 
 | Check | Looks for |
 |---|---|
 | Deployment id format | `R0033-DONA_01`. |
 | Deployment id starts with its collection | `R0033-…` belongs to `R0033`. |
 | Collection name | `R0033`. |
-| The id's location is the one chosen | The location in the id is the one from step 3. |
+| The id's location is the one chosen | The location in the id is the one from stage 2. |
 | Image dates fit the deployment | The first image at the start, the last at the end, within the tolerance. |
 | Camera consistency | The camera in the images is the one in the details. |
 | Number of images | Like the previous revisions of the location. |
@@ -383,17 +312,15 @@ is uploaded. They need at least the *previous revisions needed* of the settings,
 skipped; what a sequence is, what "similar" means and what it is compared to are the
 [Postvalidation settings](#postvalidation).
 
-This step has the same dashboard as the validation (with a **Run checks** button): when it was last run, the figures, the table of checks with their status, and — opened from a check — the images that failed it (*Out of range*, *Other camera*) as thumbnails. Each check can be run and required, and the [report](#reports) downloads.
+It has the same two steps as the images' checks: **choose how strict** each one is (skip, warn, must pass), press
+**Run checks**, and read the **results** — when it was run, the figures, the table, and, opened from a check, the images that
+failed it (*Out of range*, *Other camera*) as thumbnails. The [report](#reports) downloads.
 
-### Step 6 — Preprocessing
+### Stage 4 — Prepare and save
 
-![Step 6 — Preprocessing](img/screenshots/step-preprocessing.png)
+![Stage 4 — Preprocessing steps](img/screenshots/step-preprocessing.png)
 
-This step **does** the preprocessing, with the same dashboard as the validation: choose what to do to the images, press
-**Run preprocessing**, and read the result — the images processed and skipped, a status for each step and, opened from the
-**›**, the skipped images as thumbnails. The images go into the deployment's folder in the collections folder; the originals
-are never touched. Nothing is final yet: you can go back, change something and run it again — the folder is simply redone —
-and you can't go on until it has run.
+**1. Preprocessing steps.** Choose what to do to the images; the table says what each step does. Press **Start preparing**.
 
 1. **Copy into the collection** — always. Anything that isn't an image is copied as it is.
 2. **Read the capture dates** — always. From each image's EXIF, as the camera's local time in the
@@ -410,19 +337,24 @@ and you can't go on until it has run.
    they're blank, the step says so.
 
 Each optional step can be switched off for this run (its checkbox). Its values come from the
-[Preprocessing settings](#preprocessing). The [report](#reports) says what was done to each image.
+[Preprocessing settings](#preprocessing). The images go into the deployment's folder in the collections folder; the
+originals are never touched. Nothing is final yet: you can go back, change something and **Prepare again** — the folder is
+simply redone.
 
-### Step 7 — Import
+**2. Preprocessing results.** The images processed and skipped, a status for each step and, opened from it, the skipped
+images as thumbnails. The [report](#reports) says what was done to each image. **Continue to save** goes on.
 
-![Step 7 — Import, finished](img/screenshots/step-import.png)
+**3. Save to your collection.**
 
-The images are ready, so this step **consolidates** the deployment: press **Import deployment** and its
+![Stage 4 — Saved](img/screenshots/step-import.png)
+
+The images are ready, so this step **consolidates** the deployment: press **Save deployment** and its
 `deployment.json` is written and the deployment is **sealed**. From then on it can't be modified — the app notices if an image
 or its details change — and it can be uploaded.
 
-A good import says where the deployment was kept, and offers:
+A good save says where the deployment was kept, and offers:
 
-- **Open folder in file explorer**.
+- **Open folder** in the file explorer.
 - **Upload to Trapper** — straight to [the upload page](#7-upload-a-deployment-to-trapper) with the
   research project and the collection already chosen.
 - **Start over**.
@@ -431,7 +363,7 @@ A good import says where the deployment was kept, and offers:
 
 | File | Content |
 |---|---|
-| `deployment.json` | The details of step 4. |
+| `deployment.json` | The details of stage 2. |
 | `images.json` | Per image: its name (and the original, if renamed), when it was taken — the camera's wall clock and the instant —, the camera, size and pixels, and hashes. It lets later checks, and the statistics of the next revisions, work without opening the images again. |
 | `preprocessing.json` | What was done to each image, with its hashes: `source_hash` of the original, `hash` of the image kept, `final_hash` of the file with its metadata. |
 | `seal.json` | Which validation and postvalidation checks the deployment and each image passed, and the hash of everything. |
@@ -442,28 +374,28 @@ whoever edits the files on purpose could seal them again.
 
 ## 6. Import a session
 
-![Import session — the details of each deployment](img/screenshots/session-details.png)
+![Import session — when was each deployment collected](img/screenshots/session-details.png)
 
 Press **🗂️ Import session**. A **session** is a folder with **one subfolder per deployment** — the
 usual way a field trip's images come home. The revision, the checks and the preprocessing are the
 same for all; the location, dates and camera are asked for each deployment.
 
-The steps are those of [Import a deployment](#5-import-a-deployment), with the differences below.
+The four stages are those of [Import a deployment](#5-import-a-deployment), with the differences below.
 
-1. **Session** — choose the folder and **Scan**. Its subfolders are listed, each with its images
-   and warnings; tick the ones to import.
-2. **Validate** — the checks run over every chosen deployment, and the result is shown for each.
-3. **Origin** — one research project for the whole session.
-4. **Details** — first the **revision**, common to the session, which names all the deployments
-   (`R0003-DONA_01`, `R0003-DONA_02`…). Then each deployment's own details: a **list** of them,
-   with how many are complete (*"12 of 40 deployments complete"*), a *filter by name*, and
-   **Previous**, **Next** and **Next incomplete** to move between them. Each deployment has its
-   own location — you pick it or add it — and no two can share one. **Fill in from the previous
-   revision** works on one deployment or on all that have one.
-5. **Postvalidation** — for each deployment.
-6. **Preprocessing** — one list for all.
-7. **Import** — each deployment in turn, with its own result. If some fail, importing again
-   resumes with the ones that are still pending.
+1. **Images** — *Session folder*: choose the folder and **Scan**; its subfolders are listed, each with its images
+   and warnings, and you tick the ones to import. Then *Choose the checks* and *Results*: the checks run over every
+   chosen deployment, and the result is shown **by folder** or **by check** (with *Only folders with problems*). **Leave them
+   out** drops the folders that failed from the session; **Continue with N folders** goes on.
+2. **Origin and details** — *Where were they taken?*: one research project for the whole session, and a location for each
+   deployment (the ones whose folder name matches a location of the project are suggested). No two deployments can share one.
+   *When was it collected?*: first the **revision**, common to the session, which names all the deployments
+   (`R0003-DONA_01`, `R0003-DONA_02`…); then a **list** of the deployments with their periods — read from the images,
+   or from the timestamp log —, how many are complete (*"12 of 40 deployments complete"*), a *filter by name* and
+   *Only the incomplete ones*; open a row to change its dates. *More details*: the camera and the site of each, with
+   **Fill in from the previous revision** for the ones that have one.
+3. **Check details** — the deployments' checks, for each deployment, by folder or by check.
+4. **Prepare and save** — one list of preprocessing steps for all, then each deployment in turn, with its own result.
+   If some fail, **Import the N left** resumes with the ones that are still pending. Saving seals each of them.
 
 When it ends, **Upload to Trapper** goes to the upload page with the collection chosen.
 
@@ -472,7 +404,7 @@ a row in it come from there, and the details say so.
 
 ## 7. Upload a deployment to Trapper
 
-![Upload — Test connection](img/screenshots/upload.png)
+![Upload — what to upload](img/screenshots/upload.png)
 
 Press **☁️ Upload deployment to Trapper**. It sends deployments kept in the collections folder.
 For each one it does what wildintel-tools did in three commands:
@@ -487,39 +419,42 @@ The deployment must have been imported with the wizard — the yaml needs the da
 `preprocessing.json` records. One that wasn't says "Not preprocessed — import it again through the
 wizard before uploading it", and can't be ticked.
 
-### What to upload
+A note at the top says which Trapper account is used: the one saved in the settings (**Change in Settings** takes you
+there; **Test connection** is in [Settings › Trapper](#trapper)). The page is a wizard of its own.
 
-A note above says which Trapper account is used: the one saved in the settings.
+### Step 1 — Choose what to upload
 
 1. **Research project** — those kept in the collections folder.
-2. **Collection** — and under it a table of its deployments: how many images, its dates, and the day it was
-   uploaded, if it was (from its `upload.json`, a local note). The ones left to send start ticked; **Select all**, **Select the not uploaded**
-   and **Select none**, or the box in the table's header, change the choice. As soon as the research project and the
-   collection are chosen, a message says whether **the account saved in the settings has access** to both in Trapper (and whether the
-   collection is already there, so the upload adds to it, or the upload creates it).
+2. **Collection** — and under it a table of its deployments: how many images, its dates, whether Trapper already has it (*New in
+   Trapper* or *Already in Trapper*) and the day it was uploaded, if it was (from its `upload.json`, a local note). The ones left to send
+   start ticked; **Select all**, **Select the not uploaded** and **Select none**, or the box in the table's header, change the choice.
+   As soon as the research project and the collection are chosen, a message says whether it is **found in Trapper** and whether the
+   collection is already there, so the upload adds to it, or the upload creates it.
 3. **Classification project** — the collection is created in one of Trapper's classification
    projects for the research project: pick it (or, if there is only one, it is used). Without a
    Trapper account, type its pk.
-4. **Test connection** — appears once the classification project is chosen. It checks, changing nothing, that the account reaches the research
-   project, the classification project, its locations (and which of the deployments' own would be created) and the uploader's login, each
-   reported on its own. Do it before a big upload.
 
-### What to do
+### Step 2 — Choose what to do
+
+![Upload — what to do](img/screenshots/upload-mode.png)
 
 | Mode | What it does |
 |---|---|
-| **Upload** | The real thing. |
-| **Dry run** | Looks at Trapper and says what would be created and how the images would be packed. Nothing is created, sent or written. |
-| **Only generate the files** | Writes the zips, the yamls and the collection's `_deployments.csv` and leaves them, to send some other way. Needs no account if the research project was filled in from Trapper. |
+| **Upload to Trapper** | The real thing. |
+| **Rehearse first (dry run)** | Looks at Trapper and says what would be created and how the images would be packed. Nothing is created, sent or written. |
+| **Only prepare the files** | Writes the zips, the yamls and the collection's `_deployments.csv` and leaves them, to send some other way. Needs no account if the research project was filled in from Trapper. |
 
-The size of the zips is a setting: [Settings › Trapper](#trapper).
+The size of the zips is a setting: [Settings › Trapper](#trapper). The page says what you will get before you go on.
 
-Press the button — *Upload 2 deployments*. Each deployment gets a card (below) with the steps it goes
-through (*connect*, *classification*, *location*, *deployment*, *package*, *csv*, *upload*,
-*process*, *wait*) each marked as running, done or skipped, a bar while a file goes up, and the
-outcome. The steps that made or found something in Trapper — the *location*, the *deployment* and, at the end, the
+### Step 3 — Upload
+
+Press **Continue**. The upload shows in three phases — *Set up Trapper*, *Send the images* (with a bar, the amount sent and the
+time left) and *Trapper processes them*, which happens on Trapper's side and needs no waiting — and, under them, how many
+deployments and images have been sent and a row for each deployment with its state. A deployment's steps (*connect*, *classification*, *location*, *deployment*, *package*, *csv*, *upload*,
+*process*, *wait*) are each marked as running, done or skipped. The steps that made or found something in Trapper — the *location*, the *deployment* and, at the end, the
 *collection* — show **a link to its page in Trapper** (for example `https://trapper.example.org/geomap/deployment/detail/47/`),
-to check there that it was created or updated. A dry run links to what is already there; what it would create has no page yet. When one fails, the others go on, and the summary says so: *"2 deployment(s) uploaded, 1
+to check there that it was created or updated. A dry run links to what is already there; what it would create has no page yet. **Stop** ends it —
+what is already in Trapper stays there. When one fails, the others go on, and the summary says so: *"2 deployment(s) uploaded, 1
 failed."* **Upload more** starts over.
 
 ![An upload midway: the first deployment is done, the second is sending its zip](img/screenshots/upload-running.png)
@@ -527,7 +462,14 @@ failed."* **Upload more** starts over.
 The zips and yamls are written under `<images folder>/packages/<research project>/`. A deployment
 that was uploaded gets an `upload.json`, which is what the list uses to say so.
 
-## 8. Sync local collections
+## 8. Utils
+
+Press **🧰 Utils**, under the task cards of the menu. It holds the maintenance tasks of the local collections; pick one,
+and **Back** returns to the list.
+
+![The utilities](img/screenshots/utils.png)
+
+### Sync local collections
 
 ![Sync local collections](img/screenshots/sync.png)
 
@@ -558,7 +500,7 @@ The result lists, per kind, what was created and what was already there, the dep
 collection of the classification project claims, and any that Trapper holds in a way that isn't a
 valid deployment — with the reason — and were left out.
 
-## 9. Repair local deployments
+### Repair local deployments
 
 ![Repair local deployments](img/screenshots/repair.png)
 
@@ -591,21 +533,7 @@ number once), the size (not wider than the width of the settings), the XMP metad
 still the ones that were preprocessed. What the preprocessing *did* — the resizing, the renaming — can't be checked beyond that:
 the originals are gone.
 
-## 10. Where the app keeps its files
-
-| What | Where |
-|---|---|
-| Settings | `settings.toml` in the app's config folder: `~/.config/wildintel-uploader/` (Linux), `%APPDATA%\wildintel-uploader\` (Windows), `~/Library/Application Support/wildintel-uploader/` (macOS). More configs in `configs/` there. |
-| Log | `logs/wildintel-uploader.log` next to it. |
-| Collections | `Documents/wildintel-uploader/collections/` (or *Images folder* of the settings). |
-| Packages to upload | `Documents/wildintel-uploader/packages/`. |
-| Unfinished runs | `Documents/wildintel-uploader/sessions/`. |
-| Reports | `Documents/wildintel-uploader/reports/` — one JSON file each. |
-
-From a terminal, `wildintel-uploader config path` prints them — see the
-[command-line manual](user-manual-cli.md#3-settings).
-
-## 11. Troubleshooting
+## 9. Troubleshooting
 
 **"Backend not reachable — is the server running?"**
 :   The red bar at the top. The window that started the app was closed, or it crashed. Start the app

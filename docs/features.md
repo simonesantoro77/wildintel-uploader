@@ -92,8 +92,9 @@ wildintel-tools' three commands, in one:
 
 A **dry run** reads Trapper only and says what would be created and how the images would be
 packed. **Only generate the files** writes the zips, yamls and `_deployments.csv` to leave them
-for another route — with no Trapper account if the project is known. A **Test connection** checks
-the account can do what an upload needs, step by step, before sending anything.
+for another route — with no Trapper account if the project is known. The upload page says
+whether the account reaches the research project and the collection before anything is sent, and
+**Test connection** (Settings › Trapper) checks the login.
 
 Progress is shown per deployment, step by step, with a bar while a file goes up; if one
 deployment fails the others go on. Ids are matched ignoring case, as Trapper keeps them in lower

@@ -9,8 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - **Import deployment**: organize a folder of camera-trap images into the local collections folder
-  (`<Documents>/wildintel-uploader/collections/<research project>/<R000N>/<deployment id>`), in a wizard:
-  folder → validate → origin → details → postvalidation → preprocessing → import.
+  (`<Documents>/wildintel-uploader/collections/<research project>/<R000N>/<deployment id>`), in a wizard of four
+  stages: images → origin and dates → check details → prepare and save.
   - *Validate*: corrupted images, shooting order vs. filename sequence, folder structure, same camera,
     required EXIF fields and duplicate images — each one optional, and each one can be required to continue.
   - *Origin*: the research project and location, picked from the collections folder, added by hand or
@@ -54,14 +54,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one it has; typed by pk when generating without an account) — not the research project's own pk.
   The package names the deployment in lower case, as Trapper keeps it, and declares the timezone and summer-time
   setting of the location it goes to (Trapper refuses a package that disagrees with it).
+- **Import info from Epicollect5**: in *When was it collected?*, the period, camera, site and notes of the deployment are filled in from the entry of the Epicollect5 form (one row per deployment) of that location and revision, through the mapping of Settings › Epicollect5, whose *When* group keeps the day and the time apart and maps the revision; *Test connection* tries the project and client typed there.
+- **Utils** (menu): *Repair local deployments* and *Sync local collections* are kept under one button, apart from the import and upload tasks.
 - **Sync local collections**: pick a research project and one of its classification projects in Trapper, and the collections
   folder gets what it lacks — the research project (`research_project.json`) and its `locations.json`, the collections
   starting with R (each with its `collection.json` and `<collection>_FileTimestampLog.csv`) and each deployment's
   `deployment.json`, a deployment going to the collection its id starts with. What is already there is kept as it is, nothing is
   changed in Trapper and no image is downloaded, so no `preprocessing.json` is made. Each deployment also gets an `images.json` made
   from what Trapper holds for its images (names, Trapper's pk, when they were taken, observation types, species and tags — not the
-  size, the pixels nor the hashes), marked `"source": "trapper"`. **Upload session to Trapper** is listed as
-  coming soon.
+  size, the pixels nor the hashes), marked `"source": "trapper"`.
 - Every deployment kept locally gets an **`images.json`** beside its `deployment.json`: the number of images, the first and the
   last, and for each one its name (and the original, when renamed), when it was taken — the camera's wall clock, the instant
   and its epoch seconds — the camera, the size and the pixels, and the hashes, for statistics without opening the images again.
