@@ -11,6 +11,9 @@ interface Props {
 /** The published documentation (docs/, see mkdocs.yml's site_url). */
 export const DOCS_URL = 'https://wildintelproject.github.io/wildintel-uploader/'
 
+/** The project on GitHub (see mkdocs.yml's repo_url). */
+export const REPO_URL = 'https://github.com/wildintelproject/wildintel-uploader'
+
 const btnOutline = 'px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors'
 
 export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }: Props) {

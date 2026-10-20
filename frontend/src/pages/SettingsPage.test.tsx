@@ -8,7 +8,7 @@ import { APP_SETTINGS } from '../test/fixtures'
 vi.mock('../api', () => ({
   api: {
     getSettings: vi.fn(), saveSettings: vi.fn(), clearLog: vi.fn(), browseFolder: vi.fn(), trapperTestConnection: vi.fn(), epicollectTestConnection: vi.fn(),
-    checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(),
+    checkVersion: vi.fn(), checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(),
   },
 }))
 
@@ -252,6 +252,39 @@ describe('SettingsPage', () => {
       await userEvent.type(screen.getByLabelText('Slug'), 'donana')
       await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
       expect(await screen.findByText('Epicollect5 refused the client id and secret.')).toBeInTheDocument()
+    })
+  })
+
+  describe('About the app', () => {
+    it('shows the name and the version of the app, and the places to go for help', async () => {
+      mockedApi.checkVersion.mockResolvedValue({ current: '0.1.0' })
+      render(<SettingsPage onClose={vi.fn()} />)
+
+      const about = within(await screen.findByRole('group', { name: 'About the app' }))
+      expect(about.getByText('WildINTEL Uploader')).toBeInTheDocument()
+      expect(await about.findByLabelText('Version')).toHaveTextContent('0.1.0')
+      expect(about.getByRole('button', { name: 'Check for updates' })).toBeInTheDocument()
+      expect(about.getByRole('link', { name: /Documentation/ })).toHaveAttribute('href', 'https://wildintelproject.github.io/wildintel-uploader/')
+      expect(about.getByRole('link', { name: /^GitHub/ })).toHaveAttribute('href', 'https://github.com/wildintelproject/wildintel-uploader')
+      expect(about.getByRole('link', { name: /What’s new/ })).toHaveAttribute('href', 'https://github.com/wildintelproject/wildintel-uploader/releases')
+    })
+
+    it('opens a GitHub issue that already says the version', async () => {
+      mockedApi.checkVersion.mockResolvedValue({ current: '0.1.0' })
+      render(<SettingsPage onClose={vi.fn()} />)
+
+      const link = await screen.findByRole('link', { name: /Report a problem/ })
+      await screen.findByLabelText('Version')
+      const href = link.getAttribute('href') ?? ''
+      expect(href.startsWith('https://github.com/wildintelproject/wildintel-uploader/issues/new?body=')).toBe(true)
+      await waitFor(() => expect(decodeURIComponent(screen.getByRole('link', { name: /Report a problem/ }).getAttribute('href') ?? '')).toContain('**Version:** 0.1.0'))
+    })
+
+    it('says it is a development build instead of a version', async () => {
+      mockedApi.checkVersion.mockResolvedValue({ current: 'dev' })
+      render(<SettingsPage onClose={vi.fn()} />)
+
+      expect(await screen.findByLabelText('Version')).toHaveTextContent('Development build')
     })
   })
 
@@ -836,7 +869,7 @@ describe('SettingsPage', () => {
       mockedApi.checkForUpdate.mockResolvedValue(CHECK)
       render(<SettingsPage onClose={() => {}} />)
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Check updates' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
 
       expect(await screen.findByText(/up to date \(version 0\.1\.0\)/)).toBeInTheDocument()
     })
@@ -848,7 +881,7 @@ describe('SettingsPage', () => {
       })
       render(<SettingsPage onClose={() => {}} />)
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Check updates' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
 
       expect(await screen.findByRole('link', { name: 'Tap to download 0.2.0' })).toHaveAttribute('href', 'https://dl/app-0.2.0-linux-x86_64.AppImage')
     })
@@ -858,7 +891,7 @@ describe('SettingsPage', () => {
       mockedApi.checkForUpdate.mockResolvedValueOnce(CHECK)
       render(<SettingsPage onClose={() => {}} />)
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Check updates' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
       expect(await screen.findByText(/offline/)).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Tap to retry' }))
 
