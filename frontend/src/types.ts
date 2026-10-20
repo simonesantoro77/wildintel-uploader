@@ -309,7 +309,7 @@ export interface PreprocessingOptions {
 }
 
 /** What the app's menu offers — import a deployment, import a whole session of them, or upload one to Trapper. */
-export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair' | 'fieldlog' | 'cards'
+export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair' | 'fieldlog' | 'cards' | 'timefix'
 
 /** What syncing the local collections folder with Trapper did: for each kind of thing, what it created and what was already there. */
 export interface SyncResult {
@@ -614,6 +614,51 @@ export interface TreeFolder {
   collection: string | null
   site: string | null
   deployment_id: string | null
+}
+
+/** A run of a deployment's images whose time never goes backwards, set against the deployment's period. */
+export interface TimeSegment {
+  first_index: number
+  last_index: number
+  first: string
+  last: string
+  first_time: string
+  last_time: string
+  count: number
+  inside: number
+  state: 'ok' | 'outside' | 'partly'
+  suggestion: { offset_seconds: number; why: string } | null
+}
+
+/** A fix made to a deployment's images (time_corrections.json). */
+export interface TimeCorrection {
+  at: string
+  by: string | null
+  action: 'shift' | 'remove' | 'restore'
+  first?: string
+  last?: string
+  count?: number
+  offset_seconds?: number
+  names?: string[]
+  reason?: string | null
+}
+
+/** A copied card's images in the camera's order, with when each says it was taken. */
+export interface Timeline {
+  deployment_id: string
+  collection: string
+  folder: string
+  period: { start: string; end: string } | null
+  tolerance_hours: number
+  camera_timezone: string
+  images: { name: string; time: string | null }[]
+  segments: TimeSegment[]
+  undated: string[]
+  outside: number
+  problems: string[]
+  ok: boolean
+  corrections: TimeCorrection[]
+  has_originals: boolean
 }
 
 /** An Epicollect column the field records read: the datasheet field it gives, and its name unless the settings map it. */

@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, FieldlogColumn, FieldlogResult, CardsStatus, CardInspection, CardCopyEvent, TreeFolder,
+  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, FieldlogColumn, FieldlogResult, CardsStatus, CardInspection, CardCopyEvent, TreeFolder, Timeline,
 } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
@@ -138,6 +138,18 @@ export const api = {
     }, onEvent, 'The copy ended unexpectedly.'),
   ingestScanTree: (root: string, researchProjectId: string | null) =>
     post<{ root: string; folders: TreeFolder[] }>('/api/ingest/scan-tree', { root, research_project_id: researchProjectId }),
+
+  // Fixing the dates and times of a copied card (see the backend's timefix_service).
+  timefixCollections: (researchProjectId: string) =>
+    post<{ results: { collection: string; deployments: string[] }[] }>('/api/timefix/collections', { research_project_id: researchProjectId }),
+  timefixTimeline: (researchProjectId: string, collection: string, deploymentId: string) =>
+    post<Timeline>('/api/timefix/timeline', { research_project_id: researchProjectId, collection, deployment_id: deploymentId }),
+  timefixShift: (researchProjectId: string, collection: string, deploymentId: string, first: string, last: string | null, offsetSeconds: number, reason: string) =>
+    post<Timeline>('/api/timefix/shift', { research_project_id: researchProjectId, collection, deployment_id: deploymentId, first, last, offset_seconds: offsetSeconds, reason }),
+  timefixRemove: (researchProjectId: string, collection: string, deploymentId: string, names: string[], reason: string) =>
+    post<Timeline>('/api/timefix/remove', { research_project_id: researchProjectId, collection, deployment_id: deploymentId, names, reason }),
+  timefixRestore: (researchProjectId: string, collection: string, deploymentId: string) =>
+    post<Timeline>('/api/timefix/restore', { research_project_id: researchProjectId, collection, deployment_id: deploymentId }),
 
   browseFolder: (title?: string) =>
     post<{ path: string | null }>('/api/deployment-import/browse-folder', { title: title ?? null }),

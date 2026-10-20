@@ -38,6 +38,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - **Settings › Field records › SD cards**: how long the untouched copy is kept, and how far the files may be from the
     photos counted. `/api/ingest/*`.
 
+- **Fix dates and times**, for a copied card whose camera clock went wrong: its images in the camera's order with when
+  each says it was taken, drawn against the deployment's period, and split where the time goes backwards — each
+  segment with an offset suggested when it falls outside the period (the first to start at the deployment's start, a
+  later one to go on from the one before). A run of images is shifted by an offset, or by the real time of one image
+  (the photo of the field team at the visit, say), with ExifTool; images whose time can't be made right are removed.
+  Before the first fix the copy is kept as it came from the card (`<images folder>/originals/…`), every fix is written
+  down in the deployment's `time_corrections.json`, and the card can be put back. `/api/timefix/*`.
+
 - **Import deployment**: organize a folder of camera-trap images into the local collections folder
   (`<Documents>/wildintel-uploader/collections/<research project>/<R000N>/<deployment id>`), in a wizard of four
   stages: images → origin and dates → check details → prepare and save.
