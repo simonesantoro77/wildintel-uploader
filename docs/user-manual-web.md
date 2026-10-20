@@ -360,6 +360,12 @@ is uploaded. They need at least the *previous revisions needed* of the settings,
 skipped; what a sequence is, what "similar" means and what it is compared to are the
 [Postvalidation settings](#postvalidation).
 
+When the checks are run on a **session**, the results show the same as those of its folders: the figures, a message that says
+whether you can continue, and the deployments — or, by check, the table — with the checks each one failed, **View the images**
+and **Download report**.
+
+![The checks of a session: one deployment failed two checks](img/screenshots/session-check-results.png)
+
 It has the same two steps as the images' checks: **choose how strict** each one is (skip, warn, must pass), press
 **Run checks**, and read the **results** — when it was run, the figures, the table, and, opened from a check, the images that
 failed it (*Out of range*, *Other camera*) as thumbnails. The [report](#reports) downloads.
@@ -528,10 +534,14 @@ deployments and images have been sent and a row for each deployment with its sta
 *process*, *wait*) are each marked as running, done or skipped. The steps that made or found something in Trapper — the *location*, the *deployment* and, at the end, the
 *collection* — show **a link to its page in Trapper** (for example `https://trapper.example.org/geomap/deployment/detail/47/`),
 to check there that it was created or updated. A dry run links to what is already there; what it would create has no page yet. **Stop** ends it —
-what is already in Trapper stays there. When one fails, the others go on, and the summary says so: *"2 deployment(s) uploaded, 1
-failed."* **Upload more** starts over.
+what is already in Trapper stays there. When one fails, the others go on, and the summary says so: *"1 deployment uploaded, 1
+could not be uploaded."* The failed one is in the list with its reason — when Trapper refuses a deployment because its location belongs to
+someone else, the reason says who owns it. The page shows the date of the run and a **Download report** link, a CSV with a row per
+deployment. **Upload more** starts over.
 
 ![An upload midway: the first deployment is done, the second is sending its zip](img/screenshots/upload-running.png)
+
+![An upload that ended with one deployment failed](img/screenshots/upload-result.png)
 
 The zips and yamls are written under `<data folder>/packages/<research project>/`. A deployment
 that was uploaded gets an `upload.json`, which is what the list uses to say so.

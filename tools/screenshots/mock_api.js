@@ -131,6 +131,34 @@
     }
   }
 
+  // The checks of a deployment that fail some: its first and last images are out of its dates, and it has fewer images than before.
+  const FAILED_REPORT_ID = '20261006-094800_postvalidation_R0003-DONA_02'
+  const failedPostvalidation = {
+    ...POSTVALIDATION, checked_count: 188,
+    time_range: undefined,
+    out_of_range: [
+      { path: 'IMG_0001.JPG', date: '2024-09-04T12:02:00', rule: 'first', expected: '2024-09-04T14:02:11 ± 1h' },
+      { path: 'IMG_0188.JPG', date: '2024-10-12T05:11:00', rule: 'last', expected: '2024-10-12T07:40:09 ± 1h' },
+    ],
+    image_count: { ...POSTVALIDATION.image_count, ok: false, value: 188, message: '188 images — fewer than the previous revisions (median 238, ±50 %).' },
+  }
+  const failedPostvalidationReport = () => {
+    const report = postvalidationReport()
+    report.id = FAILED_REPORT_ID
+    report.title = 'Checks of R0003-DONA_02'
+    report.deployment_id = 'R0003-DONA_02'
+    report.checked = 188
+    report.checks.time_range = { ...report.checks.time_range, ok: 0, failed: 2 }
+    report.checks.image_count = { ...report.checks.image_count, ok: 0, failed: 1 }
+    report.entries = report.entries.filter((e) => e.check !== 'time_range' && e.check !== 'image_count').concat([
+      { identifier: 'IMG_0001.JPG', check: 'time_range', status: 'failed', message: '2024-09-04T12:02:00 is out of the range for the first image (2024-09-04T14:02:11 ± 1h)' },
+      { identifier: 'IMG_0188.JPG', check: 'time_range', status: 'failed', message: '2024-10-12T05:11:00 is out of the range for the last image (2024-10-12T07:40:09 ± 1h)' },
+      { identifier: '(deployment)', check: 'image_count', status: 'failed', message: failedPostvalidation.image_count.message },
+    ])
+    report.totals = { entries: report.entries.length, ok: report.entries.length - 3, failed: 3, images_with_issues: 2 }
+    return report
+  }
+
   const PREVIOUS = {
     revision: 2, deployment_id: 'R0002-DONA_01',
     deployment: {
@@ -182,6 +210,7 @@
   const REPORTS = {
     [VALIDATION_REPORT_ID]: validationReport(VALIDATION_REPORT_ID),
     [POSTVALIDATION_REPORT_ID]: postvalidationReport(),
+    [FAILED_REPORT_ID]: failedPostvalidationReport(),
     '20261006-094930_preprocessing_R0003-DONA_01': {
       id: '20261006-094930_preprocessing_R0003-DONA_01', kind: 'preprocessing', title: 'Preprocessing of R0003-DONA_01', created_at: '2026-10-06T09:49:30+00:00',
       source_dir: '/home/me/Pictures/R0003-DONA_01', deployment_id: 'R0003-DONA_01', checked: 241, parameters: { rename: true, resize: true, metadata: true },
@@ -197,6 +226,11 @@
   const uploadEvents = (body, halfway) => {
     const id = body.deployment_id
     const images = { 'R0003-DONA_01': 241, 'R0003-DONA_02': 188, 'R0003-DONA_03': 305 }[id]
+    if (mock.failUpload === id) {
+      return [step('connect', 'done', `Connected to ${TRAPPER_URL}.`), step('classification', 'done', 'Classification project: DONA 2024.'),
+        step('location', 'done', `Location ${id.split('-')[1]} already in Trapper.`),
+        { type: 'error', detail: `Deployment import failed (status 200): Type error in the cell "${id.split('-')[1]}" in row "" and field "locationID" at position "": The object does not exist in the database. The location ${id.split('-')[1]} belongs to wildintel@example.org, and field.team@example.org is neither its owner nor one of its managers, so Trapper may refuse a deployment there.` }]
+    }
     const events = [
       step('connect', 'done', `Connected to ${TRAPPER_URL}.`),
       step('classification', 'done', 'Classification project: DONA 2024.'),
@@ -311,7 +345,9 @@
       },
       'POST /api/deployment-import/scan-session': () => ({ ...SESSION_SCAN, deployments: SESSION_SCAN.deployments.map(({ guess, ...d }) => d) }),
       'POST /api/deployment-import/validate-images': () => ({ ...VALIDATION, report_id: VALIDATION_REPORT_ID }),
-      'POST /api/deployment-import/validate-deployment': () => ({ ...POSTVALIDATION, report_id: POSTVALIDATION_REPORT_ID }),
+      'POST /api/deployment-import/validate-deployment': (body) => (mock.faultyChecks && body.deployment?.deployment_id?.endsWith('DONA_02')
+        ? { ...failedPostvalidation, time_range: undefined, report_id: FAILED_REPORT_ID }
+        : { ...POSTVALIDATION, report_id: POSTVALIDATION_REPORT_ID }),
       'POST /api/deployment-import/research-projects/list': () => ({ results: [{
         ...PROJECT, sampling_design: 1, sensor_method: 1, animal_types: 1, bait_use: 1, event_interval: 0, keywords: '', abstract: '', methods: '', description: '',
       }] }),

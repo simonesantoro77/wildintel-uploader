@@ -317,6 +317,22 @@ def session_dates_log(page: Page) -> None:
     save(page, "session-dates-log", top=heading(page, "When was it collected?"))
 
 
+def to_session_checks(page: Page) -> None:
+    page.add_init_script("window.__mock.faultyChecks = true")
+    to_session_dates(page)
+    button(page, "Continue to more details").click()
+    button(page, "Continue").last.click()
+    expect(heading(page, "Check the details")).to_be_visible()
+    button(page, "Run checks").click()
+    expect(page.get_by_text("Deployments checked")).to_be_visible()
+
+
+@shot("session-check-results")
+def session_check_results(page: Page) -> None:
+    to_session_checks(page)
+    save(page, "session-check-results", top=heading(page, "Check results"))
+
+
 # ── Upload ───────────────────────────────────────────────────────────────────
 
 def to_upload(page: Page) -> None:
@@ -338,6 +354,17 @@ def upload_mode(page: Page) -> None:
     button(page, "Continue to step 2").click()
     expect(heading(page, "Choose what to do")).to_be_visible()
     save(page, "upload-mode")
+
+
+@shot("upload-result")
+def upload_result(page: Page) -> None:
+    page.add_init_script("window.__mock.failUpload = 'R0003-DONA_02'")
+    to_upload(page)
+    button(page, "Continue to step 2").click()
+    page.get_by_role("radio", name=re.compile("^Upload")).first.check()
+    button(page, "Continue to step 3").click()
+    expect(page.get_by_text("Not uploaded", exact=True)).to_be_visible()
+    save(page, "upload-result", top=page.get_by_text("Completed", exact=True).last, bottom=button(page, "Upload more deployments"))
 
 
 @shot("upload-running")
