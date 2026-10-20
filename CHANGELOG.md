@@ -19,7 +19,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     installed on this trip — add it in Trapper and take the locations again), a camera or a card at two sites in one
     session, and the engine's own (sites not visited, revisions with 0 photos, two installations at one site…).
   - Writes, in the collection's folder, `<R000N>_FileTimestampLog.csv` (each closed deployment's row replaced, the
-    others kept) and `<R000N>_FieldworkLog.csv`: every deployment with Camtrap DP's field names (`deploymentID`,
+    others kept) — and, beside the datasheet, the same log in the old eleven-column format of wildintel-tools — and `<R000N>_FieldworkLog.csv`: every deployment with Camtrap DP's field names (`deploymentID`,
     `deploymentStart`/`End` in UTC, `setupBy` and `cameraID` from the start visit, `deploymentComments` from both
     visits' notes as `Start: … | End: …`) and what the field trip says of its card.
   - **Settings › Field records**: the time of a visit (the entry's, or the date and hour typed), the timezone of the

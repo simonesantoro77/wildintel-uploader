@@ -14,7 +14,8 @@ engine (services.fieldlog.engine):
 And writes, in the collection's folder (<collections folder>/<research project>/<R000N>/):
 
   * <R000N>_FileTimestampLog.csv — each closed deployment's start and end, the row of each replaced and the others
-    kept (local_folder_service.upsert_timestamp_log), as the import reads it;
+    kept (local_folder_service.upsert_timestamp_log), as the import reads it — and, beside the datasheet, the same in
+    the format wildintel-tools and the FileTimestamps tool write (eleven columns), for whoever still uses it;
   * <R000N>_FieldworkLog.csv — every deployment of the collection, closed or open, with its fields named as Camtrap DP
     names them (deploymentID, setupBy, cameraID, deploymentComments…) and what the field trip says of its card.
 
@@ -284,6 +285,15 @@ def apply(epicollect: str, datasheet: str, research_project_id: str, settings: c
         files += engine.write_datasheets(prep, str(sheet), str(sheet.parent), settings.FIELDLOG.datasheet_format)
     except OSError as exc:
         raise FieldlogError(f"Could not write the updated datasheet: {exc}") from exc
+    # The log in the format wildintel-tools and the FileTimestamps tool write (eleven columns, the hours without a
+    # leading zero), beside the datasheet as that tool left it — for whoever still uses it.
+    for collection in sorted({iv["dep"] for iv in prep["intervals"] if engine.session_name(iv["dep"]) in result["collections"]}):
+        legacy = Path(engine.unique_path(str(sheet.parent / f"{engine.session_name(collection)}_FileTimestampLog.csv")))
+        try:
+            engine.write_log(str(legacy), [iv for iv in prep["intervals"] if iv["dep"] == collection], settings.FIELDLOG.keep_seconds)
+            files.append(str(legacy))
+        except OSError as exc:
+            prep["report"].warn(f"Could not write {legacy.name} beside the datasheet: {exc}")
     for collection in result["collections"]:
         collection_dir = project / collection
         deployments = [d for d in result["deployments"] if d["collection"] == collection]

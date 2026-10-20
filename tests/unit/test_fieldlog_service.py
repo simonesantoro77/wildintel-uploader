@@ -122,6 +122,12 @@ def test_applying_writes_the_datasheet_and_the_collection_files(trip):
     log = lfs.read_timestamp_log(lfs.timestamp_log_path(collection))
     assert log == [{"Deployment": "R0002-TATR_0001", "StartDate": "2026:02:20", "StartTime": "09:30:00",
                     "EndDate": "2026:03:30", "EndTime": "08:15:00"}]
+    legacy = sheet.parent / "R0002_FileTimestampLog.csv"
+    assert str(legacy) in result["files"]
+    assert legacy.read_text().splitlines()[:2] == [
+        "Deployment,StartDate,StartTime,EndDate,EndTime, ,Deployment_Or,StartDate_Or,StartTime_Or,EndDate_Or,EndTime_Or",
+        "R0002-TATR_0001,2026:02:20,9:30:00,2026:03:30,8:15:00,,R0002-TATR_0001,2026:02:20,9:30:00,2026:03:30,8:15:00",
+    ]
     rows = fs.read_fieldwork_log(collection)
     assert [(r["deploymentID"], r["status"]) for r in rows] == [("R0002-TATR_0001", "closed"), ("R0002-TATR_0002", "open")]
     assert rows[0]["setupBy"] == "Ben" and rows[0]["cameraID"] == "11" and rows[0]["deploymentEnd"] == "2026-03-30T08:15:00Z"
