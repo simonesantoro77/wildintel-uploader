@@ -143,11 +143,12 @@
   }
 
   const SETTINGS = {
-    GENERAL: { log_level: 'INFO', workers: 4, cpu_count: 8, log_file: '/home/me/.config/wildintel-uploader/logs/wildintel-uploader.log', log_level_override: null },
+    GENERAL: { log_level: 'INFO', workers: 4, cpu_count: 8, log_file: '/home/me/.local/state/wildintel-uploader/log/wildintel-uploader.log', log_level_override: null },
     TRAPPER: { base_url: TRAPPER_URL, user_name: 'field.team@example.org', has_password: true, max_zip_mb: 500 },
     EPICOLLECT5: { enabled: true, unmapped_to_comments: true, project_slug: 'donana-cameras', client_id: null, has_secret: false,
       mapping: { location_id: 'l', location_name: 'n', revision: 'r', start_date: 'sd', start_time: 'st', camera_model: 'm' } },
-    DATA: { dir: DATA_DIR },
+    DATA: { dir: DATA_DIR, collections_dir: null, reports_dir: null, packages_dir: null,
+      default_collections_dir: `${DATA_DIR}/collections`, default_reports_dir: `${DATA_DIR}/reports`, default_packages_dir: `${DATA_DIR}/packages` },
     VALIDATION: { corrupted: true, sequence: true, structure: true, camera: true, exif: true, duplicates: true },
     POSTVALIDATION: {
       deployment_id: true, collection_prefix: true, collection_name: true, location: true, time_range: true, camera: true,
