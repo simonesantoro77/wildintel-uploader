@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
 import { FilesReady, PreparingFiles, btnPrimary as primaryButton, formatBytes } from '../components/PrepareFiles'
@@ -84,6 +85,8 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
   const [collectionName, setCollectionName] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [mode, setMode] = useState<UploadMode>('upload')
+  // With an upload: whether the package files — the zips, the yamls and the deployments csv — are deleted once they are up.
+  const [deleteFiles, setDeleteFiles] = useState(false)
   const [trapper, setTrapper] = useState<{ base_url: string | null; user_name: string | null; has_password: boolean } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [runs, setRuns] = useState<Record<string, Run>>({})
@@ -217,7 +220,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
     for (const id of ids) {
       try {
         if (abort.signal.aborted) throw new Error('Stopped before it began.')
-        await api.uploadDeployment(projectId, collection.name, id, runMode, (event) => setRuns((r) => ({ ...r, [id]: reduceRun(r[id] ?? EMPTY_RUN, event) })), classificationValue, abort.signal)
+        await api.uploadDeployment(projectId, collection.name, id, runMode, (event) => setRuns((r) => ({ ...r, [id]: reduceRun(r[id] ?? EMPTY_RUN, event) })), classificationValue, abort.signal, runMode === 'upload' && deleteFiles)
       } catch (e) {
         const stopped = abort.signal.aborted
         setRuns((r) => ({ ...r, [id]: { ...(r[id] ?? EMPTY_RUN), progress: null, pack: null, error: stopped ? 'Stopped.' : e instanceof Error ? e.message : 'The upload failed.' } }))
@@ -228,6 +231,16 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
     setUploading(false); setFinished(true)
     if (runMode === 'upload') void loadCollections(projectId).then(() => setCollectionName(collection.name)) // shows what was uploaded
   }
+
+  const deleteOption = (
+    <label className="flex items-start gap-3 cursor-pointer py-1">
+      <input type="checkbox" className="mt-1" checked={deleteFiles} disabled={uploading} onChange={(e) => setDeleteFiles(e.target.checked)} />
+      <span>
+        <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Delete the package files once they are uploaded</span>
+        <span className="block text-xs text-zinc-500 dark:text-zinc-400">The zips, the yamls and the deployments csv are taken away when Trapper has them. Left unticked, they stay in your packages folder.</span>
+      </span>
+    </label>
+  )
 
   const imagesToSend = toUpload.reduce((sum, d) => sum + d.images, 0)
   const blockedBy = !accountOk ? 'Set the Trapper account in the settings first.'
@@ -261,6 +274,16 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
   })
   // Sending the images to Trapper: each deployment as it is, for the progress and for what was set up.
   const sending = mode === 'upload'
+  // What became of the package files: deleted, or kept in the folder the upload wrote them to.
+  const uploadResults = order.map((id) => runs[id]?.result).filter((r): r is Extract<UploadEvent, { type: 'done' }> => r?.type === 'done' && r.mode === 'upload')
+  const keptDir = uploadResults.find((r) => r.files_deleted === false)?.output_dir
+  const filesNote: ReactNode = uploadResults.length === 0 ? null : keptDir ? (
+    <span className="flex items-center gap-3 flex-wrap">
+      <span className="flex-1 min-w-0"><strong className="font-semibold">The package files were kept</strong> in <span className="font-mono break-all">{keptDir}</span>.</span>
+      <button type="button" className={btnOutline} onClick={() => void api.openFolder(keptDir).catch(() => {})}>Open folder</button>
+    </span>
+  ) : <><strong className="font-semibold">The package files were deleted</strong> once they were uploaded.</>
+
   const uploadItems: UploadItem[] = order.map((id, index) => {
     const run = runs[id] ?? EMPTY_RUN
     const info = collection?.deployments.find((d) => d.deployment_id === id)
@@ -470,6 +493,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
             </label>
           ))}
         </div>
+        {mode === 'upload' && <div className="mt-3">{deleteOption}</div>}
         {toUpload.length > 0 && (
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-3">
             <strong className="text-zinc-700 dark:text-zinc-300">You’ll get: </strong>
@@ -504,6 +528,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
             <FilesReady collection={collection.name} items={prepareItems} outputDir={outputDir} startedAt={startedAt} finishedAt={finishedAt}
                         onOpenFolder={() => void api.openFolder(outputDir!).catch(() => {})}
                         onBack={() => { setRuns({}); setOrder([]); setFinished(false) }}
+                        uploadOptions={deleteOption}
                         onUpload={() => {
                           const done = prepareItems.filter((i) => i.state === 'done')
                           const sizes = new Map(done.flatMap((i) => i.files).map((f) => [f.name, f.bytes])) // the deployments csv is in each one's files
@@ -519,14 +544,18 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
         <WizardStep n={prepared ? 4 : 3} title="Upload to Trapper" status={uploading ? 'running' : finished ? 'done' : 'open'} canEdit={false} onEdit={() => {}} expanded
                     description="Creates what’s missing in Trapper, packs the images and sends them for Trapper to process.">
           {order.length === 0 ? (
-            <div className="flex items-center justify-end gap-3">
-              {blockedBy && <p className="text-xs text-amber-600 dark:text-amber-400">{blockedBy}</p>}
-              <button type="button" className={primaryButton} disabled={Boolean(blockedBy)} onClick={() => void handleUpload()}>{modeInfo.button}</button>
+            <div>
+              <div className="mb-4">{deleteOption}</div>
+              <div className="flex items-center justify-end gap-3">
+                {blockedBy && <p className="text-xs text-amber-600 dark:text-amber-400">{blockedBy}</p>}
+                <button type="button" className={primaryButton} disabled={Boolean(blockedBy)} onClick={() => void handleUpload()}>{modeInfo.button}</button>
+              </div>
             </div>
           ) : uploading ? (
             <UploadingToTrapper items={uploadItems} startedAt={startedAt} target={`${trapper?.base_url ?? 'Trapper'}${trapper?.user_name ? ` as ${trapper.user_name}` : ''}`} onStop={() => abortRef.current?.abort()} />
           ) : (
             <UploadedToTrapper collection={collection.name} researchProject={projectId} items={uploadItems} startedAt={startedAt} finishedAt={finishedAt}
+                               filesNote={filesNote}
                                onMore={() => { setRuns({}); setOrder([]); setFinished(false); setPrepared(null); setModeChosen(false); setChosen(false) }} />
           )}
         </WizardStep>

@@ -260,11 +260,11 @@ export const api = {
   // as `mode` says, only shows what that would do, or only writes the files. The Trapper credentials are the saved ones.
   uploadDeployment: (
     researchProjectId: string, collection: string, deploymentId: string, mode: UploadMode,
-    onEvent: (event: UploadEvent) => void, classificationProjectPk: number | null = null, signal?: AbortSignal,
+    onEvent: (event: UploadEvent) => void, classificationProjectPk: number | null = null, signal?: AbortSignal, deleteFiles = false,
   ) =>
     streamNdjson<UploadEvent>('/api/upload/deployment', {
       research_project_id: researchProjectId, collection, deployment_id: deploymentId, mode,
-      classification_project_pk: classificationProjectPk,
+      classification_project_pk: classificationProjectPk, delete_files: deleteFiles,
     }, onEvent, 'The upload ended unexpectedly.', signal),
 
   // Whether ExifTool is installed — adding metadata needs it.

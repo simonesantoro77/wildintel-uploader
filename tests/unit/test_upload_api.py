@@ -208,6 +208,16 @@ def _post(tmp_path: Path, payload: dict, fake: FakeTrapper | None = None, settin
         return _client().post("/api/upload/deployment", json=payload)
 
 
+def test_the_package_files_stay_after_an_upload_unless_deleting_them_is_asked(tmp_path: Path, fake_uploader):
+    _kept(tmp_path)
+    kept = _events(_post(tmp_path, PAYLOAD, FakeTrapper()))[-1]
+    assert kept["files_deleted"] is False and any(name.endswith(".zip") for name in kept["files"]) and any(name.endswith("_deployments.csv") for name in kept["files"])
+    assert list((tmp_path / "packages").rglob("*.zip"))
+
+    deleted = _events(_post(tmp_path, {**PAYLOAD, "delete_files": True}, FakeTrapper()))[-1]
+    assert deleted["files_deleted"] is True and "files" not in deleted
+
+
 def test_a_dry_run_streams_what_would_happen_and_changes_nothing(tmp_path: Path, fake_uploader):
     _kept(tmp_path)
     fake = FakeTrapper()

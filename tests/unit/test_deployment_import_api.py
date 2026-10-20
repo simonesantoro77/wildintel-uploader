@@ -612,7 +612,7 @@ def test_timestamp_log_writes_the_deployments_row_in_its_collection(tmp_path: Pa
     assert response.status_code == 200
     assert response.json() == {"path": str(log), "action": "added", "rows": 1, "collection": "R0003"}
     # The camera's wall-clock time: the designators (+02:00, +01:00) are dropped, not converted.
-    assert log.read_text(encoding="utf-8-sig").splitlines()[1] == "R0003-DONA_0007_B,2024:09:04,13:10:00,2024:11:04,14:28:00"
+    assert log.read_text(encoding="utf-8-sig").splitlines()[1] == "r0003-dona_0007_b,2024:09:04,13:10:00,2024:11:04,14:28:00"
 
 
 def test_timestamp_log_says_updated_then_unchanged(tmp_path: Path):

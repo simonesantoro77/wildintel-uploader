@@ -611,6 +611,8 @@ export type UploadEvent =
     type: 'done'; mode: UploadMode; collection: string; deployment_id: string; parts: number
     /** upload */
     location_created?: boolean; deployment_created?: boolean; bytes?: number
+    /** upload: whether the package files were deleted once up; when they were kept, output_dir, files and file_sizes say where and which. */
+    files_deleted?: boolean
     /** dry run */
     would_create_location?: boolean; would_create_deployment?: boolean
     /** generate */

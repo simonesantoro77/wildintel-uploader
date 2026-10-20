@@ -206,6 +206,25 @@ def upsert_deployments_csv(path: Path, deployment: DeploymentFields, log: dict) 
     return {"path": str(path), "action": action, "rows": len(rows)}
 
 
+def remove_from_deployments_csv(path: Path, deployment_id: str) -> None:
+    """Takes a deployment's row out of its collection's deployments csv; the file goes when it has no row left."""
+    import csv
+
+    if not path.is_file():
+        return
+    with path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fields = reader.fieldnames or []
+        rows = [row for row in reader if row.get("deploymentID") and row["deploymentID"] != deployment_id]
+    if not rows:
+        path.unlink()
+        return
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def build_packages(
     deployment_dir: Path, collection: str, deployment_id: str, log: dict, *, project_id: int, timezone_name: str, ignore_dst: bool,
     output_dir: Path, max_zip_bytes: int | None = DEFAULT_MAX_ZIP_BYTES, stamp: str | None = None, trapper_deployment_id: str | None = None,
@@ -624,7 +643,7 @@ def _megabytes(size: float) -> str:
 
 def upload_stream(
     credentials: tuple[str, str, str] | None, research_project: dict, collection_dir: Path, deployment_id: str, packages_dir: Path, *,
-    mode: Mode = "upload", max_zip_bytes: int | None = DEFAULT_MAX_ZIP_BYTES, remove_zip: bool = True,
+    mode: Mode = "upload", max_zip_bytes: int | None = DEFAULT_MAX_ZIP_BYTES, remove_zip: bool = True, delete_after_upload: bool = True,
     wait_seconds: float | None = None, poll_seconds: float | None = None, classification_project_pk: int | None = None,
 ) -> Iterator[dict]:
     """Uploads one deployment of a collection to Trapper — or, as `mode` says, only shows what that
@@ -637,6 +656,10 @@ def upload_stream(
       - {"type": "done", "mode", "collection", "deployment_id", …}: for "upload", "location_created",
         "deployment_created" and "parts"; for "dry_run", "would_create_location",
         "would_create_deployment" and "parts"; for "generate", "parts", "output_dir", "files", "images" and "file_sizes" (each file's bytes).
+
+    Once it is uploaded, `delete_after_upload` takes the package files away — the zips, the yamls and the deployment's row of the
+    collection's deployments csv; without it they are kept in the packages folder (the csv is written then), and the "done"
+    event says where ("output_dir", "files", "file_sizes").
 
     A dry run changes nothing — in Trapper it only reads, and it writes no file. Generating needs no
     connection to Trapper when the research project's pk there is already known (it was filled in from
@@ -822,9 +845,20 @@ def upload_stream(
         raise TrapperUploadError(f"The collection {collection} didn't appear in Trapper within {int(wait_seconds)} seconds — it may still be processing.")
     yield step("wait", "done", f"Collection {collection} is in Trapper.", trapper_link(credentials, "collection", getattr(found_collection, "pk", None)))
 
-    for package in packages:  # what went up is on Trapper now
-        package["zip"].unlink(missing_ok=True)
-        package["yaml"].unlink(missing_ok=True)
+    csv_path = output_dir / f"{collection}{DEPLOYMENTS_CSV_SUFFIX}"
+    kept: list[Path] = []
+    if delete_after_upload:  # what went up is on Trapper now
+        for package in packages:
+            package["zip"].unlink(missing_ok=True)
+            package["yaml"].unlink(missing_ok=True)
+        remove_from_deployments_csv(csv_path, deployment_id)
+        try:
+            output_dir.rmdir()  # only if nothing else is left in it
+        except OSError:
+            pass
+    else:
+        upsert_deployments_csv(csv_path, deployment, log)
+        kept = [p[k] for p in packages for k in ("zip", "yaml")] + [csv_path]
     (deployment_dir / UPLOAD_LOG_FILE).write_text(json.dumps({
         "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "research_project_pk": project_pk, "classification_project_pk": classification_pk, "collection": collection,
         "parts": len(packages), "location_created": location_created, "deployment_created": deployment_created,
@@ -832,5 +866,6 @@ def upload_stream(
     yield {
         "type": "done", "mode": mode, "collection": collection, "deployment_id": deployment_id, "location_created": location_created,
         "deployment_created": deployment_created, "parts": len(packages),
-        "images": sum(p["files"] for p in packages), "bytes": package_bytes,
+        "images": sum(p["files"] for p in packages), "bytes": package_bytes, "files_deleted": delete_after_upload,
+        **({"output_dir": str(output_dir), "files": [f.name for f in kept], "file_sizes": {f.name: f.stat().st_size for f in kept}} if kept else {}),
     }

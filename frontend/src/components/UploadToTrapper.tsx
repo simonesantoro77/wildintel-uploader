@@ -144,8 +144,10 @@ function Pill({ children, tone }: { children: ReactNode; tone: 'green' | 'grey' 
 }
 
 /** What was sent, once the upload has ended — whether it all went well or not. */
-export function UploadedToTrapper({ collection, researchProject, items, startedAt, finishedAt, onMore }: {
+export function UploadedToTrapper({ collection, researchProject, items, startedAt, finishedAt, onMore, filesNote }: {
   collection: string; researchProject: string; items: UploadItem[]; startedAt: number; finishedAt: number; onMore: () => void
+  /** What became of the package files — deleted, or kept where. */
+  filesNote?: ReactNode
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const sent = items.filter((i) => i.state === 'done')
@@ -179,6 +181,10 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
         <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">
           <strong className="font-semibold">Trapper is now processing the images.</strong> It happens on Trapper’s side and can take a while for large deployments. You don’t need to stay here.
         </div>
+      )}
+
+      {sent.length > 0 && filesNote && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">{filesNote}</div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">

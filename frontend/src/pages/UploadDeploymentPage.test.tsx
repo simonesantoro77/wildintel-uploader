@@ -341,6 +341,47 @@ describe('UploadDeploymentPage', () => {
     expect(mockedApi.uploadDeployment.mock.calls.map((c) => c[3])).toEqual(['generate', 'generate', 'upload', 'upload'])
   })
 
+  describe('deleting the package files once uploaded', () => {
+    const DELETE = /Delete the package files once they are uploaded/
+
+    it('is offered with the upload only, and is off unless ticked', async () => {
+      await pickCollection()
+      expect(screen.getByRole('checkbox', { name: DELETE })).not.toBeChecked()
+      await userEvent.click(screen.getByRole('radio', { name: 'Only prepare the files' }))
+      expect(screen.queryByRole('checkbox', { name: DELETE })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('radio', { name: 'Rehearse first (dry run)' }))
+      expect(screen.queryByRole('checkbox', { name: DELETE })).not.toBeInTheDocument()
+    })
+
+    it('tells the upload to delete them when ticked, and says they were deleted', async () => {
+      mockedApi.uploadDeployment.mockImplementation(async (_rp, _col, id, _mode, onEvent) => {
+        STEP_EVENTS(id).slice(0, -1).forEach(onEvent)
+        onEvent({ type: 'done', mode: 'upload', collection: 'R0003', deployment_id: id, parts: 1, images: 120, bytes: 10, files_deleted: true })
+      })
+      await pickCollection()
+      await userEvent.click(screen.getByRole('checkbox', { name: DELETE }))
+      await proceedToStep3()
+
+      expect(await screen.findByText('Upload complete')).toBeInTheDocument()
+      expect(screen.getByText(/The package files were deleted/)).toBeInTheDocument()
+      expect(mockedApi.uploadDeployment.mock.calls.every((c) => c[7] === true)).toBe(true)
+    })
+
+    it('keeps them by default, and says where', async () => {
+      mockedApi.uploadDeployment.mockImplementation(async (_rp, _col, id, _mode, onEvent) => {
+        STEP_EVENTS(id).slice(0, -1).forEach(onEvent)
+        onEvent({ type: 'done', mode: 'upload', collection: 'R0003', deployment_id: id, parts: 1, images: 120, bytes: 10, files_deleted: false, output_dir: '/data/packages/DONA/R0003', files: ['a.zip'] })
+      })
+      await pickCollection()
+      await proceedToStep3()
+
+      expect(await screen.findByText('Upload complete')).toBeInTheDocument()
+      expect(screen.getByText(/The package files were kept/)).toBeInTheDocument()
+      expect(screen.getByText('/data/packages/DONA/R0003')).toBeInTheDocument()
+      expect(mockedApi.uploadDeployment.mock.calls.every((c) => c[7] === false)).toBe(true)
+    })
+  })
+
   it('runs a dry run, saying what would be done and changing nothing', async () => {
     mockedApi.uploadDeployment.mockImplementation(async (_rp, _col, id, _mode, onEvent) => {
       onEvent({ type: 'done', mode: 'dry_run', collection: 'R0003', deployment_id: id, parts: 3, would_create_location: true, would_create_deployment: false })

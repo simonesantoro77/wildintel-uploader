@@ -74,7 +74,7 @@ def test_a_deployment_is_added_with_wildintel_tools_header_and_formats(tmp_path:
     assert log.read_bytes().startswith(b"\xef\xbb\xbf")
     assert log.read_text(encoding="utf-8-sig").splitlines() == [
         "Deployment,StartDate,StartTime,EndDate,EndTime",
-        "R0003-DONA_0007_B,2024:09:04,13:10:00,2024:11:04,14:28:00",
+        "r0003-dona_0007_b,2024:09:04,13:10:00,2024:11:04,14:28:00",  # in lower case, as Trapper keeps it
     ]
 
 
@@ -94,7 +94,7 @@ def test_other_deployments_of_the_collection_keep_their_rows(tmp_path: Path):
     result = svc.upsert_timestamp_log(collection, "R0003-DONA_02", datetime(2024, 9, 5, 6, 0, 0), datetime(2024, 11, 5, 18, 0, 0))
 
     assert result["action"] == "added" and result["rows"] == 2
-    assert [r["Deployment"] for r in svc.read_timestamp_log(collection / "R0003_FileTimestampLog.csv")] == ["R0003-DONA_01", "R0003-DONA_02"]
+    assert [r["Deployment"] for r in svc.read_timestamp_log(collection / "R0003_FileTimestampLog.csv")] == ["r0003-dona_01", "r0003-dona_02"]
 
 
 def test_a_deployment_that_is_there_has_its_row_replaced_not_duplicated(tmp_path: Path):
@@ -132,7 +132,7 @@ def test_a_log_wildintel_tools_wrote_is_read_and_kept(tmp_path: Path):
     svc.upsert_timestamp_log(collection, "R0001-DONA_0009_C", START, END)
 
     rows = svc.read_timestamp_log(collection / "R0001_FileTimestampLog.csv")
-    assert [r["Deployment"] for r in rows] == ["R0001-DONA_0007_B", "R0001-DONA_0008_A", "R0001-DONA_0009_C"]
+    assert [r["Deployment"] for r in rows] == ["R0001-DONA_0007_B", "R0001-DONA_0008_A", "r0001-dona_0009_c"]  # the rows it did not write stay as they were
     assert rows[1]["StartTime"] == "06:00:00"
 
 

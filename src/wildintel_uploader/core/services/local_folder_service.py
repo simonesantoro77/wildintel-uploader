@@ -249,9 +249,9 @@ def location_time_in(project_folder: Path, location_id: str | None) -> dict:
 #   <collection folder>/<collection>_FileTimestampLog.csv — as wildintel-tools has it
 #
 #   Deployment,StartDate,StartTime,EndDate,EndTime
-#   R0003-DONA_0007_B,2024:09:04,13:10:00,2024:11:04,14:28:00
+#   r0003-dona_0007_b,2024:09:04,13:10:00,2024:11:04,14:28:00
 #
-# One row per deployment: when its images were taken, as the camera's local
+# One row per deployment, named in lower case as Trapper keeps its ids: when its images were taken, as the camera's local
 # wall-clock time. wildintel-tools' check-deployments reads it.
 
 TIMESTAMP_LOG_SUFFIX = "_FileTimestampLog.csv"
@@ -296,7 +296,7 @@ def read_timestamp_log(path: Path) -> list[dict]:
 def upsert_timestamp_log(collection_dir: Path, deployment_id: str, start: datetime, end: datetime) -> dict:
     """Puts a deployment's row — its start and end, as wall-clock times — in its collection's
     timestamp log, creating the collection folder (named in its collection.json) and the log if
-    need be. The deployment's own row is replaced (compared ignoring case), the others stay.
+    need be. The deployment is named in lower case, as Trapper keeps it. Its own row is replaced (compared ignoring case), the others stay.
 
     Returns {"path", "action": "added" | "updated" | "unchanged", "rows"}.
 
@@ -309,7 +309,7 @@ def upsert_timestamp_log(collection_dir: Path, deployment_id: str, start: dateti
     path = timestamp_log_path(collection_dir)
     rows = read_timestamp_log(path)
     new_row = {
-        "Deployment": deployment_id, "StartDate": start.strftime("%Y:%m:%d"), "StartTime": start.strftime("%H:%M:%S"),
+        "Deployment": deployment_id.lower(), "StartDate": start.strftime("%Y:%m:%d"), "StartTime": start.strftime("%H:%M:%S"),
         "EndDate": end.strftime("%Y:%m:%d"), "EndTime": end.strftime("%H:%M:%S"),
     }
     index = next((i for i, row in enumerate(rows) if row["Deployment"].upper() == deployment_id.upper()), None)

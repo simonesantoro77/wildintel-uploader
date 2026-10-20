@@ -515,6 +515,8 @@ there; **Test connection** is in [Settings › Trapper](#trapper)). The page is 
 | **Rehearse first (dry run)** | Looks at Trapper and says what would be created and how the images would be packed. Nothing is created, sent or written. |
 | **Only prepare the files** | Writes the zips, the yamls and the collection's `_deployments.csv` and leaves them, to send some other way. Needs no account if the research project was filled in from Trapper. |
 
+With **Upload to Trapper**, tick **Delete the package files once they are uploaded** to take the zips, the yamls and the deployment's row of the `_deployments.csv` away when Trapper has them. Unticked (the default) they stay in the packages folder, as when only preparing them, and the result says where. The option is also offered when you go on to upload files you have just prepared.
+
 The size of the zips is a setting: [Settings › Trapper](#trapper). The page says what you will get before you go on.
 
 ### Step 3 — Upload

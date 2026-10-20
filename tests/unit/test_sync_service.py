@@ -66,8 +66,8 @@ def test_creates_the_expected_structure(tmp_path: Path):
     assert (folder / "R0003" / "R0003-DONA_02" / "deployment.json").is_file()
     assert not (folder / "Other").exists()  # only the collections starting with R
     log = (folder / "R0003" / "R0003_FileTimestampLog.csv").read_text(encoding="utf-8-sig")
-    assert "R0003-DONA_01,2024:07:01,09:00:00,2024:07:31,11:00:00" in log
-    assert "R0003-DONA_02,2024:07:01,10:00:00,2024:07:31,12:00:00" in log
+    assert "r0003-dona_01,2024:07:01,09:00:00,2024:07:31,11:00:00" in log
+    assert "r0003-dona_02,2024:07:01,10:00:00,2024:07:31,12:00:00" in log
     info = json.loads((folder / "R0003" / "R0003-DONA_01" / "images.json").read_text(encoding="utf-8"))
     assert (info["source"], info["image_count"], info["first"], info["last"]) == ("trapper", 2, "2024-07-01T09:00:00", "2024-07-02T10:30:00")  # DONA_01 ignores DST
     first = info["images"][0]

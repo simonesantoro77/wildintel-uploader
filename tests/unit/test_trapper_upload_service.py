@@ -346,7 +346,7 @@ def test_the_upload_creates_the_location_and_the_deployment_then_packs_uploads_a
     ]
     assert events[-1] == {
         "type": "done", "mode": "upload", "collection": "R0003", "deployment_id": DEPLOYMENT_ID, "location_created": True, "deployment_created": True, "parts": 1,
-        "images": 3, "bytes": events[-1]["bytes"],
+        "images": 3, "bytes": events[-1]["bytes"], "files_deleted": True,
     }
     assert events[-1]["bytes"] > 0
     ready = next(e for e in events if e["type"] == "package_ready")
@@ -524,6 +524,41 @@ def test_once_uploaded_the_local_packages_are_removed_and_the_deployment_is_mark
     assert log["research_project_pk"] == 2 and log["collection"] == "R0003" and log["parts"] == 1
     assert log["location_created"] is True and datetime.fromisoformat(log["uploaded_at"])
     assert len(list((collection / DEPLOYMENT_ID).glob("*.JPEG"))) == 2  # the images themselves stay
+
+
+def test_the_package_files_are_kept_when_they_are_not_to_be_deleted_and_the_deployments_csv_is_written(tmp_path: Path, fake_uploader):
+    collection = _imported(tmp_path, 2)
+
+    events = _upload(tmp_path, collection, FakeTrapper(), delete_after_upload=False)
+
+    packages = tmp_path / "packages" / "DONA" / "R0003"
+    assert len(list(packages.glob("*.zip"))) == 1 and len(list(packages.glob("*.yaml"))) == 1
+    csv_file = packages / "R0003_deployments.csv"
+    assert DEPLOYMENT_ID in csv_file.read_text(encoding="utf-8")
+    done = events[-1]
+    assert done["files_deleted"] is False and done["output_dir"] == str(packages)
+    assert sorted(done["files"]) == sorted(p.name for p in packages.iterdir() if not p.name.endswith(".uploadmeta.json"))
+    assert (collection / DEPLOYMENT_ID / "upload.json").is_file()  # it is marked as uploaded all the same
+
+
+def test_deleting_the_files_takes_the_deployments_row_out_of_the_csv_and_leaves_the_others(tmp_path: Path, fake_uploader):
+    collection = _imported(tmp_path, 2)
+    csv_file = tmp_path / "packages" / "DONA" / "R0003" / "R0003_deployments.csv"
+    csv_file.parent.mkdir(parents=True)
+    csv_file.write_text("deploymentID,locationID,deploymentStart,deploymentEnd,cameraModel,longitude,latitude\nR0003-OTHER,OTHER,a,b,c,1,2\n", encoding="utf-8")
+
+    _upload(tmp_path, collection, FakeTrapper(), delete_after_upload=True)
+
+    assert csv_file.read_text(encoding="utf-8").splitlines()[1:] == ["R0003-OTHER,OTHER,a,b,c,1,2"]
+    assert not list(csv_file.parent.glob("*.zip"))
+
+
+def test_deleting_the_files_leaves_no_csv_when_it_had_no_other_row(tmp_path: Path, fake_uploader):
+    collection = _imported(tmp_path, 2)
+
+    _upload(tmp_path, collection, FakeTrapper(), delete_after_upload=True)
+
+    assert not list((tmp_path / "packages").rglob("*.csv"))
 
 
 def test_a_deployment_that_was_uploaded_shows_so_in_the_list(tmp_path: Path, fake_uploader):

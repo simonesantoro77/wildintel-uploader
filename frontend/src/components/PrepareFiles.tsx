@@ -154,9 +154,11 @@ export function PreparingFiles({ items, startedAt, onStop }: {
 }
 
 /** What was written, once the preparing has ended — whether it all went well or not. */
-export function FilesReady({ collection, items, outputDir, startedAt, finishedAt, onOpenFolder, onBack, onUpload }: {
+export function FilesReady({ collection, items, outputDir, startedAt, finishedAt, onOpenFolder, onBack, onUpload, uploadOptions }: {
   collection: string; items: PrepareItem[]; outputDir: string | null; startedAt: number; finishedAt: number
   onOpenFolder: () => void; onBack: () => void; onUpload?: () => void
+  /** What can be chosen for the upload, shown with its button. */
+  uploadOptions?: ReactNode
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -251,6 +253,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
           </div>
         </>
       )}
+      {onUpload && uploadOptions && <div className="mb-4">{uploadOptions}</div>}
       <div className="flex justify-between items-center">
         <button type="button" className={`${btnOutline} flex items-center gap-2`} onClick={onBack}><span aria-hidden="true">←</span>Back</button>
         {onUpload && <button type="button" className="px-4 py-2 text-sm border border-blue-600 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" onClick={onUpload}>Upload to Trapper</button>}
