@@ -114,6 +114,17 @@ def test_a_wide_image_is_resized_to_the_width_keeping_its_proportions_exif_and_a
         assert img.getexif().get_ifd(0x8769).get(36867) == "2024:07:01 10:00:00"  # and the capture date
 
 
+def test_the_resize_keeps_the_jpeg_quality_the_original_had(tmp_path: Path):
+    source = tmp_path / "low.jpg"
+    Image.effect_noise((4800, 3200), 40).convert("RGB").save(source, "JPEG", quality=60)
+
+    pre.resize_to_width(source, tmp_path / "out.jpg", 2400)
+
+    with Image.open(source) as before, Image.open(tmp_path / "out.jpg") as after:
+        assert after.quantization == before.quantization   # not re-encoded at a fixed, higher quality
+    assert (tmp_path / "out.jpg").stat().st_size < source.stat().st_size
+
+
 def test_an_image_no_wider_than_the_width_is_left_exactly_as_it_is(tmp_path: Path):
     source = _jpeg(tmp_path / "small.jpg", size=(1200, 800))
 
