@@ -157,7 +157,7 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
   const when = `${finished.getUTCDate()} ${finished.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })} ${finished.getUTCFullYear()}, ${String(finished.getUTCHours()).padStart(2, '0')}:${String(finished.getUTCMinutes()).padStart(2, '0')} UTC`
   const locations = [...new Set(sent.map((i) => i.locationId).filter(Boolean) as string[])]
   const locationsCreated = new Set(sent.filter((i) => i.locationCreated).map((i) => i.locationId))
-  const created = sent.filter((i) => i.deploymentCreated).length + locationsCreated.size
+  const deploymentsCreated = sent.filter((i) => i.deploymentCreated).length
   const collectionUrl = sent.map((i) => i.collectionUrl).filter(Boolean).pop()
   return (
     <div>
@@ -170,9 +170,9 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
           </div>
         </div>
       ) : (
-        <div role="alert" className="rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-5 py-4 mb-4">
-          <p className="font-semibold text-amber-900 dark:text-amber-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(failed.length, 'deployment')} could not be uploaded`}</p>
-          <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300 list-disc ml-5">
+        <div role="alert" className="rounded-xl border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-5 py-4 mb-4">
+          <p className="font-semibold text-red-900 dark:text-red-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(sent.length, 'deployment')} uploaded, ${failed.length} could not be uploaded`}</p>
+          <ul className="mt-1 text-sm text-red-800 dark:text-red-300 list-disc ml-5">
             {failed.map((i) => <li key={i.id}><span className="font-mono">{i.id}</span>: {i.error ?? 'It was not uploaded.'}</li>)}
           </ul>
         </div>
@@ -188,11 +188,13 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">{filesNote}</div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <Tile value={String(sent.length)} label="Deployments" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+        <Tile value={String(sent.length)} label="Deployments uploaded" />
+        <Tile value={String(failed.length)} label="Deployments failed" tone={failed.length > 0 ? 'red' : undefined} />
         <Tile value={sent.reduce((sum, i) => sum + i.images, 0).toLocaleString('en-US')} label="Images sent" />
         <Tile value={formatBytes(sent.reduce((sum, i) => sum + i.bytes, 0))} label="Total size" />
-        <Tile value={String(created)} label="Created in Trapper" />
+        <Tile value={String(locationsCreated.size)} label="Locations created in Trapper" />
+        <Tile value={String(deploymentsCreated)} label="Deployments created in Trapper" />
       </div>
 
       {sent.length > 0 && (
@@ -200,6 +202,16 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
           <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">Deployments</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">Open one to see what happened to it.</p>
           <ul className={`${panel} divide-y divide-zinc-200 dark:divide-zinc-700 mb-5`}>
+            {failed.map((i) => (
+              <li key={i.id} className="flex items-center gap-3 px-5 py-3">
+                <StatusIcon kind="error" className="h-5 w-5 text-red-500" />
+                <span className="flex-1 min-w-0">
+                  <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
+                  <span className="block text-xs text-red-700 dark:text-red-400 dark:text-zinc-400">{i.error ?? 'It was not uploaded.'}</span>
+                </span>
+                <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">Not uploaded</span>
+              </li>
+            ))}
             {sent.map((i) => (
               <li key={i.id}>
                 <button type="button" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)} className="flex w-full items-center gap-3 px-5 py-3 text-left">

@@ -42,10 +42,10 @@ export function formatDuration(ms: number): string {
 export const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
 const itemBytes = (item: PrepareItem) => item.files.reduce((sum, f) => sum + f.bytes, 0)
 
-export function Tile({ value, label }: { value: string; label: string }) {
+export function Tile({ value, label, tone }: { value: string; label: string; tone?: 'red' }) {
   return (
     <div className={`${panel} px-4 py-3`}>
-      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
+      <p className={`text-2xl font-bold ${tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100'}`}>{value}</p>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
     </div>
   )

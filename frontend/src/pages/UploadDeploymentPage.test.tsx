@@ -243,8 +243,9 @@ describe('UploadDeploymentPage', () => {
     await proceedToStep3()
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('1 deployment could not be uploaded')
+    expect(alert).toHaveTextContent('1 deployment uploaded, 1 could not be uploaded')
     expect(alert).toHaveTextContent(/R0003-DONA_01: Trapper has no research project 'DONA' — create it there first/)
+    expect(screen.getByText('Not uploaded')).toBeInTheDocument() // and the failed one is in the list, not apart
     expect(screen.getByRole('button', { name: /R0003-DONA_02/ })).toBeInTheDocument() // the other one went up
     expect(mockedApi.uploadDeployment).toHaveBeenCalledTimes(2)
   })
