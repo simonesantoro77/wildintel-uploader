@@ -1,5 +1,5 @@
-"""The app's logging: to the console and to a rotating log file next to
-settings.toml (config.get_logs_dir()), at the level the settings page sets
+"""The app's logging: to the console and to a rotating log file in
+the log folder of the system (config.get_logs_dir()), at the level the settings page sets
 (GENERAL.log_level) — changed on the fly when it's saved (apply_level).
 
 WILDINTEL_UPLOADER_WEB_LOG_LEVEL, when set, wins over the settings page:
@@ -35,6 +35,22 @@ _MARK = "_wildintel_uploader"
 
 def log_file() -> Path:
     return config.get_logs_dir() / "wildintel-uploader.log"
+
+
+def migrate_legacy_logs() -> None:
+    """Moves the log files kept where they used to be (next to settings.toml) to the log folder of the system — the ones that are
+    not there already; the old folder goes when it is empty."""
+    old, new = config.legacy_logs_dir(), config.get_logs_dir()
+    if not old.is_dir() or old.resolve() == new.resolve():
+        return
+    try:
+        for entry in old.iterdir():
+            if entry.is_file() and entry.name.startswith("wildintel-uploader.log") and not (new / entry.name).exists():
+                new.mkdir(parents=True, exist_ok=True)
+                entry.replace(new / entry.name)
+        old.rmdir()
+    except OSError:
+        pass  # what stays is still there to be read
 
 
 def env_override() -> str | None:
@@ -88,6 +104,7 @@ def configure(level: str | None = None, *, console_level: str | None = None) -> 
         console._wildintel_console = True  # type: ignore[attr-defined]
         root.addHandler(console)
         try:
+            migrate_legacy_logs()
             log_file().parent.mkdir(parents=True, exist_ok=True)
             file_handler = _mark(RotatingFileHandler(log_file(), maxBytes=MAX_BYTES, backupCount=BACKUP_COUNT,
                                                      encoding="utf-8", delay=True))

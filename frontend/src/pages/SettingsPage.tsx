@@ -107,6 +107,9 @@ interface Draft {
   logLevel: LogLevel
   workers: string
   dataDir: string
+  collectionsDir: string
+  reportsDir: string
+  packagesDir: string
   trapperUrl: string
   maxZipMb: string
   trapperUser: string
@@ -149,6 +152,9 @@ function toDraft(s: AppSettings): Draft {
     logLevel: s.GENERAL.log_level,
     workers: String(s.GENERAL.workers),
     dataDir: s.DATA.dir,
+    collectionsDir: s.DATA.collections_dir ?? '',
+    reportsDir: s.DATA.reports_dir ?? '',
+    packagesDir: s.DATA.packages_dir ?? '',
     trapperUrl: s.TRAPPER.base_url ?? '',
     maxZipMb: String(s.TRAPPER.max_zip_mb),
     trapperUser: s.TRAPPER.user_name ?? '',
@@ -192,7 +198,7 @@ function isAbsolutePath(path: string): boolean {
 }
 
 function sectionValid(d: Draft, id: SectionId): boolean {
-  if (id === 'general') return (d.dataDir.trim() === '' || isAbsolutePath(d.dataDir)) && numberIn(d.workers, WORKERS) !== null
+  if (id === 'general') return (d.dataDir.trim() === '' || isAbsolutePath(d.dataDir)) && FOLDERS.every(({ draftKey }) => d[draftKey].trim() === '' || isAbsolutePath(d[draftKey])) && numberIn(d.workers, WORKERS) !== null
   if (id === 'postvalidation') {
     return numberIn(d.toleranceHours, TOLERANCE) !== null && numberIn(d.sequenceGap, SEQUENCE_GAP) !== null
       && numberIn(d.minRevisions, MIN_REVISIONS) !== null
@@ -209,7 +215,7 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
     GENERAL: { log_level: d.logLevel, workers: Number(d.workers) },
     TRAPPER: { base_url: d.trapperUrl.trim() || null, user_name: d.trapperUser.trim() || null, user_password: d.trapperPassword, max_zip_mb: Number(d.maxZipMb) },
     EPICOLLECT5: { enabled: d.epicollectEnabled, unmapped_to_comments: d.epicollectUnmappedToComments, project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret, mapping: d.epicollectMapping },
-    DATA: { dir: d.dataDir.trim() || null },
+    DATA: { dir: d.dataDir.trim() || null, collections_dir: d.collectionsDir.trim() || null, reports_dir: d.reportsDir.trim() || null, packages_dir: d.packagesDir.trim() || null },
     VALIDATION: d.validation,
     POSTVALIDATION: {
       ...d.postvalidation, tolerance_hours: Number(d.toleranceHours), sequence_gap_seconds: Number(d.sequenceGap),
@@ -225,6 +231,19 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
 }
 
 // ── Layout pieces ───────────────────────────────────────────────────────
+
+/** The folders of the app that can be put somewhere of their own; blank, each is a folder inside the data folder. */
+const FOLDERS: { draftKey: 'collectionsDir' | 'reportsDir' | 'packagesDir'; label: string; description: string; hint: string; dialog: string }[] = [
+  { draftKey: 'collectionsDir', label: 'Collections folder', dialog: 'Select the folder to keep the collections in',
+    description: 'Where the collections are kept before they are uploaded — <folder>/<research project>/<R0003>/<deployment>. Left blank, they go in a “collections” folder inside the data folder.',
+    hint: 'Handy to keep the collections on another disk.' },
+  { draftKey: 'reportsDir', label: 'Reports folder', dialog: 'Select the folder to keep the reports in',
+    description: 'Where the reports of the checks and of the preprocessing are kept. Left blank, they go in a “reports” folder inside the data folder.',
+    hint: 'Reports already made stay where they are: move them by hand if you want them in the new folder.' },
+  { draftKey: 'packagesDir', label: 'Packages folder', dialog: 'Select the folder to keep the packages in',
+    description: 'Where the zips, the yamls and the deployments csv made to upload to Trapper are written — <folder>/<research project>/<R0003>. Left blank, they go in a “packages” folder inside the data folder.',
+    hint: 'Handy when the packages are big and the data folder is on a small disk.' },
+]
 
 type SectionId = 'general' | 'trapper' | 'epicollect' | 'validation' | 'postvalidation' | 'preprocessing' | 'reports' | 'config'
 
@@ -659,11 +678,11 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
     }
   }
 
-  async function handleBrowse() {
+  async function handleBrowse(field: 'dataDir' | (typeof FOLDERS)[number]['draftKey'] = 'dataDir') {
     setBrowsing(true)
     try {
-      const { path } = await api.browseFolder('Select the folder to keep the images in')
-      if (path) set('dataDir', path)
+      const { path } = await api.browseFolder(field === 'dataDir' ? 'Select the data folder' : FOLDERS.find((f) => f.draftKey === field)!.dialog)
+      if (path) set(field, path)
     } catch {
       // No native dialog here (a server without a display): the path can still be typed.
     } finally {
@@ -744,18 +763,32 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
               <UpdateCheckButton />
             </Row>
             <Row
-              label="Images folder"
-              description="Where the app keeps the images. Its collections go in a “collections” folder inside it — collections/<research project>/<R0003>/<deployment> — before they are uploaded."
+              label="Data folder"
+              description="Where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. You can put any of them somewhere else below."
             >
               <TextBox label="Folder" value={draft.dataDir} onChange={(v) => set('dataDir', v)} mono error={dataDirError} />
               <div className="flex flex-wrap items-center gap-2">
-                <button type="button" className={btnSoft} disabled={browsing} onClick={handleBrowse}>{browsing ? 'Browsing…' : 'Browse…'}</button>
-                <button type="button" className={btnSoft} onClick={() => set('dataDir', '')} disabled={draft.dataDir === ''}>Use the default</button>
+                <button type="button" className={btnSoft} aria-label="Browse for the data folder" disabled={browsing} onClick={() => handleBrowse('dataDir')}>{browsing ? 'Browsing…' : 'Browse…'}</button>
+                <button type="button" className={btnSoft} aria-label="Use the default data folder" onClick={() => set('dataDir', '')} disabled={draft.dataDir === ''}>Use the default</button>
               </div>
               <p className={`${hintClass} px-1`}>
                 By default a folder named like the app, in your documents folder. Left blank, that is what is used.
               </p>
             </Row>
+            {FOLDERS.map(({ draftKey, label, description, hint }) => {
+              const error = draft[draftKey].trim() !== '' && !isAbsolutePath(draft[draftKey]) ? 'An absolute path (or one starting with ~).' : null
+              const defaultKey = draftKey.replace('Dir', '') as 'collections' | 'reports' | 'packages'
+              return (
+                <Row key={draftKey} label={label} description={description}>
+                  <TextBox label={label} value={draft[draftKey]} onChange={(v) => set(draftKey, v)} mono error={error} placeholder={saved.DATA[`default_${defaultKey}_dir`]} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" className={btnSoft} aria-label={`Browse for the ${defaultKey} folder`} disabled={browsing} onClick={() => handleBrowse(draftKey)}>{browsing ? 'Browsing…' : 'Browse…'}</button>
+                    <button type="button" className={btnSoft} aria-label={`Use the default ${defaultKey} folder`} onClick={() => set(draftKey, '')} disabled={draft[draftKey] === ''}>Use the default</button>
+                  </div>
+                  <p className={`${hintClass} px-1`}>{hint}</p>
+                </Row>
+              )
+            })}
             <Row
               label="Parallel work"
               description="How many images are validated or preprocessed at once. More workers use more CPUs and finish sooner, up to what the machine has."

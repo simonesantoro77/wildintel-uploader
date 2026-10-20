@@ -119,7 +119,7 @@ are validated, postvalidated and checked against what preprocessing leaves, and 
 
 ## Settings
 
-Trapper account, images folder, how many images are worked on at once, which checks are shown
+Trapper account, data folder, how many images are worked on at once, which checks are shown
 and what they mean, the preprocessing — all in `settings.toml`, edited from the ⚙️ page. You can keep
 **several configs** (a test server and the real one) and switch between them. The log is
 downloadable from there.

@@ -498,8 +498,13 @@ export interface AppSettings {
   TRAPPER: { base_url: string | null; user_name: string | null; has_password: boolean; max_zip_mb: number }
   /** mapping: the ref of the Epicollect5 input that gives each field of a deployment (deployment field → ref). */
   EPICOLLECT5: { enabled: boolean; unmapped_to_comments: boolean; project_slug: string | null; client_id: string | null; has_secret: boolean; mapping: Record<string, string> }
-  /** The folder where the app keeps the images — its collections go in a "collections" folder inside. */
-  DATA: { dir: string }
+  /** The folder where the app keeps what it makes — its collections, reports and packages go in folders inside it, unless each has one of its own. */
+  DATA: {
+    dir: string
+    collections_dir: string | null; reports_dir: string | null; packages_dir: string | null
+    /** What each is when none of its own is set. */
+    default_collections_dir: string; default_reports_dir: string; default_packages_dir: string
+  }
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
@@ -510,7 +515,7 @@ export interface AppSettingsUpdate {
   GENERAL: { log_level: LogLevel; workers: number }
   TRAPPER: { base_url: string | null; user_name: string | null; user_password: string; max_zip_mb: number }
   EPICOLLECT5: { enabled: boolean; unmapped_to_comments: boolean; project_slug: string | null; client_id: string | null; client_secret: string; mapping: Record<string, string> }
-  DATA: { dir: string | null }
+  DATA: { dir: string | null; collections_dir: string | null; reports_dir: string | null; packages_dir: string | null }
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings

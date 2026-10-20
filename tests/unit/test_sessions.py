@@ -122,3 +122,29 @@ def test_discarding_a_session_removes_it():
     saved = client.post("/api/sessions/scan", json={"source_dir": "/home/me/DONA_01", "scan": SCAN}).json()
     client.delete(f"/api/sessions/{saved['task_id']}")
     assert saved["task_id"] not in [s["task_id"] for s in client.get("/api/sessions").json()]
+
+
+def test_sessions_are_kept_in_the_state_folder():
+    from wildintel_uploader.core import config
+
+    saved = _client().post("/api/sessions/scan", json={"source_dir": "/home/me/DONA_01", "scan": SCAN}).json()
+
+    assert (config.get_sessions_dir() / saved["task_id"] / "session.json").is_file()
+    assert config.get_sessions_dir().name == "sessions" and "wildintel-uploader" in config.get_sessions_dir().parts
+
+
+def test_sessions_left_where_they_used_to_be_are_moved_to_where_they_are_kept_now():
+    import json
+
+    from wildintel_uploader.core import config
+    from wildintel_uploader.core.services import session_store
+
+    old = config.legacy_sessions_dir() / "11111111-1111-1111-1111-111111111111"
+    old.mkdir(parents=True)
+    (old / "session.json").write_text(json.dumps({"task_id": old.name, "phase": "scanned", "task": "deployment", "created_at": "2026-01-01T00:00:00+00:00"}), encoding="utf-8")
+
+    listed = session_store.list_sessions()
+
+    assert old.name in [s["task_id"] for s in listed]
+    assert not old.exists() and (config.get_sessions_dir() / old.name / "session.json").is_file()
+    assert not config.legacy_sessions_dir().exists()  # nothing left in the old folder

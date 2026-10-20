@@ -57,6 +57,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Import info from Epicollect5**: in *When was it collected?*, the period, camera, site and notes of the deployment are filled in from the entry of the Epicollect5 form (one row per deployment) of that location and revision, through the mapping of Settings › Epicollect5, whose *When* group keeps the day and the time apart and maps the revision; *Test connection* tries the project and client typed there.
 - **Epicollect5 settings**: a switch turns the use of Epicollect5 on or off (off by default), and another sends what an entry answers in inputs with no mapping to the comments of the deployment. *When was it collected?* says when Epicollect5 has an entry for the location and revision.
 - **Upload to Trapper**: an option deletes the package files — the zips, the yamls and the deployment's row of the deployments csv — once they are up; without it they are kept (and the csv written) in the packages folder, and the result says where. The deployment's row of a collection's *FileTimestampLog* is written in lower case, as Trapper keeps its ids.
+- **Folders**: *Settings › General* sets a folder of their own for the collections, the reports and the packages (`DATA.collections_dir`, `DATA.reports_dir`, `DATA.packages_dir`); blank, each stays in its folder inside the data folder, in Documents. The sessions in progress live in the system's state folder (`~/.local/state/wildintel-uploader/sessions` on Linux) and the log file in its log folder (`~/.local/state/wildintel-uploader/log`); neither can be changed, and what was in Documents or beside `settings.toml` is moved there at start.
 - **Utils** (menu): *Repair local deployments* and *Sync local collections* are kept under one button, apart from the import and upload tasks.
 - **Sync local collections**: pick a research project and one of its classification projects in Trapper, and the collections
   folder gets what it lacks — the research project (`research_project.json`) and its `locations.json`, the collections
@@ -71,7 +72,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A deployment copied without preprocessing has the names, the EXIF wall-clock time, the size and the pixels.
 - Validating and preprocessing the images use several CPUs at once (Settings › General › Workers; by default the
   CPUs the machine has, up to 4).
-- **Settings**: General (images folder, log, update check), Trapper (account and test), Validation and
+- **Settings**: General (data folder, log, update check), Trapper (account and test), Validation and
   Postvalidation (each check an entry with a quick switch, and a gear only where it has settings),
   Preprocessing (steps, width, authorship, license, dates) and Config — several settings files to switch
   between.
@@ -85,7 +86,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   EXIF, a second camera and a subfolder.
 
 - **Reports**: every validation, postvalidation and preprocessing writes a report of what was checked and done, image by image
-  (`<images folder>/reports/*.json`). Each step shows it — the checks with how many images passed and failed, and the images that
+  (`<data folder>/reports/*.json`). Each step shows it — the checks with how many images passed and failed, and the images that
   failed with the check and why — and it downloads as a CSV (a row per image and check) or a JSON. A **Reports** task lists the
   reports to look at again or delete.
 

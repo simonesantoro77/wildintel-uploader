@@ -43,13 +43,14 @@ dot marks a section with an invalid value.
 
 ![Settings › General](img/screenshots/settings-general.png)
 
-- **Images folder** — where the collections folder lives. Blank uses
+- **Data folder** — where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
   `Documents/wildintel-uploader`; a path must be absolute (or start with `~`).
+- **Collections folder**, **Reports folder** and **Packages folder** — where the collections, the reports of the checks and the packages made to upload to Trapper are kept. Blank, each is a folder (`collections`, `reports`, `packages`) inside the data folder; set one to keep it somewhere else, on another disk for instance. A path must be absolute (or start with `~`). What is already kept in the old place is not moved: do it by hand.
 - **Workers** — how many images are validated and preprocessed at once. Up to the number of
   processors of your machine pays off; the default is that number, up to 4.
 - **Log level** — how much the app logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
   every step.
-- **Log file** — download it, or delete it. It rotates at 5 MB keeping the last 5. Attach it to any
+- **Log file** — download it, or delete it. It lives in the log folder of your system (`~/.local/state/wildintel-uploader/log` on Linux), which can't be changed. It rotates at 5 MB keeping the last 5. Attach it to any
   bug report.
 - **Update** — looks for a newer version.
 
@@ -136,7 +137,7 @@ What each report holds:
 | **Preprocessing** | each image | What was done — *IMG_0001.JPG → R0003-DONA_01__20240904_1.JPEG; date 2024-09-04T11:10:00+00:00 (exif); resized* — and the ones that were **skipped**, with the reason. |
 
 **Settings › Reports** lists all of them, newest first, with *View*, *CSV*, *JSON* and *Delete* (which
-asks again). They are kept in the `reports` folder of the images folder until you delete them. A check you run twice
+asks again). They are kept in the `reports` folder of the data folder until you delete them. A check you run twice
 makes two reports.
 
 ### Multiple configs
@@ -532,7 +533,7 @@ failed."* **Upload more** starts over.
 
 ![An upload midway: the first deployment is done, the second is sending its zip](img/screenshots/upload-running.png)
 
-The zips and yamls are written under `<images folder>/packages/<research project>/`. A deployment
+The zips and yamls are written under `<data folder>/packages/<research project>/`. A deployment
 that was uploaded gets an `upload.json`, which is what the list uses to say so.
 
 ## 8. Utils

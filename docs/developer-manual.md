@@ -115,7 +115,7 @@ wins over the settings page's. Both can also go in `src/wildintel_uploader/web/.
 
 !!! note "Two kinds of settings"
     `web/settings.py` is the **server's** (port, log level, CORS — environment variables).
-    `core/config.py` is the **app's** own `settings.toml` (Trapper account, the images folder,
+    `core/config.py` is the **app's** own `settings.toml` (Trapper account, the data folder,
     checks, preprocessing — the ⚙️ page, and `wildintel-uploader config`).
 
 ## 3. Repository layout
@@ -348,7 +348,7 @@ start-up until the import reaches `done`, which discards it. Credentials never r
 
 ### Logging
 
-`core/logging_setup.py`: console and a rotating file (`logs/wildintel-uploader.log`, 5 MB × 5) at
+`core/logging_setup.py`: console and a rotating file (`wildintel-uploader.log`, 5 MB × 5, in `platformdirs.user_log_dir` — `~/.local/state/wildintel-uploader/log` on Linux; the sessions are in `user_state_dir()/sessions`; neither is configurable, and what an earlier version left beside `settings.toml` or in Documents is moved at start) at
 `GENERAL.log_level`, changed on the fly when the settings are saved. At `DEBUG` each file and each
 Trapper query is logged, and tracebacks are kept; the libraries' byte-level chatter stays at INFO.
 The command line only prints warnings unless given `-v`.

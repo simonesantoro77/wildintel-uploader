@@ -140,7 +140,7 @@ resized and tagged.
 |---|---|
 | Settings | `settings.toml` in the app's config folder: `~/.config/wildintel-uploader/` (Linux), `%APPDATA%\wildintel-uploader\` (Windows), `~/Library/Application Support/wildintel-uploader/` (macOS). More configs in `configs/` there. |
 | Log | `logs/wildintel-uploader.log` next to it. |
-| Collections | `Documents/wildintel-uploader/collections/` (or *Images folder* of the settings). |
+| Collections | `Documents/wildintel-uploader/collections/` (or the *Data folder* or *Collections folder* of the settings). |
 | Packages to upload | `Documents/wildintel-uploader/packages/`. |
 | Unfinished runs | `Documents/wildintel-uploader/sessions/`. |
 | Reports | `Documents/wildintel-uploader/reports/` — one JSON file each. |
