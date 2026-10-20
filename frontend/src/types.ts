@@ -309,7 +309,7 @@ export interface PreprocessingOptions {
 }
 
 /** What the app's menu offers — import a deployment, import a whole session of them, or upload one to Trapper. */
-export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair'
+export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair' | 'fieldlog'
 
 /** What syncing the local collections folder with Trapper did: for each kind of thing, what it created and what was already there. */
 export interface SyncResult {
@@ -466,6 +466,82 @@ export interface PreprocessingSettings {
   convert_to_utc: boolean
 }
 
+/** Field records: how the Epicollect download of a field trip and the fieldwork datasheet are read. Every time is UTC. */
+export interface FieldlogSettings {
+  time_source: 'created_at' | 'hour'
+  keep_seconds: boolean
+  datasheet_format: 'original' | 'standard' | 'both'
+  camera_timezone: string
+  /** The Epicollect column that gives each datasheet field, when it isn't the default one. */
+  columns: Record<string, string>
+  last_epicollect: string | null
+  last_datasheet: string | null
+  last_research_project: string | null
+}
+
+/** One visit of the field records, as a deployment's start or end. */
+export interface FieldVisit {
+  session: string
+  action: string
+  when: string
+  camera: number | null
+  card: string | null
+  photos: number | null
+  trappers: string | null
+  notes: string | null
+  new: boolean
+}
+
+/** A deployment as the field records say it: closed once the visit that collects its card is recorded, open until then. */
+export interface FieldDeployment {
+  deployment_id: string
+  collection: string
+  site: string
+  status: 'closed' | 'open'
+  start: string
+  end: string | null
+  setup_by: string | null
+  camera_id: string | null
+  card: string | null
+  photos_counted: number | null
+  comments: string
+  start_visit: FieldVisit
+  end_visit: FieldVisit | null
+}
+
+/** A site visited in the field that isn't among the research project's locations yet. */
+export interface NewSite {
+  site: string
+  session: string
+  action: string
+  latitude: number | null
+  longitude: number | null
+}
+
+/** POST /api/fieldlog/analyze (and apply, with the files written). */
+export interface FieldlogResult {
+  datasheet: string
+  sessions: [string, string]
+  new_rows: number
+  new_visits: (FieldVisit & { site: string })[]
+  collections: string[]
+  deployments: FieldDeployment[]
+  new_sites: NewSite[]
+  locations_known: boolean
+  warnings: string[]
+  notes: string[]
+  camera_timezone: string
+  files?: string[]
+  collection_dirs?: string[]
+}
+
+/** An Epicollect column the field records read: the datasheet field it gives, and its name unless the settings map it. */
+export interface FieldlogColumn {
+  field: string
+  default: string
+  label: string
+}
+
 /** The details kept for the closest earlier revision of a deployment's location. */
 export interface PreviousDeployment {
   revision: number
@@ -503,6 +579,7 @@ export interface AppSettings {
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
+  FIELDLOG: FieldlogSettings
 }
 
 /** What the settings page saves. A blank password keeps the saved one. */
@@ -514,6 +591,7 @@ export interface AppSettingsUpdate {
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
+  FIELDLOG: FieldlogSettings
 }
 
 /** A research project entered by hand — the fields of Trapper's own "Add

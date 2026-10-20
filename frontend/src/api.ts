@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm,
+  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, FieldlogColumn, FieldlogResult,
 } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
@@ -109,6 +109,20 @@ export const api = {
   // The backend and frontend always run on the same machine (a local
   // desktop app — see web.app_entry), so this pops the OS's own native
   // folder dialog and returns what was picked (null if cancelled).
+  // Field records: the Epicollect download of a field trip and the fieldwork datasheet (see the backend's fieldlog_service).
+  fieldlogPickFile: (kind: 'epicollect' | 'datasheet') =>
+    post<{ path: string | null }>('/api/fieldlog/pick-file', { kind }),
+  fieldlogLast: () =>
+    req<{ epicollect: string | null; datasheet: string | null; research_project_id: string | null }>('/api/fieldlog/last'),
+  fieldlogColumns: () =>
+    req<{ results: FieldlogColumn[] }>('/api/fieldlog/columns'),
+  fieldlogAnalyze: (epicollect: string, datasheet: string, researchProjectId: string | null) =>
+    post<FieldlogResult>('/api/fieldlog/analyze', { epicollect, datasheet, research_project_id: researchProjectId }),
+  fieldlogApply: (epicollect: string, datasheet: string, researchProjectId: string) =>
+    post<FieldlogResult>('/api/fieldlog/apply', { epicollect, datasheet, research_project_id: researchProjectId }),
+  fieldlogOpenFolder: (path: string) =>
+    post<{ opened: string }>('/api/fieldlog/open-folder', { path }),
+
   browseFolder: (title?: string) =>
     post<{ path: string | null }>('/api/deployment-import/browse-folder', { title: title ?? null }),
 

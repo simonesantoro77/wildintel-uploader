@@ -8,7 +8,7 @@ import { APP_SETTINGS } from '../test/fixtures'
 vi.mock('../api', () => ({
   api: {
     getSettings: vi.fn(), saveSettings: vi.fn(), clearLog: vi.fn(), browseFolder: vi.fn(), trapperTestConnection: vi.fn(), epicollectTestConnection: vi.fn(),
-    checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(),
+    checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(), fieldlogColumns: vi.fn(),
   },
 }))
 
@@ -25,7 +25,12 @@ beforeEach(() => {
     VALIDATION: update.VALIDATION,
     POSTVALIDATION: update.POSTVALIDATION,
     PREPROCESSING: update.PREPROCESSING,
+    FIELDLOG: update.FIELDLOG,
   }))
+  mockedApi.fieldlogColumns.mockResolvedValue({ results: [
+    { field: 'Notes', default: '12_Observation', label: 'Notes' },
+    { field: 'created_at', default: 'created_at', label: 'Time of the entry (UTC)' },
+  ] })
 })
 
 const section = (name: string) => userEvent.click(screen.getByRole('button', { name }))
@@ -819,5 +824,34 @@ describe('SettingsPage', () => {
       expect(await screen.findByText(/up to date/)).toBeInTheDocument()
       expect(screen.queryByText(/offline/)).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('field records', () => {
+  it('saves how the field records are read, with only the columns filled in', async () => {
+    render(<SettingsPage onClose={() => {}} />)
+    await section('Field records')
+    const notes = await screen.findByRole('textbox', { name: 'Notes' })
+    expect(notes).toHaveAttribute('placeholder', '12_Observation')
+    await userEvent.type(notes, '12_Remarks')
+    await userEvent.click(screen.getByRole('checkbox', { name: /Keep the seconds/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(mockedApi.saveSettings).toHaveBeenCalled())
+    const saved = mockedApi.saveSettings.mock.calls[0][0].FIELDLOG
+    expect(saved.columns).toEqual({ Notes: '12_Remarks' })
+    expect(saved.keep_seconds).toBe(true)
+    expect(saved.camera_timezone).toBe('UTC')
+  })
+
+  it('asks for a real timezone for the cameras', async () => {
+    render(<SettingsPage onClose={() => {}} />)
+    await section('Field records')
+    const clock = await screen.findByRole('textbox', { name: "Cameras' clock" })
+    await userEvent.clear(clock)
+    await userEvent.type(clock, 'Mars/Olympus')
+
+    expect(screen.getByText('A timezone, like UTC or Europe/Madrid.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 })

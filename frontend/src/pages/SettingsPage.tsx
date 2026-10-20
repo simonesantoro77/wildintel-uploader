@@ -4,7 +4,7 @@ import { api } from '../api'
 import EpicollectMapping from '../components/EpicollectMapping'
 import { COVERAGE_AREAS, ENTITIES } from '../entities'
 import ReportsList from '../components/ReportsList'
-import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, ImageCheck, LogLevel, SimilarityMethod, UpdateCheck } from '../types'
+import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, FieldlogColumn, FieldlogSettings, ImageCheck, LogLevel, SimilarityMethod, UpdateCheck } from '../types'
 
 const hintClass = 'text-xs text-zinc-500 dark:text-zinc-400'
 const btnPrimary = 'px-6 py-2.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
@@ -76,6 +76,13 @@ const FileIcon = () => (
     <path d="M16 13H8" /><path d="M16 17H8" />
   </Icon>
 )
+const ClipboardIcon = () => (
+  <Icon>
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="m9 14 2 2 4-4" />
+  </Icon>
+)
 const FolderIcon = () => (
   <Icon>
     <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
@@ -136,6 +143,7 @@ interface Draft {
   licenseUrl: string
   ignoreDst: boolean
   convertToUtc: boolean
+  fieldlog: FieldlogSettings
 }
 
 function toDraft(s: AppSettings): Draft {
@@ -178,7 +186,13 @@ function toDraft(s: AppSettings): Draft {
     licenseUrl: s.PREPROCESSING.license_url,
     ignoreDst: s.PREPROCESSING.ignore_dst,
     convertToUtc: s.PREPROCESSING.convert_to_utc,
+    fieldlog: { ...s.FIELDLOG, columns: { ...s.FIELDLOG.columns } },
   }
+}
+
+/** A timezone name the browser knows — UTC, Europe/Madrid… The backend checks it again. */
+function isTimezone(name: string): boolean {
+  try { new Intl.DateTimeFormat('en', { timeZone: name.trim() || 'UTC' }); return true } catch { return false }
 }
 
 function numberIn(value: string, { min, max, decimal }: Limits): number | null {
@@ -200,6 +214,7 @@ function sectionValid(d: Draft, id: SectionId): boolean {
   }
   if (id === 'preprocessing') return numberIn(d.resizeWidth, RESIZE_WIDTH) !== null
   if (id === 'trapper') return numberIn(d.maxZipMb, MAX_ZIP_MB) !== null
+  if (id === 'fieldlog') return isTimezone(d.fieldlog.camera_timezone)
   return true
 }
 
@@ -221,16 +236,21 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
       owner: d.owner.trim(), publisher: d.publisher.trim(), coverage: d.coverage.trim(), license_url: d.licenseUrl.trim(),
       ignore_dst: d.ignoreDst, convert_to_utc: d.convertToUtc,
     },
+    FIELDLOG: {
+      ...d.fieldlog, camera_timezone: d.fieldlog.camera_timezone.trim() || 'UTC',
+      columns: Object.fromEntries(Object.entries(d.fieldlog.columns).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)),
+    },
   }
 }
 
 // ── Layout pieces ───────────────────────────────────────────────────────
 
-type SectionId = 'general' | 'trapper' | 'epicollect' | 'validation' | 'postvalidation' | 'preprocessing' | 'reports' | 'config'
+type SectionId = 'general' | 'trapper' | 'fieldlog' | 'epicollect' | 'validation' | 'postvalidation' | 'preprocessing' | 'reports' | 'config'
 
 const SECTIONS: { id: SectionId; label: string; icon: () => ReactNode }[] = [
   { id: 'general', label: 'General', icon: SlidersIcon },
   { id: 'trapper', label: 'Trapper', icon: CameraIcon },
+  { id: 'fieldlog', label: 'Field records', icon: ClipboardIcon },
   { id: 'epicollect', label: 'Epicollect5', icon: FileIcon },
   { id: 'validation', label: 'Validation', icon: CheckIcon },
   { id: 'postvalidation', label: 'Postvalidation', icon: ShieldIcon },
@@ -573,6 +593,16 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
   const [conn, setConn] = useState<{ kind: 'idle' | 'testing' | 'ok' | 'error'; message?: string }>({ kind: 'idle' })
   const [epiConn, setEpiConn] = useState<{ kind: 'idle' | 'testing' | 'ok' | 'error'; message?: string }>({ kind: 'idle' })
   const [browsing, setBrowsing] = useState(false)
+  const [fieldColumns, setFieldColumns] = useState<FieldlogColumn[]>([])
+
+  useEffect(() => {
+    api.fieldlogColumns().then(({ results }) => setFieldColumns(results)).catch(() => setFieldColumns([]))
+  }, [])
+
+  function setFieldlog<K extends keyof FieldlogSettings>(key: K, value: FieldlogSettings[K]) {
+    setDraft((d) => (d && { ...d, fieldlog: { ...d.fieldlog, [key]: value } }))
+    setStatus({ kind: 'idle' })
+  }
 
   // Also called after switching config, which discards whatever wasn't saved.
   function reloadSettings() {
@@ -963,6 +993,50 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
                            checked={draft.ignoreDst} onChange={(v) => set('ignoreDst', v)} />
               <CheckOption label="Convert the dates to UTC" hint="Otherwise they keep the timezone's own offset."
                            checked={draft.convertToUtc} onChange={(v) => set('convertToUtc', v)} />
+            </Row>
+          </div>
+        )}
+
+        {draft && saved && section === 'fieldlog' && (
+          <div className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+            <Row label="Times" description="Every time is UTC, from the field to Trapper: the visits, the deployments' start and end and the cameras' clocks.">
+              <SelectBox
+                label="Time of a visit" value={draft.fieldlog.time_source} onChange={(v) => setFieldlog('time_source', v)}
+                options={[
+                  { value: 'created_at', label: 'When its Epicollect entry was created (UTC) — recommended' },
+                  { value: 'hour', label: 'The date and hour typed in the form' },
+                ]}
+              />
+              <TextBox
+                label="Cameras' clock" value={draft.fieldlog.camera_timezone} onChange={(v) => setFieldlog('camera_timezone', v)} mono
+                error={isTimezone(draft.fieldlog.camera_timezone) ? null : 'A timezone, like UTC or Europe/Madrid.'}
+              />
+              <p className={`${hintClass} px-1`}>The timezone the cameras are set to. Leave it at UTC unless the field team set them otherwise.</p>
+              <CheckOption label="Keep the seconds" hint="Off, a deployment's start and end are cut to the minute, as the old R script and wildintel-tools did."
+                           checked={draft.fieldlog.keep_seconds} onChange={(v) => setFieldlog('keep_seconds', v)} />
+            </Row>
+            <Row label="Datasheet" description="The updated datasheet is always a new file beside the original, named after the new range of sessions. The original is never changed.">
+              <SelectBox
+                label="Format of the updated datasheet" value={draft.fieldlog.datasheet_format} onChange={(v) => setFieldlog('datasheet_format', v)}
+                options={[
+                  { value: 'original', label: 'As it is written (recommended)' },
+                  { value: 'standard', label: 'Standard headers and codes' },
+                  { value: 'both', label: 'Both' },
+                ]}
+              />
+              <p className={`${hintClass} px-1`}>Only matters for datasheets that are not in the standard format, like Doñana&rsquo;s (Spanish headers, R/I/D/ROBADA).</p>
+            </Row>
+            <Row label="Epicollect columns" description="The column of the Epicollect download that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
+              <div className="space-y-2">
+                {fieldColumns.map((c) => (
+                  <TextBox
+                    key={c.field} label={c.label} mono placeholder={c.default}
+                    value={draft.fieldlog.columns[c.field] ?? ''}
+                    onChange={(v) => setFieldlog('columns', { ...draft.fieldlog.columns, [c.field]: v })}
+                  />
+                ))}
+                {fieldColumns.length === 0 && <p className={hintClass}>The columns could not be loaded.</p>}
+              </div>
             </Row>
           </div>
         )}

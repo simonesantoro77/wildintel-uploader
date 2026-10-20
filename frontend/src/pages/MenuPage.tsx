@@ -3,6 +3,7 @@ import type { Option } from '../components/OptionCards'
 import type { Task } from '../types'
 
 const TASK_OPTIONS: Option<Task>[] = [
+  { value: 'fieldlog', emoji: '📋', title: 'Field records', description: 'After a field trip: add the Epicollect download to the fieldwork datasheet, check it, and get each deployment\u2019s start and end (UTC) for the collection.', available: true },
   { value: 'deployment', emoji: '📷', title: 'Import deployment', description: 'Organize a folder of camera-trap images locally, then register the deployment in Trapper.', available: true },
   { value: 'session', emoji: '🗂️', title: 'Import session', description: 'A folder with one subfolder per deployment: the revision, the checks and the preprocessing are common, the location and dates are asked for each.', available: true },
   { value: 'upload', emoji: '☁️', title: 'Upload deployment to Trapper', description: 'Pick a collection kept locally and send a deployment to Trapper — creating its location and the deployment there if they are missing.', available: true },

@@ -29,6 +29,7 @@ dependencies = [
     "uvicorn[standard]>=0.49.0",
     "tzdata>=2024.1",
     "pyepicollect>=5.1.1",
+    "openpyxl>=3.1.5",
 ]
 
 [dependency-groups]

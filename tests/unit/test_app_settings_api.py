@@ -35,9 +35,10 @@ def _put(**sections) -> dict:
 def test_the_defaults_have_every_section_and_every_check_shown():
     body = _client().get("/api/settings").json()
 
-    assert set(body) == {"GENERAL", "TRAPPER", "EPICOLLECT5", "DATA", "VALIDATION", "POSTVALIDATION", "PREPROCESSING"}
+    assert set(body) == {"GENERAL", "TRAPPER", "EPICOLLECT5", "DATA", "VALIDATION", "POSTVALIDATION", "PREPROCESSING", "FIELDLOG"}
     assert all(body["VALIDATION"].values())
     assert body["POSTVALIDATION"]["tolerance_hours"] == 1.0
+    assert body["FIELDLOG"]["time_source"] == "created_at" and body["FIELDLOG"]["camera_timezone"] == "UTC"
     assert body["GENERAL"]["log_level"] == "INFO"
     assert body["GENERAL"]["log_file"].endswith("wildintel-uploader.log")
     assert 1 <= body["GENERAL"]["workers"] <= 4 and body["GENERAL"]["cpu_count"] >= 1

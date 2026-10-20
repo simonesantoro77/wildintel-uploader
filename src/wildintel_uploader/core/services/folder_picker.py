@@ -67,3 +67,62 @@ def pick_folder(title: str = "Select a folder") -> str | None:
     if system == "Windows":
         return _pick_windows(title)
     raise FolderPickerUnavailable(f"No folder dialog support for {system}.")
+
+
+# ── files ────────────────────────────────────────────────────────────────
+#
+# The same dialogs, picking a file: patterns are like ["*.csv"] — what the
+# dialog offers first; "All files" stays available.
+
+def _pick_file_linux(title: str, patterns: list[str]) -> str | None:
+    if shutil.which("zenity"):
+        cmd = ["zenity", "--file-selection", f"--title={title}"]
+        if patterns:
+            cmd.append(f"--file-filter={' '.join(patterns)}")
+            cmd.append("--file-filter=*")
+    elif shutil.which("kdialog"):
+        cmd = ["kdialog", "--getopenfilename", ".", " ".join(patterns) or "*", f"--title={title}"]
+    else:
+        raise FolderPickerUnavailable("No file dialog tool found — install zenity (GNOME) or kdialog (KDE).")
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+def _pick_file_macos(title: str, patterns: list[str]) -> str | None:
+    kinds = [p.split(".")[-1] for p in patterns if "." in p]
+    of_type = f" of type {{{', '.join(chr(34) + k + chr(34) for k in kinds)}}}" if kinds else ""
+    script = f'POSIX path of (choose file with prompt "{title}"{of_type})'
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+def _pick_file_windows(title: str, patterns: list[str]) -> str | None:
+    wanted = ";".join(patterns)
+    filter_ = f"{wanted}|{wanted}|All files|*.*" if patterns else "All files|*.*"
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms | Out-Null; "
+        "$f = New-Object System.Windows.Forms.OpenFileDialog; "
+        f"$f.Title = '{title}'; $f.Filter = '{filter_}'; "
+        "if ($f.ShowDialog() -eq 'OK') { Write-Output $f.FileName }"
+    )
+    result = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise FolderPickerUnavailable(result.stderr.strip() or "Could not open the file dialog.")
+    return result.stdout.strip() or None
+
+
+def pick_file(title: str = "Select a file", patterns: list[str] | None = None) -> str | None:
+    """The file the user picked, or None if the dialog was cancelled.
+
+    Raises:
+        FolderPickerUnavailable: no native dialog tool is available — the caller should let the user type the path.
+    """
+    patterns = patterns or []
+    system = platform.system()
+    if system == "Linux":
+        return _pick_file_linux(title, patterns)
+    if system == "Darwin":
+        return _pick_file_macos(title, patterns)
+    if system == "Windows":
+        return _pick_file_windows(title, patterns)
+    raise FolderPickerUnavailable(f"No file dialog support for {system}.")

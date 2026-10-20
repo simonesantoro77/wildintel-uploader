@@ -197,6 +197,45 @@ class PreprocessingSettings(BaseModel):
         return value.strip()
 
 
+class FieldlogSettings(BaseModel):
+    """Field records: how the Epicollect download of a field trip and the fieldwork datasheet are read, and what is
+    made of them (see services.fieldlog_service). Every time is UTC: the time of the visit is when its Epicollect
+    entry was created, and the cameras' clocks are taken to be in UTC unless camera_timezone says otherwise."""
+
+    time_source: Literal["created_at", "hour"] = Field(
+        default="created_at",
+        description="When a visit happened: created_at, the time its Epicollect entry was created (UTC); or hour, the date and hour typed in the form. (FIELDLOG.time_source)",
+    )
+    keep_seconds: bool = Field(
+        default=False, description="Keep the seconds of the visits in the deployments' start and end; off, they are cut to the minute. (FIELDLOG.keep_seconds)",
+    )
+    datasheet_format: Literal["original", "standard", "both"] = Field(
+        default="original",
+        description="The updated datasheet, when it isn't in the standard format (Doñana's): as it is written (original), with the standard headers and codes (standard), or both. (FIELDLOG.datasheet_format)",
+    )
+    camera_timezone: str = Field(
+        default="UTC", description="The timezone the cameras' clocks are set to. UTC unless the field team set them otherwise. (FIELDLOG.camera_timezone)",
+    )
+    columns: dict[str, str] = Field(
+        default_factory=dict,
+        description="The Epicollect column that gives each datasheet field, for forms whose questions are named otherwise — blank, the default names. (FIELDLOG.columns)",
+    )
+    last_epicollect: Optional[str] = Field(default=None, description="The Epicollect download used last. (FIELDLOG.last_epicollect)")
+    last_datasheet: Optional[str] = Field(default=None, description="The fieldwork datasheet used last. (FIELDLOG.last_datasheet)")
+    last_research_project: Optional[str] = Field(default=None, description="The research project used last. (FIELDLOG.last_research_project)")
+
+    @field_validator("camera_timezone")
+    @classmethod
+    def _timezone(cls, value: str) -> str:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        value = (value or "").strip() or "UTC"
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError(f"'{value}' is not a timezone (like UTC or Europe/Madrid)") from None
+        return value
+
+
 class Settings(BaseModel):
     GENERAL: GeneralSettings = Field(default_factory=GeneralSettings)
     TRAPPER: TrapperSettings = Field(default_factory=TrapperSettings)
@@ -205,6 +244,7 @@ class Settings(BaseModel):
     VALIDATION: ValidationSettings = Field(default_factory=ValidationSettings)
     POSTVALIDATION: PostvalidationSettings = Field(default_factory=PostvalidationSettings)
     PREPROCESSING: PreprocessingSettings = Field(default_factory=PreprocessingSettings)
+    FIELDLOG: FieldlogSettings = Field(default_factory=FieldlogSettings)
 
 
 class ConfigInfo(BaseModel):

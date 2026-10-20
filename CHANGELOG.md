@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Upcoming release
 
 ### Added
+- **Field records** (first in the menu): after a field trip, the Epicollect download (CSV) and the fieldwork datasheet
+  (.xlsx) are read together, with the FileTimestamps tool's own engine (Tatra's and Doñana's formats recognised). The
+  trip's visits are added to the datasheet — a new file beside the original, named after the new range of sessions —
+  and each deployment of the collection gets the two visits it spans: its start and end, **always in UTC** (the time of
+  the Epicollect entry), who set it up, its camera and its card, and the photos counted when its card was collected. A
+  deployment is *closed* once that visit is recorded and *open* (camera still out) until then, so a collection can be
+  completed over several trips: running it again adds nothing twice.
+  - Checks before any card is copied: sites that are not among the research project's locations yet (a site
+    installed on this trip — add it in Trapper and take the locations again), a camera or a card at two sites in one
+    session, and the engine's own (sites not visited, revisions with 0 photos, two installations at one site…).
+  - Writes, in the collection's folder, `<R000N>_FileTimestampLog.csv` (each closed deployment's row replaced, the
+    others kept) and `<R000N>_FieldworkLog.csv`: every deployment with Camtrap DP's field names (`deploymentID`,
+    `deploymentStart`/`End` in UTC, `setupBy` and `cameraID` from the start visit, `deploymentComments` from both
+    visits' notes as `Start: … | End: …`) and what the field trip says of its card.
+  - **Settings › Field records**: the time of a visit (the entry's, or the date and hour typed), the timezone of the
+    cameras' clocks (UTC), the seconds, the format of the updated datasheet, and the Epicollect column of each field
+    for forms named otherwise. `/api/fieldlog/*`.
 - **Import deployment**: organize a folder of camera-trap images into the local collections folder
   (`<Documents>/wildintel-uploader/collections/<research project>/<R000N>/<deployment id>`), in a wizard of four
   stages: images → origin and dates → check details → prepare and save.
