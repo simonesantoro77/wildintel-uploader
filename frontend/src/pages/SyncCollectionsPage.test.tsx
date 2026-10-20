@@ -94,4 +94,12 @@ describe('SyncCollectionsPage', () => {
     expect(downloaded).toHaveTextContent('1 image could not be downloaded')
     expect(downloaded).toHaveTextContent('connection reset')
   })
+
+  it('has a Back, level with Continue, that leaves the task from the first step', async () => {
+    const onBack = vi.fn()
+    render(<SyncCollectionsPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
 })

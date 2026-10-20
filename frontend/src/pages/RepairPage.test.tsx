@@ -130,4 +130,12 @@ describe('RepairPage', () => {
 
     expect(await screen.findByText('The research project id is no folder name.')).toBeInTheDocument()
   })
+
+  it('has a Back, level with Continue, that leaves the task from the first step', async () => {
+    const onBack = vi.fn()
+    render(<RepairPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
 })

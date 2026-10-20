@@ -1,3 +1,4 @@
+import BackButton from '../components/BackButton'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
@@ -28,7 +29,7 @@ function unassignedCollections(ids: string[]): string[] {
 }
 
 /** Checks the local collections folder against what Trapper has for a classification project, and creates what it lacks. */
-export default function SyncCollectionsPage() {
+export default function SyncCollectionsPage({ onBack }: { onBack?: () => void } = {}) {
   const [projects, setProjects] = useState<ResearchProject[]>([])
   const [projectPk, setProjectPk] = useState('')
   const [classifications, setClassifications] = useState<ClassificationProject[]>([])
@@ -202,7 +203,8 @@ export default function SyncCollectionsPage() {
         )}
 
         {error && !started && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
-        <div className="flex justify-end">
+        <div className={`flex items-center gap-3 ${onBack ? 'justify-between' : 'justify-end'}`}>
+          {onBack && <BackButton onClick={onBack} disabled={syncing} />}
           <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!collection || chosenDeployments.size === 0 || syncing} onClick={() => void handleSync()}>
             Sync
           </button>

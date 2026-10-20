@@ -46,7 +46,7 @@ function StateBadge({ state, repairing }: { state: RepairState | undefined; repa
  * are not: their metadata files (deployment.json, images.json, preprocessing.json, seal.json) are written again from what the folder
  * holds, taking the period from the collection's timestamp log when it has the deployment. Three steps: what to check, what the check
  * found, and the repairs. */
-export default function RepairPage() {
+export default function RepairPage({ onBack }: { onBack?: () => void } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<RepairCollection[]>([])
@@ -221,7 +221,8 @@ export default function RepairPage() {
         )}
 
         {error && !chosen && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
-        <div className="flex justify-end">
+        <div className={`flex items-center gap-3 ${onBack ? 'justify-between' : 'justify-end'}`}>
+          {onBack && <BackButton onClick={onBack} disabled={busy} />}
           <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!collection || toCheck.length === 0} onClick={() => void handleCheck()}>
             <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 001.5.86l11-6.5a1 1 0 000-1.72l-11-6.5A1 1 0 008 5.5z" /></svg>
             Check the deployments

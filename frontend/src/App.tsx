@@ -86,13 +86,13 @@ export default function App() {
             : task === 'session'
               ? <ImportSessionPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={() => setTask(null)} />
               : task === 'upload'
-              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} />
+              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} onBack={() => setTask(null)} />
               : task === 'utils'
               ? <UtilsPage onBack={() => setTask(null)} />
               : task === 'sync'
-              ? <SyncCollectionsPage />
+              ? <SyncCollectionsPage onBack={() => setTask(null)} />
               : task === 'repair'
-              ? <RepairPage />
+              ? <RepairPage onBack={() => setTask(null)} />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage

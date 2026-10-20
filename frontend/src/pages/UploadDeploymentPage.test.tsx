@@ -572,4 +572,12 @@ describe('UploadDeploymentPage', () => {
       expect(await screen.findByText(/Trapper has no research project DONA/)).toBeInTheDocument()
     })
   })
+
+  it('has a Back, level with Continue, that leaves the task from the first step', async () => {
+    const onBack = vi.fn()
+    render(<UploadDeploymentPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
 })

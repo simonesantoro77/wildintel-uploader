@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UtilsPage from './UtilsPage'
 
-vi.mock('./RepairPage', () => ({ default: () => <p>the repair page</p> }))
-vi.mock('./SyncCollectionsPage', () => ({ default: () => <p>the sync page</p> }))
+vi.mock('./RepairPage', () => ({ default: ({ onBack }: { onBack: () => void }) => <><p>the repair page</p><button onClick={onBack}>Back</button></> }))
+vi.mock('./SyncCollectionsPage', () => ({ default: ({ onBack }: { onBack: () => void }) => <><p>the sync page</p><button onClick={onBack}>Back</button></> }))
 
 describe('UtilsPage', () => {
   it('offers to repair the local deployments and to sync the local collections', () => {

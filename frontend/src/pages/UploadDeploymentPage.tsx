@@ -1,3 +1,4 @@
+import BackButton from '../components/BackButton'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
@@ -77,9 +78,11 @@ interface Props {
   initial?: UploadTarget
   /** Opens the settings, where the Trapper account is. */
   onOpenSettings?: () => void
+  /** Leaves the task, from the first step. */
+  onBack?: () => void
 }
 
-export default function UploadDeploymentPage({ initial, onOpenSettings }: Props = {}) {
+export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }: Props = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<UploadCollection[]>([])
@@ -463,14 +466,19 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
           </div>
         )}
         {loadError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{loadError}</p>}
-        {collection && (
-          <div className="flex items-center justify-end gap-3 mt-5">
-            {(toUpload.length === 0 || !classificationReady) && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">{toUpload.length === 0 ? 'Pick at least one deployment.' : 'Pick the classification project.'}</p>
+        {(collection || onBack) && (
+          <div className={`flex items-center gap-3 mt-5 ${onBack ? 'justify-between' : 'justify-end'}`}>
+            {onBack && <BackButton onClick={onBack} disabled={uploading} />}
+            {collection && (
+              <div className="flex items-center gap-3">
+                {(toUpload.length === 0 || !classificationReady) && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{toUpload.length === 0 ? 'Pick at least one deployment.' : 'Pick the classification project.'}</p>
+                )}
+                <button type="button" aria-label="Continue to step 2" className={btnPrimary} disabled={toUpload.length === 0 || !classificationReady || uploading} onClick={() => setChosen(true)}>
+                  Continue<span aria-hidden="true"> →</span>
+                </button>
+              </div>
             )}
-            <button type="button" aria-label="Continue to step 2" className={btnPrimary} disabled={toUpload.length === 0 || !classificationReady || uploading} onClick={() => setChosen(true)}>
-              Continue<span aria-hidden="true"> →</span>
-            </button>
           </div>
         )}
       </WizardStep>

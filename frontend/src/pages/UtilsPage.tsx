@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import BackButton from '../components/BackButton'
 import OptionCards from '../components/OptionCards'
 import type { Option } from '../components/OptionCards'
 import RepairPage from './RepairPage'
@@ -23,8 +22,7 @@ export default function UtilsPage({ onBack }: Props) {
   if (util) {
     return (
       <div>
-        <div className="mx-auto max-w-[900px] px-4 pt-6"><BackButton onClick={() => setUtil(null)} /></div>
-        {util === 'repair' ? <RepairPage /> : <SyncCollectionsPage />}
+        {util === 'repair' ? <RepairPage onBack={() => setUtil(null)} /> : <SyncCollectionsPage onBack={() => setUtil(null)} />}
       </div>
     )
   }
