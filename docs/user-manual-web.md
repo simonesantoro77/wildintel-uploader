@@ -39,9 +39,9 @@ images (Preprocessing › Authorship) if you are going to import some.
 Press **⚙️ Settings**. It has its own sections on the left; one **Save** saves them all, and a red
 dot marks a section with an invalid value.
 
-![Settings — Preprocessing](img/screenshots/settings.png)
-
 ### General
+
+![Settings › General](img/screenshots/settings-general.png)
 
 - **Images folder** — where the collections folder lives. Blank uses
   `Documents/wildintel-uploader`; a path must be absolute (or start with `~`).
@@ -55,6 +55,8 @@ dot marks a section with an invalid value.
 
 ### Trapper
 
+![Settings › Trapper](img/screenshots/settings-trapper.png)
+
 The server's **URL**, and the **username** (its email — Trapper's import form only accepts
 that) and **password** of your account. **Test connection** reports the research projects it can
 see. The password is saved in `settings.toml` but never sent back to your browser.
@@ -64,6 +66,8 @@ deployment's images go up in zips of at most this size (500 by default, up to 50
 
 ### Epicollect5
 
+![Settings › Epicollect5](img/screenshots/settings-epicollect.png)
+
 The Epicollect5 project the deployments' information will be imported from (see [When was it collected?](#stage-2-origin-and-dates)): its **slug**, the
 name in its URL (`five.epicollect.net/project/<slug>`), and, only if the project is private, the **client id** and **secret** of
 its API client, which you create at <https://developers.epicollect.net>. **Test connection** reads the project with what is typed — saved or not — and says its name and how many inputs
@@ -71,10 +75,14 @@ it has; a blank secret is the saved one. The **Import deployment information fro
 
 ### Validation
 
+![Settings › Validation](img/screenshots/settings-validation.png)
+
 Which of the [folder checks](#stage-1-images) the wizard shows. Each is an entry with a switch;
 turn off the ones you never want to see. They are all on by default.
 
 ### Postvalidation
+
+![Settings › Postvalidation](img/screenshots/settings-postvalidation.png)
 
 Which of the [postvalidation checks](#stage-3-check-details) the wizard shows, and what the ones
 that take a value mean:
@@ -88,6 +96,8 @@ that take a value mean:
 | Number of images / sequences / length of sequences | 50 % each | How different a value can be and still count as similar. |
 
 ### Preprocessing
+
+![Settings › Preprocessing](img/screenshots/settings-preprocessing.png)
 
 What a new import does to the images — the wizard lists it before preparing, and a run can still
 switch each step off.
@@ -131,6 +141,8 @@ makes two reports.
 
 ### Multiple configs
 
+![Settings › Config](img/screenshots/settings-config.png)
+
 The application lets you define several different configurations: **+** adds one with the default
 values, and choosing one makes it the active one — handy to switch between two Trapper servers (a
 test one and the real one) or two sets of authorship. Each can be downloaded, and its folder opened.
@@ -147,8 +159,6 @@ Once it is configured, the menu is where you choose what you want to do:
 | 🧰 **Utils** | Maintenance of the local collections: *Sync local collections* brings the collections folder up to date with what Trapper already has, and *Repair local deployments* checks which deployments are still valid and writes the metadata files of the others again from their folders. |
 
 ![The task menu](img/screenshots/menu.png)
-
-Reports are in the settings — [Settings › Reports](#reports).
 
 The usual order is **Import** (or **Import session**) first, then **Upload**. *Sync* is for when
 Trapper already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
@@ -170,7 +180,11 @@ folder was chosen. Passwords are never saved with a run.
 
 ## 5. Import a deployment
 
-Press **📷 Import deployment**. A wizard of four stages — the bar at the top shows where you are, and a
+Press **📷 Import deployment**. This option is meant to import the set of images that come from a **single camera**: one
+folder, one deployment. For a folder with the images of several cameras, one subfolder each, use
+[**Import session**](#6-import-a-session).
+
+It is a wizard of four stages — the bar at the top shows where you are, and a
 stage can have steps of its own, which open one after the other. Each stage is **done** (a tick and a
 summary, with a pencil to go back and change it), **open** or **locked** until the ones before it are
 done. **Back** and **Continue** move between them.
@@ -184,7 +198,15 @@ done. **Back** and **Continue** move between them.
 
 ### Stage 1 — Images
 
+In this stage you tell the app **which images** you are importing and find out, before anything else is done, **whether they
+are in good shape**. You choose the folder with the images of the camera and the app counts what is in it; then you
+choose which checks to run over the images alone — corrupted files, shooting order, subfolders, a single camera, the
+photo data they need and duplicates — and how strict each one is. The result tells you how many images are valid and which
+ones have problems, so you can fix them before going on. **Nothing is copied or changed yet: the source folder is only read.**
+
 ![Stage 1 — Images, select the folder](img/screenshots/step-folder.png)
+
+The stage has three steps:
 
 **1. Select the folder.** Press **Browse…** and choose the folder with the deployment's images (or type its path), then
 **Scan**. The scan only **counts**: how many files there are and how many of them are images (by
@@ -227,6 +249,14 @@ which are less complete — it says which it used.
 
 ### Stage 2 — Origin and dates
 
+In this stage you tell the app **where and when** the images were taken, and what you know of the camera and the site. You say
+which research project and which location they come from — the location brings its coordinates and its timezone —, then the
+revision and the period the camera was recording, which the app looks for in several sources and lets you compare before
+you pick one. Finally you can add, if you know them, the details of the camera and of the site. With this the deployment gets
+its id (`R0003-DONA_01`) and its details. **Only the dates are required: the rest can be completed later.**
+
+The stage has three steps:
+
 **1. Where was it taken?**
 
 ![Stage 2 — Where was it taken?](img/screenshots/step-origin.png)
@@ -245,28 +275,45 @@ kept in the collections folder; pick one already there, or add a new one:
 
 ![Stage 2 — When was it collected?](img/screenshots/step-dates.png)
 
-The **revision** starts as the next one expected for that location — one more than the highest kept — and says
-so; change it if needed, and the **deployment id** is built (`R0003-DONA_01`). The **period** — start and end, as
-the camera's local time — is read from the images' EXIF (the earliest and the latest capture date) and can be changed.
+First, the **revision**. It starts as the next one expected for that location — one more than the highest kept — and says
+so; change it if needed, and the **deployment id** is built (`R0003-DONA_01`). If an earlier revision of this deployment is
+kept, a notice offers to **copy from it** its camera, site and notes — the dates are never copied. If the deployment
+**already exists** in the collections folder you are told, and the import would be refused as it would mix two sets of
+images: choose another revision or location, or move that folder away.
 
-If an earlier revision of this deployment is kept, the app offers to **copy from it** its camera, site and notes —
-the dates are never copied. If the deployment **already exists** in the collections folder you are told, and the import
-would be refused as it would mix two sets of images: choose another revision or location, or move that folder away.
+Then the **period**: when the camera started and stopped recording, as the clock of the location's timezone (the one
+said above, which is never asked for again). The dates are not typed from scratch — the app looks for them in several
+**sources**, and shows **what each one found** side by side so you can compare them and **pick one**:
 
-!!! info "A timestamp log can set the dates"
-    If the collection has a `<COLLECTION>_FileTimestampLog.csv` — the file wildintel-tools asks
-    for beside a collection's deployments — the dates are taken from it instead of from the
-    images, and this step says so. In an *Import session*, the same applies to each deployment
-    that has a row in it.
+| Source | Where the dates come from |
+|---|---|
+| **Epicollect5 project** | The entry of your Epicollect5 form for this location and this revision (each row of the form is one deployment). Only if Epicollect5 is [turned on](#epicollect5) in the settings. |
+| **Camera data in the photos** | The first and the last photo of the folder: the earliest and the latest capture date in their EXIF data. |
+| **Manual entry** | You type the start and the end yourself. It is the only one that lets you edit them. |
 
-When Epicollect5 has an entry for the location and the revision, a notice offers **Import from Epicollect5**, which fills in the period, the camera, the site and the notes from the
-project's form saved in [Settings › Epicollect5](#epicollect5). In that form **each row is one deployment**: the app looks
-for the entry whose **location id** is the location you chose and whose **revision** is the one above (if the revision isn't mapped,
-the location is enough). The location's own data — its id, name and coordinates — are never taken from the entry, and the camera
-model and id only complete what the images didn't give. The day and the time of the start and the end come in two questions; a
-day with no time takes the time the images gave on that day, or the whole day (from its first second for the start, to its last
-for the end). If there are several entries, the newest is used. It needs the *location id* mapped in the settings, and it
-reads the project with the client saved there, so it may be refused for a while if Epicollect5 limits the requests. When Epicollect5 has an entry for the location and the revision, a notice says so and offers to import it.
+Each option says **Found** — with the start and end it found — or **Nothing found**, and why (*Epicollect5 is turned off
+in the settings*, *Nothing found for DONA_01, revision 3*). Below them, **Recording period** shows the dates taken, which
+source they are **from**, and the **duration**.
+
+The app picks for you the first source that has dates, in this order: **Epicollect5, then the photos**; by hand only when
+neither has found anything. Photos are read and Epicollect5 is asked in the background, so a better source that turns up a moment
+later replaces the one taken — until you pick one yourself, which is then left as it is.
+
+!!! note "How an Epicollect5 entry gives its dates"
+    Epicollect5 has no question for a date and a time together, so the form asks the **day** and the **time** apart (mapped
+    in [Settings › Epicollect5](#epicollect5)). A day with no time takes the time the photos gave on that same day, or else
+    the whole day: from its first second (00:00:00) for the start, to its last (23:59:59) for the end. If there are several
+    entries for the location and the revision, the newest one is used. The entry is read with the client saved in the
+    settings, so Epicollect5 may refuse for a while if it limits the requests.
+
+When Epicollect5 has an entry, a notice also offers **Import from Epicollect5**, which fills the **camera, the site and the
+notes** from it (the dates follow the source you picked). The location's own data — its id, name and coordinates — are never
+taken from the entry, and the camera model and id only complete what the photos didn't give. Answers that no field is mapped to can go to
+the comments (see the [settings](#epicollect5)).
+
+If the deployment's collection has a `<COLLECTION>_FileTimestampLog.csv` (the file wildintel-tools asks for), going on from *More details*
+**adds the deployment's row to that file**. A log that is already there is
+used for the dates in an [*Import session*](#6-import-a-session).
 
 **3. More details.**
 
@@ -387,20 +434,44 @@ The four stages are those of [Import a deployment](#5-import-a-deployment), with
    chosen deployment, and the result is shown **by folder** or **by check** (with *Only folders with problems*). **Leave them
    out** drops the folders that failed from the session; **Continue with N folders** goes on.
 2. **Origin and details** — *Where were they taken?*: one research project for the whole session, and a location for each
-   deployment (the ones whose folder name matches a location of the project are suggested). No two deployments can share one.
-   *When was it collected?*: first the **revision**, common to the session, which names all the deployments
-   (`R0003-DONA_01`, `R0003-DONA_02`…); then a **list** of the deployments with their periods — read from the images,
-   or from the timestamp log —, how many are complete (*"12 of 40 deployments complete"*), a *filter by name* and
-   *Only the incomplete ones*; open a row to change its dates. *More details*: the camera and the site of each, with
-   **Fill in from the previous revision** for the ones that have one.
+   deployment (the ones whose folder name matches a location of the project are suggested, and **Assign** takes them all at once).
+   No two deployments can share one. *When was it collected?*: first the **revision**, common to the session, which names
+   all the deployments (`R0003-DONA_01`, `R0003-DONA_02`…) and is taken from the log's ids when it has them; the
+   previous-revision and Epicollect5 notices are the same as in a single deployment. Then the **list** of deployments, each with
+   its period and **where it comes from** (*From Epicollect5*, *From R0003_FileTimestampLog.csv*, *From the images*,
+   *Entered by hand*), how many are complete (*"12 of 40 deployments complete"*), a *filter by name* and *Only the incomplete ones*.
+   *More details*: the camera and the site of each, with **Fill in from the previous revision** for the ones that have one.
+
 3. **Check details** — the deployments' checks, for each deployment, by folder or by check.
 4. **Prepare and save** — one list of preprocessing steps for all, then each deployment in turn, with its own result.
    If some fail, **Import the N left** resumes with the ones that are still pending. Saving seals each of them.
 
 When it ends, **Upload to Trapper** goes to the upload page with the collection chosen.
 
-If the session folder has a `<COLLECTION>_FileTimestampLog.csv`, the dates of each deployment with
-a row in it come from there, and the details say so.
+#### Where the dates of each deployment come from
+
+![Session — When was each one collected?](img/screenshots/session-details.png)
+
+Each deployment has its own period and its own **source**. Open its row to see what **every source found** for it, as in a
+single deployment, and pick one. There are four, and a session adds the **timestamp log**:
+
+| Source | Where the dates come from |
+|---|---|
+| **Epicollect5 project** | The entry for that deployment's location and the revision. One request looks up all the deployments at once. |
+| **Timestamp log file** | The row of that deployment in the `<COLLECTION>_FileTimestampLog.csv` found in the session folder — the file wildintel-tools asks for beside a collection's deployments —, with the set-up and pick-up times someone wrote down. The row is found by the folder's name or by the id the log gives (`R0003-DONA_02`). |
+| **Camera data in the photos** | The first and the last photo of that deployment's folder. They are read in the background, a folder after another, so a row may say *Reading the images…* for a moment. |
+| **Manual entry** | You type the start and the end. |
+
+Each deployment takes **the first source that has its dates, in this order: Epicollect5, the timestamp log, the photos** — by
+hand only if none does — and a better one found later replaces it, unless you picked one yourself for that deployment. So in a
+session some deployments may come from Epicollect5, others from the log and others from the photos, each row saying which.
+A notice above the list says how many of the deployments the log gave dates to.
+
+![A deployment whose dates come from the timestamp log](img/screenshots/session-dates-log.png)
+
+The log's option compares itself with the photos — *Starts 32 min before the first photo and ends 40 min before the last* — a
+quick way to notice a log row that doesn't fit its images, which is also reported when a row or a folder matches no deployment. When
+a deployment shows *Dates needed* or *To fix*, open it and pick another source or type the dates.
 
 ## 7. Upload a deployment to Trapper
 

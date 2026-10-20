@@ -120,12 +120,23 @@ def utils(page: Page) -> None:
     save(page, "utils")
 
 
-@shot("settings")
-def settings(page: Page) -> None:
-    start(page)
-    page.get_by_role("button", name="Settings").click()
-    page.get_by_role("navigation", name="Settings sections").get_by_text("Preprocessing").click()
-    save(page, "settings")
+SETTINGS_SECTIONS = {
+    "general": "General", "trapper": "Trapper", "epicollect": "Epicollect5", "validation": "Validation",
+    "postvalidation": "Postvalidation", "preprocessing": "Preprocessing", "config": "Config",
+}
+
+
+def _settings_shot(key: str, label: str) -> None:
+    @shot(f"settings-{key}")
+    def take(page: Page) -> None:
+        start(page)
+        page.get_by_role("button", name="Settings").click()
+        page.get_by_role("navigation", name="Settings sections").get_by_text(label, exact=True).click()
+        save(page, f"settings-{key}")
+
+
+for _key, _label in SETTINGS_SECTIONS.items():
+    _settings_shot(_key, _label)
 
 
 # ── Import deployment ────────────────────────────────────────────────────────
@@ -276,8 +287,7 @@ def reports(page: Page) -> None:
 
 # ── Import session ───────────────────────────────────────────────────────────
 
-@shot("session-details")
-def session_details(page: Page) -> None:
+def to_session_dates(page: Page) -> None:
     open_task(page, "Import session")
     page.locator("input").first.fill("/home/me/Pictures/trip-2024-09")
     button(page, "Scan").click()
@@ -287,10 +297,24 @@ def session_details(page: Page) -> None:
     expect(page.get_by_role("link", name="Download report")).to_be_visible()
     button(page, "Continue with 3 folders", exact=False).click()
     choose(page, "origin-research-project", "DONA")
-    button(page, "Continue", exact=False).first.click()
+    button(page, "Assign 3").click()
+    button(page, "Continue to the details").click()
     expect(heading(page, "When was it collected?")).to_be_visible()
-    page.get_by_placeholder("e.g. 3").fill("3")
+
+
+@shot("session-details")
+def session_details(page: Page) -> None:
+    to_session_dates(page)
+    expect(page.get_by_text("Dates from: Epicollect5")).to_be_visible()
     save(page, "session-details", top=heading(page, "When was it collected?"))
+
+
+@shot("session-dates-log")
+def session_dates_log(page: Page) -> None:
+    to_session_dates(page)
+    page.get_by_role("button", name="Open DONA_02").click()
+    expect(page.get_by_text("Dates from: Timestamp log file")).to_be_visible()
+    save(page, "session-dates-log", top=heading(page, "When was it collected?"))
 
 
 # ── Upload ───────────────────────────────────────────────────────────────────

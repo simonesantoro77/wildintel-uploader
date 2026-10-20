@@ -17,6 +17,12 @@
     { location_id: 'DONA_03', name: 'Doñana site 3', timezone: 'Europe/Madrid', ignore_dst: true, latitude: 36.9983, longitude: -6.4511, coordinate_uncertainty: 100, trapper_pk: 103 },
   ]
 
+  // What the Epicollect5 project has for DONA_01, revision 3: the day and the time of each end come apart.
+  const EPICOLLECT_ENTRY = {
+    uuid: 'a1b2c3', title: 'DONA_01 · R3', created_at: '2024-10-13T09:12:00Z',
+    fields: { revision: 3, start_date: '2024-09-04', start_time: '12:55:00', end_date: '2024-10-12', end_time: '07:30:00', camera_model: 'Reconyx HyperFire 2' },
+  }
+
   const CAMERA = { model: 'Reconyx HyperFire 2', id: 'P800HG08' }
 
   // The scan only counts; the dates and the camera are read when the details are asked for.
@@ -30,9 +36,10 @@
       ['DONA_03', 305, '2024-09-05T09:31:00', '2024-10-13T08:15:33'],
     ].map(([name, n, start_date, end_date]) => ({
       name, path: `/home/me/Pictures/trip-2024-09/${name}`, file_count: n, image_count: n, start_date: null, end_date: null,
-      warnings: [], from_timestamp_log: false, log_deployment_id: null, guess: { start_date, end_date },
-    })),
-    loose_files: 0, warnings: [], timestamp_log: null,
+      warnings: [], from_timestamp_log: name === 'DONA_02', log_deployment_id: name === 'DONA_02' ? 'R0003-DONA_02' : null, guess: { start_date, end_date },
+    })).map((d) => d.name === 'DONA_02' ? { ...d, start_date: '2024-09-04T13:30:00', end_date: '2024-10-12T07:00:00' } : d),
+    loose_files: 0, warnings: [],
+    timestamp_log: { name: 'R0003_FileTimestampLog.csv', path: '/home/me/Pictures/trip-2024-09/R0003_FileTimestampLog.csv', rows: 1, matched: 1, revision: 3 },
   }
 
   // The validation of 241 images, some with problems — the result, and (below) the report made of it.
@@ -138,7 +145,8 @@
   const SETTINGS = {
     GENERAL: { log_level: 'INFO', workers: 4, cpu_count: 8, log_file: '/home/me/.config/wildintel-uploader/logs/wildintel-uploader.log', log_level_override: null },
     TRAPPER: { base_url: TRAPPER_URL, user_name: 'field.team@example.org', has_password: true, max_zip_mb: 500 },
-    EPICOLLECT5: { project_slug: 'donana-cameras', client_id: null, has_secret: false, mapping: {} },
+    EPICOLLECT5: { enabled: true, unmapped_to_comments: true, project_slug: 'donana-cameras', client_id: null, has_secret: false,
+      mapping: { location_id: 'l', location_name: 'n', revision: 'r', start_date: 'sd', start_time: 'st', camera_model: 'm' } },
     DATA: { dir: DATA_DIR },
     VALIDATION: { corrupted: true, sequence: true, structure: true, camera: true, exif: true, duplicates: true },
     POSTVALIDATION: {
@@ -314,6 +322,8 @@
       'POST /api/deployment-import/check-collection': () => ({ exists: true, name: 'R0003' }),
       'POST /api/deployment-import/timestamp-log': () => ({ path: `${COLLECTIONS}/DONA/R0003/R0003_FileTimestampLog.csv`, action: 'added', rows: 1, collection: 'R0003' }),
       'POST /api/deployment-import/open-folder': () => ({ opened: '' }),
+      'POST /api/epicollect/entries': () => ({ results: [EPICOLLECT_ENTRY] }),
+      'POST /api/epicollect/entries/batch': (body) => ({ results: Object.fromEntries(body.location_ids.map((id) => [id, id === 'DONA_01' ? EPICOLLECT_ENTRY : null])) }),
       'GET /api/epicollect/form': () => ({ project: { name: 'Doñana cameras', slug: 'donana-cameras' }, inputs: [
         { ref: 'l', label: 'Location id', type: 'searchsingle', form: 'Visit', group: 'Where', branch: null, options: [] },
         { ref: 'n', label: 'Location name', type: 'text', form: 'Visit', group: 'Where', branch: null, options: [] },
