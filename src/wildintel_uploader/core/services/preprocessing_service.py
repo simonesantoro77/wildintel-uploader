@@ -29,7 +29,7 @@ from datetime import datetime, timezone as datetime_timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, JpegImagePlugin
 
 from wildintel_uploader.core import config
 from wildintel_uploader.core.schemas.requests import DeploymentFields
@@ -44,7 +44,7 @@ _DATE_TAGS = (("exif", 36867), ("exif", 36868), ("main", 306))  # DateTimeOrigin
 _NO_DATA = {"0000:00:00 00:00:00"}
 _XMP_BATCH = 200  # files per ExifTool run
 EXIFTOOL_TMP_SUFFIX = "_exiftool_tmp"  # what ExifTool adds to a file's name while it rewrites it
-_JPEG_QUALITY = 90
+_JPEG_QUALITY = 90  # only when the original's own JPEG settings can't be read
 
 
 @dataclass(frozen=True)
@@ -130,6 +130,23 @@ def _sha1(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _jpeg_settings(img: Image.Image) -> dict:
+    """The original's JPEG quantization tables and chroma subsampling, so the resized
+    image is saved at the quality it already had instead of a fixed one (which
+    could make it heavier than the original). Falls back to a fixed quality."""
+    tables = getattr(img, "quantization", None)
+    if img.format != "JPEG" or not tables:
+        return {"quality": _JPEG_QUALITY}
+    settings: dict = {"qtables": tables}
+    try:
+        sampling = JpegImagePlugin.get_sampling(img)
+        if sampling != -1:
+            settings["subsampling"] = sampling
+    except Exception:
+        pass
+    return settings
+
+
 def resize_to_width(source: Path, dest: Path, width: int) -> bool:
     """Writes source to dest, resized to `width` pixels wide keeping its proportions —
     or just copies it if it isn't wider than that. True if it was resized."""
@@ -143,7 +160,7 @@ def resize_to_width(source: Path, dest: Path, width: int) -> bool:
         fmt = img.format or "JPEG"
         if fmt == "JPEG":
             resized = resized.convert("RGB") if resized.mode not in ("RGB", "L") else resized
-            resized.save(dest, format="JPEG", quality=_JPEG_QUALITY, **keep)
+            resized.save(dest, format="JPEG", **_jpeg_settings(img), **keep)
         else:
             resized.save(dest, format=fmt, **keep)
     return True
