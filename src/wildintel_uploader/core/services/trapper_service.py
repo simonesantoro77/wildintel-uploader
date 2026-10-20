@@ -125,7 +125,7 @@ def list_classification_projects(url: str, username: str, password: str, researc
 
 def list_locations(url: str, username: str, password: str, research_project_pk: int) -> list[dict]:
     """A research project's locations: pk, location_id, name, timezone and its
-    coordinates (latitude/longitude, WGS84) and whether it ignores summer time
+    coordinates (latitude/longitude, WGS84), its owner, whether this account can manage it, and whether it ignores summer time
     ("ignore_dst") — those come from Trapper's export endpoint, since the plain
     list only has the coordinates as a display string. None when Trapper can't say."""
     trapper = _client(url, username, password)
@@ -143,6 +143,9 @@ def list_locations(url: str, username: str, password: str, research_project_pk: 
             {
                 "pk": l.pk, "location_id": l.location_id or f"#{l.pk}", "name": l.name, "timezone": l.timezone, "ignore_dst": ignore_dst.get(l.pk),
                 "latitude": coordinates.get(l.pk, (None, None))[0], "longitude": coordinates.get(l.pk, (None, None))[1],
+                "owner": getattr(l, "owner", None),
+                # Trapper only offers the deletion of a location to its owner and managers — it is what tells whether this account is one.
+                "can_manage": bool(l.delete_data) if hasattr(l, "delete_data") else None,
             }
             for l in locations
         ),

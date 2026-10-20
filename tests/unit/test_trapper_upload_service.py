@@ -1012,3 +1012,16 @@ def test_the_uploader_login_says_what_trapper_answered_when_it_gives_no_session(
         _login(lambda request: httpx.Response(200, json={"status": "ok"}))
     with pytest.raises(up.TrapperUploadError, match="gave no session.*Welcome"):
         _login(lambda request: httpx.Response(200, text="<html>Welcome</html>"))
+
+
+def test_a_location_of_someone_else_is_refused_before_anything_is_created():
+    theirs = {"location_id": "dona-001", "owner": "bob@x.org", "can_manage": False}
+    problem = up.location_access_problem(theirs, "alice@x.org")
+    assert problem and "bob@x.org" in problem and "dona-001" in problem
+
+
+def test_the_owner_a_manager_or_an_unknown_location_is_not_a_problem():
+    assert up.location_access_problem({"location_id": "a", "owner": "Alice@x.org", "can_manage": False}, "alice@x.org") is None
+    assert up.location_access_problem({"location_id": "a", "owner": "bob", "can_manage": True}, "alice") is None
+    assert up.location_access_problem({"location_id": "a", "owner": "bob", "can_manage": None}, "alice") is None
+    assert up.location_access_problem(None, "alice") is None

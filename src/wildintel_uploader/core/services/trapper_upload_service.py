@@ -341,6 +341,18 @@ def find_location(credentials: tuple[str, str, str], research_project_pk: int, d
     return next((l for l in trapper_service.list_locations(*credentials, research_project_pk) if l["location_id"].lower() == wanted), None)
 
 
+def location_access_problem(location: dict | None, username: str) -> str | None:
+    """Why the account can't put a deployment in this location — Trapper only takes a deployment whose location the account owns
+    or manages — or None when it can (or when Trapper doesn't say)."""
+    if location is None or location.get("can_manage") is None:
+        return None
+    owner = location.get("owner")
+    if location["can_manage"] or (owner and owner.lower() == username.lower()):
+        return None
+    return (f"The location {location['location_id']} belongs to {owner or 'another user'}, and {username} is neither its owner nor one of its managers, "
+            "so Trapper would refuse a deployment there. Ask its owner to make this account a manager of the location — or use a location of your own.")
+
+
 def _location_time_settings(location: dict | None, timezone_name: str, ignore_dst: bool) -> tuple[str, bool, str]:
     """The timezone and summer-time setting the package declares — the location's own when it has them, else those given —
     and a sentence saying so when they differ from the ones given ("" when they don't)."""
@@ -761,9 +773,15 @@ def upload_stream(
         if dry:
             existing = find_deployment_record(credentials, project_pk, deployment)  # type: ignore[arg-type]
             deployment_created = existing is None
+            if deployment_created and (problem := location_access_problem(found, credentials[1])):  # type: ignore[index]
+                raise TrapperUploadError(problem)
             yield step("deployment", "done", f"Deployment {deployment_id} would be created." if deployment_created else f"Deployment {deployment_id} is already in Trapper.",
                        trapper_link(credentials, "deployment", (existing or {}).get("pk")))
         else:
+            if not deployment_exists(credentials, project_pk, deployment):  # type: ignore[arg-type]
+                problem = location_access_problem(location, credentials[1])  # type: ignore[index]
+                if problem:
+                    raise TrapperUploadError(problem)
             deployment_created = ensure_deployment(credentials, project_pk, deployment, timezone_name=timezone_name, ignore_dst=ignore_dst, work_dir=work_dir)  # type: ignore[arg-type]
             record = find_deployment_record(credentials, project_pk, deployment)  # type: ignore[arg-type]
             trapper_deployment_id = record["deployment_id"] if record else None
