@@ -745,7 +745,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   }
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Import session</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Imports a folder of deployments — one subfolder each — into the local collections folder. The revision, the checks and the

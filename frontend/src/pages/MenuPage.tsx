@@ -14,7 +14,7 @@ interface Props {
 
 export default function MenuPage({ onChoose }: Props) {
   return (
-    <div className="mx-auto px-4 py-8" style={{ maxWidth: 700 }}>
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
       <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">Choose one of the following.</p>
       <OptionCards options={TASK_OPTIONS} selected={null} onChoose={onChoose} />

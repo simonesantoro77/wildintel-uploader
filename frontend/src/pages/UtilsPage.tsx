@@ -23,14 +23,14 @@ export default function UtilsPage({ onBack }: Props) {
   if (util) {
     return (
       <div>
-        <div className="mx-auto px-4 pt-6" style={{ maxWidth: 700 }}><BackButton onClick={() => setUtil(null)} /></div>
+        <div className="mx-auto max-w-[900px] px-4 pt-6"><BackButton onClick={() => setUtil(null)} /></div>
         {util === 'repair' ? <RepairPage /> : <SyncCollectionsPage />}
       </div>
     )
   }
 
   return (
-    <div className="mx-auto px-4 py-8" style={{ maxWidth: 700 }}>
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h4 className="text-lg font-semibold mb-1">Utilities</h4>
       <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">Maintenance of the local collections.</p>
       <OptionCards options={UTIL_OPTIONS} selected={null} onChoose={setUtil} />

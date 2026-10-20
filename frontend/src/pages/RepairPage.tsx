@@ -146,7 +146,7 @@ export default function RepairPage() {
   const validCount = checkedList.length - notValid.length
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Repair local deployments</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         A deployment is <strong>valid</strong> when its <span className="font-mono">seal.json</span> still matches it. For the ones that are not, the metadata files are written again

@@ -108,7 +108,7 @@ export default function SyncCollectionsPage() {
   const step2Status = syncing ? 'running' : !started ? 'locked' : error && !result ? 'error' : 'done'
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Sync local collections</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         The local folders are checked against what Trapper has for a classification project, and what is missing is created: the research project and its locations, the collection

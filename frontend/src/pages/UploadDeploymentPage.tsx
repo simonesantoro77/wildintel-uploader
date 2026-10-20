@@ -314,7 +314,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
   const outputDir = order.map((id) => runs[id]?.result?.output_dir).find(Boolean) ?? null
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Upload deployment to Trapper</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Sends deployments from your collections folder to Trapper. Anything missing there is created, then the images are sent for Trapper to process.
