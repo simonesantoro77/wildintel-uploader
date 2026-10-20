@@ -1,6 +1,7 @@
 import { StatusIcon } from './Notice'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { formatRun } from './ValidationDashboard'
 import { Bar, Spinner, Tile, btnOutline, btnPrimary, count, formatBytes, formatDuration, panel } from './PrepareFiles'
 
 /** One deployment of an upload, as the page has followed it. */
@@ -153,26 +154,38 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
   const [open, setOpen] = useState<string | null>(null)
   const sent = items.filter((i) => i.state === 'done')
   const failed = items.filter((i) => i.state !== 'done')
-  const finished = new Date(finishedAt)
-  const when = `${finished.getUTCDate()} ${finished.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })} ${finished.getUTCFullYear()}, ${String(finished.getUTCHours()).padStart(2, '0')}:${String(finished.getUTCMinutes()).padStart(2, '0')} UTC`
+  // The report of the upload, to download: one row per deployment.
+  const reportUrl = useMemo(() => {
+    const cell = (v: string | number | boolean) => `"${String(v).replace(/"/g, '""')}"`
+    const rows = [
+      ['deployment', 'state', 'images', 'bytes', 'location', 'location_created', 'deployment_created', 'error', 'steps'],
+      ...items.map((i) => [i.id, i.state === 'done' ? 'uploaded' : 'failed', i.images, i.bytes, i.locationId ?? '', i.locationCreated, i.deploymentCreated, i.error ?? '',
+        i.steps.map((st) => `${st.label}: ${st.message}`).join(' | ')]),
+    ]
+    return URL.createObjectURL(new Blob([rows.map((r) => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv' }))
+  }, [items])
+  useEffect(() => () => URL.revokeObjectURL(reportUrl), [reportUrl])
   const locations = [...new Set(sent.map((i) => i.locationId).filter(Boolean) as string[])]
   const locationsCreated = new Set(sent.filter((i) => i.locationCreated).map((i) => i.locationId))
   const deploymentsCreated = sent.filter((i) => i.deploymentCreated).length
   const collectionUrl = sent.map((i) => i.collectionUrl).filter(Boolean).pop()
   return (
     <div>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 -mt-3 mb-4">
+        Last run {formatRun(new Date(finishedAt).toISOString())} · took {formatDuration(finishedAt - startedAt)} · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={reportUrl} download={`upload-${collection}.csv`}>Download report</a>
+      </p>
       {failed.length === 0 ? (
         <div role="status" className="flex items-center gap-4 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 mb-4">
           <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span>
           <div>
             <p className="font-semibold text-emerald-900 dark:text-emerald-100">Upload complete</p>
-            <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">{when} · took {formatDuration(finishedAt - startedAt)}. All the images are in Trapper.</p>
+            <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">All the images are in Trapper.</p>
           </div>
         </div>
       ) : (
-        <div role="alert" className="rounded-xl border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-5 py-4 mb-4">
-          <p className="font-semibold text-red-900 dark:text-red-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(sent.length, 'deployment')} uploaded, ${failed.length} could not be uploaded`}</p>
-          <ul className="mt-1 text-sm text-red-800 dark:text-red-300 list-disc ml-5">
+        <div role="alert" className="rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-5 py-4 mb-4">
+          <p className="font-semibold text-amber-900 dark:text-amber-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(sent.length, 'deployment')} uploaded, ${failed.length} could not be uploaded`}</p>
+          <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300 list-disc ml-5">
             {failed.map((i) => <li key={i.id}><span className="font-mono">{i.id}</span>: {i.error ?? 'It was not uploaded.'}</li>)}
           </ul>
         </div>
@@ -189,8 +202,8 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
-        <Tile value={String(sent.length)} label="Deployments uploaded" />
-        <Tile value={String(failed.length)} label="Deployments failed" tone={failed.length > 0 ? 'red' : undefined} />
+        <Tile value={String(sent.length)} label="Deployments uploaded" tone={sent.length > 0 ? 'green' : undefined} />
+        <Tile value={String(failed.length)} label="Deployments failed" tone={failed.length > 0 ? 'amber' : undefined} />
         <Tile value={sent.reduce((sum, i) => sum + i.images, 0).toLocaleString('en-US')} label="Images sent" />
         <Tile value={formatBytes(sent.reduce((sum, i) => sum + i.bytes, 0))} label="Total size" />
         <Tile value={String(locationsCreated.size)} label="Locations created in Trapper" />
@@ -204,12 +217,12 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
           <ul className={`${panel} divide-y divide-zinc-200 dark:divide-zinc-700 mb-5`}>
             {failed.map((i) => (
               <li key={i.id} className="flex items-center gap-3 px-5 py-3">
-                <StatusIcon kind="error" className="h-5 w-5 text-red-500" />
+                <StatusIcon kind="warning" className="h-5 w-5 text-amber-500" />
                 <span className="flex-1 min-w-0">
                   <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
-                  <span className="block text-xs text-red-700 dark:text-red-400 dark:text-zinc-400">{i.error ?? 'It was not uploaded.'}</span>
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-400">{i.error ?? 'It was not uploaded.'}</span>
                 </span>
-                <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">Not uploaded</span>
+                <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">Not uploaded</span>
               </li>
             ))}
             {sent.map((i) => (
