@@ -4,7 +4,7 @@ import { api } from '../api'
 import EpicollectMapping from '../components/EpicollectMapping'
 import { COVERAGE_AREAS, ENTITIES } from '../entities'
 import ReportsList from '../components/ReportsList'
-import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, FieldlogColumn, FieldlogSettings, ImageCheck, LogLevel, SimilarityMethod, UpdateCheck } from '../types'
+import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, FieldlogColumn, FieldlogSettings, IngestSettings, ImageCheck, LogLevel, SimilarityMethod, UpdateCheck } from '../types'
 
 const hintClass = 'text-xs text-zinc-500 dark:text-zinc-400'
 const btnPrimary = 'px-6 py-2.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
@@ -144,6 +144,8 @@ interface Draft {
   ignoreDst: boolean
   convertToUtc: boolean
   fieldlog: FieldlogSettings
+  keepCards: IngestSettings['keep_cards']
+  countTolerance: string
 }
 
 function toDraft(s: AppSettings): Draft {
@@ -187,6 +189,8 @@ function toDraft(s: AppSettings): Draft {
     ignoreDst: s.PREPROCESSING.ignore_dst,
     convertToUtc: s.PREPROCESSING.convert_to_utc,
     fieldlog: { ...s.FIELDLOG, columns: { ...s.FIELDLOG.columns } },
+    keepCards: s.INGEST.keep_cards,
+    countTolerance: String(s.INGEST.count_tolerance),
   }
 }
 
@@ -214,7 +218,7 @@ function sectionValid(d: Draft, id: SectionId): boolean {
   }
   if (id === 'preprocessing') return numberIn(d.resizeWidth, RESIZE_WIDTH) !== null
   if (id === 'trapper') return numberIn(d.maxZipMb, MAX_ZIP_MB) !== null
-  if (id === 'fieldlog') return isTimezone(d.fieldlog.camera_timezone)
+  if (id === 'fieldlog') return isTimezone(d.fieldlog.camera_timezone) && numberIn(d.countTolerance, SIMILARITY_TOLERANCE) !== null
   return true
 }
 
@@ -240,6 +244,7 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
       ...d.fieldlog, camera_timezone: d.fieldlog.camera_timezone.trim() || 'UTC',
       columns: Object.fromEntries(Object.entries(d.fieldlog.columns).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)),
     },
+    INGEST: { keep_cards: d.keepCards, count_tolerance: Number(d.countTolerance) },
   }
 }
 
@@ -1025,6 +1030,18 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
                 ]}
               />
               <p className={`${hintClass} px-1`}>Only matters for datasheets that are not in the standard format, like Doñana&rsquo;s (Spanish headers, R/I/D/ROBADA).</p>
+            </Row>
+            <Row label="SD cards" description="Each card is copied untouched into the cards folder (inside the images folder), ready for Import session.">
+              <SelectBox
+                label="Keep the untouched copy of each card" value={draft.keepCards} onChange={(v) => set('keepCards', v)}
+                options={[
+                  { value: 'until_verified', label: 'Until its deployment is uploaded and verified in Trapper (recommended)' },
+                  { value: 'always', label: 'Always' },
+                  { value: 'until_imported', label: 'Until it is imported into its collection' },
+                ]}
+              />
+              <p className={`${hintClass} px-1`}>Keeping it takes the images&rsquo; space twice while the deployment is being prepared, but any correction can be undone from it.</p>
+              <NumberBox label="Files vs. photos counted in the field" value={draft.countTolerance} limits={SIMILARITY_TOLERANCE} onChange={(v) => set('countTolerance', v)} unit="% apart before it is pointed out" />
             </Row>
             <Row label="Epicollect columns" description="The column of the Epicollect download that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
               <div className="space-y-2">

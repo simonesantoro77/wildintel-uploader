@@ -236,6 +236,20 @@ class FieldlogSettings(BaseModel):
         return value
 
 
+class IngestSettings(BaseModel):
+    """Copying the SD cards (see services.ingest_service): each card is copied, untouched, into the cards folder —
+    <data directory>/cards/<research project>/<R000N>/<deployment id>/ — ready to be imported as a session."""
+
+    keep_cards: Literal["until_verified", "always", "until_imported"] = Field(
+        default="until_verified",
+        description="How long the untouched copy of each card is kept: until its deployment is uploaded and verified in Trapper, always, or until it is imported into its collection. (INGEST.keep_cards)",
+    )
+    count_tolerance: float = Field(
+        default=10.0, ge=0, le=1000,
+        description="How far, in percent, the files on a card can be from the photos counted in the field before it is pointed out. (INGEST.count_tolerance)",
+    )
+
+
 class Settings(BaseModel):
     GENERAL: GeneralSettings = Field(default_factory=GeneralSettings)
     TRAPPER: TrapperSettings = Field(default_factory=TrapperSettings)
@@ -245,6 +259,7 @@ class Settings(BaseModel):
     POSTVALIDATION: PostvalidationSettings = Field(default_factory=PostvalidationSettings)
     PREPROCESSING: PreprocessingSettings = Field(default_factory=PreprocessingSettings)
     FIELDLOG: FieldlogSettings = Field(default_factory=FieldlogSettings)
+    INGEST: IngestSettings = Field(default_factory=IngestSettings)
 
 
 class ConfigInfo(BaseModel):
@@ -371,6 +386,12 @@ def collections_dir(settings: Settings | None = None) -> Path:
     <data directory>/collections/<research project id>/<collection, e.g.
     R0003>/<deployment id>/ (see services.deployment_import_service)."""
     return data_dir(settings) / "collections"
+
+
+def cards_dir(settings: Settings | None = None) -> Path:
+    """Where the SD cards are copied, untouched, before they are imported: <data directory>/cards/<research project
+    id>/<collection>/<deployment id>/ (see services.ingest_service)."""
+    return data_dir(settings) / "cards"
 
 
 def reports_dir(settings: Settings | None = None) -> Path:

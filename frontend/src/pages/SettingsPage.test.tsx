@@ -26,6 +26,7 @@ beforeEach(() => {
     POSTVALIDATION: update.POSTVALIDATION,
     PREPROCESSING: update.PREPROCESSING,
     FIELDLOG: update.FIELDLOG,
+    INGEST: update.INGEST,
   }))
   mockedApi.fieldlogColumns.mockResolvedValue({ results: [
     { field: 'Notes', default: '12_Observation', label: 'Notes' },

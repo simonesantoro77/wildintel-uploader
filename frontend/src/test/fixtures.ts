@@ -101,4 +101,5 @@ export const APP_SETTINGS: AppSettings = {
     time_source: 'created_at', keep_seconds: false, datasheet_format: 'original', camera_timezone: 'UTC', columns: {},
     last_epicollect: null, last_datasheet: null, last_research_project: null,
   },
+  INGEST: { keep_cards: 'until_verified', count_tolerance: 10 },
 }

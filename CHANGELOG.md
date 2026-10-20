@@ -25,6 +25,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - **Settings › Field records**: the time of a visit (the entry's, or the date and hour typed), the timezone of the
     cameras' clocks (UTC), the seconds, the format of the updated datasheet, and the Epicollect column of each field
     for forms named otherwise. `/api/fieldlog/*`.
+- **Copy SD cards**, guided by the field records: the collection's deployments as the field records say them (camera still
+  out, card to copy, copied), and each card looked at before it is copied — its files, its first and last image, its
+  camera — and matched to its deployment by the label noted in the field and its dates against each period, with what
+  doesn't fit (more or fewer files than photos counted, images outside the period). The card is copied untouched into
+  `<images folder>/cards/<research project>/<R000N>/<deployment>/`, flat, each file checked by reading its SHA-256 back,
+  with a `card_copy.json` record (which card, when, by whom, every file with its size and checksum). A card copied once
+  is recognised and not copied again, into any deployment. The collection's FileTimestampLog goes beside the
+  deployments, so that folder is imported as it is with **Import session**.
+  - *Folders from elsewhere*: images organized some other way (a folder per site with the collections inside, say)
+    are found folder by folder, their collection and site guessed from the path, and copied the same way.
+  - **Settings › Field records › SD cards**: how long the untouched copy is kept, and how far the files may be from the
+    photos counted. `/api/ingest/*`.
+
 - **Import deployment**: organize a folder of camera-trap images into the local collections folder
   (`<Documents>/wildintel-uploader/collections/<research project>/<R000N>/<deployment id>`), in a wizard of four
   stages: images → origin and dates → check details → prepare and save.

@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, FieldlogColumn, FieldlogResult,
+  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, FieldlogColumn, FieldlogResult, CardsStatus, CardInspection, CardCopyEvent, TreeFolder,
 } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
@@ -122,6 +122,22 @@ export const api = {
     post<FieldlogResult>('/api/fieldlog/apply', { epicollect, datasheet, research_project_id: researchProjectId }),
   fieldlogOpenFolder: (path: string) =>
     post<{ opened: string }>('/api/fieldlog/open-folder', { path }),
+
+  // Copying the SD cards, guided by the field records (see the backend's ingest_service).
+  ingestCollections: (researchProjectId: string) =>
+    post<{ results: string[] }>('/api/ingest/collections', { research_project_id: researchProjectId }),
+  ingestStatus: (researchProjectId: string, collection: string) =>
+    post<CardsStatus>('/api/ingest/status', { research_project_id: researchProjectId, collection }),
+  ingestPrepare: (researchProjectId: string, collection: string) =>
+    post<CardsStatus>('/api/ingest/prepare', { research_project_id: researchProjectId, collection }),
+  ingestInspect: (researchProjectId: string, collection: string, source: string, cardLabel: string) =>
+    post<CardInspection>('/api/ingest/inspect', { research_project_id: researchProjectId, collection, source, card_label: cardLabel || null }),
+  ingestCopy: (researchProjectId: string, collection: string, source: string, cardLabel: string, deploymentId: string, onEvent: (event: CardCopyEvent) => void, allowUnknown = false) =>
+    streamNdjson<CardCopyEvent>('/api/ingest/copy', {
+      research_project_id: researchProjectId, collection, source, card_label: cardLabel || null, deployment_id: deploymentId, allow_unknown: allowUnknown,
+    }, onEvent, 'The copy ended unexpectedly.'),
+  ingestScanTree: (root: string, researchProjectId: string | null) =>
+    post<{ root: string; folders: TreeFolder[] }>('/api/ingest/scan-tree', { root, research_project_id: researchProjectId }),
 
   browseFolder: (title?: string) =>
     post<{ path: string | null }>('/api/deployment-import/browse-folder', { title: title ?? null }),

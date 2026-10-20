@@ -309,7 +309,7 @@ export interface PreprocessingOptions {
 }
 
 /** What the app's menu offers — import a deployment, import a whole session of them, or upload one to Trapper. */
-export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair' | 'fieldlog'
+export type Task = 'deployment' | 'upload' | 'session' | 'upload-session' | 'utils' | 'sync' | 'repair' | 'fieldlog' | 'cards'
 
 /** What syncing the local collections folder with Trapper did: for each kind of thing, what it created and what was already there. */
 export interface SyncResult {
@@ -479,6 +479,12 @@ export interface FieldlogSettings {
   last_research_project: string | null
 }
 
+/** Copying the SD cards: how long the untouched copy of each card is kept, and how far the files may be from the photos counted. */
+export interface IngestSettings {
+  keep_cards: 'until_verified' | 'always' | 'until_imported'
+  count_tolerance: number
+}
+
 /** One visit of the field records, as a deployment's start or end. */
 export interface FieldVisit {
   session: string
@@ -535,6 +541,81 @@ export interface FieldlogResult {
   collection_dirs?: string[]
 }
 
+/** A copy record's summary (card_copy.json). */
+export interface CardCopy {
+  card_label: string | null
+  copied_at: string | null
+  copied_by: string | null
+  file_count: number
+  total_bytes: number
+  source: string
+  first: string | null
+  last: string | null
+}
+
+/** A deployment of a collection as far as its card goes: camera still out, card to copy, or copied. */
+export interface CardDeployment {
+  deployment_id: string
+  site: string | null
+  state: 'out' | 'to_copy' | 'copied'
+  start: string | null
+  end: string | null
+  card: string | null
+  camera_id: string | null
+  photos_counted: number | null
+  copy: CardCopy | null
+}
+
+export interface CardsStatus {
+  collection: string
+  cards_dir: string
+  has_fieldwork_log: boolean
+  deployments: CardDeployment[]
+  unexpected: { deployment_id: string; copy: CardCopy | null }[]
+  counts: { out: number; to_copy: number; copied: number }
+}
+
+/** A deployment a card may belong to, best first, with what fits and what doesn't. */
+export interface CardCandidate extends CardDeployment {
+  score: number
+  fits: string[]
+  problems: string[]
+}
+
+/** A card looked at before it is copied. */
+export interface CardInspection {
+  source: string
+  file_count: number
+  image_count: number
+  video_count: number
+  other_count: number
+  total_bytes: number
+  subfolders: number
+  first: string | null
+  last: string | null
+  undated: number
+  camera_models: string[]
+  fingerprint: string
+  already_copied: { deployment_id: string; collection: string; copied_at: string | null; card_label: string | null }[]
+  candidates: CardCandidate[]
+  collection: string
+}
+
+export type CardCopyEvent =
+  | { type: 'copy'; index: number; total: number; name: string }
+  | { type: 'done'; record: CardCopy & { deployment_id: string; path: string } }
+
+/** A folder with images found under a tree that comes from elsewhere, with its collection and site guessed from the path. */
+export interface TreeFolder {
+  path: string
+  relative: string
+  image_count: number
+  file_count: number
+  collection: string | null
+  site: string | null
+  deployment_id: string | null
+}
+
 /** An Epicollect column the field records read: the datasheet field it gives, and its name unless the settings map it. */
 export interface FieldlogColumn {
   field: string
@@ -580,6 +661,7 @@ export interface AppSettings {
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
   FIELDLOG: FieldlogSettings
+  INGEST: IngestSettings
 }
 
 /** What the settings page saves. A blank password keeps the saved one. */
@@ -592,6 +674,7 @@ export interface AppSettingsUpdate {
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
   FIELDLOG: FieldlogSettings
+  INGEST: IngestSettings
 }
 
 /** A research project entered by hand — the fields of Trapper's own "Add

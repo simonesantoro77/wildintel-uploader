@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
+import CardsPage from './pages/CardsPage'
 import FieldLogPage from './pages/FieldLogPage'
 import ImportDeploymentPage from './pages/ImportDeploymentPage'
 import ImportSessionPage from './pages/ImportSessionPage'
@@ -96,6 +97,8 @@ export default function App() {
               ? <RepairPage />
               : task === 'fieldlog'
               ? <FieldLogPage />
+              : task === 'cards'
+              ? <CardsPage />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage

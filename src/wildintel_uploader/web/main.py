@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from wildintel_uploader.web.api.routers import app_settings, deployment_import, epicollect, fieldlog, health, repair, reports, sessions, sync, trapper, upload
+from wildintel_uploader.web.api.routers import app_settings, deployment_import, epicollect, fieldlog, health, ingest, repair, reports, sessions, sync, trapper, upload
 from wildintel_uploader.web.settings import configure_logging, settings
 
 configure_logging()
@@ -24,7 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for _router in [health.router, trapper.router, deployment_import.router, app_settings.router, sessions.router, upload.router, sync.router, reports.router, repair.router, epicollect.router, fieldlog.router]:
+for _router in [health.router, trapper.router, deployment_import.router, app_settings.router, sessions.router, upload.router, sync.router, reports.router, repair.router, epicollect.router, fieldlog.router, ingest.router]:
     app.include_router(_router)
 
 
