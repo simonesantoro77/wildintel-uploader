@@ -1,3 +1,4 @@
+import { StatusIcon } from './Notice'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -123,7 +124,7 @@ export function PreparingFiles({ items, startedAt, onStop }: {
           {items.map((i) => (
             <li key={i.id} className="flex items-center gap-4 px-5 py-3">
               <span className="w-5 shrink-0 flex justify-center">
-                {i.state === 'done' ? <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">✓</span> : i.state === 'working' ? <Spinner /> : i.state === 'failed' ? <span aria-hidden="true" className="text-red-600 dark:text-red-400">✕</span> : null}
+                {i.state === 'done' ? <StatusIcon kind="success" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> : i.state === 'working' ? <Spinner /> : i.state === 'failed' ? <StatusIcon kind="error" className="h-5 w-5 text-red-600 dark:text-red-400" /> : null}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</p>
@@ -221,7 +222,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
               return (
                 <li key={i.id}>
                   <button type="button" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)} className="flex w-full items-center gap-3 px-5 py-3 text-left">
-                    <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">✓</span>
+                    <StatusIcon kind="success" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     <span className="flex-1 min-w-0">
                       <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
                       <span className="block text-xs text-zinc-500 dark:text-zinc-400">{count(i.images, 'image')} · {count(own.length, 'file')}</span>

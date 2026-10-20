@@ -291,7 +291,7 @@ def to_session_dates(page: Page) -> None:
     open_task(page, "Import session")
     page.locator("input").first.fill("/home/me/Pictures/trip-2024-09")
     button(page, "Scan").click()
-    expect(page.get_by_text("3 subfolder(s)")).to_be_visible()
+    expect(page.get_by_text("tick the ones to import")).to_be_visible()
     button(page, "Continue to the checks").click()
     button(page, "Run checks").click()
     expect(page.get_by_role("link", name="Download report")).to_be_visible()

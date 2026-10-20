@@ -39,7 +39,7 @@
       warnings: [], from_timestamp_log: name === 'DONA_02', log_deployment_id: name === 'DONA_02' ? 'R0003-DONA_02' : null, guess: { start_date, end_date },
     })).map((d) => d.name === 'DONA_02' ? { ...d, start_date: '2024-09-04T13:30:00', end_date: '2024-10-12T07:00:00' } : d),
     loose_files: 0, warnings: [],
-    timestamp_log: { name: 'R0003_FileTimestampLog.csv', path: '/home/me/Pictures/trip-2024-09/R0003_FileTimestampLog.csv', rows: 1, matched: 1, revision: 3 },
+    timestamp_log: { name: 'R0003_FileTimestampLog.csv', path: '/home/me/Pictures/trip-2024-09/R0003_FileTimestampLog.csv', rows: 2, matched: 1, revision: 3, unmatched: ['R0003-DONA_04'] },
   }
 
   // The validation of 241 images, some with problems — the result, and (below) the report made of it.

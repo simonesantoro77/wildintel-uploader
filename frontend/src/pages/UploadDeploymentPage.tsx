@@ -6,6 +6,7 @@ import { FilesReady, PreparingFiles, btnPrimary as primaryButton, formatBytes } 
 import type { PrepareItem } from '../components/PrepareFiles'
 import { UploadedToTrapper, UploadingToTrapper } from '../components/UploadToTrapper'
 import type { UploadItem } from '../components/UploadToTrapper'
+import Notice from '../components/Notice'
 import WizardStep from '../components/WizardStep'
 import { formatPeriod } from '../dateFormat'
 import type { AccessCheck, ClassificationProject, LocalResearchProject, UploadCollection, UploadTarget, UploadDeploymentInfo, UploadEvent, UploadMode, UploadStep } from '../types'
@@ -323,21 +324,15 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
       {trapper === null ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Reading the settings…</p>
       ) : connected ? (
-        <div className="flex items-center justify-between gap-3 flex-wrap text-sm text-zinc-600 dark:text-zinc-300 mb-4 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-4 py-2.5">
-          <p>
-            <span aria-hidden="true">ℹ️ </span>Uploading as <span className="font-mono">{trapper.user_name}</span> to <span className="font-mono">{trapper.base_url}</span>
-            {mode === 'generate' ? ' (not needed just to prepare the files).' : ''}
-          </p>
-          {onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Change in Settings</button>}
-        </div>
+        <Notice kind="info" className="mb-4" action={onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Change in Settings</button>}>
+          Uploading as <span className="font-mono">{trapper.user_name}</span> to <span className="font-mono">{trapper.base_url}</span>
+          {mode === 'generate' ? ' (not needed just to prepare the files).' : ''}
+        </Notice>
       ) : (
-        <div className="flex items-center justify-between gap-3 flex-wrap text-sm text-amber-700 dark:text-amber-400 mb-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5">
-          <p>
-            <span aria-hidden="true">ℹ️ </span>There is no Trapper account saved yet — set its URL, username and password in Settings › Trapper first
-            {mode === 'generate' ? ' (to look up a research project that was not filled in from Trapper).' : '.'}
-          </p>
-          {onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Open Settings</button>}
-        </div>
+        <Notice kind="warning" className="mb-4" action={onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Open Settings</button>}>
+          There is no Trapper account saved yet — set its URL, username and password in Settings › Trapper first
+          {mode === 'generate' ? ' (to look up a research project that was not filled in from Trapper).' : '.'}
+        </Notice>
       )}
 
       <WizardStep n={1} title="Choose what to upload" status={stepStatus(1)} canEdit={!uploading} onEdit={() => { setChosen(false); setModeChosen(false); setPrepared(null) }}
@@ -357,15 +352,15 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
             </p>
           ))}
           {selectionChecks?.filter((c) => c.check === 'research_project' && !c.ok).map((c) => (
-            <div key={c.check} role="alert" className="mt-2 rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3">
-              <p className="text-sm text-red-700 dark:text-red-300"><span aria-hidden="true">⚠ </span>{c.message}</p>
-              <p className="text-xs text-red-700/80 dark:text-red-300/80 mt-1">Research projects can’t be created from here. Create it in Trapper, then check again.</p>
+            <Notice key={c.check} kind="error" role="alert" className="mt-2">
+              <p>{c.message}</p>
+              <p className="text-xs opacity-80 mt-1">Research projects can’t be created from here. Create it in Trapper, then check again.</p>
               <div className="flex items-center gap-2 mt-2">
                 <button type="button" className={btnOutline} disabled={checkingSelection} onClick={() => setRecheck((n) => n + 1)}>Check again</button>
                 {trapper?.base_url && <a className={`${btnPrimary} no-underline`} href={trapper.base_url} target="_blank" rel="noreferrer">Open Trapper</a>}
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">You can still go “Only prepare the files” below without Trapper.</p>
-            </div>
+              <p className="text-xs opacity-80 mt-2">You can still go “Only prepare the files” below without Trapper.</p>
+            </Notice>
           ))}
           {projects.length === 0 && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Nothing is kept in the collections folder yet — import a deployment first.</p>}
         </div>

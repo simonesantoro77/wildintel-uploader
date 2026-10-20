@@ -771,6 +771,21 @@ describe('ImportDeploymentPage', () => {
     expect(screen.getByLabelText('Camera id')).toHaveValue('P800HG08')
   })
 
+  it('has a Back on the first step that goes back to the menu', async () => {
+    const onBack = vi.fn()
+    render(<ImportDeploymentPage onBack={onBack} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Back/ }))
+
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no Back on the first step when there is no menu to go back to', () => {
+    render(<ImportDeploymentPage />)
+
+    expect(screen.queryByRole('button', { name: /^← Back$|^Back$/ })).not.toBeInTheDocument()
+  })
+
   it('asks for the deployment details right after the origin', async () => {
     await goToNewDetailsStep()
     await manualEntry()

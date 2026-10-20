@@ -7,6 +7,7 @@ import { formatDay } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry, entryPeriod } from '../epicollectImport'
 import DateSourcePicker, { SOURCE_ORDER, against } from '../components/DateSourcePicker'
+import Notice, { StatusIcon } from '../components/Notice'
 import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
@@ -76,9 +77,11 @@ interface Props {
   onOpenSettings?: (section?: 'epicollect') => void
   /** Whether the settings are open over the wizard: what they hold is read again once they close. */
   settingsOpen?: boolean
+  /** Goes back to the menu — what Back does on the first step. */
+  onBack?: () => void
 }
 
-export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack }: Props = {}) {
   const [step, setStep] = useState(0)
   const stepKey = STEPS[step].key
   // The sub-steps of the images and of the origin: the one open, and the furthest reached.
@@ -718,13 +721,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     </p>
   )
   const outcomeBanner = (problems: number, blocking: number, requiredCount: number, what: string) => (
-    <div role="status" className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-      problems === 0
-        ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-        : blocking > 0
-          ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
-          : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-    }`}>
+    <Notice role="status" className="mb-4" kind={problems === 0 ? 'success' : blocking > 0 ? 'error' : 'warning'}>
       {problems === 0
         ? 'Every check passed in every deployment.'
         : <>{plural(problems, 'check found', 'checks found')} problems in {what}. {
@@ -732,7 +729,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               ? `${plural(blocking, 'is', 'are')} set to Must pass — resolve ${blocking === 1 ? 'it' : 'them'} to continue.`
               : requiredCount === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
           }</>}
-    </div>
+    </Notice>
   )
   const openImagesStep = (n: number) => { setImagesOpen(n); setImagesReached((r) => Math.max(r, n)) }
   function chooseImageStrictness(check: ImageCheck, strictness: Strictness) {
@@ -797,10 +794,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
           <WizardStep n={1} title="Session folder" status={imagesStatus(1)} canEdit={!validating} onEdit={() => setImagesOpen(1)}
                       description="A folder with one subfolder per deployment, on this computer."
                       summary={scan && <>{sessionName}<br />{plural(candidates.length, 'deployment', 'deployments')} · {plural(candidates.reduce((n, d) => n + d.image_count, 0), 'image', 'images')}</>}>
-            <div className="mb-4 flex items-center gap-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-              <span aria-hidden="true">⚠</span>
-              <span>Copy the images from the cameras&rsquo; memory cards to a local folder first — don&rsquo;t point this at a card itself.</span>
-            </div>
+            <Notice kind="warning" className="mb-4">Copy the images from the cameras&rsquo; memory cards to a local folder first — don&rsquo;t point this at a card itself.</Notice>
             <label className={labelClass} htmlFor="session-dir">Folder path</label>
             <div className="flex gap-2">
               <input id="session-dir" className={`${inputClass} flex-1`} placeholder="/home/me/Pictures/R0003" value={sessionDir}
@@ -815,7 +809,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             {scanError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{scanError}</p>}
             {scan && (
               <div className="mt-4">
-                {scan.warnings.map((w, i) => <p key={i} className="text-sm text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
+                {scan.warnings.map((w, i) => <Notice key={i} kind="warning" className="mb-2">{w}</Notice>)}
+                {scan.timestamp_log && (
+                  <Notice kind="success" role="status" className="mb-2">
+                    Timestamp log found: <span className="font-mono">{scan.timestamp_log.name}</span>. Its dates are imported.
+                  </Notice>
+                )}
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">{scan.deployments.length} subfolder(s) — tick the ones to import.</p>
                 <table className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded">
                   <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-xs text-zinc-500 dark:text-zinc-400">
@@ -824,6 +823,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                       <th scope="col" className="px-3 py-2 text-left">Subfolder</th>
                       <th scope="col" className="px-3 py-2 text-right">Images</th>
                       <th scope="col" className="px-3 py-2 text-left">Dates</th>
+                      {scan.timestamp_log && <th scope="col" className="px-3 py-2 text-left">In the timestamp log</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -838,13 +838,27 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                         </td>
                         <td className="px-3 py-2 text-right">{d.image_count}</td>
                         <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{d.from_timestamp_log ? `${d.start_date?.slice(0, 10) ?? '?'} → ${d.end_date?.slice(0, 10) ?? '?'}` : <span title="Read from the images when the details are asked for">—</span>}</td>
+                        {scan.timestamp_log && (
+                          <td className="px-3 py-2">
+                            {d.from_timestamp_log
+                              ? <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">In the log</span>
+                              : <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">Not in the log</span>}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {scan.timestamp_log && (scan.timestamp_log.unmatched?.length ?? 0) > 0 && (
+                  <Notice kind="warning" role="alert" className="mt-3">
+                    {scan.timestamp_log.unmatched!.length === 1 ? 'An entry of the timestamp log has' : `${scan.timestamp_log.unmatched!.length} entries of the timestamp log have`} no folder:{' '}
+                    <span className="font-mono">{scan.timestamp_log.unmatched!.slice(0, 5).join(', ')}{scan.timestamp_log.unmatched!.length > 5 ? ', …' : ''}</span>.
+                  </Notice>
+                )}
               </div>
             )}
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-between items-center mt-4">
+              {onBack ? <button type="button" className={btnOutline} disabled={scanning} onClick={onBack}><span aria-hidden="true">← </span>Back</button> : <div />}
               <button type="button" aria-label="Continue to the checks" className={btnPrimary} disabled={!scan || scanning || candidates.length === 0} onClick={() => openImagesStep(2)}>Continue<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
@@ -944,14 +958,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => assignSuggested(suggestedNow)}>Assign {suggestedNow.length}</button>
                 </div>
               ) : withLocation < chosen.length && (
-                <div role="alert" className="mb-4 flex items-center gap-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-5 py-4 text-sm text-red-800 dark:text-red-200">
-                  <span aria-hidden="true">⚠</span>
-                  <span>
-                    {localLocations.length === 0
-                      ? <>{projectId} has no locations yet — add them below, one for each deployment.</>
-                      : <>No folder name matches a location in {projectId}. Pick the location of each deployment below, or add the ones that are missing.</>}
-                  </span>
-                </div>
+                <Notice kind="error" role="alert" className="mb-4">
+                  {localLocations.length === 0
+                    ? <>{projectId} has no locations yet — add them below, one for each deployment.</>
+                    : <>No folder name matches a location in {projectId}. Pick the location of each deployment below, or add the ones that are missing.</>}
+                </Notice>
               )}
               <div className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 p-5">
                 <div className="flex items-baseline justify-between gap-3">
@@ -1022,10 +1033,10 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                               )}
                               {duplicated(d.name) && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Another deployment of the session has this id — each needs its own location.</p>}
                               {existingFolder(d.name) && (
-                                <p role="alert" className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                                  ⚠ This deployment already exists: <span className="font-mono break-all">{existingFolder(d.name)}</span> is already kept, and
+                                <Notice kind="warning" role="alert" className="mt-2">
+                                  This deployment already exists: <span className="font-mono break-all">{existingFolder(d.name)}</span> is already kept, and
                                   importing it again would be refused as it would mix them. Choose another location, or move that folder away.
-                                </p>
+                                </Notice>
                               )}
                             </td>
                             <td className="px-4 py-3 align-top text-right">
@@ -1067,7 +1078,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               </div>
             </div>
           )}
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-between items-center mt-4">
+              <button type="button" className={btnOutline} onClick={() => setStep((s) => s - 1)}><span aria-hidden="true">← </span>Back</button>
               <button type="button" className={btnPrimary} disabled={!projectId} onClick={() => { setOriginOpen(2); setOriginReached(2) }}>Continue to the details<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
@@ -1098,11 +1110,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               </div>
             )}
             {revisionValid && existingNames.length > 0 && (
-              <p aria-live="polite" className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-                ⚠ Revision {revisionNumber} already has {existingNames.length} of these {chosen.length} deployment(s) in the collections folder:{' '}
+              <Notice kind="warning" role="status" className="mt-3">
+                Revision {revisionNumber} already has {existingNames.length} of these {chosen.length} deployment(s) in the collections folder:{' '}
                 <span className="font-mono">{existingNames.slice(0, 5).map((d) => fieldsOf(d.name).deployment_id).join(', ')}{existingNames.length > 5 ? ', …' : ''}</span>.
                 Importing them again would be refused — pick another revision, or leave them out.
-              </p>
+              </Notice>
             )}
             {revisionValid && canFillFromPrevious && (() => {
               const withEarlier = chosen.filter((d) => hasEarlierRevision(d.name))
@@ -1208,7 +1220,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             </ul>
           </FormCard>
           {detailsError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{detailsError}</p>}
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-between items-center mt-4">
+            <button type="button" className={btnOutline} onClick={() => setOriginOpen(1)}><span aria-hidden="true">← </span>Back</button>
             <button type="button" aria-label="Continue to more details" className={btnPrimary} disabled={!detailsReady}
                     onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
           </div>
@@ -1363,7 +1376,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 const bad = Boolean(outcome.error) || runnableDeploymentChecks.some((c) => deploymentCheckPassed(c, outcome.result ?? null) === false)
                 return (
                   <details key={d.name} className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2" open={bad}>
-                    <summary className="cursor-pointer text-sm font-mono">{bad ? '⚠' : '✔'} {fieldsOf(d.name).deployment_id}</summary>
+                    <summary className="cursor-pointer text-sm font-mono"><StatusIcon kind={bad ? 'warning' : 'success'} className={`inline h-4 w-4 mr-1.5 align-text-bottom ${bad ? 'text-amber-500' : 'text-emerald-500'}`} />{fieldsOf(d.name).deployment_id}</summary>
                     {outcome.error && <p className="text-sm text-red-600 dark:text-red-400">{outcome.error}</p>}
                     {outcome.result && !outcome.result.report_id && <DeploymentCheckReport result={outcome.result} toleranceHours={toleranceHours} />}
                     {outcome.result?.report_id && <ReportPanel reportId={outcome.result.report_id} />}
@@ -1502,8 +1515,10 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       })()}
 
       {/* Navigation */}
-      <div className="flex justify-between items-start mt-10">
-        {step > 0 && !importing ? (
+      <div className="flex justify-between items-end mt-10">
+        {stepKey === 'origin' ? (
+          originOpen === 3 && !importing ? <button type="button" className={btnOutline} onClick={() => setOriginOpen(2)}><span aria-hidden="true">← </span>Back</button> : <div />  // the other two have their own
+        ) : step > 0 && !importing ? (
           <button type="button" className={btnOutline} onClick={() => setStep((s) => s - 1)} disabled={allDone}><span aria-hidden="true">← </span>Back</button>
         ) : stepKey === 'images' && imagesOpen === 3 ? (
           <button type="button" className={btnOutline} disabled={validating} onClick={() => setImagesOpen(2)}><span aria-hidden="true">← </span>Back</button>

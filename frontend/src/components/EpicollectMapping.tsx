@@ -1,3 +1,4 @@
+import Notice from './Notice'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { ALL_MAPPED_FIELDS, DEPLOYMENT_FIELD_GROUPS, canFill, suggestMapping } from '../epicollectMapping'
@@ -82,16 +83,12 @@ export default function EpicollectMapping({ mapping, onChange, projectSaved, uns
       </div>
 
       {!projectSaved && (
-        <p role="status" className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-          There is no Epicollect5 project saved yet: set its slug in the Epicollect5 section and save, and its form is read here.
-        </p>
+        <Notice kind="warning" role="status">There is no Epicollect5 project saved yet: set its slug in the Epicollect5 section and save, and its form is read here.</Notice>
       )}
       {projectSaved && unsavedProject && (
-        <p role="status" className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-          The project or the client was changed and not saved yet: the form shown is the one of what is saved. Save, then reload the form.
-        </p>
+        <Notice kind="warning" role="status">The project or the client was changed and not saved yet: the form shown is the one of what is saved. Save, then reload the form.</Notice>
       )}
-      {error && <p role="alert" className="rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
+      {error && <Notice kind="error" role="alert">{error}</Notice>}
 
       {DEPLOYMENT_FIELD_GROUPS.map((group) => (
         <section key={group.id} aria-label={group.label} className="rounded-xl border border-zinc-200 dark:border-zinc-800">

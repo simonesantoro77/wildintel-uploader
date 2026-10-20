@@ -59,6 +59,8 @@ export interface SessionTimestampLog {
   path: string
   rows: number
   matched: number
+  /** The ids of the rows of the log that no subfolder matches, as written in it. */
+  unmatched?: string[]
   /** The revision number the matched ids start with (R0033-… → 33), when they all agree. */
   revision: number | null
 }

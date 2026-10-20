@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { Report } from '../types'
 import CheckFailures from './CheckFailures'
+import Notice, { StatusIcon } from './Notice'
 import { btnOutline } from '../pages/ImportDeploymentPage'
 import { formatRun } from './ValidationDashboard'
 
@@ -87,9 +88,7 @@ export default function SessionResults({ folders, checks, running, banner, byChe
     return <CheckFailures report={viewReport} check={viewing.check} parent={viewing.name} onBack={() => setViewing(null)} />
   }
 
-  const tone = { ok: 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300',
-    warn: 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300',
-    error: 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300' }
+  const kindOf = { ok: 'success', warn: 'warning', error: 'error' } as const
   const tab = (active: boolean) => `px-3 py-1.5 text-sm font-medium rounded-md ${active ? 'bg-blue-600 text-white' : 'border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300'}`
 
   return (
@@ -104,12 +103,12 @@ export default function SessionResults({ folders, checks, running, banner, byChe
         </div>
       )}
       {banner && !running && (
-        <div role="status" className={`mb-4 flex items-center justify-between gap-3 flex-wrap rounded-lg border px-4 py-3 text-sm ${tone[banner.tone]}`}>
-          <span>{banner.text}</span>
-          {stillIn.length > 0 && (
-            <button type="button" className="rounded border border-current px-3 py-1.5 text-xs font-medium" onClick={() => onLeaveOut(stillIn.map((f) => f.name))}>Leave them out</button>
-          )}
-        </div>
+        <Notice role="status" className="mb-4" kind={kindOf[banner.tone]}
+                action={stillIn.length > 0 && (
+                  <button type="button" className="rounded border border-current px-3 py-1.5 text-xs font-medium" onClick={() => onLeaveOut(stillIn.map((f) => f.name))}>Leave them out</button>
+                )}>
+          {banner.text}
+        </Notice>
       )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
@@ -136,7 +135,7 @@ export default function SessionResults({ folders, checks, running, banner, byChe
               <div key={f.name} className={f.included ? '' : 'opacity-60'}>
                 <button type="button" aria-expanded={open} aria-label={`${open ? 'Close' : 'Open'} ${f.name}`} onClick={() => setOpened(open ? null : f.name)}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                  <span aria-hidden="true" className={bad ? 'text-amber-500' : 'text-emerald-500'}>{bad ? '⚠' : '✔'}</span>
+                  <StatusIcon kind={bad ? 'warning' : 'success'} className={`h-5 w-5 ${bad ? 'text-amber-500' : 'text-emerald-500'}`} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-mono font-semibold text-zinc-900 dark:text-zinc-100">{f.name}</span>
                     <span className="block text-xs text-zinc-500 dark:text-zinc-400">{plural(f.images, 'image', 'images')}{!f.included && ' · left out'}</span>

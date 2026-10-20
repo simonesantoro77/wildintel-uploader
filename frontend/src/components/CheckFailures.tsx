@@ -1,3 +1,4 @@
+import { StatusIcon } from './Notice'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { Report, ReportEntry } from '../types'
@@ -42,7 +43,7 @@ function ImageDetails({ report, path, onClose }: { report: Report; path: string;
         <ul className="mt-3 space-y-1 text-sm">
           {entries.map((e, i) => (
             <li key={`${e.check}|${i}`} className="flex gap-2">
-              <span aria-hidden="true" className={e.status === 'ok' ? 'text-emerald-500' : 'text-amber-500'}>{e.status === 'ok' ? '✔' : '⚠'}</span>
+              <StatusIcon kind={e.status === 'ok' ? 'success' : 'warning'} className={`h-4 w-4 mt-0.5 ${e.status === 'ok' ? 'text-emerald-500' : 'text-amber-500'}`} />
               <span><strong>{report.checks[e.check]?.label ?? e.check}</strong> — <span className={e.status === 'ok' ? 'text-zinc-500 dark:text-zinc-400' : 'text-amber-700 dark:text-amber-400'}>{e.message}</span></span>
             </li>
           ))}
