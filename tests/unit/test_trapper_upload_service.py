@@ -1014,10 +1014,40 @@ def test_the_uploader_login_says_what_trapper_answered_when_it_gives_no_session(
         _login(lambda request: httpx.Response(200, text="<html>Welcome</html>"))
 
 
-def test_a_location_of_someone_else_is_refused_before_anything_is_created():
+def test_a_location_of_someone_else_is_explained_not_refused():
     theirs = {"location_id": "dona-001", "owner": "bob@x.org", "can_manage": False}
     problem = up.location_access_problem(theirs, "alice@x.org")
     assert problem and "bob@x.org" in problem and "dona-001" in problem
+
+
+def _someone_elses_location(monkeypatch: pytest.MonkeyPatch):
+    row = {"pk": 1, "location_id": "DONA_0006_B", "name": None, "timezone": "Europe/Madrid", "ignore_dst": True, "owner": "bob@x.org", "can_manage": False}
+    monkeypatch.setattr(up.trapper_service, "list_locations", lambda *a, **k: [row])
+
+
+def test_a_dry_run_warns_that_the_location_may_not_be_usable_but_goes_on(tmp_path: Path, fake_uploader, monkeypatch: pytest.MonkeyPatch):
+    collection = _imported(tmp_path, 3)
+    _someone_elses_location(monkeypatch)
+
+    events = _run(tmp_path, collection, FakeTrapper(locations=["DONA_0006_B"]), "dry_run")
+
+    message = next(e["message"] for e in events if e["type"] == "step" and e["step"] == "deployment" and e["status"] == "done")
+    assert "would be created" in message and "Warning" in message and "bob@x.org" in message
+    assert events[-1]["type"] == "done"
+
+
+def test_when_trapper_refuses_the_deployment_the_error_says_who_owns_the_location(tmp_path: Path, fake_uploader, monkeypatch: pytest.MonkeyPatch):
+    collection = _imported(tmp_path, 3)
+    _someone_elses_location(monkeypatch)
+    fake = FakeTrapper(locations=["DONA_0006_B"])
+
+    def refuse(**kw):
+        raise RuntimeError("The object does not exist in the database.")
+
+    fake.deployments.import_deployments = refuse
+
+    with pytest.raises(up.TrapperUploadError, match="does not exist in the database.*bob@x.org"):
+        _run(tmp_path, collection, fake, "upload")
 
 
 def test_the_owner_a_manager_or_an_unknown_location_is_not_a_problem():

@@ -342,15 +342,16 @@ def find_location(credentials: tuple[str, str, str], research_project_pk: int, d
 
 
 def location_access_problem(location: dict | None, username: str) -> str | None:
-    """Why the account can't put a deployment in this location — Trapper only takes a deployment whose location the account owns
-    or manages — or None when it can (or when Trapper doesn't say)."""
+    """Why the account may not be able to put a deployment in this location — Trapper only takes a deployment whose location the
+    account owns or manages — or None when it can (or when Trapper doesn't say). A guess: Trapper doesn't list a location's
+    managers, so it goes by the owner and by whether Trapper offers the account to delete the location. Only to explain."""
     if location is None or location.get("can_manage") is None:
         return None
     owner = location.get("owner")
     if location["can_manage"] or (owner and owner.lower() == username.lower()):
         return None
     return (f"The location {location['location_id']} belongs to {owner or 'another user'}, and {username} is neither its owner nor one of its managers, "
-            "so Trapper would refuse a deployment there. Ask its owner to make this account a manager of the location — or use a location of your own.")
+            "so Trapper may refuse a deployment there. Ask its owner to make this account a manager of the location — or use a location of your own.")
 
 
 def _location_time_settings(location: dict | None, timezone_name: str, ignore_dst: bool) -> tuple[str, bool, str]:
@@ -773,16 +774,18 @@ def upload_stream(
         if dry:
             existing = find_deployment_record(credentials, project_pk, deployment)  # type: ignore[arg-type]
             deployment_created = existing is None
-            if deployment_created and (problem := location_access_problem(found, credentials[1])):  # type: ignore[index]
-                raise TrapperUploadError(problem)
-            yield step("deployment", "done", f"Deployment {deployment_id} would be created." if deployment_created else f"Deployment {deployment_id} is already in Trapper.",
+            warning = f" Warning: {problem}" if deployment_created and (problem := location_access_problem(found, credentials[1])) else ""  # type: ignore[index]
+            yield step("deployment", "done", (f"Deployment {deployment_id} would be created." if deployment_created else f"Deployment {deployment_id} is already in Trapper.") + warning,
                        trapper_link(credentials, "deployment", (existing or {}).get("pk")))
         else:
-            if not deployment_exists(credentials, project_pk, deployment):  # type: ignore[arg-type]
-                problem = location_access_problem(location, credentials[1])  # type: ignore[index]
+            # Not a refusal: the pointer to who may use the location is a guess (see location_access_problem) — it only explains a failure.
+            problem = location_access_problem(location, credentials[1])  # type: ignore[index]
+            try:
+                deployment_created = ensure_deployment(credentials, project_pk, deployment, timezone_name=timezone_name, ignore_dst=ignore_dst, work_dir=work_dir)  # type: ignore[arg-type]
+            except Exception as exc:
                 if problem:
-                    raise TrapperUploadError(problem)
-            deployment_created = ensure_deployment(credentials, project_pk, deployment, timezone_name=timezone_name, ignore_dst=ignore_dst, work_dir=work_dir)  # type: ignore[arg-type]
+                    raise TrapperUploadError(f"{_trapper_message(exc)} {problem}") from exc
+                raise
             record = find_deployment_record(credentials, project_pk, deployment)  # type: ignore[arg-type]
             trapper_deployment_id = record["deployment_id"] if record else None
             message = f"Deployment {deployment_id} {'created' if deployment_created else 'was already in Trapper'}"

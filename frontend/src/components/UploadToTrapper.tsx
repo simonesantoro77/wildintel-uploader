@@ -185,9 +185,11 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
       ) : (
         <div role="alert" className="rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-5 py-4 mb-4">
           <p className="font-semibold text-amber-900 dark:text-amber-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(sent.length, 'deployment')} uploaded, ${failed.length} could not be uploaded`}</p>
-          <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300 list-disc ml-5">
-            {failed.map((i) => <li key={i.id}><span className="font-mono">{i.id}</span>: {i.error ?? 'It was not uploaded.'}</li>)}
-          </ul>
+          {sent.length === 0 && (
+            <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300 list-disc ml-5">
+              {failed.map((i) => <li key={i.id}><span className="font-mono">{i.id}</span>: {i.error ?? 'It was not uploaded.'}</li>)}
+            </ul>
+          )}
         </div>
       )}
 
