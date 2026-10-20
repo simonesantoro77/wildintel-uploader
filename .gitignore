@@ -15,5 +15,3 @@ site/
 .claude/
 .idea/
 _trapper-sdk/
-examples/deployment_example_3000/
-examples/deployment_example_3000_faulty/
