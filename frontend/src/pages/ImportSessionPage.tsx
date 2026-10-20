@@ -1,4 +1,5 @@
 import ReportPanel from '../components/ReportPanel'
+import DeploymentResults from '../components/DeploymentResults'
 import SessionResults from '../components/SessionResults'
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -7,7 +8,7 @@ import { formatDay } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry, entryPeriod } from '../epicollectImport'
 import DateSourcePicker, { SOURCE_ORDER, against } from '../components/DateSourcePicker'
-import Notice, { StatusIcon } from '../components/Notice'
+import Notice from '../components/Notice'
 import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
@@ -720,17 +721,16 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Skip</strong> doesn't run the check · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Warn</strong> shows the problems but lets you continue · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Must pass</strong> blocks you until it passes.
     </p>
   )
-  const outcomeBanner = (problems: number, blocking: number, requiredCount: number, what: string) => (
-    <Notice role="status" className="mb-4" kind={problems === 0 ? 'success' : blocking > 0 ? 'error' : 'warning'}>
-      {problems === 0
-        ? 'Every check passed in every deployment.'
-        : <>{plural(problems, 'check found', 'checks found')} problems in {what}. {
-            blocking > 0
-              ? `${plural(blocking, 'is', 'are')} set to Must pass — resolve ${blocking === 1 ? 'it' : 'them'} to continue.`
-              : requiredCount === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
-          }</>}
-    </Notice>
-  )
+  const outcomeBannerOf = (problems: number, blocking: number, requiredCount: number, what: string) => ({
+    kind: (problems === 0 ? 'success' : blocking > 0 ? 'error' : 'warning') as 'success' | 'warning' | 'error',
+    text: problems === 0
+      ? 'Every check passed in every deployment.'
+      : <>{plural(problems, 'check found', 'checks found')} problems in {what}. {
+          blocking > 0
+            ? `${plural(blocking, 'is', 'are')} set to Must pass — resolve ${blocking === 1 ? 'it' : 'them'} to continue.`
+            : requiredCount === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
+        }</>,
+  })
   const openImagesStep = (n: number) => { setImagesOpen(n); setImagesReached((r) => Math.max(r, n)) }
   function chooseImageStrictness(check: ImageCheck, strictness: Strictness) {
     setImageChecks((prev) => { const next = new Set(prev); if (strictness === 'skip') next.delete(check); else next.add(check); return next })
@@ -1313,6 +1313,13 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         const problems = shownDeploymentChecks.filter((o) => deploymentChecks.has(o.value) && failedIn(o.value) > 0)
         const blocking = problems.filter((o) => requiredDeploymentChecks.has(o.value))
         const withProblems = chosen.filter((d) => checks[d.name]?.error || runnableDeploymentChecks.some((c) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) === false))
+        const byCheckTable = (
+          <StrictnessTable
+            options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
+            enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
+            describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one you chose for each deployment').replace(/\.$/, '')}
+            outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
+        )
         return (
         <div>
           <div className="flex flex-wrap gap-2 mb-6">
@@ -1364,26 +1371,21 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                           {checking ? <SmallSpinner /> : null}{checking ? 'Checking…' : 'Run again'}
                         </button>
                       ) : undefined}>
-            {ran && !checking && outcomeBanner(problems.length, blocking.length, requiredDeploymentChecks.size, plural(withProblems.length, 'deployment', 'deployments'))}
-            <StrictnessTable
-              options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
-              enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
-              describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one you chose for each deployment').replace(/\.$/, '')}
-              outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
-            <div className="mt-4 space-y-2">
-              {chosen.filter((d) => checks[d.name]).map((d) => {
-                const outcome = checks[d.name]
-                const bad = Boolean(outcome.error) || runnableDeploymentChecks.some((c) => deploymentCheckPassed(c, outcome.result ?? null) === false)
-                return (
-                  <details key={d.name} className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2" open={bad}>
-                    <summary className="cursor-pointer text-sm font-mono"><StatusIcon kind={bad ? 'warning' : 'success'} className={`inline h-4 w-4 mr-1.5 align-text-bottom ${bad ? 'text-amber-500' : 'text-emerald-500'}`} />{fieldsOf(d.name).deployment_id}</summary>
-                    {outcome.error && <p className="text-sm text-red-600 dark:text-red-400">{outcome.error}</p>}
-                    {outcome.result && !outcome.result.report_id && <DeploymentCheckReport result={outcome.result} toleranceHours={toleranceHours} />}
-                    {outcome.result?.report_id && <ReportPanel reportId={outcome.result.report_id} />}
-                  </details>
-                )
-              })}
-            </div>
+            {ran && !checking && (
+              <DeploymentResults
+                deployments={chosen.filter((d) => checks[d.name]).map((d) => {
+                  const outcome = checks[d.name]
+                  return {
+                    name: fieldsOf(d.name).deployment_id, images: d.image_count, error: outcome.error,
+                    failed: runnableDeploymentChecks.filter((c) => deploymentCheckPassed(c, outcome.result ?? null) === false).map((c) => DEPLOYMENT_CHECK_DISPLAY[c].label),
+                    reportId: outcome.result?.report_id ?? null,
+                    detail: outcome.result && !outcome.result.report_id ? <DeploymentCheckReport result={outcome.result} toleranceHours={toleranceHours} /> : undefined,
+                  }
+                })}
+                banner={outcomeBannerOf(problems.length, blocking.length, requiredDeploymentChecks.size, plural(withProblems.length, 'deployment', 'deployments'))}
+                byCheck={byCheckTable} />
+            )}
+            {(!ran || checking) && byCheckTable}
           </WizardStep>
         </div>
         )

@@ -22,7 +22,7 @@ export interface FolderResult {
   included: boolean
 }
 
-function Figure({ tone, value, label }: { tone: string; value: number; label: string }) {
+export function Figure({ tone, value, label }: { tone: string; value: number; label: string }) {
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2.5">
       <p className={`text-2xl font-bold leading-tight ${tone}`}>{value.toLocaleString('en-US')}</p>
@@ -31,7 +31,9 @@ function Figure({ tone, value, label }: { tone: string; value: number; label: st
   )
 }
 
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
+export const plural = (n: number, one: string, many: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
+
+export const tabClass = (active: boolean) => `px-3 py-1.5 text-sm font-medium rounded-md ${active ? 'bg-blue-600 text-white' : 'border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300'}`
 
 /** The results of the checks of a session, folder by folder: how many passed, which had problems and what they were, and — by check —
  * the table the page has. The folders are units: each is checked on its own. */
@@ -89,7 +91,7 @@ export default function SessionResults({ folders, checks, running, banner, byChe
   }
 
   const kindOf = { ok: 'success', warn: 'warning', error: 'error' } as const
-  const tab = (active: boolean) => `px-3 py-1.5 text-sm font-medium rounded-md ${active ? 'bg-blue-600 text-white' : 'border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300'}`
+  const tab = tabClass
 
   return (
     <div>
