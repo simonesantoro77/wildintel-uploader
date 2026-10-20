@@ -267,6 +267,10 @@ export const api = {
       classification_project_pk: classificationProjectPk, delete_files: deleteFiles,
     }, onEvent, 'The upload ended unexpectedly.', signal),
 
+  // Keeps the report of an upload that has ended, with the others; says its id.
+  saveUploadReport: (researchProjectId: string, collection: string, startedAt: string, finishedAt: string, items: Record<string, unknown>[]) =>
+    post<{ report_id: string }>('/api/upload/report', { research_project_id: researchProjectId, collection, started_at: startedAt, finished_at: finishedAt, items }),
+
   // Whether ExifTool is installed — adding metadata needs it.
   // Opens a folder kept by the app (inside its data folder) in the system's file explorer.
   openFolder: (path: string) => post<{ opened: string }>('/api/deployment-import/open-folder', { path }),

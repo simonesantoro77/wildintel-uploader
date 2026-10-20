@@ -1,4 +1,4 @@
-import { StatusIcon } from './Notice'
+import { BadgeIcon, StatusIcon } from './Notice'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -178,7 +178,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
   }
   const banner: ReactNode = failed.length === 0 ? (
     <div role="status" className="flex items-center gap-4 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 mb-4">
-      <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span>
+      <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-5 w-5" /></span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-emerald-900 dark:text-emerald-100">Files prepared</p>
         <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">{when} · took {formatDuration(finishedAt - startedAt)}. Nothing was sent to Trapper.</p>

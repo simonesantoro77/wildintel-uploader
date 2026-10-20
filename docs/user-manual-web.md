@@ -536,8 +536,8 @@ deployments and images have been sent and a row for each deployment with its sta
 to check there that it was created or updated. A dry run links to what is already there; what it would create has no page yet. **Stop** ends it —
 what is already in Trapper stays there. When one fails, the others go on, and the summary says so: *"1 deployment uploaded, 1
 could not be uploaded."* The failed one is in the list with its reason — when Trapper refuses a deployment because its location belongs to
-someone else, the reason says who owns it. The page shows the date of the run and a **Download report** link, a CSV with a row per
-deployment. **Upload more** starts over.
+someone else, the reason says who owns it. The page shows the date of the run and a **Download report** link: the report of the upload is kept with the others
+(*Settings › Reports*), a row per deployment and step. **Upload more** starts over.
 
 ![An upload midway: the first deployment is done, the second is sending its zip](img/screenshots/upload-running.png)
 

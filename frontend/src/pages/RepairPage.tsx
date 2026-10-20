@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
+import { Mark, mark } from '../components/Notice'
 import BackButton from '../components/BackButton'
 import ReportPanel from '../components/ReportPanel'
 import WizardStep from '../components/WizardStep'
@@ -35,10 +36,10 @@ function reduceRun(run: Run, event: RepairEvent): Run {
 function StateBadge({ state, repairing }: { state: RepairState | undefined; repairing: boolean }) {
   if (repairing) return <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"><SmallSpinner />Repairing…</span>
   const [text, tone] = !state ? ['Not checked', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400']
-    : state.status === 'valid' ? ['✔ Valid', 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300']
+    : state.status === 'valid' ? [mark('success', 'Valid'), 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300']
     : state.status === 'synced' ? ['From Trapper', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300']
-    : state.status === 'unsealed' ? ['⚠ Not sealed', 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300']
-    : ['⚠ Not valid', 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300']
+    : state.status === 'unsealed' ? [mark('warning', 'Not sealed'), 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300']
+    : [mark('warning', 'Not valid'), 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300']
   return <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{text}</span>
 }
 
@@ -282,7 +283,7 @@ export default function RepairPage({ onBack }: { onBack?: () => void } = {}) {
         {error && chosen && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
         {chosen && !checking && checkedList.length > 0 && (
           <p className={`text-sm mb-3 ${notValid.length ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-            {notValid.length === 0 ? `✔ All ${validCount} ${validCount === 1 ? 'deployment is' : 'deployments are'} valid — nothing to repair.` : `${validCount} valid, ${notValid.length} not valid.`}
+            {notValid.length === 0 ? mark('success', `All ${validCount} ${validCount === 1 ? 'deployment is' : 'deployments are'} valid — nothing to repair.`) : `${validCount} valid, ${notValid.length} not valid.`}
           </p>
         )}
         {chosen && !checking && !repairStarted && (
@@ -310,16 +311,16 @@ export default function RepairPage({ onBack }: { onBack?: () => void } = {}) {
                     const info = run.steps[step]!
                     return (
                       <li key={step} className={info.status === 'done' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400'}>
-                        {info.status === 'done' ? '✔' : info.status === 'skipped' ? '–' : '…'} <span className="font-medium">{label}</span> — {info.message}
+                        {info.status === 'done' ? <Mark kind="success" /> : info.status === 'skipped' ? '– ' : '… '}<span className="font-medium">{label}</span> — {info.message}
                       </li>
                     )
                   })}
                 </ol>
-                {run.error && <p className="text-sm text-red-600 dark:text-red-400 mt-2">⚠ {run.error}</p>}
+                {run.error && <p className="text-sm text-red-600 dark:text-red-400 mt-2"><Mark kind="warning" />{run.error}</p>}
                 {run.result && (
                   <div className="mt-2 text-sm">
                     <p className={run.result.status === 'valid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-                      {run.result.status === 'valid' ? '✔ Valid again' : '⚠ Not valid yet'} — wrote {run.result.written.join(', ') || 'nothing'}.
+                      {run.result.status === 'valid' ? mark('success', 'Valid again') : mark('warning', 'Not valid yet')} — wrote {run.result.written.join(', ') || 'nothing'}.
                     </p>
                     {run.result.report_id && <ReportPanel reportId={run.result.report_id} />}
                   </div>

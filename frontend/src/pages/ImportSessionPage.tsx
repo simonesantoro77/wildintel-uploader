@@ -8,7 +8,7 @@ import { formatDay } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry, entryPeriod } from '../epicollectImport'
 import DateSourcePicker, { SOURCE_ORDER, against } from '../components/DateSourcePicker'
-import Notice from '../components/Notice'
+import Notice, { BadgeIcon, Mark } from '../components/Notice'
 import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
@@ -761,7 +761,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
               }`}
             >
-              {i < step ? '✓' : i + 1}
+              {i < step ? <BadgeIcon className="h-4 w-4" /> : i + 1}
             </div>
             <small className={`text-xs text-center ${i === step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
               {s.label}
@@ -834,7 +834,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                         </td>
                         <td className="px-3 py-2 font-mono">
                           {d.name}
-                          {d.warnings.map((w, i) => <p key={i} className="text-xs font-sans text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
+                          {d.warnings.map((w, i) => <p key={i} className="text-xs font-sans text-amber-600 dark:text-amber-400"><Mark kind="warning" />{w}</p>)}
                         </td>
                         <td className="px-3 py-2 text-right">{d.image_count}</td>
                         <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{d.from_timestamp_log ? `${d.start_date?.slice(0, 10) ?? '?'} → ${d.end_date?.slice(0, 10) ?? '?'}` : <span title="Read from the images when the details are asked for">—</span>}</td>
@@ -1481,11 +1481,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                       {!run && <span className="text-zinc-500 dark:text-zinc-400">— waiting</span>}
                       {run && !run.done && !run.error && <span className="text-zinc-500 dark:text-zinc-400">— importing…
                         {(() => { const last = [...run.events].reverse().find((e) => e.type === 'copy'); return last && last.type === 'copy' ? ` ${last.index}/${last.total}` : '' })()}</span>}
-                      {run?.done && <span className="text-emerald-600 dark:text-emerald-400">✔ imported — <span className="font-mono">{run.destDir}</span></span>}
-                      {run?.error && !run.done && <span className="text-red-600 dark:text-red-400">⚠ {run.error}</span>}
+                      {run?.done && <span className="text-emerald-600 dark:text-emerald-400"><Mark kind="success" />imported — <span className="font-mono">{run.destDir}</span></span>}
+                      {run?.error && !run.done && <span className="text-red-600 dark:text-red-400"><Mark kind="warning" />{run.error}</span>}
                       {(() => { const done = run?.events.find((e) => e.type === 'done'); return done && done.type === 'done' && done.report_id ? <ReportPanel reportId={done.report_id} /> : null })()}
                       {run?.events.filter((e) => e.type === 'skipped').map((e, i) => (
-                        <p key={i} className="text-xs text-amber-600 dark:text-amber-400">⚠ Skipped {e.type === 'skipped' ? `${e.name}: ${e.detail}` : ''}</p>
+                        <p key={i} className="text-xs text-amber-600 dark:text-amber-400"><Mark kind="warning" />Skipped {e.type === 'skipped' ? `${e.name}: ${e.detail}` : ''}</p>
                       ))}
                     </li>
                   )
@@ -1501,7 +1501,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               </p>
               {allDone && (
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">✔ Session imported — {chosen.length} deployment(s).</p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400"><Mark kind="success" />Session imported — {chosen.length} deployment(s).</p>
                   {collectionPath && <button type="button" className={btnOutline} onClick={handleOpenFolder}>Open folder</button>}
                   {onUpload && projectId && revisionValid && (
                     <button type="button" className={btnPrimary} onClick={() => onUpload({ researchProjectId: projectId, collection: revisionName })}>

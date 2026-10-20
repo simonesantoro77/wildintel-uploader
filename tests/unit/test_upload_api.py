@@ -306,3 +306,30 @@ def test_checking_the_selection_says_what_the_account_sees_of_the_project_and_th
     assert response.status_code == 200
     assert [(c["check"], c["ok"]) for c in response.json()["checks"]] == [("research_project", True), ("collection", True)]
     assert unknown.status_code == 404 and no_collection.status_code == 400
+
+
+def test_the_report_of_an_upload_is_kept_with_the_others_and_downloads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(config, "reports_dir", lambda settings=None: tmp_path)
+    items = [
+        {"id": "R0003-DONA_01", "state": "done", "images": 3, "bytes": 1200, "location_id": "DONA_01", "location_created": False, "deployment_created": True,
+         "error": None, "steps": [{"label": "Created in Trapper", "message": "Deployment R0003-DONA_01 created."}]},
+        {"id": "R0003-DONA_02", "state": "failed", "images": 5, "bytes": 0, "location_id": "DONA_02", "location_created": False, "deployment_created": False,
+         "error": "The object does not exist in the database.", "steps": []},
+    ]
+    client = _client()
+
+    answer = client.post("/api/upload/report", json={
+        "research_project_id": "DONA", "collection": "R0003", "started_at": "2026-10-20T23:14:27+00:00", "finished_at": "2026-10-20T23:14:44+00:00", "items": items,
+    })
+
+    assert answer.status_code == 200
+    report_id = answer.json()["report_id"]
+    assert "_upload_" in report_id
+    report = client.get(f"/api/reports/{report_id}").json()
+    assert report["kind"] == "upload" and report["title"] == "Upload of R0003" and report["checked"] == 2
+    assert report["totals"]["failed"] == 1
+    failed = [e for e in report["entries"] if e["status"] == "failed"]
+    assert [(e["identifier"], e["check"], e["message"]) for e in failed] == [("R0003-DONA_02", "Upload", "The object does not exist in the database.")]
+    assert any(r["id"] == report_id and r["kind"] == "upload" for r in client.get("/api/reports").json())
+    csv_file = client.get(f"/api/reports/{report_id}/download", params={"format": "csv"})
+    assert "R0003-DONA_02,Upload,failed,The object does not exist in the database." in csv_file.text

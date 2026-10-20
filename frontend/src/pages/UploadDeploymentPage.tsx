@@ -7,7 +7,7 @@ import { FilesReady, PreparingFiles, btnPrimary as primaryButton, formatBytes } 
 import type { PrepareItem } from '../components/PrepareFiles'
 import { UploadedToTrapper, UploadingToTrapper } from '../components/UploadToTrapper'
 import type { UploadItem } from '../components/UploadToTrapper'
-import Notice from '../components/Notice'
+import Notice, { Mark } from '../components/Notice'
 import WizardStep from '../components/WizardStep'
 import { formatPeriod } from '../dateFormat'
 import type { AccessCheck, ClassificationProject, LocalResearchProject, UploadCollection, UploadTarget, UploadDeploymentInfo, UploadEvent, UploadMode, UploadStep } from '../types'
@@ -106,7 +106,9 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
   // When preparing the files began and ended, and what stops it.
   const [startedAt, setStartedAt] = useState(0)
   const [finishedAt, setFinishedAt] = useState(0)
+  const [reportId, setReportId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const reportKept = useRef(false)
   // The classification project the collection goes to: the ones Trapper has, and the chosen pk (a text, for when they can't be listed).
   const [classifications, setClassifications] = useState<ClassificationProject[]>([])
   const [classificationError, setClassificationError] = useState<string | null>(null)
@@ -219,7 +221,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
     const ids = toUpload.map((d) => d.deployment_id)
     const abort = new AbortController()
     abortRef.current = abort
-    setUploading(true); setFinished(false); setOrder(ids); setStartedAt(Date.now())
+    setUploading(true); setFinished(false); setOrder(ids); setStartedAt(Date.now()); setReportId(null); reportKept.current = false
     setRuns(Object.fromEntries(ids.map((id) => [id, EMPTY_RUN])))
     for (const id of ids) {
       try {
@@ -317,6 +319,18 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
   })
   const outputDir = order.map((id) => runs[id]?.result?.output_dir).find(Boolean) ?? null
 
+  // The report of an upload that has just ended is kept with the others, once.
+  useEffect(() => {
+    if (!finished || reportKept.current || mode !== 'upload' || !collection || !uploadItems.some((i) => i.state === 'done' || i.state === 'failed')) return
+    reportKept.current = true
+    const items = uploadItems.map((i) => ({
+      id: i.id, state: i.state, images: i.images, bytes: i.bytes, location_id: i.locationId, location_created: i.locationCreated,
+      deployment_created: i.deploymentCreated, error: i.error ?? null, steps: i.state === 'done' ? i.steps.map(({ label, message }) => ({ label, message })) : [],
+    }))
+    api.saveUploadReport(projectId, collection.name, new Date(startedAt).toISOString(), new Date(finishedAt).toISOString(), items)
+      .then((r) => setReportId(r.report_id)).catch(() => { reportKept.current = false })
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Upload deployment to Trapper</h2>
@@ -385,7 +399,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                   {c.found ? 'Found in Trapper' : 'Not in Trapper yet — the upload creates it'}
                 </p>
               ) : (
-                <p key={c.check} className="text-xs mt-1 text-red-600 dark:text-red-400">⚠ {c.message}</p>
+                <p key={c.check} className="text-xs mt-1 text-red-600 dark:text-red-400"><Mark kind="warning" />{c.message}</p>
               )
             ))}
           </div>
@@ -557,7 +571,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
           ) : uploading ? (
             <UploadingToTrapper items={uploadItems} startedAt={startedAt} target={`${trapper?.base_url ?? 'Trapper'}${trapper?.user_name ? ` as ${trapper.user_name}` : ''}`} onStop={() => abortRef.current?.abort()} />
           ) : (
-            <UploadedToTrapper collection={collection.name} researchProject={projectId} items={uploadItems} startedAt={startedAt} finishedAt={finishedAt}
+            <UploadedToTrapper collection={collection.name} researchProject={projectId} items={uploadItems} startedAt={startedAt} finishedAt={finishedAt} reportId={reportId}
                                filesNote={filesNote}
                                onMore={() => { setRuns({}); setOrder([]); setFinished(false); setPrepared(null); setModeChosen(false); setChosen(false) }} />
           )}
@@ -585,7 +599,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                     const info = run.steps[step]!
                     return (
                       <li key={step} className={info.status === 'done' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400'}>
-                        {info.status === 'done' ? '✔' : '…'} <span className="font-medium">{label}</span> — {info.message}
+                        {info.status === 'done' ? <Mark kind="success" /> : '… '}<span className="font-medium">{label}</span> — {info.message}
                         {info.url && (
                           <span className="block text-xs ml-5"><a className="text-blue-600 dark:text-blue-400 hover:underline break-all" href={info.url} target="_blank" rel="noreferrer">{info.url}</a></span>
                         )}
@@ -603,7 +617,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                 )}
                 {run.result && run.result.mode === 'upload' && (
                   <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    ✔ Uploaded to collection {run.result.collection} in {run.result.parts} package(s).
+                    <Mark kind="success" />Uploaded to collection {run.result.collection} in {run.result.parts} package(s).
                   </p>
                 )}
                 {run.result && run.result.mode === 'dry_run' && (
@@ -618,7 +632,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                 )}
                 {run.result && run.result.mode === 'generate' && (
                   <div className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    <p>✔ Files written to <span className="font-mono break-all">{run.result.output_dir}</span>:</p>
+                    <p><Mark kind="success" />Files written to <span className="font-mono break-all">{run.result.output_dir}</span>:</p>
                     <ul className="list-disc ml-6 text-xs font-mono">
                       {(run.result.files ?? []).map((f) => <li key={f}>{f}</li>)}
                     </ul>
@@ -627,7 +641,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                     </button>
                   </div>
                 )}
-                {run.error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">⚠ {run.error}</p>}
+                {run.error && <p className="mt-2 text-sm text-red-600 dark:text-red-400"><Mark kind="warning" />{run.error}</p>}
               </section>
             )
           })}

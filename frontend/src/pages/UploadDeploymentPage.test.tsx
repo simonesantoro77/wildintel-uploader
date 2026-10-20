@@ -7,7 +7,7 @@ import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { LocalResearchProject, UploadCollection, UploadDeploymentInfo, UploadEvent } from '../types'
 
 vi.mock('../api', () => ({
-  api: { listResearchProjects: vi.fn(), uploadCollections: vi.fn(), uploadDeployment: vi.fn(), openFolder: vi.fn(), trapperGetConfig: vi.fn(), checkUploadSelection: vi.fn(), uploadClassificationProjects: vi.fn() },
+  api: { listResearchProjects: vi.fn(), uploadCollections: vi.fn(), uploadDeployment: vi.fn(), openFolder: vi.fn(), trapperGetConfig: vi.fn(), checkUploadSelection: vi.fn(), uploadClassificationProjects: vi.fn(), saveUploadReport: vi.fn(), reportUrl: vi.fn() },
 }))
 
 const mockedApi = vi.mocked(api)
@@ -47,6 +47,8 @@ const STEP_EVENTS = (id: string): UploadEvent[] => [
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedApi.saveUploadReport.mockResolvedValue({ report_id: '20261006-101500_upload_R0003' })
+  mockedApi.reportUrl.mockImplementation((id, format) => `/api/reports/${id}/download?format=${format}`)
   mockedApi.listResearchProjects.mockResolvedValue({ results: [PROJECT] })
   mockedApi.uploadCollections.mockResolvedValue({ results: COLLECTIONS })
   mockedApi.trapperGetConfig.mockResolvedValue({ base_url: 'https://trapper.example.org', user_name: 'alice@example.org', has_password: true })
@@ -246,7 +248,9 @@ describe('UploadDeploymentPage', () => {
     expect(alert).toHaveTextContent('1 deployment uploaded, 1 could not be uploaded')
     expect(screen.getByText(/Trapper has no research project 'DONA' — create it there first/)).toBeInTheDocument()
     expect(screen.getByText('Not uploaded')).toBeInTheDocument() // and the failed one is in the list, not apart
-    expect(screen.getByRole('link', { name: 'Download report' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Download report' })).toHaveAttribute('href', '/api/reports/20261006-101500_upload_R0003/download?format=csv')
+    expect(mockedApi.saveUploadReport).toHaveBeenCalledTimes(1)
+    expect(mockedApi.saveUploadReport.mock.calls[0][4]).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'R0003-DONA_01', state: 'failed' })]))
     expect(screen.getByText(/Last run/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /R0003-DONA_02/ })).toBeInTheDocument() // the other one went up
     expect(mockedApi.uploadDeployment).toHaveBeenCalledTimes(2)

@@ -36,7 +36,7 @@ export default function ReportPanel({ reportId }: { reportId: string }) {
         <div>
           <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Report</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {report.checked} image(s) — {report.totals.failed === 0 ? 'nothing failed' : `${report.totals.failed} problem(s)`}
+            {report.checked} {report.kind === 'upload' ? 'deployment(s)' : 'image(s)'} — {report.totals.failed === 0 ? 'nothing failed' : `${report.totals.failed} problem(s)`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -73,7 +73,7 @@ export default function ReportPanel({ reportId }: { reportId: string }) {
           <div className="mt-2 max-h-72 overflow-y-auto rounded border border-zinc-200 dark:border-zinc-800">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-zinc-100 dark:bg-zinc-800 text-left text-zinc-500 dark:text-zinc-400">
-                <tr><th className="px-2 py-1 font-medium">Image</th><th className="px-2 py-1 font-medium">Check</th><th className="px-2 py-1 font-medium">What failed</th></tr>
+                <tr><th className="px-2 py-1 font-medium">{report.kind === 'upload' ? 'Deployment' : 'Image'}</th><th className="px-2 py-1 font-medium">Check</th><th className="px-2 py-1 font-medium">What failed</th></tr>
               </thead>
               <tbody>
                 {shown.map((e, i) => (

@@ -14,7 +14,7 @@ import type { Option } from '../components/OptionCards'
 import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import { applyEntry, entryLabel, entryPeriod } from '../epicollectImport'
 import DateSourcePicker from '../components/DateSourcePicker'
-import Notice, { StatusIcon } from '../components/Notice'
+import Notice, { BadgeIcon, Mark, mark, StatusIcon } from '../components/Notice'
 import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
@@ -1051,24 +1051,24 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.corrupted !== undefined && (
         <p className={validation.corrupted.length ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.corrupted.length
-            ? `⚠ ${validation.corrupted.length} corrupted image(s): ${validation.corrupted.map((c) => c.path).join(', ')}`
-            : '✔ No corrupted images.'}
+            ? mark('warning', `${validation.corrupted.length} corrupted image(s): ${validation.corrupted.map((c) => c.path).join(', ')}`)
+            : mark('success', 'No corrupted images.')}
         </p>
       )}
       {validation.sequence_issues !== undefined && (
         <p className={validation.sequence_issues.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.sequence_issues.length
-            ? `⚠ ${validation.sequence_issues.length} out-of-order shot(s): ${validation.sequence_issues.map((i) => `${i.path_a} (${i.date_a.slice(0, 10)}) → ${i.path_b} (${i.date_b.slice(0, 10)})`).join('; ')}`
-            : '✔ Shots are in chronological order.'}
+            ? mark('warning', `${validation.sequence_issues.length} out-of-order shot(s): ${validation.sequence_issues.map((i) => `${i.path_a} (${i.date_a.slice(0, 10)}) → ${i.path_b} (${i.date_b.slice(0, 10)})`).join('; ')}`)
+            : mark('success', 'Shots are in chronological order.')}
         </p>
       )}
       {validation.cameras !== undefined && (
         <div className={imageCheckPassed('camera', validation) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
           {imageCheckPassed('camera', validation) ? (
-            <p>✔ Every image was taken by the same camera: <span className="font-mono">{describeCamera(validation.cameras[0])}</span>.</p>
+            <p><Mark kind="success" />Every image was taken by the same camera: <span className="font-mono">{describeCamera(validation.cameras[0])}</span>.</p>
           ) : (
             <>
-              {validation.cameras.length > 1 && <p>⚠ The images come from {validation.cameras.length} different cameras:</p>}
+              {validation.cameras.length > 1 && <p><Mark kind="warning" />The images come from {validation.cameras.length} different cameras:</p>}
               {validation.cameras.length > 0 && (
                 <ul className="list-disc ml-6">
                   {validation.cameras.map((c, i) => (
@@ -1078,7 +1078,7 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
                   ))}
                 </ul>
               )}
-              {(validation.cameras_without_info ?? 0) > 0 && <p>⚠ {validation.cameras_without_info} image(s) have no camera information.</p>}
+              {(validation.cameras_without_info ?? 0) > 0 && <p><Mark kind="warning" />{validation.cameras_without_info} image(s) have no camera information.</p>}
             </>
           )}
           {validation.exiftool === false && (
@@ -1089,12 +1089,12 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.exif_missing !== undefined && (
         <div className={imageCheckPassed('exif', validation) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
           {imageCheckPassed('exif', validation) ? (
-            <p>✔ Every image has its capture date, camera model and camera id.</p>
+            <p><Mark kind="success" />Every image has its capture date, camera model and camera id.</p>
           ) : (
             <ul className="list-disc ml-6">
               {(Object.keys(EXIF_FIELD_LABELS) as ExifField[]).filter((f) => validation.exif_missing![f].count > 0).map((f) => (
                 <li key={f}>
-                  ⚠ {validation.exif_missing![f].count} image(s) without {EXIF_FIELD_LABELS[f]}, e.g. {validation.exif_missing![f].examples.join(', ')}
+                  <Mark kind="warning" />{validation.exif_missing![f].count} image(s) without {EXIF_FIELD_LABELS[f]}, e.g. {validation.exif_missing![f].examples.join(', ')}
                 </li>
               ))}
             </ul>
@@ -1104,10 +1104,10 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.duplicates !== undefined && (
         <div className={validation.duplicates.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.duplicates.length === 0 ? (
-            <p>✔ No duplicate images.</p>
+            <p><Mark kind="success" />No duplicate images.</p>
           ) : (
             <>
-              <p>⚠ {validation.duplicates.length} group(s) of duplicate images ({validation.duplicates.reduce((n, g) => n + g.files.length - 1, 0)} extra copies):</p>
+              <p><Mark kind="warning" />{validation.duplicates.length} group(s) of duplicate images ({validation.duplicates.reduce((n, g) => n + g.files.length - 1, 0)} extra copies):</p>
               <ul className="list-disc ml-6">
                 {validation.duplicates.map((g, i) => <li key={i} className="font-mono">{g.files.join(' = ')}</li>)}
               </ul>
@@ -1118,8 +1118,8 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.subdirectories !== undefined && (
         <p className={validation.subdirectories.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.subdirectories.length
-            ? `⚠ Images are spread across ${validation.subdirectories.length} subfolder(s): ${validation.subdirectories.join(', ')}`
-            : '✔ All images are directly in this folder.'}
+            ? mark('warning', `Images are spread across ${validation.subdirectories.length} subfolder(s): ${validation.subdirectories.join(', ')}`)
+            : mark('success', 'All images are directly in this folder.')}
         </p>
       )}
     </div>
@@ -1134,7 +1134,7 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
         const check = result[key]
         return check === undefined ? null : (
           <p key={key} className={check.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-            {check.ok ? '✔' : '⚠'} {check.message}
+            <Mark kind={check.ok ? 'success' : 'warning'} />{check.message}
           </p>
         )
       })}
@@ -1142,7 +1142,7 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
         const stat = result[key]
         return stat === undefined ? null : (
           <div key={key} className={stat.skipped ? 'text-zinc-500 dark:text-zinc-400' : stat.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-            <p>{stat.skipped ? 'ℹ' : stat.ok ? '✔' : '⚠'} {stat.message}</p>
+            <p><Mark kind={stat.skipped ? 'info' : stat.ok ? 'success' : 'warning'} />{stat.message}</p>
             {stat.history.length > 0 && (
               <p className="text-xs ml-5 text-zinc-500 dark:text-zinc-400 font-mono">
                 {stat.history.map((h) => `R${String(h.revision).padStart(4, '0')}: ${Number.isInteger(h.value) ? h.value : h.value.toFixed(1)}`).join(' · ')}
@@ -1154,11 +1154,11 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
       {result.out_of_range !== undefined && (
         result.out_of_range.length === 0 ? (
           <p className="text-emerald-600 dark:text-emerald-400">
-            ✔ The first image is at the start, the last at the end and the rest in between (± {result.tolerance_hours ?? toleranceHours} h).
+            <Mark kind="success" />The first image is at the start, the last at the end and the rest in between (± {result.tolerance_hours ?? toleranceHours} h).
           </p>
         ) : (
           <div className="text-amber-600 dark:text-amber-400">
-            <p>⚠ {result.out_of_range.length} image(s) outside the deployment's dates (± {result.tolerance_hours ?? toleranceHours} h):</p>
+            <p><Mark kind="warning" />{result.out_of_range.length} image(s) outside the deployment's dates (± {result.tolerance_hours ?? toleranceHours} h):</p>
             <ul className="list-disc ml-6">
               {result.out_of_range.map((o) => (
                 <li key={o.path}>
@@ -1173,13 +1173,13 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
         <>
           <p className={result.camera_mismatches.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
             {result.camera_mismatches.length
-              ? `⚠ ${result.camera_mismatches.length} image(s) with a different camera model than declared: ${result.camera_mismatches.map((m) => `${m.path} (${m.detected})`).join(', ')}`
-              : '✔ No camera-model mismatches with the declared camera.'}
+              ? mark('warning', `${result.camera_mismatches.length} image(s) with a different camera model than declared: ${result.camera_mismatches.map((m) => `${m.path} (${m.detected})`).join(', ')}`)
+              : mark('success', 'No camera-model mismatches with the declared camera.')}
           </p>
           <p className={(result.camera_models_found?.length ?? 0) > 1 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
             {(result.camera_models_found?.length ?? 0) > 1
-              ? `⚠ ${result.camera_models_found!.length} distinct camera models found across images: ${result.camera_models_found!.join(', ')}`
-              : '✔ All images share the same camera model.'}
+              ? mark('warning', `${result.camera_models_found!.length} distinct camera models found across images: ${result.camera_models_found!.join(', ')}`)
+              : mark('success', 'All images share the same camera model.')}
           </p>
         </>
       )}
@@ -2085,7 +2085,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                 i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
               }`}
             >
-              {i < step ? '✓' : i + 1}
+              {i < step ? <BadgeIcon className="h-4 w-4" /> : i + 1}
             </div>
             <small className={`text-xs text-center ${i === step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
               {s.label}
@@ -2140,7 +2140,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                   : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40'
               }`}>
                 <div aria-hidden="true" className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white font-bold ${scan.image_count > 0 ? 'bg-emerald-600' : 'bg-amber-600'}`}>
-                  {scan.image_count > 0 ? '✓' : '!'}
+                  <BadgeIcon kind={scan.image_count > 0 ? 'tick' : 'alert'} className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0 text-sm">
                   <p className="font-semibold text-zinc-900 dark:text-zinc-100">

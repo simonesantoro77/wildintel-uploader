@@ -24,6 +24,23 @@ export function StatusIcon({ kind, className = 'h-5 w-5' }: { kind: NoticeKind; 
   )
 }
 
+/** The icon of a kind in the middle of a line of text, in the colour of the text — what a "✔" or a "⚠" in front of a sentence was. */
+export function Mark({ kind }: { kind: NoticeKind }) {
+  return <StatusIcon kind={kind} className="inline h-4 w-4 mr-1.5 align-text-bottom" />
+}
+
+/** The tick (or the exclamation mark) inside a filled round badge — white on the badge's colour, in place of a "✓" or a "!". */
+export function BadgeIcon({ kind = 'tick', className = 'h-1/2 w-1/2' }: { kind?: 'tick' | 'alert'; className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${className} fill-none stroke-current`} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      {kind === 'tick' ? <path d="M5 12.5l4.5 4.5L19 7.5" /> : <path d="M12 5v9M12 19h.01" />}
+    </svg>
+  )
+}
+
+/** A sentence with its icon in front. */
+export const mark = (kind: NoticeKind, text: ReactNode) => <><Mark kind={kind} />{text}</>
+
 interface Props {
   kind: NoticeKind
   children: ReactNode

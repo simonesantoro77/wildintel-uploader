@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { Report } from '../types'
 import CheckFailures from './CheckFailures'
+import { StatusIcon } from './Notice'
 import { SmallSpinner, btnOutline, btnPrimary } from '../pages/ImportDeploymentPage'
 
 export interface DashboardContext {
@@ -14,10 +15,10 @@ export interface DashboardContext {
 
 export const formatRun = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-function Kpi({ icon, tone, value, label }: { icon: string; tone: string; value: number | string; label: string }) {
+function Kpi({ icon, tone, value, label }: { icon: 'success' | 'warning' | 'info'; tone: string; value: number | string; label: string }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
-      <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg ${tone}`}>{icon}</span>
+      <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}><StatusIcon kind={icon} className="h-5 w-5" /></span>
       <div>
         <p className="text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100">{typeof value === 'number' ? value.toLocaleString() : value}</p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
@@ -178,17 +179,17 @@ export default function ValidationDashboard({ title, subtitle, reportId, running
 
       {shown && (preprocessing ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4" aria-label="Summary">
-          <Kpi icon="🖼️" tone="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" value={shown.checked} label="Images" />
-          <Kpi icon="✔" tone="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400" value={Math.max(0, shown.checked - withIssues)} label="Images processed" />
-          <Kpi icon="⚠" tone="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400" value={withIssues} label="Images skipped" />
-          <Kpi icon="⚙️" tone="bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400" value={2 + (['rename', 'resize', 'metadata'] as const).filter((step) => shown.parameters[step] === true).length} label="Steps done" />
+          <Kpi icon="info" tone="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" value={shown.checked} label="Images" />
+          <Kpi icon="success" tone="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400" value={Math.max(0, shown.checked - withIssues)} label="Images processed" />
+          <Kpi icon="warning" tone="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400" value={withIssues} label="Images skipped" />
+          <Kpi icon="info" tone="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" value={2 + (['rename', 'resize', 'metadata'] as const).filter((step) => shown.parameters[step] === true).length} label="Steps done" />
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4" aria-label="Summary">
-          <Kpi icon="✔" tone="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400" value={Math.max(0, shown.checked - withIssues)} label="Valid images" />
-          <Kpi icon="⚠" tone="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400" value={withIssues} label="Images with issues" />
-          <Kpi icon="🧪" tone="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" value={checks.length} label="Tests executed" />
-          <Kpi icon="❗" tone="bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400" value={checks.filter((c) => c.failed > 0).length} label="Tests with errors" />
+          <Kpi icon="success" tone="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400" value={Math.max(0, shown.checked - withIssues)} label="Valid images" />
+          <Kpi icon="warning" tone="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400" value={withIssues} label="Images with issues" />
+          <Kpi icon="info" tone="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" value={checks.length} label="Tests executed" />
+          <Kpi icon="warning" tone="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400" value={checks.filter((c) => c.failed > 0).length} label="Tests with errors" />
         </div>
       ))}
       {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}

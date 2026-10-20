@@ -631,7 +631,7 @@ export type UploadEvent =
 // ── Reports ─────────────────────────────────────────────────────────────
 
 /** What a report was made of: a validation, a postvalidation or a preprocessing. */
-export type ReportKind = 'validation' | 'postvalidation' | 'preprocessing' | 'repair'
+export type ReportKind = 'validation' | 'postvalidation' | 'preprocessing' | 'repair' | 'upload'
 
 /** One check of one image — or of the whole deployment, "(deployment)". */
 export interface ReportEntry {

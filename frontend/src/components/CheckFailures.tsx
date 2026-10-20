@@ -1,4 +1,4 @@
-import { StatusIcon } from './Notice'
+import { Mark, StatusIcon } from './Notice'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { Report, ReportEntry } from '../types'
@@ -94,7 +94,7 @@ export default function CheckFailures({ report, check, parent = 'Validation', on
 
       {info?.scope === 'deployment' ? (
         <ul className="space-y-2 text-sm">
-          {failures.map((e, i) => <li key={i} className="text-amber-700 dark:text-amber-400">⚠ {e.message}</li>)}
+          {failures.map((e, i) => <li key={i} className="text-amber-700 dark:text-amber-400"><Mark kind="warning" />{e.message}</li>)}
         </ul>
       ) : (
         <>
@@ -123,7 +123,7 @@ export default function CheckFailures({ report, check, parent = 'Validation', on
               {visible.map((e) => (
                 <li key={e.identifier} className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-2 text-xs">
                   <Thumbnail reportId={report.id} path={e.identifier} className="w-full h-28 rounded" />
-                  {e.tag && <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">⚠ {e.tag}</span>}
+                  {e.tag && <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"><Mark kind="warning" />{e.tag}</span>}
                   <p className="mt-1.5 font-mono text-sm break-all text-zinc-900 dark:text-zinc-100">{e.identifier}</p>
                   <p className="text-zinc-500 dark:text-zinc-400">{formatTaken(e.taken)}</p>
                   <button type="button" className="mt-2 w-full rounded border border-blue-500 text-blue-600 dark:text-blue-400 py-1 hover:bg-blue-50 dark:hover:bg-blue-950/30"

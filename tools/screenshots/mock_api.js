@@ -323,6 +323,7 @@
     },
     json: {
       'GET /api/health': () => ({ status: 'ok' }),
+      'POST /api/upload/report': () => ({ report_id: '20261006-101500_upload_R0003' }),
       'GET /api/version': () => ({ current: '0.1.0' }),
       'GET /api/version/check': () => ({ current: '0.1.0', latest: '0.1.0', update_available: false, release_url: null, download_url: null, error: null }),
       'GET /api/settings': () => SETTINGS,

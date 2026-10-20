@@ -1,6 +1,7 @@
-import { StatusIcon } from './Notice'
-import { useEffect, useMemo, useState } from 'react'
+import { BadgeIcon, StatusIcon } from './Notice'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { api } from '../api'
 import { formatRun } from './ValidationDashboard'
 import { Bar, Spinner, Tile, btnOutline, btnPrimary, count, formatBytes, formatDuration, panel } from './PrepareFiles'
 
@@ -32,7 +33,7 @@ function Phase({ n, state, title, children, right }: { n: number; state: 'done' 
   return (
     <div className={`flex items-start gap-4 px-5 py-4 ${state === 'running' ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''}`}>
       <span className="mt-0.5 flex w-6 h-6 shrink-0 items-center justify-center">
-        {state === 'done' ? <span aria-hidden="true" className="flex w-6 h-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs">✓</span>
+        {state === 'done' ? <span aria-hidden="true" className="flex w-6 h-6 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-3.5 w-3.5" /></span>
           : state === 'running' ? <Spinner />
           : <span aria-hidden="true" className="flex w-6 h-6 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-700 text-xs text-zinc-600 dark:text-zinc-300">{n}</span>}
       </span>
@@ -146,25 +147,16 @@ function Pill({ children, tone }: { children: ReactNode; tone: 'green' | 'grey' 
 }
 
 /** What was sent, once the upload has ended — whether it all went well or not. */
-export function UploadedToTrapper({ collection, researchProject, items, startedAt, finishedAt, onMore, filesNote }: {
+export function UploadedToTrapper({ collection, researchProject, items, startedAt, finishedAt, reportId, onMore, filesNote }: {
   collection: string; researchProject: string; items: UploadItem[]; startedAt: number; finishedAt: number; onMore: () => void
+  /** The report kept of this upload, once it is. */
+  reportId?: string | null
   /** What became of the package files — deleted, or kept where. */
   filesNote?: ReactNode
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const sent = items.filter((i) => i.state === 'done')
   const failed = items.filter((i) => i.state !== 'done')
-  // The report of the upload, to download: one row per deployment.
-  const reportUrl = useMemo(() => {
-    const cell = (v: string | number | boolean) => `"${String(v).replace(/"/g, '""')}"`
-    const rows = [
-      ['deployment', 'state', 'images', 'bytes', 'location', 'location_created', 'deployment_created', 'error', 'steps'],
-      ...items.map((i) => [i.id, i.state === 'done' ? 'uploaded' : 'failed', i.images, i.bytes, i.locationId ?? '', i.locationCreated, i.deploymentCreated, i.error ?? '',
-        i.steps.map((st) => `${st.label}: ${st.message}`).join(' | ')]),
-    ]
-    return URL.createObjectURL(new Blob([rows.map((r) => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv' }))
-  }, [items])
-  useEffect(() => () => URL.revokeObjectURL(reportUrl), [reportUrl])
   const locations = [...new Set(sent.map((i) => i.locationId).filter(Boolean) as string[])]
   const locationsCreated = new Set(sent.filter((i) => i.locationCreated).map((i) => i.locationId))
   const deploymentsCreated = sent.filter((i) => i.deploymentCreated).length
@@ -172,11 +164,11 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
   return (
     <div>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 -mt-3 mb-4">
-        Last run {formatRun(new Date(finishedAt).toISOString())} · took {formatDuration(finishedAt - startedAt)} · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={reportUrl} download={`upload-${collection}.csv`}>Download report</a>
+        Last run {formatRun(new Date(finishedAt).toISOString())} · took {formatDuration(finishedAt - startedAt)} {reportId && <> · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={api.reportUrl(reportId, 'csv')} download>Download report</a></>}
       </p>
       {failed.length === 0 ? (
         <div role="status" className="flex items-center gap-4 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 mb-4">
-          <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span>
+          <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-5 w-5" /></span>
           <div>
             <p className="font-semibold text-emerald-900 dark:text-emerald-100">Upload complete</p>
             <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">All the images are in Trapper.</p>
