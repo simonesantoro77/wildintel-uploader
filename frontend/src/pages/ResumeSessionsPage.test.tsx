@@ -10,7 +10,7 @@ vi.mock('../api', () => ({ api: { discardSession: vi.fn() } }))
 describe('ResumeSessionsPage', () => {
   it('shows a scanned-only session by its source folder', () => {
     render(<ResumeSessionsPage sessions={[SESSION]} onResume={vi.fn()} onDiscarded={vi.fn()} onSkip={vi.fn()} />)
-    expect(screen.getByText('Import deployment: /home/me/DONA_01')).toBeInTheDocument()
+    expect(screen.getByText('Process deployment: /home/me/DONA_01')).toBeInTheDocument()
     expect(screen.getByText('Source folder scanned')).toBeInTheDocument()
     expect(screen.queryByText('Research project')).not.toBeInTheDocument()
   })
@@ -21,7 +21,7 @@ describe('ResumeSessionsPage', () => {
     vi.mocked(api.discardSession).mockResolvedValue({ status: 'discarded' })
     render(<ResumeSessionsPage sessions={[SELECTED_SESSION]} onResume={onResume} onDiscarded={onDiscarded} onSkip={vi.fn()} />)
 
-    expect(screen.getByText('Import deployment: DONA_01')).toBeInTheDocument()
+    expect(screen.getByText('Process deployment: DONA_01')).toBeInTheDocument()
     expect(screen.getByText('Doñana')).toBeInTheDocument()
     expect(screen.getByText('Project and location chosen')).toBeInTheDocument()
 
@@ -34,7 +34,7 @@ describe('ResumeSessionsPage', () => {
 
   it('shows the deployment id once the run got that far', () => {
     render(<ResumeSessionsPage sessions={[READY_SESSION]} onResume={vi.fn()} onDiscarded={vi.fn()} onSkip={vi.fn()} />)
-    expect(screen.getByText('Import deployment: DONA-DONA_01')).toBeInTheDocument()
+    expect(screen.getByText('Process deployment: DONA-DONA_01')).toBeInTheDocument()
     expect(screen.getByText('Ready to import')).toBeInTheDocument()
   })
 

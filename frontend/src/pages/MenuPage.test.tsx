@@ -4,49 +4,27 @@ import userEvent from '@testing-library/user-event'
 import MenuPage from './MenuPage'
 
 describe('MenuPage', () => {
-  it('offers Import deployment and Import session', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
-
-    const deploymentButton = screen.getByRole('button', { name: /import deployment/i })
-    const sessionButton = screen.getByRole('button', { name: /import session/i })
-
-    expect(deploymentButton).toBeEnabled()
-    expect(sessionButton).toBeEnabled()
-
-    await userEvent.click(deploymentButton)
-    expect(onChoose).toHaveBeenCalledWith('deployment')
-    await userEvent.click(sessionButton)
-    expect(onChoose).toHaveBeenCalledWith('session')
-  })
-
-  it('offers to upload a deployment to Trapper', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
-
-    const uploadButton = screen.getByRole('button', { name: /upload deployment to trapper/i })
-    expect(uploadButton).toBeEnabled()
-    expect(screen.getByText(/creating its location and the deployment there if they are missing/i)).toBeInTheDocument()
-
-    await userEvent.click(uploadButton)
-    expect(onChoose).toHaveBeenCalledWith('upload')
-  })
-
-  it('offers the three tasks in the order import deployment, import session, upload deployment', () => {
+  it('offers the steps of the workflow, numbered, in the order they are done', () => {
     render(<MenuPage onChoose={vi.fn()} />)
 
-    const titles = screen.getAllByRole('button').map((b) => b.textContent ?? '').filter((t) => /Import deployment|Import session|Upload deployment/.test(t))
-    expect(titles.map((t) => t.match(/Import deployment|Import session|Upload deployment/)![0])).toEqual(['Import deployment', 'Import session', 'Upload deployment'])
-    expect(screen.queryByRole('button', { name: /upload session to trapper/i })).not.toBeInTheDocument()
+    const steps = screen.getAllByRole('listitem').map((li) => li.querySelector('strong')?.textContent)
+    expect(steps).toEqual(['Field records', 'Copy SD cards', 'Fix dates and times', 'Process collection', 'Upload to Trapper'])
+    expect(screen.getByText('Only if needed')).toBeInTheDocument()
   })
 
-  it('offers the utilities, with the repair and the sync inside them rather than in the menu', async () => {
+  it('opens each step, and a single deployment beside the collection', async () => {
     const onChoose = vi.fn()
     render(<MenuPage onChoose={onChoose} />)
 
-    expect(screen.queryByRole('button', { name: /^🛠️/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^🔄/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^reports/i })).not.toBeInTheDocument() // the reports are in the settings now
+    for (const [name, task] of [[/Field records/, 'fieldlog'], [/Copy SD cards/, 'cards'], [/Fix dates and times/, 'timefix'], [/^Process collection/, 'session'], [/Upload to Trapper/, 'upload'], [/Process deployment/, 'deployment']] as const) {
+      await userEvent.click(screen.getByRole('button', { name }))
+      expect(onChoose).toHaveBeenLastCalledWith(task)
+    }
+  })
+
+  it('offers the utilities apart', async () => {
+    const onChoose = vi.fn()
+    render(<MenuPage onChoose={onChoose} />)
 
     await userEvent.click(screen.getByRole('button', { name: /utils/i }))
     expect(onChoose).toHaveBeenCalledWith('utils')

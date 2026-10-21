@@ -41,9 +41,11 @@ def _pick_macos(title: str) -> str | None:
 def _pick_windows(title: str) -> str | None:
     script = (
         "Add-Type -AssemblyName System.Windows.Forms | Out-Null; "
+        "$owner = New-Object System.Windows.Forms.Form; $owner.TopMost = $true; $owner.ShowInTaskbar = $false; $owner.Show(); $owner.Activate(); "
         "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
         f"$f.Description = '{title}'; "
-        "if ($f.ShowDialog() -eq 'OK') { Write-Output $f.SelectedPath }"
+        "$r = $f.ShowDialog($owner); $owner.Close(); "
+        "if ($r -eq 'OK') { Write-Output $f.SelectedPath }"
     )
     result = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -99,11 +101,15 @@ def _pick_file_macos(title: str, patterns: list[str]) -> str | None:
 def _pick_file_windows(title: str, patterns: list[str]) -> str | None:
     wanted = ";".join(patterns)
     filter_ = f"{wanted}|{wanted}|All files|*.*" if patterns else "All files|*.*"
+    # The dialog gets an owner that stays on top, so it opens in front of the browser instead of behind it.
     script = (
-        "Add-Type -AssemblyName System.Windows.Forms | Out-Null; "
+        "Add-Type -AssemblyName System.Windows.Forms, System.Drawing | Out-Null; "
+        "$owner = New-Object System.Windows.Forms.Form; $owner.TopMost = $true; $owner.ShowInTaskbar = $false; "
+        "$owner.StartPosition = 'CenterScreen'; $owner.Size = New-Object System.Drawing.Size(1, 1); $owner.Show(); $owner.Activate(); "
         "$f = New-Object System.Windows.Forms.OpenFileDialog; "
         f"$f.Title = '{title}'; $f.Filter = '{filter_}'; "
-        "if ($f.ShowDialog() -eq 'OK') { Write-Output $f.FileName }"
+        "$r = $f.ShowDialog($owner); $owner.Close(); "
+        "if ($r -eq 'OK') { Write-Output $f.FileName }"
     )
     result = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True, text=True, check=False)
     if result.returncode != 0:

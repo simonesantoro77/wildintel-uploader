@@ -13,8 +13,11 @@ export default function WelcomePage({ onStart }: Props) {
           Bring camera-trap images from a memory card into the WildINTEL project, organized and registered in Trapper.
         </p>
         <ul className="list-none text-left text-zinc-500 dark:text-zinc-400 mb-6 mx-auto p-0 space-y-2" style={{ maxWidth: 440 }}>
-          <li>📷 <strong className="text-zinc-900 dark:text-zinc-100">Import deployment</strong> — organize a folder of images locally and register the deployment in Trapper.</li>
-          <li>🗂️ <strong className="text-zinc-900 dark:text-zinc-100">Import session</strong> — coming soon.</li>
+          <li><strong className="text-zinc-900 dark:text-zinc-100">1 · Field records</strong> — the field data download and the datasheet: each deployment&rsquo;s start and end.</li>
+          <li><strong className="text-zinc-900 dark:text-zinc-100">2 · Copy SD cards</strong> — each card matched to its deployment and copied untouched.</li>
+          <li><strong className="text-zinc-900 dark:text-zinc-100">3 · Fix dates and times</strong> — only when a camera&rsquo;s clock went wrong.</li>
+          <li><strong className="text-zinc-900 dark:text-zinc-100">4 · Process collection</strong> — checks, renaming, resizing and metadata.</li>
+          <li><strong className="text-zinc-900 dark:text-zinc-100">5 · Upload to Trapper</strong></li>
         </ul>
         <button
           type="button"

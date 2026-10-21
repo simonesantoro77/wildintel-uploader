@@ -217,7 +217,7 @@ def _checks(prep: dict, locations: list[dict] | None) -> dict:
 def _work(epicollect: str, datasheet: str, research_project_id: str | None, settings: config.Settings | None) -> tuple[dict, dict]:
     settings = settings or config.load_settings()
     options = settings.FIELDLOG
-    for label, path in (("Epicollect download", epicollect), ("fieldwork datasheet", datasheet)):
+    for label, path in (("field data download", epicollect), ("fieldwork datasheet", datasheet)):
         if not path or not Path(path).expanduser().is_file():
             raise FieldlogError(f"The {label} is not a file: {path or '(none chosen)'}")
     try:

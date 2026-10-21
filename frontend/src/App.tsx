@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import CardsPage from './pages/CardsPage'
 import TimeFixPage from './pages/TimeFixPage'
+import type { TimeFixTarget } from './pages/TimeFixPage'
 import FieldLogPage from './pages/FieldLogPage'
 import ImportDeploymentPage from './pages/ImportDeploymentPage'
 import ImportSessionPage from './pages/ImportSessionPage'
@@ -39,6 +40,9 @@ export default function App() {
   const [home, setHome] = useState(false)
   // Where the upload page starts from, when it is reached from a finished import.
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null)
+  // The deployment Fix dates and times opens on, when it is reached from where its dates were found wrong.
+  const [timefixTarget, setTimefixTarget] = useState<TimeFixTarget | null>(null)
+  function goToTimeFix(target: TimeFixTarget) { setTimefixTarget(target); setTask('timefix') }
 
   useEffect(() => {
     let cancelled = false
@@ -64,7 +68,7 @@ export default function App() {
   }, [])
 
   function goHome() {
-    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setMenuShown(false); setHome(true)
+    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setTimefixTarget(null); setMenuShown(false); setHome(true)
   }
 
   function goToUpload(target: UploadTarget) {
@@ -87,7 +91,7 @@ export default function App() {
           {task === 'deployment'
             ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} />
             : task === 'session'
-              ? <ImportSessionPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} />
+              ? <ImportSessionPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onFixDates={goToTimeFix} />
               : task === 'upload'
               ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} />
               : task === 'utils'
@@ -99,9 +103,9 @@ export default function App() {
               : task === 'fieldlog'
               ? <FieldLogPage />
               : task === 'cards'
-              ? <CardsPage />
+              ? <CardsPage onFixDates={goToTimeFix} />
               : task === 'timefix'
-              ? <TimeFixPage />
+              ? <TimeFixPage initial={timefixTarget ?? undefined} />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage

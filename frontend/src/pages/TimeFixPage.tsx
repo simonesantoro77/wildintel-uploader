@@ -75,7 +75,42 @@ function TimeChart({ timeline }: { timeline: Timeline }) {
 /** Fixing the dates and times of a copied card's images: where the clock went wrong, a run of images shifted by an offset
  * (or to match an image whose real time is known), images with no time to trust removed — every fix written down, and
  * the card kept as it came so it can be put back. */
-export default function TimeFixPage() {
+/** A deployment whose dates are to be fixed, when the page is opened from where the problem was found. */
+export interface TimeFixTarget {
+  researchProjectId: string
+  collection: string
+  deploymentId?: string
+}
+
+/** The research project and collection of a folder in the cards folder (…/cards/<project>/<R0042>), or null. */
+export function cardsTarget(folder: string): { researchProjectId: string; collection: string } | null {
+  const m = /[\\/]cards[\\/]([^\\/]+)[\\/](R\d{4})[\\/]?$/i.exec(folder.trim())
+  return m ? { researchProjectId: m[1], collection: m[2].toUpperCase() } : null
+}
+
+/** Where a check found dates that don't fit: says so, and opens Fix dates and times on each deployment — when the folder
+ * is a collection of the cards folder, the only place its dates can be fixed. */
+export function FixDatesBanner({ folder, names, onFixDates }: { folder: string; names: string[]; onFixDates?: (target: TimeFixTarget) => void }) {
+  if (names.length === 0) return null
+  const where = cardsTarget(folder)
+  return (
+    <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm" role="note" aria-label="Fix dates and times">
+      <p className="text-amber-900 dark:text-amber-200">
+        The dates of {names.length === 1 ? 'one deployment' : `${names.length} deployments`} don&rsquo;t look right — a camera clock that went wrong.
+        {where && onFixDates ? ' Fix them, then run the checks again:' : ' They can be fixed in Fix dates and times when the folder is a collection copied with Copy SD cards.'}
+      </p>
+      {where && onFixDates && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {names.map((name) => (
+            <button key={name} type="button" className={btnOutline} onClick={() => onFixDates({ ...where, deploymentId: name })}>Fix dates of {name}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function TimeFixPage({ initial }: { initial?: TimeFixTarget } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<{ collection: string; deployments: string[] }[]>([])
@@ -99,7 +134,19 @@ export default function TimeFixPage() {
 
   useEffect(() => {
     api.listResearchProjects().then(({ results }) => setProjects(results)).catch((e) => setError(message(e, 'Could not read the collections folder.')))
-  }, [])
+    if (initial) void openTarget(initial)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial])
+
+  /** Opened from where the problem was found: the research project, collection and deployment already chosen. */
+  async function openTarget(target: TimeFixTarget) {
+    setProjectId(target.researchProjectId); setTimeline(null); setError(null)
+    try {
+      const { results } = await api.timefixCollections(target.researchProjectId)
+      setCollections(results); setCollection(target.collection)
+      if (target.deploymentId) await chooseDeployment(target.deploymentId, target.researchProjectId, target.collection)
+    } catch (e) { setError(message(e, 'Could not read the copied cards.')) }
+  }
 
   async function chooseProject(id: string) {
     setProjectId(id); setCollections([]); setCollection(''); setDeployment(''); setTimeline(null); setError(null)
@@ -116,11 +163,11 @@ export default function TimeFixPage() {
     setRefImage(''); setRefTime(''); setConfirm(null)
   }
 
-  async function chooseDeployment(id: string) {
+  async function chooseDeployment(id: string, project = projectId, coll = collection) {
     setDeployment(id); setTimeline(null); setError(null)
     if (!id) return
     setBusy(true)
-    try { const t = await api.timefixTimeline(projectId, collection, id); setTimeline(t); resetForm(t) } catch (e) { setError(message(e, 'Could not read the images.')) } finally { setBusy(false) }
+    try { const t = await api.timefixTimeline(project, coll, id); setTimeline(t); resetForm(t) } catch (e) { setError(message(e, 'Could not read the images.')) } finally { setBusy(false) }
   }
 
   const names = timeline?.images.map((i) => i.name) ?? []
@@ -162,7 +209,7 @@ export default function TimeFixPage() {
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           For a copied card whose camera clock went wrong: see where the time jumps, shift a run of images by an offset — or to match an image whose real time
           you know — and remove the images whose time can&rsquo;t be trusted. Every fix is written down, and the card is kept as it came, so it can be put back.
-          Then import the collection with Import session.
+          Then process the collection with Process collection.
         </p>
       </div>
 

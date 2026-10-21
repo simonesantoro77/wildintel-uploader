@@ -123,8 +123,8 @@ export default function FieldLogPage() {
     try {
       const { path } = await api.fieldlogPickFile(kind)
       if (path) { (kind === 'epicollect' ? setEpicollect : setDatasheet)(path); changed() }
-    } catch {
-      // No native dialog here: the path can still be typed.
+    } catch (e) {
+      setError(`The file dialog could not be opened (${message(e, 'unknown error')}). Type or paste the path instead.`)
     }
   }
 
@@ -169,14 +169,14 @@ export default function FieldLogPage() {
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Field records</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-        After each field trip: the Epicollect download and the fieldwork datasheet, read together. The trip&rsquo;s visits are added to the datasheet, each
+        After each field trip: the field data download (from Epicollect or another field app) and the fieldwork datasheet, read together. The trip&rsquo;s visits are added to the datasheet, each
         deployment of the collection gets its start and end, who set it up, its camera and its card, and the field data are checked before any card is copied.
         Every time is <strong>UTC</strong>. Nothing is written until you press <strong>Write the files</strong>.
       </p>
 
       <WizardStep n={1} title="Choose the files" status={result ? 'done' : 'open'} canEdit={!busy} onEdit={changed}
                   summary={result && <>{projectId || 'No research project'} · {result.datasheet}</>}
-                  description="The research project, the Epicollect download of the trip and the datasheet as it is now.">
+                  description="The research project, the field data download of the trip and the datasheet as it is now.">
         <div className="mb-4">
           <label className={labelClass} htmlFor="fieldlog-research-project">Research project</label>
           <Combobox
@@ -192,9 +192,9 @@ export default function FieldLogPage() {
           {taking?.done && <p className="text-sm mt-1 text-emerald-700 dark:text-emerald-400" role="status">{taking.done}</p>}
           {taking?.error && <p className="text-sm mt-1 text-red-600 dark:text-red-400" role="alert">{taking.error}</p>}
         </div>
-        <FileField id="fieldlog-epicollect" label="Epicollect download (CSV)" value={epicollect} disabled={busy}
+        <FileField id="fieldlog-epicollect" label="Field data download (CSV)" value={epicollect} disabled={busy}
                    onChange={(v) => { setEpicollect(v); changed() }} onBrowse={() => void browse('epicollect')}
-                   hint="The CSV downloaded from the Epicollect project — the whole project or just this trip's entries." />
+                   hint="The CSV downloaded from the field app (Epicollect or another) — all its entries or just this trip's." />
         <FileField id="fieldlog-datasheet" label="Fieldwork datasheet (.xlsx)" value={datasheet} disabled={busy}
                    onChange={(v) => { setDatasheet(v); changed() }} onBrowse={() => void browse('datasheet')}
                    hint="The datasheet as it is now, e.g. TatraFieldSheet_R0001-R0013.xlsx. It is only read: the updated one is a new file beside it." />

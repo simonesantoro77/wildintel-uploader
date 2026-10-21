@@ -38,7 +38,7 @@ describe('App', () => {
   it('goes back to the welcome screen when the title is pressed, from wherever you are', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /upload deployment to trapper/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /upload to trapper/i }))
     expect(await screen.findByText(/Upload page — nothing chosen/)).toBeInTheDocument()
 
     await userEvent.click(await title())
@@ -69,7 +69,7 @@ describe('App', () => {
   it('takes a finished import to the upload page, on the collection it went into', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /import deployment/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /process deployment/i }))
     await userEvent.click(await screen.findByRole('button', { name: 'finish the import' }))
 
     expect(await screen.findByText('Upload page — DONA / R0003')).toBeInTheDocument()
@@ -78,11 +78,11 @@ describe('App', () => {
   it('opens the upload page empty when it is chosen from the menu, whatever was imported before', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /import deployment/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /process deployment/i }))
     await userEvent.click(await screen.findByRole('button', { name: 'finish the import' }))
     await userEvent.click(await title())
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /upload deployment to trapper/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /upload to trapper/i }))
 
     expect(await screen.findByText('Upload page — nothing chosen')).toBeInTheDocument()
   })

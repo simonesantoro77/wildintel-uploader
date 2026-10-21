@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import CardsPage, { size } from './CardsPage'
+import CardsPage, { datesOff, size } from './CardsPage'
 import { api } from '../api'
 import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { CardDeployment, CardInspection, CardsStatus } from '../types'
@@ -9,7 +9,7 @@ import type { CardDeployment, CardInspection, CardsStatus } from '../types'
 vi.mock('../api', () => ({
   api: {
     listResearchProjects: vi.fn(), ingestCollections: vi.fn(), ingestPrepare: vi.fn(), ingestStatus: vi.fn(), ingestInspect: vi.fn(),
-    ingestCopy: vi.fn(), ingestScanTree: vi.fn(), browseFolder: vi.fn(),
+    ingestCopy: vi.fn(), ingestScanTree: vi.fn(), browseFolder: vi.fn(), timefixTimeline: vi.fn(),
   },
 }))
 const mockedApi = vi.mocked(api, true)
@@ -102,6 +102,30 @@ describe('CardsPage', () => {
 
     await waitFor(() => expect(mockedApi.ingestCopy).toHaveBeenCalledTimes(2))
     expect(mockedApi.ingestCopy).toHaveBeenLastCalledWith('DONA', 'R0002', '/old/misc', '', 'R0002-TATR_0009', expect.any(Function), true)
+  })
+})
+
+describe('the dates of a card', () => {
+  it('says right after copying when they don\u2019t look right, and opens Fix dates and times on it', async () => {
+    mockedApi.timefixTimeline.mockResolvedValue({ ok: false, problems: ['15 image(s) were taken outside the deployment\u2019s period.'] } as never)
+    const onFixDates = vi.fn()
+    render(<CardsPage onFixDates={onFixDates} />)
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
+    await screen.findByText('Cards of R0042')
+    await userEvent.type(screen.getByLabelText('The card'), '/media/SD')
+    await userEvent.click(screen.getByRole('button', { name: 'Look at the card' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Copy into R0042-DONA_0007_B' }))
+
+    expect(await screen.findByLabelText('Dates of the card')).toHaveTextContent('15 image(s) were taken outside')
+    await userEvent.click(screen.getByRole('button', { name: 'Fix dates and times of R0042-DONA_0007_B' }))
+    expect(onFixDates).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0007_B' })
+  })
+
+  it('sees a copied card whose images fall outside its period', () => {
+    const copy = { card_label: null, copied_at: null, copied_by: null, file_count: 1, total_bytes: 1, source: '', first: '2020-01-01T00:00:00', last: '2026-07-01T00:00:00' }
+    expect(datesOff(dep('R0042-DONA_0007_B', { copy }))).toBe(true)
+    expect(datesOff(dep('R0042-DONA_0007_B', { copy: { ...copy, first: '2026-06-01T08:30:00' } }))).toBe(false)
   })
 })
 

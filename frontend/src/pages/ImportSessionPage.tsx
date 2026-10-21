@@ -1,4 +1,6 @@
 import ReportPanel from '../components/ReportPanel'
+import { FixDatesBanner } from './TimeFixPage'
+import type { TimeFixTarget } from './TimeFixPage'
 import SessionResults from '../components/SessionResults'
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -76,9 +78,11 @@ interface Props {
   onOpenSettings?: (section?: 'epicollect') => void
   /** Whether the settings are open over the wizard: what they hold is read again once they close. */
   settingsOpen?: boolean
+  /** Opens Fix dates and times on a deployment whose dates a check found wrong. */
+  onFixDates?: (target: TimeFixTarget) => void
 }
 
-export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onFixDates }: Props = {}) {
   const [step, setStep] = useState(0)
   const stepKey = STEPS[step].key
   // The sub-steps of the images and of the origin: the one open, and the furthest reached.
@@ -746,7 +750,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   return (
     <div className="max-w-screen-md mx-auto px-4 py-8">
-      <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Import session</h2>
+      <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Process collection</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Imports a folder of deployments — one subfolder each — into the local collections folder. The revision, the checks and the
         preprocessing are the same for all of them; the location, the dates and the camera are asked for each.
@@ -901,6 +905,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                                    outcome={(c) => (candidates.some((d) => imageCheckPassed(c, validations[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
                 } />
             )}
+            <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
+                            names={candidates.filter((d) => imageCheckPassed('sequence', validations[d.name]?.result ?? null) === false).map((d) => d.name)} />
           </WizardStep>
         </div>
         )
@@ -1357,6 +1363,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
               describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one you chose for each deployment').replace(/\.$/, '')}
               outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
+            <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
+                            names={chosen.filter((d) => deploymentCheckPassed('time_range', checks[d.name]?.result ?? null) === false).map((d) => d.name)} />
             <div className="mt-4 space-y-2">
               {chosen.filter((d) => checks[d.name]).map((d) => {
                 const outcome = checks[d.name]

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import TimeFixPage, { offsetText, secondsBetween } from './TimeFixPage'
+import TimeFixPage, { FixDatesBanner, cardsTarget, offsetText, secondsBetween } from './TimeFixPage'
 import { api } from '../api'
 import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { Timeline } from '../types'
@@ -79,5 +79,23 @@ describe('offsets', () => {
   })
   it('counts the seconds between two times of the same clock', () => {
     expect(secondsBetween('2020-01-01T00:00:00', '2020-01-01T01:00')).toBe(3600)
+  })
+})
+
+describe('opened from where the dates were found wrong', () => {
+  it('opens on the deployment given', async () => {
+    render(<TimeFixPage initial={{ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0011' }} />)
+
+    expect(await screen.findByRole('heading', { name: 'Segments' })).toBeInTheDocument()
+    expect(mockedApi.timefixTimeline).toHaveBeenCalledWith('DONA', 'R0042', 'R0042-DONA_0011')
+  })
+
+  it('knows a collection of the cards folder, and offers to fix each deployment of it', async () => {
+    expect(cardsTarget('C:\\Users\\me\\Documents\\wildintel-uploader\\cards\\DONA_24\\R0042')).toEqual({ researchProjectId: 'DONA_24', collection: 'R0042' })
+    expect(cardsTarget('/home/me/Pictures/R0042')).toBeNull()
+    const onFixDates = vi.fn()
+    render(<FixDatesBanner folder="/data/cards/DONA/R0042/" names={['R0042-DONA_0011']} onFixDates={onFixDates} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Fix dates of R0042-DONA_0011' }))
+    expect(onFixDates).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0011' })
   })
 })

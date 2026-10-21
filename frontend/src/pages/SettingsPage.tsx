@@ -1031,7 +1031,7 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
               />
               <p className={`${hintClass} px-1`}>Only matters for datasheets that are not in the standard format, like Doñana&rsquo;s (Spanish headers, R/I/D/ROBADA).</p>
             </Row>
-            <Row label="SD cards" description="Each card is copied untouched into the cards folder (inside the images folder), ready for Import session.">
+            <Row label="SD cards" description="Each card is copied untouched into the cards folder (inside the images folder), ready for Process collection.">
               <SelectBox
                 label="Keep the untouched copy of each card" value={draft.keepCards} onChange={(v) => set('keepCards', v)}
                 options={[
@@ -1043,7 +1043,7 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
               <p className={`${hintClass} px-1`}>Keeping it takes the images&rsquo; space twice while the deployment is being prepared, but any correction can be undone from it.</p>
               <NumberBox label="Files vs. photos counted in the field" value={draft.countTolerance} limits={SIMILARITY_TOLERANCE} onChange={(v) => set('countTolerance', v)} unit="% apart before it is pointed out" />
             </Row>
-            <Row label="Epicollect columns" description="The column of the Epicollect download that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
+            <Row label="Field data columns" description="The column of the field data download (Epicollect or another field app) that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
               <div className="space-y-2">
                 {fieldColumns.map((c) => (
                   <TextBox

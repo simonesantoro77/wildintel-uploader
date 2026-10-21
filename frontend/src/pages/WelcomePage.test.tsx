@@ -8,7 +8,8 @@ describe('WelcomePage', () => {
     const onStart = vi.fn()
     render(<WelcomePage onStart={onStart} />)
 
-    expect(screen.getByText(/organize a folder of images locally and register the deployment in trapper/i)).toBeInTheDocument()
+    expect(screen.getByText('1 · Field records')).toBeInTheDocument()
+    expect(screen.getByText('5 · Upload to Trapper')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /get started/i }))
     expect(onStart).toHaveBeenCalled()

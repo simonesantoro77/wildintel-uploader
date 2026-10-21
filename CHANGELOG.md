@@ -133,6 +133,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reports to look at again or delete.
 
 ### Changed
+- The menu shows the workflow as numbered steps, in the order they are done: 1 Field records, 2 Copy SD cards, 3 Fix dates
+  and times (only if needed), 4 Process collection (or a single deployment), 5 Upload to Trapper. *Import deployment* and
+  *Import session* are now **Process deployment** and **Process collection**.
+- Fix dates and times opens on the deployment where the problem was found: right after a card is copied, when its dates
+  don't look right, and from Process collection, when the order or the dates of a deployment's images fail their check.
+- The native file and folder dialogs open in front of the browser, and the field records say when the dialog can't open.
+  The field data download is no longer named after Epicollect: any field app's CSV will do.
 - **Sync local collections** works from the research project's own collections, not a classification project's: nothing is
   ticked to begin with, several collections and deployments can be chosen at once, and each says what is already here. A
   classification project is only asked for to download images (Trapper only gives the files through one). Collections made

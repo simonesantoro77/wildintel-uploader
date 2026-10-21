@@ -38,7 +38,7 @@ class OpenRequest(BaseModel):
 
 
 _PICK = {
-    "epicollect": ("Select the Epicollect download (CSV)", ["*.csv"]),
+    "epicollect": ("Select the field data download (CSV)", ["*.csv"]),
     "datasheet": ("Select the fieldwork datasheet (.xlsx)", ["*.xlsx", "*.xlsm"]),
 }
 

@@ -3,6 +3,7 @@ import { api } from '../api'
 import Combobox from '../components/Combobox'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import { utc } from './FieldLogPage'
+import type { TimeFixTarget } from './TimeFixPage'
 import type { CardDeployment, CardInspection, CardsStatus, LocalResearchProject, TreeFolder } from '../types'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
@@ -55,8 +56,17 @@ function useProjects(onError: (m: string) => void) {
 }
 
 /** The cards of a field trip: the collection's deployments as the field records say them, a card looked at and matched to
- * its deployment, and copied — untouched and checked file by file — into the cards folder, ready for Import session. */
-function TripCards() {
+ * its deployment, and copied — untouched and checked file by file — into the cards folder, ready for Process collection. */
+/** Whether a copied card's first and last image fall outside its deployment's period (an hour of leeway) — both read as
+ * the same clock, UTC. Fix dates and times looks at every image; this is only a first sign. */
+export function datesOff(d: CardDeployment): boolean {
+  if (!d.copy?.first || !d.copy.last || !d.start || !d.end) return false
+  const t = (iso: string) => Date.parse(iso.endsWith('Z') ? iso : `${iso}Z`)
+  const hour = 3_600_000
+  return t(d.copy.first) < t(d.start) - hour || t(d.copy.last) > t(d.end) + hour
+}
+
+function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => void }) {
   const [error, setError] = useState<string | null>(null)
   const projects = useProjects(setError)
   const [projectId, setProjectId] = useState('')
@@ -70,6 +80,8 @@ function TripCards() {
   const [chosen, setChosen] = useState('')
   const [copying, setCopying] = useState<{ done: number; total: number; name: string } | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  // What the dates of the card just copied look like: their problems, when there are any.
+  const [dateCheck, setDateCheck] = useState<{ deploymentId: string; problems: string[] } | null>(null)
 
   const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
@@ -112,8 +124,12 @@ function TripCards() {
       await api.ingestCopy(projectId, collection, seen.source, label.trim(), chosen, (event) => {
         if (event.type === 'copy') setCopying({ done: event.index, total: event.total, name: event.name })
       })
-      setCopied(chosen); setSeen(null); setSource(''); setLabel('')
+      setCopied(chosen); setSeen(null); setSource(''); setLabel(''); setDateCheck(null)
       setStatus(await api.ingestStatus(projectId, collection))
+      try {
+        const timeline = await api.timefixTimeline(projectId, collection, chosen)
+        if (!timeline.ok) setDateCheck({ deploymentId: chosen, problems: timeline.problems })
+      } catch { /* the dates are checked again when the collection is processed */ }
     } catch (e) { setError(message(e, 'The copy failed.')) } finally { setCopying(null) }
   }
 
@@ -166,6 +182,17 @@ function TripCards() {
             </div>
 
             {copied && <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-400" role="status">Card copied into {copied}. Put in the next one.</p>}
+            {dateCheck && (
+              <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm" role="alert" aria-label="Dates of the card">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">The dates of {dateCheck.deploymentId} don&rsquo;t look right:</p>
+                <ul className="list-disc pl-5 text-amber-900/90 dark:text-amber-200/90">{dateCheck.problems.map((p) => <li key={p}>{p}</li>)}</ul>
+                {onFixDates && (
+                  <button type="button" className={`${btnOutline} mt-2`} onClick={() => onFixDates({ researchProjectId: projectId, collection, deploymentId: dateCheck.deploymentId })}>
+                    Fix dates and times of {dateCheck.deploymentId}
+                  </button>
+                )}
+              </div>
+            )}
 
             {seen && (
               <div className="mt-4 space-y-4">
@@ -247,6 +274,12 @@ function TripCards() {
                       <td className="px-3 py-2 tabular-nums">{d.photos_counted ?? '—'}</td>
                       <td className="px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
                         {d.copy ? `${d.copy.file_count} files · ${size(d.copy.total_bytes)} · ${utc(d.copy.copied_at)}${d.copy.card_label ? ` · card ${d.copy.card_label}` : ''}` : ''}
+                        {datesOff(d) && (
+                          <span className="block text-amber-800 dark:text-amber-300">
+                            ⚠ Images outside its period{' '}
+                            {onFixDates && <button type="button" className="underline" onClick={() => onFixDates({ researchProjectId: projectId, collection: status.collection, deploymentId: d.deployment_id })}>Fix dates</button>}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -262,8 +295,8 @@ function TripCards() {
             <p className={`${hintClass} mt-2`}>
               The cards are copied into <span className="font-mono break-all">{status.cards_dir}</span>, with the collection&rsquo;s FileTimestampLog beside them.
               {status.counts.to_copy === 0 && status.counts.copied > 0
-                ? ' Every collected card is copied: import that folder with Import session to check and prepare the images.'
-                : ' When every card is copied, import that folder with Import session to check and prepare the images.'}
+                ? ' Every collected card is copied: process that folder with Process collection to check and prepare the images.'
+                : ' When every card is copied, process that folder with Process collection to check and prepare the images.'}
             </p>
           </section>
         </>
@@ -400,14 +433,14 @@ function FoldersFromElsewhere() {
 }
 
 /** Copying the SD cards — between the field records and the import. */
-export default function CardsPage() {
+export default function CardsPage({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => void } = {}) {
   const [mode, setMode] = useState<'trip' | 'tree'>('trip')
   return (
     <div className="max-w-screen-lg mx-auto px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Copy SD cards</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
         Guided by the field records: each card is matched to its deployment, copied untouched and checked file by file, and a card is never copied twice
-        or into two deployments. The copies are kept apart from the collections, ready for Import session.
+        or into two deployments. The copies are kept apart from the collections, ready for Process collection.
       </p>
       <div className="flex gap-2 mb-6" role="tablist">
         {([['trip', 'Cards of a field trip'], ['tree', 'Folders from elsewhere']] as const).map(([value, text]) => (
@@ -417,7 +450,7 @@ export default function CardsPage() {
           </button>
         ))}
       </div>
-      {mode === 'trip' ? <TripCards /> : <FoldersFromElsewhere />}
+      {mode === 'trip' ? <TripCards onFixDates={onFixDates} /> : <FoldersFromElsewhere />}
     </div>
   )
 }
