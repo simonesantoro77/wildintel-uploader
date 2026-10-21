@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
+import NextStep from '../components/NextStep'
 import { utc } from './FieldLogPage'
+import type { CollectionTarget } from './FieldLogPage'
 import type { TimeFixTarget } from './TimeFixPage'
-import type { CardDeployment, CardInspection, CardsStatus, LocalResearchProject, TreeFolder } from '../types'
+import type { CardDeployment, CardInspection, CardsStatus, FieldCorrection, LocalResearchProject, TreeFolder } from '../types'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
 const inputClass = 'rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60'
@@ -26,6 +28,24 @@ const STATE: Record<CardDeployment['state'], [string, string]> = {
   out: ['Camera still out', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'],
   to_copy: ['Card to copy', 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'],
   copied: ['✔ Copied', 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'],
+  processed: ['✔ Processed', 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'],
+}
+
+/** Whether the label on the card in hand is not the one noted in the field for that deployment. */
+export function labelMismatch(fieldCard: string | null, label: string): boolean {
+  return Boolean(fieldCard) && fieldCard!.trim().toLowerCase() !== label.trim().toLowerCase()
+}
+
+/** Where Process collection opens, when it is reached from here: the collection's cards folder. */
+export interface ProcessTarget extends CollectionTarget {
+  folder: string
+}
+
+interface TripProps {
+  onFixDates?: (target: TimeFixTarget) => void
+  onProcess?: (target: ProcessTarget) => void
+  /** The collection to open on, when Copy SD cards is reached from Field records. */
+  initial?: CollectionTarget
 }
 
 function StateBadge({ state }: { state: CardDeployment['state'] }) {
@@ -66,7 +86,7 @@ export function datesOff(d: CardDeployment): boolean {
   return t(d.copy.first) < t(d.start) - hour || t(d.copy.last) > t(d.end) + hour
 }
 
-function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => void }) {
+function TripCards({ onFixDates, onProcess, initial }: TripProps) {
   const [error, setError] = useState<string | null>(null)
   const projects = useProjects(setError)
   const [projectId, setProjectId] = useState('')
@@ -82,34 +102,52 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
   const [copied, setCopied] = useState<string | null>(null)
   // What the dates of the card just copied look like: their problems, when there are any.
   const [dateCheck, setDateCheck] = useState<{ deploymentId: string; problems: string[] } | null>(null)
+  // The card in hand has another label than the one noted in the field, and the user says it is the right card.
+  const [labelConfirmed, setLabelConfirmed] = useState(false)
+  // What happened when the card was ejected after its copy.
+  const [ejected, setEjected] = useState<{ ejected: boolean; message: string } | null>(null)
+  const [corrections, setCorrections] = useState<FieldCorrection[]>([])
+
+  useEffect(() => {
+    if (initial) void chooseProject(initial.researchProjectId, initial.collection)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
-  async function chooseProject(id: string) {
+  async function chooseProject(id: string, wanted?: string) {
     setProjectId(id); setCollections([]); setCollection(''); setStatus(null); setSeen(null); setError(null)
     if (!id) return
     try {
       const { results } = await api.ingestCollections(id)
       setCollections(results)
-      if (results.length) void chooseCollection(id, results[0])
+      const pick = wanted && results.includes(wanted) ? wanted : results[0]
+      if (pick) void chooseCollection(id, pick)
     } catch (e) { setError(message(e, 'Could not read the collections.')) }
   }
 
+  async function readCorrections(project: string, name: string) {
+    try { setCorrections((await api.ingestCorrections(project, name)).results) } catch { setCorrections([]) }
+  }
+
   async function chooseCollection(project: string, name: string) {
-    setCollection(name); setStatus(null); setSeen(null); setError(null)
+    setCollection(name); setStatus(null); setSeen(null); setError(null); setCorrections([])
     if (!name) return
-    try { setStatus(await api.ingestPrepare(project, name)) } catch (e) { setError(message(e, 'Could not prepare the cards folder.')) }
+    try {
+      setStatus(await api.ingestPrepare(project, name))
+      void readCorrections(project, name)
+    } catch (e) { setError(message(e, 'Could not prepare the cards folder.')) }
   }
 
   async function browse() {
     try {
       const { path } = await api.browseFolder('Select the SD card')
-      if (path) { setSource(path); setSeen(null); setCopied(null) }
+      if (path) { setSource(path); setSeen(null); setCopied(null); setEjected(null) }
     } catch { /* no dialog here: type the path */ }
   }
 
   async function look() {
-    setLooking(true); setSeen(null); setCopied(null); setError(null)
+    setLooking(true); setSeen(null); setCopied(null); setError(null); setEjected(null); setLabelConfirmed(false)
     try {
       const result = await api.ingestInspect(projectId, collection, source.trim(), label.trim())
       setSeen(result)
@@ -123,9 +161,12 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
     try {
       await api.ingestCopy(projectId, collection, seen.source, label.trim(), chosen, (event) => {
         if (event.type === 'copy') setCopying({ done: event.index, total: event.total, name: event.name })
-      })
-      setCopied(chosen); setSeen(null); setSource(''); setLabel(''); setDateCheck(null)
+      }, false, mismatch && labelConfirmed)
+      const card = seen.source
+      setCopied(chosen); setSeen(null); setSource(''); setLabel(''); setDateCheck(null); setLabelConfirmed(false)
       setStatus(await api.ingestStatus(projectId, collection))
+      if (mismatch) void readCorrections(projectId, collection)
+      try { setEjected(await api.ingestEject(card)) } catch { setEjected({ ejected: false, message: 'Eject the card from the system before taking it out.' }) }
       try {
         const timeline = await api.timefixTimeline(projectId, collection, chosen)
         if (!timeline.ok) setDateCheck({ deploymentId: chosen, problems: timeline.problems })
@@ -135,6 +176,9 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
 
   const busy = looking || copying !== null
   const blocked = Boolean(seen?.already_copied.length)
+  const chosenCandidate = seen?.candidates.find((c) => c.deployment_id === chosen)
+  const mismatch = Boolean(chosenCandidate) && labelMismatch(chosenCandidate!.card, label)
+  const allDone = status !== null && status.counts.to_copy === 0 && (status.counts.copied > 0 || status.counts.processed > 0)
 
   return (
     <div className="space-y-6">
@@ -169,19 +213,24 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
                 </div>
               </div>
               <div>
-                <label className={labelClass} htmlFor="cards-label">Label on the card</label>
-                <input id="cards-label" className={`${inputClass} w-full font-mono`} value={label} disabled={busy} placeholder="e.g. 17A"
+                <label className={labelClass} htmlFor="cards-label">Label on the card <span className="text-red-600">*</span></label>
+                <input id="cards-label" className={`${inputClass} w-full font-mono`} value={label} disabled={busy} placeholder="e.g. 17A" required
                        onChange={(e) => { setLabel(e.target.value); setSeen(null) }} />
               </div>
             </div>
-            <p className={`${hintClass} mt-2`}>The card is only read. Its label, as written on it and noted in the field, helps find its deployment.</p>
+            <p className={`${hintClass} mt-2`}>The card is only read. Type the label written on it: it is checked against the one noted in the field.</p>
             <div className="flex justify-end mt-3">
-              <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!source.trim() || busy} onClick={() => void look()}>
+              <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!source.trim() || !label.trim() || busy} onClick={() => void look()}>
                 {looking && <SmallSpinner />}Look at the card
               </button>
             </div>
 
-            {copied && <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-400" role="status">Card copied into {copied}. Put in the next one.</p>}
+            {copied && (
+              <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-400" role="status">
+                Card copied into {copied}. {ejected?.ejected ? `${ejected.message} Put in the next one.` : 'Put in the next one.'}
+              </p>
+            )}
+            {copied && ejected && !ejected.ejected && <p className={`${hintClass} mt-1`}>{ejected.message}</p>}
             {dateCheck && (
               <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm" role="alert" aria-label="Dates of the card">
                 <p className="font-semibold text-amber-900 dark:text-amber-200">The dates of {dateCheck.deploymentId} don&rsquo;t look right:</p>
@@ -224,8 +273,8 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
                     <div className="space-y-2">
                       {seen.candidates.map((c, i) => (
                         <label key={c.deployment_id} className={`flex gap-3 rounded-lg border p-3 cursor-pointer ${chosen === c.deployment_id ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700'}`}>
-                          <input type="radio" name="cards-deployment" className="mt-1" checked={chosen === c.deployment_id} disabled={c.state === 'copied'}
-                                 onChange={() => setChosen(c.deployment_id)} />
+                          <input type="radio" name="cards-deployment" className="mt-1" checked={chosen === c.deployment_id}
+                                 onChange={() => { setChosen(c.deployment_id); setLabelConfirmed(false) }} />
                           <span className="flex-1 min-w-0">
                             <span className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono font-semibold">{c.deployment_id}</span>
@@ -241,10 +290,24 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
                   </fieldset>
                 )}
 
+                {!blocked && mismatch && chosenCandidate && (
+                  <div className="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-300" role="alert" aria-label="Card label">
+                    <p className="font-semibold">
+                      The label does not match: the card in your hand is <span className="font-mono">{label.trim()}</span>, but the field records
+                      say <span className="font-mono">{chosenCandidate.card}</span> for {chosenCandidate.deployment_id}.
+                    </p>
+                    <p className="mt-1">Check the card. If it is the right one, confirm it: the difference is written down in the copy record and in the list of corrections for the field data.</p>
+                    <label className="mt-2 flex items-center gap-2 font-semibold">
+                      <input type="checkbox" checked={labelConfirmed} onChange={(e) => setLabelConfirmed(e.target.checked)} />
+                      It is the card of {chosenCandidate.deployment_id}: copy it anyway
+                    </label>
+                  </div>
+                )}
+
                 {copying && <Progress done={copying.done} total={copying.total} name={copying.name} />}
                 {!blocked && (
                   <div className="flex justify-end">
-                    <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!chosen || busy} onClick={() => void copy()}>
+                    <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!chosen || busy || (mismatch && !labelConfirmed)} onClick={() => void copy()}>
                       {copying && <SmallSpinner />}{chosen ? `Copy into ${chosen}` : 'Choose its deployment'}
                     </button>
                   </div>
@@ -256,13 +319,16 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
           <section aria-label="Cards of the collection">
             <div className="flex items-center gap-3 flex-wrap mb-2">
               <h3 className="font-semibold mr-auto">Cards of {status.collection}</h3>
-              <span className={hintClass}>{status.counts.copied} copied · {status.counts.to_copy} to copy · {status.counts.out} camera(s) still out</span>
+              <span className={hintClass}>
+                {status.counts.copied} copied · {status.counts.to_copy} to copy · {status.counts.out} camera(s) still out
+                {status.counts.processed > 0 && ` · ${status.counts.processed} processed`}
+              </span>
             </div>
             <div className="overflow-x-auto rounded border border-zinc-200 dark:border-zinc-700">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50">
-                    {['Deployment', '', 'Card', 'Photos counted', 'Copied'].map((h, i) => <th key={i} scope="col" className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}
+                    {['Deployment', '', 'Card (field)', 'Photos counted', 'Copied'].map((h, i) => <th key={i} scope="col" className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>)}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -294,11 +360,30 @@ function TripCards({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => voi
             </div>
             <p className={`${hintClass} mt-2`}>
               The cards are copied into <span className="font-mono break-all">{status.cards_dir}</span>, with the collection&rsquo;s FileTimestampLog beside them.
-              {status.counts.to_copy === 0 && status.counts.copied > 0
-                ? ' Every collected card is copied: process that folder with Process collection to check and prepare the images.'
-                : ' When every card is copied, process that folder with Process collection to check and prepare the images.'}
             </p>
           </section>
+
+          {corrections.length > 0 && (
+            <section className="rounded-xl border-2 border-red-400 dark:border-red-700 p-4" aria-label="Corrections for the field data">
+              <h3 className="font-semibold text-red-800 dark:text-red-300">Corrections for the field data</h3>
+              <p className={`${hintClass} mb-2`}>
+                What the cards showed differently from the field records. Correct it in the field data (the field app and the datasheet); the list is kept
+                in <span className="font-mono">field_corrections.csv</span> in the cards folder.
+              </p>
+              <ul className="text-sm space-y-1">
+                {corrections.map((c, i) => (
+                  <li key={i}><span className="font-mono">{c.deployment}</span>: {c.what} is <span className="font-mono font-semibold">{c.found}</span>, not <span className="font-mono">{c['field records say']}</span> as noted in the field.</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <NextStep n={allDone ? 4 : 3} title={allDone ? 'Process collection' : 'Fix dates and times (only if needed)'}
+                    onGo={allDone ? (onProcess && (() => onProcess({ researchProjectId: projectId, collection: status.collection, folder: status.cards_dir }))) : undefined}>
+            {allDone
+              ? 'Every collected card is copied. Process the cards folder to check the images and prepare the deployments for Trapper.'
+              : `Copy the ${status.counts.to_copy} card(s) left. If a card\u2019s dates look wrong, fix them from the warning; then process the collection.`}
+          </NextStep>
         </>
       )}
     </div>
@@ -433,7 +518,7 @@ function FoldersFromElsewhere() {
 }
 
 /** Copying the SD cards — between the field records and the import. */
-export default function CardsPage({ onFixDates }: { onFixDates?: (target: TimeFixTarget) => void } = {}) {
+export default function CardsPage({ onFixDates, onProcess, initial }: TripProps = {}) {
   const [mode, setMode] = useState<'trip' | 'tree'>('trip')
   return (
     <div className="max-w-screen-lg mx-auto px-4 py-8">
@@ -450,7 +535,7 @@ export default function CardsPage({ onFixDates }: { onFixDates?: (target: TimeFi
           </button>
         ))}
       </div>
-      {mode === 'trip' ? <TripCards onFixDates={onFixDates} /> : <FoldersFromElsewhere />}
+      {mode === 'trip' ? <TripCards onFixDates={onFixDates} onProcess={onProcess} initial={initial} /> : <FoldersFromElsewhere />}
     </div>
   )
 }

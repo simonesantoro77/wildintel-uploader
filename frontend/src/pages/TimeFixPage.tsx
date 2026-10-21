@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
+import NextStep from '../components/NextStep'
+import type { ProcessTarget } from './CardsPage'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import type { LocalResearchProject, TimeSegment, Timeline } from '../types'
 
@@ -110,7 +112,12 @@ export function FixDatesBanner({ folder, names, onFixDates }: { folder: string; 
   )
 }
 
-export default function TimeFixPage({ initial }: { initial?: TimeFixTarget } = {}) {
+/** The folder a deployment's folder sits in: its collection's cards folder. */
+export function parentFolder(folder: string): string {
+  return folder.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '')
+}
+
+export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixTarget; onProcess?: (target: ProcessTarget) => void } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<{ collection: string; deployments: string[] }[]>([])
@@ -388,6 +395,11 @@ export default function TimeFixPage({ initial }: { initial?: TimeFixTarget } = {
               </div>
             )}
           </section>
+
+          <NextStep n={4} title="Process collection"
+                    onGo={onProcess && (() => onProcess({ researchProjectId: projectId, collection, folder: parentFolder(timeline.folder) }))}>
+            When the dates of every deployment are right, process the collection&rsquo;s cards folder to check the images and prepare the deployments for Trapper.
+          </NextStep>
         </>
       )}
     </div>

@@ -345,12 +345,10 @@ def import_local(req: ImportLocalRequest) -> StreamingResponse:
 def _import_local(req: ImportLocalRequest, consolidate: bool) -> StreamingResponse:
     try:
         if req.preprocessing is not None:
-            # The collection sits in its research project's folder, <research project>/<collection>: the images are read
-            # in the timezone of the location kept there beside it — the only place it is set.
-            time = local_folder_service.location_time_in(Path(req.collection_dir).expanduser().parent, req.deployment.location_id)
-            if not time.get("timezone"):
-                raise HTTPException(400, f"The location {req.deployment.location_id or '(none)'} has no timezone: set it in the location's time settings first.")
-            options = {**req.preprocessing.model_dump(), "timezone": time["timezone"], "ignore_dst": time.get("ignore_dst", True)}
+            # The images' times are never changed: the cameras' clocks are read as what they are set to (FIELDLOG.camera_timezone,
+            # UTC), whatever the timezone of the location, which is only kept for Trapper.
+            camera_zone = config.load_settings().FIELDLOG.camera_timezone
+            options = {**req.preprocessing.model_dump(), "timezone": camera_zone, "ignore_dst": False}
             events = preprocessing_service.preprocess_stream(
                 req.source_dir, req.collection_dir, req.collection_name, req.deployment,
                 preprocessing_service.PreprocessOptions(**options), consolidate=consolidate,

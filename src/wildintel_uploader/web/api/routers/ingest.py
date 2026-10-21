@@ -35,6 +35,16 @@ class CopyRequest(InspectRequest):
     deployment_id: str
     # A folder from elsewhere: its deployment need not be in the field records.
     allow_unknown: bool = False
+    # The label in hand is not the one the field records say, and the user confirmed the card is the right one.
+    label_confirmed: bool = False
+
+
+class EjectRequest(BaseModel):
+    source: str
+
+
+class CardCollectionsRequest(BaseModel):
+    research_project_id: Optional[str] = None
 
 
 class TreeRequest(BaseModel):
@@ -88,7 +98,7 @@ def copy(req: CopyRequest) -> StreamingResponse:
     "done", "record"}; a failure midway is an {"type": "error", "detail"} line. What is checked before anything is
     copied (a card copied already, a folder that holds files…) is a plain 400."""
     events = ingest_service.copy_stream(req.source, req.research_project_id, req.collection, req.deployment_id, req.card_label,
-                                        allow_unknown=req.allow_unknown)
+                                        allow_unknown=req.allow_unknown, label_confirmed=req.label_confirmed)
     try:
         first = next(events)
     except ingest_service.IngestError as exc:
@@ -115,5 +125,35 @@ def scan_tree(req: TreeRequest) -> dict:
     """The folders under a root that hold images, with their collection and site guessed from the path."""
     try:
         return ingest_service.scan_tree(req.root, req.research_project_id)
+    except ingest_service.IngestError as exc:
+        raise _bad(exc) from exc
+
+
+@router.post("/eject")
+def eject(req: EjectRequest) -> dict:
+    """Ejects the removable drive a card was copied from: {"ejected", "message"}."""
+    return ingest_service.eject(req.source)
+
+
+@router.post("/corrections")
+def corrections(req: CollectionRequest) -> dict:
+    """The corrections for the field data written down while copying the collection's cards."""
+    try:
+        return {"results": ingest_service.read_corrections(req.research_project_id, req.collection)}
+    except ingest_service.IngestError as exc:
+        raise _bad(exc) from exc
+
+
+@router.post("/card-collections")
+def card_collections(req: CardCollectionsRequest) -> dict:
+    """The collections in the cards folder, newest first, to pick the one Process collection works on."""
+    return {"results": ingest_service.card_collections(req.research_project_id)}
+
+
+@router.post("/field-details")
+def field_details(req: CollectionRequest) -> dict:
+    """What the field records say of each deployment of the collection: who set it up, the camera, tags and notes."""
+    try:
+        return {"results": ingest_service.field_details(req.research_project_id, req.collection)}
     except ingest_service.IngestError as exc:
         raise _bad(exc) from exc

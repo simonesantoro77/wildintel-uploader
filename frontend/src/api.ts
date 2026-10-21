@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, OtherCollection, FieldlogColumn, FieldlogResult, CardsStatus, CardInspection, CardCopyEvent, TreeFolder, Timeline,
+  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, OtherCollection, FieldlogColumn, FieldlogResult, CardsStatus, FieldCorrection, CardCollection, FieldDetail, CardInspection, CardCopyEvent, TreeFolder, Timeline,
 } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
@@ -138,10 +138,18 @@ export const api = {
     post<CardsStatus>('/api/ingest/prepare', { research_project_id: researchProjectId, collection }),
   ingestInspect: (researchProjectId: string, collection: string, source: string, cardLabel: string) =>
     post<CardInspection>('/api/ingest/inspect', { research_project_id: researchProjectId, collection, source, card_label: cardLabel || null }),
-  ingestCopy: (researchProjectId: string, collection: string, source: string, cardLabel: string, deploymentId: string, onEvent: (event: CardCopyEvent) => void, allowUnknown = false) =>
+  ingestCopy: (researchProjectId: string, collection: string, source: string, cardLabel: string, deploymentId: string, onEvent: (event: CardCopyEvent) => void, allowUnknown = false, labelConfirmed = false) =>
     streamNdjson<CardCopyEvent>('/api/ingest/copy', {
       research_project_id: researchProjectId, collection, source, card_label: cardLabel || null, deployment_id: deploymentId, allow_unknown: allowUnknown,
+      label_confirmed: labelConfirmed,
     }, onEvent, 'The copy ended unexpectedly.'),
+  ingestCardCollections: (researchProjectId: string | null = null) =>
+    post<{ results: CardCollection[] }>('/api/ingest/card-collections', { research_project_id: researchProjectId }),
+  ingestFieldDetails: (researchProjectId: string, collection: string) =>
+    post<{ results: Record<string, FieldDetail> }>('/api/ingest/field-details', { research_project_id: researchProjectId, collection }),
+  ingestEject: (source: string) => post<{ ejected: boolean; message: string }>('/api/ingest/eject', { source }),
+  ingestCorrections: (researchProjectId: string, collection: string) =>
+    post<{ results: FieldCorrection[] }>('/api/ingest/corrections', { research_project_id: researchProjectId, collection }),
   ingestScanTree: (root: string, researchProjectId: string | null) =>
     post<{ root: string; folders: TreeFolder[] }>('/api/ingest/scan-tree', { root, research_project_id: researchProjectId }),
 

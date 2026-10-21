@@ -138,24 +138,68 @@ def list_collections(research_project_id: str, settings: config.Settings | None 
     return sorted(found, reverse=True)
 
 
+def card_collections(research_project_id: str | None = None, settings: config.Settings | None = None) -> list[dict]:
+    """The collections in the cards folder, ready for Process collection, newest first: {"research_project_id",
+    "collection", "folder", "deployments" (subfolders), "processed" (of them already in the collections folder)}."""
+    root = config.cards_dir(settings)
+    if not root.is_dir():
+        return []
+    found = []
+    for project in sorted(p for p in root.iterdir() if p.is_dir()):
+        if research_project_id and project.name.lower() != research_project_id.lower():
+            continue
+        for folder in (p for p in project.iterdir() if p.is_dir() and _COLLECTION.match(p.name)):
+            names = [d.name for d in folder.iterdir() if d.is_dir() and not d.name.startswith(".")]
+            try:
+                done = processed_deployments(_collection_dir(project.name, folder.name, settings))
+            except IngestError:
+                done = set()
+            found.append({"research_project_id": project.name, "collection": folder.name, "folder": str(folder),
+                          "deployments": len(names), "processed": sum(1 for n in names if n.lower() in done)})
+    return sorted(found, key=lambda c: (c["collection"], c["research_project_id"]), reverse=True)
+
+
+def field_details(research_project_id: str, collection: str, settings: config.Settings | None = None) -> dict[str, dict]:
+    """What the field records say of each deployment of the collection, by deployment id: who set it up, the camera, its
+    tags and notes, its site and period (UTC) and card. What Process collection fills each deployment in with."""
+    rows = fieldlog_service.read_fieldwork_log(_collection_dir(research_project_id, collection, settings))
+    details = {}
+    for row in rows:
+        tags = [t.strip() for t in re.split(r"[;,|]", row.get("deploymentTags") or "") if t.strip()]
+        details[row.get("deploymentID", "")] = {
+            "location_id": row.get("locationID") or None, "start": row.get("deploymentStart") or None, "end": row.get("deploymentEnd") or None,
+            "setup_by": row.get("setupBy") or None, "camera_id": row.get("cameraID") or None, "tags": tags,
+            "comments": row.get("deploymentComments") or None, "card": row.get("cardSD") or None,
+        }
+    return details
+
+
 def collection_status(research_project_id: str, collection: str, settings: config.Settings | None = None) -> dict:
     """Each deployment of the collection, as the field records say it and as far as its card has been copied:
-    "out" (camera still out there), "to_copy" (card collected, not copied yet) or "copied" — with the copy record's
+    "out" (camera still out there), "to_copy" (card collected, not copied yet), "copied" or "processed" (already in
+    the collection's folder, by Process collection) — with the copy record's
     summary. Copies of deployments the field records don't know are listed as "unexpected".
 
     Raises:
         IngestError: the research project or collection can't be a folder name.
     """
     collection = _check_collection(collection)
-    rows = fieldlog_service.read_fieldwork_log(_collection_dir(research_project_id, collection, settings))
+    collection_dir = _collection_dir(research_project_id, collection, settings)
+    rows = fieldlog_service.read_fieldwork_log(collection_dir)
     cards = card_collection_dir(research_project_id, collection, settings)
+    processed = processed_deployments(collection_dir)
     deployments = []
     known = set()
     for row in rows:
         deployment_id = row.get("deploymentID", "")
         known.add(deployment_id.lower())
         record = read_copy_record(cards / deployment_id)
-        state = "copied" if record else ("to_copy" if row.get("status") == "closed" else "out")
+        if deployment_id.lower() in processed:
+            state = "processed"
+        elif record:
+            state = "copied"
+        else:
+            state = "to_copy" if row.get("status") == "closed" else "out"
         deployments.append({
             "deployment_id": deployment_id, "site": row.get("locationID"), "state": state,
             "start": row.get("deploymentStart") or None, "end": row.get("deploymentEnd") or None,
@@ -169,11 +213,20 @@ def collection_status(research_project_id: str, collection: str, settings: confi
             record = read_copy_record(folder)
             if record and folder.name.lower() not in known:
                 unexpected.append({"deployment_id": folder.name, "copy": _record_summary(record)})
-    counts = {state: sum(1 for d in deployments if d["state"] == state) for state in ("out", "to_copy", "copied")}
+    counts = {state: sum(1 for d in deployments if d["state"] == state) for state in ("out", "to_copy", "copied", "processed")}
     return {
         "collection": collection, "cards_dir": str(cards), "has_fieldwork_log": bool(rows),
         "deployments": deployments, "unexpected": unexpected, "counts": counts,
     }
+
+
+def processed_deployments(collection_dir: Path) -> set[str]:
+    """The deployments already processed into the collection, lower-cased: each a folder holding its deployment.json."""
+    try:
+        return {p.name.lower() for p in collection_dir.iterdir()
+                if p.is_dir() and (p / local_folder_service.DEPLOYMENT_METADATA_FILE).is_file()}
+    except OSError:
+        return set()
 
 
 def _record_summary(record: dict | None) -> dict | None:
@@ -200,7 +253,7 @@ def prepare_collection(research_project_id: str, collection: str, settings: conf
         if source_log.is_file():
             shutil.copy2(source_log, cards / source_log.name)
         for d in status["deployments"]:
-            if d["state"] != "out":
+            if d["state"] in ("to_copy", "copied"):
                 (cards / d["deployment_id"]).mkdir(exist_ok=True)
     except OSError as exc:
         raise IngestError(f"Could not prepare {cards}: {exc}") from exc
@@ -258,7 +311,7 @@ def inspect_source(source: str, research_project_id: str, collection: str, card_
     label = (card_label or "").strip().lower()
     candidates = []
     for d in status["deployments"]:
-        if d["state"] == "out":
+        if d["state"] != "to_copy":  # a camera still out has no card yet; a card copied is not offered again
             continue
         start, end = _parse_utc(d["start"]), _parse_utc(d["end"])
         score, fits, problems = 0.0, [], []
@@ -283,8 +336,6 @@ def inspect_source(source: str, research_project_id: str, collection: str, card_
                 fits.append(f"{len(files)} files for {counted} photos counted in the field.")
             else:
                 problems.append(f"{len(files)} files, but {counted} photos were counted in the field.")
-        if d["state"] == "copied":
-            problems.append("Its card was copied already.")
         candidates.append({**d, "score": round(score, 1), "fits": fits, "problems": problems})
     candidates.sort(key=lambda c: (-c["score"], c["deployment_id"]))
     return {
@@ -347,7 +398,7 @@ def _targets(root: Path, files: list[Path]) -> list[str]:
 
 
 def copy_stream(source: str, research_project_id: str, collection: str, deployment_id: str, card_label: str | None = None,
-                settings: config.Settings | None = None, *, allow_unknown: bool = False) -> Iterator[dict]:
+                settings: config.Settings | None = None, *, allow_unknown: bool = False, label_confirmed: bool = False) -> Iterator[dict]:
     """Copies a card into its deployment's folder of the cards folder. Yields {"type": "copy", "index", "total",
     "name"} per file and ends with {"type": "done", "record"}. The deployment folder must be empty, and the card not
     copied before (its fingerprint in no copy record of the research project). allow_unknown lets a deployment that is
@@ -371,6 +422,15 @@ def copy_stream(source: str, research_project_id: str, collection: str, deployme
             raise IngestError(f"{deployment_id} is not in the field records of {collection}.")
         if known[deployment_id.lower()]["state"] == "out":
             raise IngestError(f"The field records say the camera of {deployment_id} is still out: its card was not collected.")
+        field_card = known[deployment_id.lower()]["card"]
+        if not (card_label or "").strip():
+            raise IngestError("Type the label written on the card: it is checked against the one noted in the field.")
+        mismatch = bool(field_card) and field_card.strip().lower() != card_label.strip().lower()
+        if mismatch and not label_confirmed:
+            raise IngestError(f"The card in your hand is {card_label.strip()}, but the field records say {field_card} for {deployment_id}. "
+                              "Confirm it is the right card to copy it anyway: it is written down as a correction for the field data.")
+    else:
+        field_card, mismatch = None, False
     files = card_files(root)
     if not files:
         raise IngestError(f"There are no files in {root}.")
@@ -412,11 +472,72 @@ def copy_stream(source: str, research_project_id: str, collection: str, deployme
         "copied_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "copied_by": user,
         "file_count": len(entries), "total_bytes": sum(e["size"] for e in entries),
         "first": min(dates).isoformat() if dates else None, "last": max(dates).isoformat() if dates else None,
+        "field_card": field_card, "label_mismatch": mismatch,
         "fingerprint": print_, "files": entries,
     }
     (dest / COPY_RECORD_FILE).write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
+    if mismatch:
+        _note_correction(cards, deployment_id, field_card, (card_label or "").strip(), record["copied_at"], user)
     logger.info("Card %s copied into %s: %d files", card_label or root, dest, len(entries))
     yield {"type": "done", "record": _record_summary(record) | {"deployment_id": deployment_id, "path": str(dest)}}
+
+
+FIELD_CORRECTIONS_FILE = "field_corrections.csv"
+
+
+def _note_correction(cards: Path, deployment_id: str, field_card: str | None, card: str, when: str, user: str | None) -> None:
+    """Writes down, in the collection's field_corrections.csv, a card whose label is not the one the field records say,
+    for the field data (the field app, the datasheet) to be corrected."""
+    import csv
+    path = cards / FIELD_CORRECTIONS_FILE
+    new = not path.is_file()
+    with path.open("a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        if new:
+            writer.writerow(["deployment", "what", "field records say", "found", "when (UTC)", "by"])
+        writer.writerow([deployment_id, "card label", field_card or "", card, when, user or ""])
+
+
+def read_corrections(research_project_id: str, collection: str, settings: config.Settings | None = None) -> list[dict]:
+    """The corrections for the field data written down while copying the collection's cards."""
+    import csv
+    path = card_collection_dir(research_project_id, collection, settings) / FIELD_CORRECTIONS_FILE
+    if not path.is_file():
+        return []
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        return list(csv.DictReader(f))
+
+
+# ── ejecting the card ───────────────────────────────────────────────────────
+
+def eject(source: str) -> dict:
+    """Ejects the removable drive a card was copied from, so it can be taken out: {"ejected", "message"}. Only a drive the
+    system says is removable is ejected, never a folder of a fixed disk."""
+    import platform
+    import subprocess
+    path = Path(source).expanduser()
+    system = platform.system()
+    if system == "Windows":
+        drive = path.drive  # "E:"
+        if not drive:
+            return {"ejected": False, "message": "The card is not on a drive of its own."}
+        import ctypes
+        if ctypes.windll.kernel32.GetDriveTypeW(f"{drive}\\") != 2:  # DRIVE_REMOVABLE
+            return {"ejected": False, "message": f"{drive} is not a removable drive: nothing ejected."}
+        script = f"(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{drive}').InvokeVerb('Eject')"
+        result = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            return {"ejected": False, "message": f"Could not eject {drive}: {result.stderr.strip()}"}
+        return {"ejected": True, "message": f"{drive} ejected: you can take the card out."}
+    if system == "Darwin":
+        parts = path.resolve().parts
+        if len(parts) < 3 or parts[1] != "Volumes":
+            return {"ejected": False, "message": "The card is not a mounted volume."}
+        volume = Path("/", parts[1], parts[2])
+        result = subprocess.run(["diskutil", "eject", str(volume)], capture_output=True, text=True, check=False)
+        ok = result.returncode == 0
+        return {"ejected": ok, "message": f"{volume.name} ejected: you can take the card out." if ok else f"Could not eject {volume.name}: {result.stderr.strip()}"}
+    return {"ejected": False, "message": "Eject the card from the system before taking it out."}
 
 
 # ── folders that come from elsewhere ────────────────────────────────────────

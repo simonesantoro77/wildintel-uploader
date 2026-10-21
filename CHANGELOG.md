@@ -7,6 +7,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Upcoming release
 
+### Changed (after the testing of 21 Oct)
+- The app opens on the menu: the welcome screen is gone, and the title goes back to the menu. Each step ends with a
+  **Next step** button to the one that follows (Field records › Copy SD cards › Fix dates and times › Process collection ›
+  Upload to Trapper). "Session" is called **collection** everywhere, and the field app is not named.
+- **Field records**: a camera still out is put in the collection its collecting visit will name (it was put in the one
+  of the visit that left it, so cards were missing from Copy SD cards); an Installation at a site whose card was not
+  collected is pointed out; the old eleven-column FileTimestampLog is no longer written.
+- **Copy SD cards**: the label on the card is required. One that is not the label noted in the field is shown in red and
+  must be confirmed; the difference goes into the copy record and into `field_corrections.csv`, the list of corrections
+  for the field data, shown on the page. Deployments copied or already processed are not offered again. The card is
+  ejected once copied (Windows and macOS).
+- **Process collection**: the collection is picked from the list of the cards folder (or a folder elsewhere); only the
+  deployments not processed yet are ticked. The research project, the locations, the collection number and the dates
+  come from the field records with nothing to confirm, and who set it up, the camera id, the tags and the notes fill
+  each deployment in (they reach `deployment.json`). The image checks and the details' checks are one step. The camera
+  postvalidation check is off by default (the camera id is the field team's, not the camera's).
+- **The images' times are never shifted**: they are read as the cameras' clock (Settings › Field records, UTC) whatever
+  the location's timezone, which is only kept for Trapper; a location whose timezone is not UTC is pointed out.
+- The folder and file dialogs open with a title that has an apostrophe in it (Windows failed to parse it).
+
 ### Added
 - **Field records** (first in the menu): after a field trip, the Epicollect download (CSV) and the fieldwork datasheet
   (.xlsx) are read together, with the FileTimestamps tool's own engine (Tatra's and Doñana's formats recognised). The

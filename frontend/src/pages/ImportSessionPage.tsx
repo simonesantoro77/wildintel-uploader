@@ -1,6 +1,8 @@
 import ReportPanel from '../components/ReportPanel'
-import { FixDatesBanner } from './TimeFixPage'
+import { FixDatesBanner, cardsTarget } from './TimeFixPage'
 import type { TimeFixTarget } from './TimeFixPage'
+import type { ProcessTarget } from './CardsPage'
+import NextStep from '../components/NextStep'
 import SessionResults from '../components/SessionResults'
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -15,13 +17,13 @@ import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from 
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
 import type {
-  DeploymentCheck, DeploymentCheckResult, DeploymentFields, GuessedDetails, ImageCheck, ImportEvent, LocalLocation, LocalResearchProject,
+  CardCollection, DeploymentCheck, DeploymentCheckResult, DeploymentFields, FieldDetail, GuessedDetails, ImageCheck, ImportEvent, LocalLocation, LocalResearchProject,
   PreprocessingOptions, PreviousDeployment, SessionScan, SessionScanDeployment, StatisticsParams, UploadTarget, ValidationResult,
 } from '../types'
 import {
   ALL_DEPLOYMENT_CHECKS, DEFAULT_CHECK_SETTINGS, DEPLOYMENT_CHECK_DISPLAY, DEPLOYMENT_CHECK_OPTIONS, DeploymentCheckReport, Field,
   FormCard, IMAGE_CHECK_DESCRIPTIONS, IMAGE_CHECK_OPTIONS, SmallSpinner, StepHeading, StrictnessTable,
-  DeploymentFormBody, LocationTimeNote, MoreDetailsForm, ValidationReport, buildDeploymentId, fillFromPreviousRevision, btnOutline, btnPrimary, deploymentCheckPassed, describePreprocessing, imageCheckPassed,
+  DeploymentFormBody, MoreDetailsForm, ValidationReport, buildDeploymentId, fillFromPreviousRevision, btnOutline, btnPrimary, deploymentCheckPassed, describePreprocessing, imageCheckPassed,
   inputClass, labelClass, statParamsOf, statParamsValid, toggled,
 } from './ImportDeploymentPage'
 import type { PreprocessStep, Strictness, WizardSettings } from './ImportDeploymentPage'
@@ -29,11 +31,25 @@ import type { PreprocessStep, Strictness, WizardSettings } from './ImportDeploym
 type StepKey = 'images' | 'origin' | 'checks' | 'prepare'
 
 const STEPS: { key: StepKey; label: string }[] = [
-  { key: 'images', label: 'Images' },
+  { key: 'images', label: 'Collection folder' },
   { key: 'origin', label: 'Origin and details' },
-  { key: 'checks', label: 'Check details' },
+  { key: 'checks', label: 'Checks' },
   { key: 'prepare', label: 'Prepare and save' },
 ]
+
+/** The deployment checks Process collection runs: not the camera's, as the camera id comes from the field records. */
+const FIELD_DEPLOYMENT_CHECKS = ALL_DEPLOYMENT_CHECKS.filter((c) => c !== 'camera')
+
+/** The details of a deployment the field records give: who set it up, the camera, its tags and notes — only where
+ * nothing was typed yet. */
+export function withFieldDetails(fields: DeploymentFields, detail: FieldDetail | undefined): DeploymentFields {
+  if (!detail) return fields
+  return {
+    ...fields,
+    setup_by: fields.setup_by || detail.setup_by, camera_id: fields.camera_id || detail.camera_id,
+    comments: fields.comments || detail.comments, tags: fields.tags.length ? fields.tags : detail.tags,
+  }
+}
 
 /** What is asked of each deployment of the session: its own location, period, camera and notes — the same fields
  * as a single deployment's. Its dates carry the designator of its timezone, as there. */
@@ -80,14 +96,14 @@ interface Props {
   settingsOpen?: boolean
   /** Opens Fix dates and times on a deployment whose dates a check found wrong. */
   onFixDates?: (target: TimeFixTarget) => void
+  /** The collection's cards folder to open on, when it is reached from Copy SD cards or Fix dates and times. */
+  initial?: ProcessTarget
 }
 
-export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onFixDates }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onFixDates, initial }: Props = {}) {
   const [step, setStep] = useState(0)
   const stepKey = STEPS[step].key
-  // The sub-steps of the images and of the origin: the one open, and the furthest reached.
-  const [imagesOpen, setImagesOpen] = useState(1)
-  const [imagesReached, setImagesReached] = useState(1)
+  // The sub-steps of the origin: the one open, and the furthest reached.
   const [originOpen, setOriginOpen] = useState(1)
   const [originReached, setOriginReached] = useState(1)
 
@@ -98,12 +114,22 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const [scanError, setScanError] = useState<string | null>(null)
   const [browsing, setBrowsing] = useState(false)
   const [included, setIncluded] = useState<Set<string>>(new Set())
+  // The collections of the cards folder, to pick one; and whether a folder elsewhere is typed instead.
+  const [cardCollections, setCardCollections] = useState<CardCollection[]>([])
+  const [elsewhere, setElsewhere] = useState(false)
+  // What the field records say of each deployment, by its folder (its id); and the ones already processed.
+  const [fieldDetails, setFieldDetails] = useState<Record<string, FieldDetail>>({})
+  const [processed, setProcessed] = useState<Set<string>>(new Set())
+  // The timezone the cameras' clocks are set to: the images' times are read in it and never shifted.
+  const [cameraZone, setCameraZone] = useState('UTC')
+  // Whether the collection's number is being changed by hand, when the FileTimestampLog gave it.
+  const [changingRevision, setChangingRevision] = useState(false)
 
   // ── Common to the whole session ──
   const [checkSettings, setCheckSettings] = useState<WizardSettings>(DEFAULT_CHECK_SETTINGS)
   const [imageChecks, setImageChecks] = useState<Set<ImageCheck>>(new Set(['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates']))
   const [requiredImageChecks, setRequiredImageChecks] = useState<Set<ImageCheck>>(new Set())
-  const [deploymentChecks, setDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set(ALL_DEPLOYMENT_CHECKS))
+  const [deploymentChecks, setDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set(FIELD_DEPLOYMENT_CHECKS))
   const [requiredDeploymentChecks, setRequiredDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set())
   const [preprocessSteps, setPreprocessSteps] = useState<Set<PreprocessStep>>(new Set(['rename', 'resize', 'metadata']))
   const [exiftool, setExiftool] = useState<boolean | null>(null)
@@ -148,9 +174,10 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const [previousFound, setPreviousFound] = useState<Record<string, PreviousDeployment | null>>({})
   // What the last fill said, and whether it was for one deployment or for all of them.
   // Whether the settings turn Epicollect5 on; the entry it has for each deployment (by folder) at the revision, and why there is none to offer.
-  const [epicollectOn, setEpicollectOn] = useState(false)
+  // Field data come from the field records (FieldworkLog), not from a field app read here.
+  const epicollectOn = false
   const [epicollectFound, setEpicollectFound] = useState<Record<string, EpicollectEntry>>({})
-  const [epicollectMissing, setEpicollectMissing] = useState<string | null>(null)
+  const [, setEpicollectMissing] = useState<string | null>(null)
   const [epicollectDone, setEpicollectDone] = useState(false)
   // Whether the other details of the entries have been imported — the dates are not part of that: they come from the source picked.
   const [epicollectImported, setEpicollectImported] = useState(false)
@@ -178,10 +205,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   // The deployments ticked in the session folder; each is a unit in the image checks, and only those free of errors go on to the next steps.
   const candidates = (scan?.deployments ?? []).filter((d) => included.has(d.name))
-  /** Whether a deployment may go on: its images could be checked, and it passed every check set to Must pass. */
+  /** Whether a deployment may go on: its images could be checked, and it passed every check set to Must pass — until
+   * the checks are run, every deployment ticked goes on. */
   const freeOfErrors = (name: string) => {
     const outcome = validations[name]
-    if (outcome?.error) return false
+    if (!outcome) return true
+    if (outcome.error) return false
     return [...requiredImageChecks].filter((c) => checkSettings.VALIDATION[c]).every((c) => imageCheckPassed(c, outcome?.result ?? null) === true)
   }
   const chosen = candidates.filter((d) => freeOfErrors(d.name))
@@ -195,6 +224,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       .then((s) => {
         if (cancelled) return
         setCheckSettings({ VALIDATION: s.VALIDATION, POSTVALIDATION: s.POSTVALIDATION, PREPROCESSING: s.PREPROCESSING })
+        if (s.FIELDLOG?.camera_timezone) setCameraZone(s.FIELDLOG.camera_timezone)
         if (!preprocessTouched.current) setPreprocessSteps(new Set((['rename', 'resize', 'metadata'] as const).filter((k) => s.PREPROCESSING[k])))
       })
       .catch(() => { /* the settings can't be read: every check stays shown */ })
@@ -225,12 +255,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       const next = { ...current }
       for (const d of scan.deployments.filter((x) => included.has(x.name))) {
         if (next[d.name]) continue
-        // The location is picked in the first sub-step (or assigned from the folder's name there): the dates wait for its timezone.
-        const timezone = ''
+        // The dates are the cameras' clock (UTC): the location's timezone is never applied to them.
+        const timezone = cameraZone
         next[d.name] = {
-          timezone, ignoreDst: null,
+          timezone, ignoreDst: false,
           fields: {
-            ...EMPTY_DEPLOYMENT_FIELDS,
+            ...withFieldDetails(EMPTY_DEPLOYMENT_FIELDS, fieldDetails[d.name]),
             // Only the dates a timestamp log gives are known by now: the rest are read from the images, below.
             start_date: stampTimezone(d.start_date ?? '', timezone), end_date: d.end_date ? stampTimezone(d.end_date, timezone) : null,
           },
@@ -240,6 +270,20 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     })
     setActiveName((name) => (name && included.has(name) ? name : [...included][0] ?? ''))
   }, [detailsActive, scan, included, localLocations])
+
+  // What the field records say fills in what is still empty — once per deployment, also when it arrives after the details
+  // were started; what is changed afterwards stays.
+  const fieldFilled = useRef(new Set<string>())
+  useEffect(() => {
+    const names = Object.keys(drafts).filter((n) => fieldDetails[n] && !fieldFilled.current.has(n))
+    if (names.length === 0) return
+    names.forEach((n) => fieldFilled.current.add(n))
+    setDrafts((current) => {
+      const next = { ...current }
+      for (const name of names) if (next[name]) next[name] = { ...next[name], fields: withFieldDetails(next[name].fields, fieldDetails[name]) }
+      return next
+    })
+  }, [fieldDetails, drafts])
 
   // What each deployment's images say of it — its dates and camera — read once the details are asked for, one deployment at a time.
   useEffect(() => {
@@ -299,10 +343,17 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   // ── The session folder ──
 
+  // The collections of the cards folder are offered first; one is opened right away when this page is reached from Copy SD cards.
+  useEffect(() => {
+    api.ingestCardCollections().then(({ results }) => setCardCollections(results)).catch(() => setCardCollections([]))
+    if (initial?.folder) { setSessionDir(initial.folder); void handleScan(initial.folder) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function handleBrowse() {
     setBrowsing(true); setScanError(null)
     try {
-      const { path } = await api.browseFolder()
+      const { path } = await api.browseFolder('Select the collection folder')
       if (path) { setSessionDir(path); setScan(null) }
     } catch (e) {
       setScanError(e instanceof Error ? e.message : 'Could not open the folder browser.')
@@ -311,16 +362,35 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     }
   }
 
-  async function handleScan() {
-    setScanning(true); setScanError(null); setScan(null)
+  /** Scans a collection folder: its deployments, and — when it is a collection of the cards folder — its research project,
+   * what the field records say of each deployment and which ones were processed already (those are not ticked). */
+  async function handleScan(dir = sessionDir) {
+    setScanning(true); setScanError(null); setScan(null); setFieldDetails({}); setProcessed(new Set()); fieldFilled.current.clear()
     try {
-      const result = await api.scanSession(sessionDir)
-      setScan(result)
+      const result = await api.scanSession(dir)
       const logged = result.timestamp_log?.revision
       if (logged) { setRevision(String(logged)); setRevisionFromLog(result.timestamp_log!.name) }
       else if (revisionFromLog) { setRevision(''); setRevisionFromLog(null) }
-      setIncluded(new Set(result.deployments.filter((d) => d.image_count > 0).map((d) => d.name)))
       guessRequested.current.clear(); sourcePicked.current.clear(); setDateSources({}); setGuessed({}); setGuessingLeft(0); setPreviousFound({}); setDrafts({}); setValidations({}); setChecks({}); setRuns({})
+      let done = new Set<string>()
+      const where = cardsTarget(dir)
+      if (where) {
+        try {
+          const { results } = await api.listResearchProjects()
+          const found = results.find((r) => r.acronym.toLowerCase() === where.researchProjectId.toLowerCase())
+          if (found) setProject(found)
+          const ids = result.deployments.map((d) => d.name)
+          const [existingNow, details] = await Promise.all([
+            found ? api.existingDeployments(found.acronym, ids).catch(() => ({ results: {} as Record<string, string | null> })) : Promise.resolve({ results: {} as Record<string, string | null> }),
+            api.ingestFieldDetails(where.researchProjectId, where.collection).catch(() => ({ results: {} as Record<string, FieldDetail> })),
+          ])
+          done = new Set(Object.entries(existingNow.results).filter(([, folder]) => folder).map(([id]) => id))
+          setFieldDetails(details.results)
+        } catch { /* the folder is processed without what the field records say */ }
+      }
+      setProcessed(done)
+      setScan(result)
+      setIncluded(new Set(result.deployments.filter((d) => d.image_count > 0 && !done.has(d.name)).map((d) => d.name)))
     } catch (e) {
       setScanError(e instanceof Error ? e.message : 'Could not scan the folder.')
     } finally {
@@ -332,19 +402,6 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   const shownImageChecks = IMAGE_CHECK_OPTIONS.filter((o) => checkSettings.VALIDATION[o.value])
   const runnableImageChecks = shownImageChecks.map((o) => o.value).filter((c) => imageChecks.has(c))
-
-  async function handleValidate() {
-    setValidating(true); setValidations({})
-    for (const d of candidates) {
-      try {
-        const result = await api.validateImages(d.path, runnableImageChecks)
-        setValidations((v) => ({ ...v, [d.name]: { result } }))
-      } catch (e) {
-        setValidations((v) => ({ ...v, [d.name]: { error: e instanceof Error ? e.message : 'Could not validate the images.' } }))
-      }
-    }
-    setValidating(false)
-  }
 
   // ── Origin ──
 
@@ -377,14 +434,14 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     return revisionValid && revisionNumber > 1 && Boolean(id) && Boolean(previousFound[`${projectId}|${id}`])
   }
   const canFillFromPrevious = chosen.some((d) => hasEarlierRevision(d.name))
-  // Whether the earlier revisions have been looked up (revision 1 has none): until they have, and while one can be copied from, Epicollect5's lack of entries is not said.
-  const previousChecked = !revisionValid || revisionNumber <= 1 || !knownIds || knownIds.split('\n').every((id) => `${projectId}|${id}` in previousFound)
   const detailsReady = revisionValid && chosen.length > 0 && completed === chosen.length
 
-  /** The location each deployment without one is named after: its folder's name first; failing that, the id its row in the timestamp log gives it. */
+  /** The location each deployment without one is named after: the one its field records give; else its folder's name;
+   * failing that, the id its row in the timestamp log gives it. */
   const suggested = chosen.flatMap((d) => {
     if (!drafts[d.name] || drafts[d.name].fields.location_id) return []
-    const byFolder = matchLocation(d.name, localLocations)
+    const fieldSite = fieldDetails[d.name]?.location_id
+    const byFolder = (fieldSite ? localLocations.find((l) => l.location_id.toLowerCase() === fieldSite.toLowerCase()) : undefined) ?? matchLocation(d.name, localLocations)
     const byLog = byFolder || !d.log_deployment_id ? undefined : matchLocation(d.log_deployment_id, localLocations)
     const location = byFolder ?? byLog
     return location ? [{ name: d.name, location, from: (byFolder ? 'folder' : 'log') as 'folder' | 'log' }] : []
@@ -424,11 +481,20 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     }))
   }
 
+  // The location gives its id, name and coordinates; its timezone is kept for Trapper but never applied to the images'
+  // times, which stay as the cameras' clock has them (cameraZone, UTC).
   function pickLocation(name: string, locationId: string, known?: LocalLocation) {
     const location = known ?? localLocations.find((l) => l.location_id === locationId)
-    updateEntry(name, (e) => ({ ...e, locationFrom: undefined, ignoreDst: location?.ignore_dst ?? null, fields: { ...e.fields, ...locationFields(location) } }))
-    if (location?.timezone) setTimezone(name, location.timezone)
+    updateEntry(name, (e) => ({ ...e, locationFrom: undefined, ignoreDst: false, fields: { ...e.fields, ...locationFields(location) } }))
+    setTimezone(name, cameraZone)
   }
+
+  // The locations the folders are named after (or their field records say) are assigned right away: nothing to confirm.
+  const suggestedKey = suggested.map((x) => `${x.name}:${x.location.location_id}`).join('|')
+  useEffect(() => {
+    if (detailsActive && suggested.length > 0) assignSuggested(suggested)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsActive, suggestedKey])
 
   /** Fills these deployments in from the previous revision of the same one — R0002-DONA_01 from R0001-DONA_01 —
    * keeping their own location, dates and id. The camera model and id are only filled in when the images gave none. */
@@ -448,21 +514,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       : `Filled in ${found.length} of ${names.length} from their previous revision${found.length < names.length ? ` — the other ${names.length - found.length} have none` : ''}.` })
   }
 
-  // Whether the settings turn Epicollect5 on — read again when they are closed, as they may have changed.
-  useEffect(() => {
-    if (stepKey !== 'origin' || settingsOpen) return
-    let cancelled = false
-    api.getSettings()
-      .then((s) => { if (!cancelled) setEpicollectOn(s.EPICOLLECT5.enabled) })
-      .catch(() => { if (!cancelled) setEpicollectOn(false) })
-    return () => { cancelled = true }
-  }, [stepKey, settingsOpen])
-
   // ...and, once the revision and the locations are known, the entries Epicollect5 has for them — one read for all.
   const locationKey = [...new Set(chosen.map((d) => fieldsOf(d.name).location_id).filter((l): l is string => Boolean(l)))].sort().join('\n')
   useEffect(() => {
     setEpicollectFound({}); setEpicollectMissing(null); setEpicollectDone(false); setEpicollectImported(false)
-    if (!detailsActive || settingsOpen || !epicollectOn || !revisionValid || !locationKey) return
+    if (!detailsActive || !epicollectOn || !revisionValid || !locationKey) return
     let cancelled = false
     const timer = setTimeout(() => { // the revision may still be being typed
       void (async () => {
@@ -485,7 +541,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     }, 400)
     return () => { cancelled = true; clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailsActive, settingsOpen, epicollectOn, revisionValid, revisionNumber, locationKey])
+  }, [detailsActive, epicollectOn, revisionValid, revisionNumber, locationKey])
 
   /** The period a source gives a deployment — null when it has none (the manual one is whatever is typed). */
   function periodOf(d: SessionScanDeployment, source: DateSource, timezone: string): Period | null {
@@ -522,16 +578,22 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   /** The sources of a deployment's dates, each showing what it found so they can be compared, and the period taken — typed when it is by hand. */
   function datePanel(d: SessionScanDeployment, entry: Entry, start: string | null, end: string | null, dateSource: DateSource | undefined) {
-    const exif = periodOf(d, 'exif', entry.timezone), log = periodOf(d, 'log', entry.timezone), epi = periodOf(d, 'epicollect', entry.timezone)
+    const exif = periodOf(d, 'exif', entry.timezone), log = periodOf(d, 'log', entry.timezone)
+    if (log && dateSource === 'log') {
+      // The field records give the period: it is the one, and nothing else is offered.
+      return (
+        <div aria-label={`Dates of ${d.name}`} role="group" className="mx-5 mb-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4 text-sm">
+          <p>
+            <span className="font-semibold">{log.start?.replace('T', ' ').slice(0, 16)} → {log.end ? log.end.replace('T', ' ').slice(0, 16) : '…'}</span>{' '}
+            <span className="text-zinc-500 dark:text-zinc-400">({entry.timezone}), from the field records ({scan?.timestamp_log?.name ?? 'FileTimestampLog'}).</span>
+          </p>
+          {exif && against(log, exif) && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{against(log, exif)}</p>}
+        </div>
+      )
+    }
     const options: SourceOption[] = [
       { source: 'exif', title: 'Camera data in the photos', period: exif,
         hint: `First and last photo of the deployment.${d.image_count > 0 && exif ? ` ${plural(d.image_count, 'photo', 'photos')}, read from their EXIF data.` : ''}` },
-      { source: 'epicollect', title: 'Epicollect5 project', period: epi,
-        hint: epi ? 'Entry of your Epicollect5 project for this location and revision.'
-          : !epicollectOn ? 'Epicollect5 is turned off in the settings.'
-          : `Nothing found for ${entry.fields.location_id ?? d.name}, revision ${revisionValid ? revisionNumber : '?'}.` },
-      { source: 'log', title: 'Timestamp log file', period: log,
-        hint: log ? ((exif && against(log, exif)) ?? 'Set-up and pick-up times written down in the file.') : `No row for ${d.name} in a timestamp log.` },
       { source: 'manual', title: 'Manual entry', period: null, hint: 'Type the start and the end yourself.' },
     ]
     return (
@@ -621,15 +683,38 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   // ── Postvalidation ──
 
-  const shownDeploymentChecks = DEPLOYMENT_CHECK_OPTIONS.filter((o) => checkSettings.POSTVALIDATION[o.value])
+  const shownDeploymentChecks = DEPLOYMENT_CHECK_OPTIONS.filter((o) => checkSettings.POSTVALIDATION[o.value] && o.value !== 'camera')
   const runnableDeploymentChecks = shownDeploymentChecks.map((o) => o.value).filter((c) => deploymentChecks.has(c))
   // The tolerance and what the statistical checks mean by a sequence and by similar come from the settings.
   const toleranceHours = String(checkSettings.POSTVALIDATION.tolerance_hours)
   const statistics: StatisticsParams | null = statParamsValid(statParamsOf(checkSettings.POSTVALIDATION))
 
-  async function handleCheck() {
+  /** Every check at once: the images of each deployment ticked, then the details of the ones whose images may go on. */
+  async function handleAllChecks() {
+    setValidations({}); setChecks({})
+    const found: Record<string, Outcome<ValidationResult>> = {}
+    if (runnableImageChecks.length > 0) {
+      setValidating(true)
+      for (const d of candidates) {
+        try { found[d.name] = { result: await api.validateImages(d.path, runnableImageChecks) } } catch (e) {
+          found[d.name] = { error: e instanceof Error ? e.message : 'Could not validate the images.' }
+        }
+        setValidations((v) => ({ ...v, [d.name]: found[d.name] }))
+      }
+      setValidating(false)
+    }
+    const required = [...requiredImageChecks].filter((c) => checkSettings.VALIDATION[c])
+    const goOn = candidates.filter((d) => {
+      const outcome = found[d.name]
+      if (!outcome) return true
+      return !outcome.error && required.every((c) => imageCheckPassed(c, outcome.result ?? null) === true)
+    })
+    if (runnableDeploymentChecks.length > 0) await handleCheck(goOn)
+  }
+
+  async function handleCheck(these = chosen) {
     setChecking(true); setChecks({})
-    for (const d of chosen) {
+    for (const d of these) {
       try {
         const result = await api.validateDeployment(d.path, fieldsOf(d.name), runnableDeploymentChecks, {
           collectionName: null, expectedLocationId: drafts[d.name].fields.location_id || null, toleranceHours: Number(toleranceHours),
@@ -691,7 +776,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const visible = chosen.filter((d) => d.name.toLowerCase().includes(filter.trim().toLowerCase()) && (!onlyIncomplete || problemsOf(d.name) > 0))
   function selectDeployment(name: string) { setActiveName((current) => (current === name ? '' : name)); setAddingLocation(false); setFillMessage((m) => (m?.scope === 'one' ? null : m)) }
   const activeErrors_of = (name: string) => shownErrors(errorsOf(name))
-  useEffect(() => { if (Object.keys(checks).length === 0 && !checking) setChecksOpen(1) }, [checks, checking])
+  useEffect(() => { if (Object.keys(checks).length === 0 && Object.keys(validations).length === 0 && !checking && !validating) setChecksOpen(1) }, [checks, validations, checking, validating])
   function selectMore(name: string) { setMoreName((current) => (current === name ? '' : name)); setFillMessage((m) => (m?.scope === 'one' ? null : m)) }
   /** How many of the optional details — camera, site, groups, tags, notes — a deployment has filled in. */
   const moreFilledOf = (name: string) => {
@@ -705,7 +790,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const canContinue: Record<StepKey, boolean> = {
     images: chosen.length > 0 && !validating,
     origin: detailsActive && detailsReady && !savingDetails,
-    checks: requiredDeploymentChecksOk && !checking,
+    checks: requiredDeploymentChecksOk && !checking && !validating && chosen.length > 0,
     prepare: false,
   }
 
@@ -738,7 +823,6 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
           }</>}
     </div>
   )
-  const openImagesStep = (n: number) => { setImagesOpen(n); setImagesReached((r) => Math.max(r, n)) }
   function chooseImageStrictness(check: ImageCheck, strictness: Strictness) {
     setImageChecks((prev) => { const next = new Set(prev); if (strictness === 'skip') next.delete(check); else next.add(check); return next })
     setRequiredImageChecks((prev) => { const next = new Set(prev); if (strictness === 'must') next.add(check); else next.delete(check); return next })
@@ -752,8 +836,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     <div className="max-w-screen-md mx-auto px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Process collection</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-        Imports a folder of deployments — one subfolder each — into the local collections folder. The revision, the checks and the
-        preprocessing are the same for all of them; the location, the dates and the camera are asked for each.
+        Processes the cards of a collection, as Copy SD cards left them: checks the images, fills in each deployment from the field records
+        and prepares it for Trapper in the collections folder.
       </p>
 
       {/* Step indicator */}
@@ -777,54 +861,74 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         ))}
       </div>
 
-      {/* ── Step: the images — the session folder, the checks, the results ── */}
+      {/* ── Step: the collection folder ── */}
       {stepKey === 'images' && (() => {
-        const mustCount = shownImageChecks.filter((o) => imageChecks.has(o.value) && requiredImageChecks.has(o.value)).length
-        const ran = candidates.some((d) => validations[d.name])
-        const left = ran ? candidates.filter((d) => !freeOfErrors(d.name)) : []
-        const imagesUnlocked = (n: number) => (n === 1 ? true : n === 2 ? Boolean(scan) && candidates.length > 0 : ran || validating)
-        const imagesStatus = (n: number): 'open' | 'done' | 'locked' | 'running' => {
-          if (n === 3 && n === imagesOpen) return validating ? 'running' : 'open'
-          return n === imagesOpen ? 'open' : n <= imagesReached && imagesUnlocked(n) ? 'done' : 'locked'
-        }
-        const runChecks = () => { openImagesStep(3); handleValidate() }
-        const failedIn = (c: ImageCheck) => candidates.filter((d) => imageCheckPassed(c, validations[d.name]?.result ?? null) === false).length
-        const problems = shownImageChecks.filter((o) => imageChecks.has(o.value) && failedIn(o.value) > 0)
-                const withProblems = candidates.filter((d) => validations[d.name]?.error || runnableImageChecks.some((c) => imageCheckPassed(c, validations[d.name]?.result ?? null) === false))
+        const pick = (c: CardCollection) => { setElsewhere(false); setSessionDir(c.folder); void handleScan(c.folder) }
         return (
         <div>
-          <StepHeading>Images</StepHeading>
+          <StepHeading>Collection folder</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            Select the session&rsquo;s folder, choose which checks to run over the images of its deployments, and validate them before they go any further.
+            Pick the collection, as Copy SD cards left it in the cards folder: one subfolder per deployment. The deployments not processed yet are ticked.
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
-          <WizardStep n={1} title="Session folder" status={imagesStatus(1)} canEdit={!validating} onEdit={() => setImagesOpen(1)}
-                      description="A folder with one subfolder per deployment, on this computer."
+          <WizardStep n={1} title="Collection folder" status="open" canEdit={false} onEdit={() => {}}
+                      description="The collection's folder in the cards folder."
                       summary={scan && <>{sessionName}<br />{plural(candidates.length, 'deployment', 'deployments')} · {plural(candidates.reduce((n, d) => n + d.image_count, 0), 'image', 'images')}</>}>
-            <div className="mb-4 flex items-center gap-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-              <span aria-hidden="true">⚠</span>
-              <span>Copy the images from the cameras&rsquo; memory cards to a local folder first — don&rsquo;t point this at a card itself.</span>
-            </div>
-            <label className={labelClass} htmlFor="session-dir">Folder path</label>
-            <div className="flex gap-2">
-              <input id="session-dir" className={`${inputClass} flex-1`} placeholder="/home/me/Pictures/R0003" value={sessionDir}
-                     onChange={(e) => { setSessionDir(e.target.value); setScan(null) }} />
-              <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={browsing} onClick={handleBrowse}>
-                {browsing && <SmallSpinner />}{browsing ? 'Browsing…' : 'Browse…'}
+            {cardCollections.length > 0 && (
+              <fieldset className="mb-4">
+                <legend className={labelClass}>Collections in the cards folder</legend>
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {cardCollections.map((c) => {
+                    const on = !elsewhere && sessionDir === c.folder
+                    const left = c.deployments - c.processed
+                    return (
+                      <label key={c.folder} className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer ${on ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700'}`}>
+                        <input type="radio" name="card-collection" checked={on} disabled={scanning} onChange={() => pick(c)} aria-label={`${c.research_project_id} ${c.collection}`} />
+                        <span className="flex-1 min-w-0">
+                          <span className="font-mono font-semibold">{c.research_project_id} · {c.collection}</span>
+                          <span className="block text-xs text-zinc-500 dark:text-zinc-400 break-all">{c.folder}</span>
+                        </span>
+                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${left > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'}`}>
+                          {left > 0 ? `${left} of ${c.deployments} to process` : 'All processed'}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </fieldset>
+            )}
+            {(elsewhere || cardCollections.length === 0) ? (
+              <>
+                <label className={labelClass} htmlFor="session-dir">Folder path</label>
+                <div className="flex gap-2">
+                  <input id="session-dir" className={`${inputClass} flex-1`} placeholder="D:\wildintel-uploader\cards\DONA\R0042" value={sessionDir}
+                         onChange={(e) => { setSessionDir(e.target.value); setScan(null) }} />
+                  <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={browsing} onClick={handleBrowse}>
+                    {browsing && <SmallSpinner />}{browsing ? 'Browsing…' : 'Browse…'}
+                  </button>
+                  <button type="button" className={btnOutline} disabled={!sessionDir || scanning} onClick={() => void handleScan()}>
+                    {scanning ? <SmallSpinner /> : scan ? 'Scan again' : 'Scan'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button type="button" className="text-sm text-blue-600 dark:text-blue-400 hover:underline" onClick={() => { setElsewhere(true); setSessionDir(''); setScan(null) }}>
+                A folder somewhere else…
               </button>
-              <button type="button" className={btnOutline} disabled={!sessionDir || scanning} onClick={handleScan}>
-                {scanning ? <SmallSpinner /> : scan ? 'Scan again' : 'Scan'}
-              </button>
-            </div>
+            )}
+            {scanning && <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 flex items-center gap-2"><SmallSpinner />Reading the folder…</p>}
             {scanError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{scanError}</p>}
             {scan && (
               <div className="mt-4">
                 {scan.warnings.map((w, i) => <p key={i} className="text-sm text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">{scan.deployments.length} subfolder(s) — tick the ones to import.</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
+                  {scan.deployments.length} deployment folder(s){processed.size > 0 ? `, ${processed.size} processed already` : ''}: tick the ones to process.
+                  {Object.keys(fieldDetails).length > 0 && ' Their details come from the field records.'}
+                </p>
                 <table className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded">
                   <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-xs text-zinc-500 dark:text-zinc-400">
                     <tr>
-                      <th scope="col" className="px-3 py-2 text-center">Import</th>
+                      <th scope="col" className="px-3 py-2 text-center">Process</th>
                       <th scope="col" className="px-3 py-2 text-left">Subfolder</th>
                       <th scope="col" className="px-3 py-2 text-right">Images</th>
                       <th scope="col" className="px-3 py-2 text-left">Dates</th>
@@ -838,6 +942,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                         </td>
                         <td className="px-3 py-2 font-mono">
                           {d.name}
+                          {processed.has(d.name) && <span className="ml-2 rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 font-sans text-xs font-semibold text-blue-700 dark:text-blue-300">Processed already</span>}
                           {d.warnings.map((w, i) => <p key={i} className="text-xs font-sans text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
                         </td>
                         <td className="px-3 py-2 text-right">{d.image_count}</td>
@@ -848,66 +953,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 </table>
               </div>
             )}
-            <div className="flex justify-end mt-4">
-              <button type="button" aria-label="Continue to the checks" className={btnPrimary} disabled={!scan || scanning || candidates.length === 0} onClick={() => openImagesStep(2)}>Continue<span aria-hidden="true"> →</span></button>
-            </div>
           </WizardStep>
 
-          <WizardStep n={2} title="Choose the checks" status={imagesStatus(2)} canEdit={!validating} onEdit={() => setImagesOpen(2)}
-                      description={`Choose which checks to run over the images of the ${plural(candidates.length, 'deployment', 'deployments')}, and how strict each one should be.`}
-                      summary={<>{runnableImageChecks.length} {runnableImageChecks.length === 1 ? 'check' : 'checks'} to run{mustCount > 0 && ` · ${mustCount} must pass`}</>}>
-            {shownImageChecks.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-                Every validation check is turned off in the settings, so there is nothing to run here — go on.
-              </p>
-            ) : (
-              <>
-                <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={false}
-                                 describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]} outcome={() => undefined} onChoose={chooseImageStrictness} />
-                {strictnessLegend}
-              </>
-            )}
-            <div className="flex items-center justify-between gap-3 mt-4">
-              <button type="button" className={btnOutline} onClick={() => setImagesOpen(1)}><span aria-hidden="true">← </span>Back</button>
-              <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={runnableImageChecks.length === 0 || validating} onClick={runChecks}>
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>Run checks
-              </button>
-            </div>
-          </WizardStep>
-
-          <WizardStep n={3} title="Results" status={imagesStatus(3)} canEdit={!validating} onEdit={() => setImagesOpen(3)}
-                      description="How each check went, in each folder."
-                      summary={ran && (left.length === 0 ? 'Checks run — every folder goes on' : `${plural(chosen.length, 'folder goes', 'folders go')} on, ${left.length} left out`)}
-                      badge={validating ? 'Checking…' : undefined} expanded={imagesOpen === 3}
-                      action={ran && imagesOpen === 3 ? (
-                        <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={validating || runnableImageChecks.length === 0} onClick={handleValidate}>
-                          {validating ? <SmallSpinner /> : null}{validating ? 'Checking…' : 'Run again'}
-                        </button>
-                      ) : undefined}>
-            {ran && (
-              <SessionResults
-                running={validating} checks={runnableImageChecks} onLeaveOut={(names) => setIncluded((set) => new Set([...set].filter((n) => !names.includes(n))))}
-                folders={(scan?.deployments ?? []).filter((d) => validations[d.name]).map((d) => ({
-                  name: d.name, images: d.image_count, reportId: validations[d.name].result?.report_id ?? null, error: validations[d.name].error,
-                  included: included.has(d.name) && freeOfErrors(d.name),
-                  problem: Boolean(validations[d.name].error) || runnableImageChecks.some((c) => imageCheckPassed(c, validations[d.name].result ?? null) === false),
-                  plain: validations[d.name].result && !validations[d.name].result!.report_id ? <ValidationReport validation={validations[d.name].result!} /> : undefined,
-                }))}
-                banner={problems.length === 0 && left.length === 0
-                  ? { tone: 'ok', text: 'Every check passed in every folder.' }
-                  : { tone: left.length > 0 ? 'error' : 'warn', text: <>{plural(problems.length, 'check found', 'checks found')} problems in {withProblems.length} of {plural(candidates.length, 'folder', 'folders')}.{' '}
-                      {left.length > 0
-                        ? <>{plural(left.length, 'folder fails', 'folders fail')} a check set to Must pass, or could not be checked, so {left.length === 1 ? 'it is' : 'they are'} left out: <span className="font-mono">{left.map((d) => d.name).join(', ')}</span>.</>
-                        : requiredImageChecks.size === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'}</> }}
-                byCheck={
-                  <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={validating} results
-                                   unit={{ one: 'folder', many: 'folders' }} describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]}
-                                   outcome={(c) => (candidates.some((d) => imageCheckPassed(c, validations[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
-                } />
-            )}
-            <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
-                            names={candidates.filter((d) => imageCheckPassed('sequence', validations[d.name]?.result ?? null) === false).map((d) => d.name)} />
-          </WizardStep>
         </div>
         )
       })()}
@@ -931,11 +978,11 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
           <StepHeading>Origin and details</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            Say which research project the session belongs to and where each deployment was taken, then fill in their dates and what you know about the cameras and sites.
+            The research project, the site of each deployment, its dates and its details: filled in from the field records. Look them over and change what is not right.
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
           <WizardStep n={1} title="Where were they taken?" status={originStatus(1)} canEdit onEdit={() => setOriginOpen(1)}
-                      description="The research project is the same for the whole session. Pick its location for each deployment, from the project's locations."
+                      description="The research project is the same for the whole collection. Each deployment gets the location its field records (or its folder) name."
                       summary={project && <>{project.acronym} · {withLocation === chosen.length ? 'every folder has a location' : `${withLocation} of ${plural(chosen.length, 'folder has', 'folders have')} a location`}</>}>
             <ResearchProjectPicker value={projectId} onSelect={(picked) => { setProject(picked); setDrafts({}) }} />
             {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
@@ -1017,16 +1064,23 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                                   Add a new location
                                 </button>
                               )}
-                              {entry && located && (
-                                <div className="text-xs mt-2">
-                                  <LocationTimeNote locationId={fields!.location_id} latitude={fields!.latitude} longitude={fields!.longitude}
-                                                    timezone={entry.timezone} ignoreDst={entry.ignoreDst ?? preSettings.ignore_dst} />
-                                </div>
-                              )}
+                              {entry && located && (() => {
+                                const zone = localLocations.find((l) => l.location_id === fields!.location_id)?.timezone
+                                return (
+                                  <div className="text-xs mt-2 space-y-1">
+                                    {fields!.latitude != null && fields!.longitude != null && <span className="block text-zinc-500 dark:text-zinc-400">GPS {fields!.latitude}, {fields!.longitude}</span>}
+                                    {zone && zone !== cameraZone && (
+                                      <span className="block text-amber-700 dark:text-amber-400">
+                                        ⚠ The location&rsquo;s timezone is {zone}, not {cameraZone}. The photos&rsquo; times are kept as the cameras have them ({cameraZone}): it is not applied to them.
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                               {located && (fields!.latitude == null || fields!.longitude == null) && (
                                 <p className="text-xs text-red-600 dark:text-red-400 mt-2">This location has no coordinates, and a deployment needs them.</p>
                               )}
-                              {duplicated(d.name) && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Another deployment of the session has this id — each needs its own location.</p>}
+                              {duplicated(d.name) && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Another deployment of the collection has this id: each needs its own location.</p>}
                               {existingFolder(d.name) && (
                                 <p role="alert" className="text-xs text-amber-700 dark:text-amber-400 mt-2">
                                   ⚠ This deployment already exists: <span className="font-mono break-all">{existingFolder(d.name)}</span> is already kept, and
@@ -1078,24 +1132,33 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             </div>
           </WizardStep>
 
-          <WizardStep n={2} title="When was it collected?" status={originStatus(2)} canEdit onEdit={() => setOriginOpen(2)}
-                      description="The revision number, and the period of each deployment."
-                      summary={revisionValid && <>Revision {revisionName}<br />{deploymentsCount}</>}>
+          <WizardStep n={2} title="Collection and dates" status={originStatus(2)} canEdit onEdit={() => setOriginOpen(2)}
+                      description="The collection, and the period of each deployment: from the field records when they have it."
+                      summary={revisionValid && <>Collection {revisionName}<br />{deploymentsCount}</>}>
           {guessingLeft > 0 && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Reading the dates and the cameras from the images… ({guessingLeft} deployment(s) left)</p>}
-          <FormCard title="Which revision is this?" description="One revision number for the whole session. It gives every deployment its id.">
+          <FormCard title="Which collection is this?" description="One collection number for all the deployments. It gives every deployment its id.">
+            {revisionFromLog && revisionValid && !changingRevision ? (
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                <span className="font-mono font-semibold">{revisionName}</span>, from the field records ({revisionFromLog}).{' '}
+                <button type="button" className="text-blue-600 dark:text-blue-400 hover:underline" onClick={() => setChangingRevision(true)}>Change</button>
+              </p>
+            ) : (
+            <>
             <div className="flex items-end gap-2 max-w-xs">
               <button type="button" aria-label="Lower the revision number" className={`${btnOutline} !px-3`} disabled={!revisionValid || revisionNumber <= 1}
                       onClick={() => { revisionTouched.current = true; setRevision(String(revisionNumber - 1)); setRevisionFromLog(null); setRevisionSuggested(false) }}>−</button>
               <div className="flex-1">
-                <Field label="What revision number are you importing?" required type="number" min={1} max={9999} step={1} placeholder="e.g. 3" value={revision} onChange={(v) => { revisionTouched.current = true; setRevision(v); setRevisionFromLog(null); setRevisionSuggested(false) }}
+                <Field label="What collection number are you processing?" required type="number" min={1} max={9999} step={1} placeholder="e.g. 3" value={revision} onChange={(v) => { revisionTouched.current = true; setRevision(v); setRevisionFromLog(null); setRevisionSuggested(false) }}
                        error={revision.trim() !== '' && !revisionValid ? 'A whole number from 1 to 9999.' : undefined} />
               </div>
               <button type="button" aria-label="Raise the revision number" className={`${btnOutline} !px-3`} disabled={revisionValid && revisionNumber >= 9999}
                       onClick={() => { revisionTouched.current = true; setRevision(String((revisionValid ? revisionNumber : 0) + 1)); setRevisionFromLog(null); setRevisionSuggested(false) }}>+</button>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">
-              {revisionFromLog && revisionValid ? `Taken from the deployment ids in ${revisionFromLog} — change it if it is not right.` : revisionSuggested && revisionValid ? 'Filled in as the next one expected for these locations — change it if it is not right.' : '1 for the first visit to these locations, 2 for the second, and so on.'}
+              {revisionFromLog && revisionValid ? `Taken from the deployment ids in ${revisionFromLog}: change it if it is not right.` : revisionSuggested && revisionValid ? 'Filled in as the next one expected for these locations: change it if it is not right.' : '1 for the first visit to these locations, 2 for the second, and so on.'}
             </p>
+            </>
+            )}
             {revisionValid && chosen.length > 0 && (
               <div className="mt-3 flex items-center gap-2 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
                 <span>Deployment ids</span>
@@ -1105,12 +1168,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             )}
             {revisionValid && existingNames.length > 0 && (
               <p aria-live="polite" className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-                ⚠ Revision {revisionNumber} already has {existingNames.length} of these {chosen.length} deployment(s) in the collections folder:{' '}
+                ⚠ Collection {revisionName} already has {existingNames.length} of these {chosen.length} deployment(s) in the collections folder:{' '}
                 <span className="font-mono">{existingNames.slice(0, 5).map((d) => fieldsOf(d.name).deployment_id).join(', ')}{existingNames.length > 5 ? ', …' : ''}</span>.
-                Importing them again would be refused — pick another revision, or leave them out.
+                Processing them again would be refused: leave them out (untick them in the first step).
               </p>
             )}
-            {revisionValid && canFillFromPrevious && (() => {
+            {revisionValid && canFillFromPrevious && Object.keys(fieldDetails).length === 0 && (() => {
               const withEarlier = chosen.filter((d) => hasEarlierRevision(d.name))
               const earlier = Math.max(...withEarlier.map((d) => previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]!.revision))
               return (
@@ -1135,22 +1198,13 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={importFromEpicollect}>Import from Epicollect5</button>
               </div>
             )}
-            {epicollectDone && epicollectMissing !== null && previousChecked && !canFillFromPrevious && (
-              <div role="alert" className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/50 px-5 py-4 text-sm text-amber-900 dark:text-amber-100">
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-amber-600 dark:text-amber-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>
-                <span className="flex-1 min-w-[14rem]">
-                  {epicollectMissing || `Epicollect5 has no entry for revision ${revisionNumber} of these deployments: their details have to be filled in here.`}
-                </span>
-                {onOpenSettings && <button type="button" className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-700" onClick={() => onOpenSettings('epicollect')}>Open Epicollect5 settings</button>}
-              </div>
-            )}
             {fillMessage?.scope === 'all' && <p aria-live="polite" className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{fillMessage.text}</p>}
           </FormCard>
 
           {scan?.timestamp_log && (
             <p aria-live="polite" className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-              The start and end dates of {scan.timestamp_log.matched} of these {chosen.length} deployment(s) were taken from{' '}
-              <span className="font-mono">{scan.timestamp_log.name}</span>, found in the session folder, not from the images' EXIF data.
+              The start and end of {scan.timestamp_log.matched} of these {chosen.length} deployment(s) come from the field records,{' '}
+              <span className="font-mono">{scan.timestamp_log.name}</span>, in UTC like the cameras&rsquo; clocks.
             </p>
           )}
           <FormCard title="When was each one collected?" description="The period of every deployment, and where its dates come from. Open a row to change its dates.">
@@ -1178,7 +1232,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 const reading = !d.from_timestamp_log && guessingLeft > 0 && !(d.name in guessed)
                 const dateSource = dateSources[d.name]
                 const source = !start || !dateSource ? null
-                  : dateSource === 'log' ? `From ${scan?.timestamp_log?.name ?? 'the collection’s csv'}`
+                  : dateSource === 'log' ? 'From the field records'
                   : dateSource === 'exif' ? 'From the images'
                   : dateSource === 'epicollect' ? 'From Epicollect5'
                   : 'Entered by hand'
@@ -1221,13 +1275,13 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
           </WizardStep>
 
           <WizardStep n={3} title="More details" status={originStatus(3)} canEdit onEdit={() => { setOriginOpen(3); setOriginReached(3) }}
-                      description="Everything here is optional. For each deployment, fill in what you know of its camera and its site now — you can add the rest later."
+                      description="Who set it up, the camera, tags and notes come from the field records. Look them over, and add anything else you know of the camera and the site."
                       summary={`${chosen.filter((d) => moreFilledOf(d.name) > 0).length} of ${plural(chosen.length, 'deployment', 'deployments')} with details`}>
           {(() => {
             const withDetails = chosen.filter((d) => moreFilledOf(d.name) > 0).length
             const shownMore = chosen.filter((d) => d.name.toLowerCase().includes(moreFilter.trim().toLowerCase()) && (!onlyWithoutDetails || moreFilledOf(d.name) === 0))
             return (
-          <FormCard title="Camera, site and notes" description="What you know of each deployment's camera and site. Open a row to fill it in.">
+          <FormCard title="Camera, site and notes" description="What the field records say of each deployment, and anything you add. Open a row to see it or change it.">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-zinc-600 dark:text-zinc-400" role="status">{withDetails} of {chosen.length} deployment(s) with details.</p>
             <div className="flex items-center gap-3">
@@ -1257,7 +1311,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                         {entry && fieldsOf(d.name).deployment_id && <span className="rounded border border-zinc-300 dark:border-zinc-700 px-1.5 py-0.5 font-mono text-xs text-zinc-600 dark:text-zinc-300">{fieldsOf(d.name).deployment_id}</span>}
                       </span>
                       <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                        {filled > 0 ? [fields?.camera_model, fields?.camera_id, fields?.habitat].filter(Boolean).join(' · ') || `${filled} ${filled === 1 ? 'detail' : 'details'} filled in` : 'No camera or site details yet — optional'}
+                        {filled > 0 ? [fields?.setup_by && `set up by ${fields.setup_by}`, fields?.camera_id && `camera ${fields.camera_id}`, fields?.camera_model, fields?.comments].filter(Boolean).join(' · ') || `${filled} ${filled === 1 ? 'detail' : 'details'} filled in` : 'No details yet (optional)'}
+                        {fieldDetails[d.name] && <span className="block text-emerald-700 dark:text-emerald-400">From the field records</span>}
                       </span>
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${filled > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{filled} filled</span>
@@ -1299,13 +1354,21 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         )
       })()}
 
-      {/* ── Step: check the details of each deployment ── */}
+      {/* ── Step: every check, over the images and the details of each deployment, at once ── */}
       {stepKey === 'checks' && (() => {
         const failedIn = (c: DeploymentCheck) => chosen.filter((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) === false).length
         const ran = chosen.some((d) => checks[d.name])
         const problems = shownDeploymentChecks.filter((o) => deploymentChecks.has(o.value) && failedIn(o.value) > 0)
         const blocking = problems.filter((o) => requiredDeploymentChecks.has(o.value))
         const withProblems = chosen.filter((d) => checks[d.name]?.error || runnableDeploymentChecks.some((c) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) === false))
+        const iRan = candidates.some((d) => validations[d.name])
+        const iLeft = iRan ? candidates.filter((d) => !freeOfErrors(d.name)) : []
+        const iFailedIn = (c: ImageCheck) => candidates.filter((d) => imageCheckPassed(c, validations[d.name]?.result ?? null) === false).length
+        const iProblems = shownImageChecks.filter((o) => imageChecks.has(o.value) && iFailedIn(o.value) > 0)
+        const iWithProblems = candidates.filter((d) => validations[d.name]?.error || runnableImageChecks.some((c) => imageCheckPassed(c, validations[d.name]?.result ?? null) === false))
+        const mustCount = [...requiredImageChecks].length + [...requiredDeploymentChecks].length
+        const anyRan = iRan || ran
+        const running = validating || checking
         return (
         <div>
           <div className="flex flex-wrap gap-2 mb-6">
@@ -1314,55 +1377,96 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             {revisionName && <span className={`${chip} font-mono`}>{revisionName}</span>}
           </div>
 
-          <StepHeading>Check the details</StepHeading>
+          <StepHeading>Checks</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-            Now that each deployment is known, we check the names, dates and statistics of all {chosen.length} of them, and that the images fit them.
-            Choose how strict each check should be.
+            Every check at once: the images of each deployment (corrupted, in order, duplicated…) and its details (names, dates, statistics against the
+            previous collections). Choose how strict each one should be, and run them.
           </p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-            Some of these checks can be customized in the settings (Settings › Postvalidation): the tolerance of the image dates, and what the
-            comparison with the previous revisions means — the length of a sequence, the way of comparing and how much counts as similar.
+            The slow ones, on big collections, are Corrupted images, Duplicate images and Same camera: they read every image whole. The tolerance of the
+            image dates and what the comparison with earlier collections means are set in Settings › Postvalidation.
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
-          <WizardStep n={1} title="Choose the checks" status={checksOpen === 1 ? 'open' : 'done'} canEdit={!checking} onEdit={() => setChecksOpen(1)}
+          <WizardStep n={1} title="Choose the checks" status={checksOpen === 1 ? 'open' : 'done'} canEdit={!running} onEdit={() => setChecksOpen(1)}
                       description="Choose how strict each check should be: skip it, warn about what it finds, or make it a must."
-                      summary={<>{runnableDeploymentChecks.length} {runnableDeploymentChecks.length === 1 ? 'check' : 'checks'} to run{requiredDeploymentChecks.size > 0 && ` · ${requiredDeploymentChecks.size} must pass`}</>}>
-            {shownDeploymentChecks.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">Every postvalidation check is turned off in the settings, so there is nothing to run here — go on.</p>
+                      summary={<>{runnableImageChecks.length + runnableDeploymentChecks.length} checks to run{mustCount > 0 && ` · ${mustCount} must pass`}</>}>
+            <h4 className="text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">The images</h4>
+            {shownImageChecks.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
+                Every validation check is turned off in the settings, so there is nothing to run here — go on.
+              </p>
             ) : (
               <>
-                <StrictnessTable
-                  options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
-                  enabled={deploymentChecks} required={requiredDeploymentChecks} running={false} unit={{ one: 'deployment', many: 'deployments' }}
-                  describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one you chose for each deployment').replace(/\.$/, '')}
-                  outcome={() => undefined} onChoose={chooseDeploymentStrictness} />
+                <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={false}
+                                 describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]} outcome={() => undefined} onChoose={chooseImageStrictness} />
                 {strictnessLegend}
-                <div className="flex justify-end mt-4">
-                  <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={checking || runnableDeploymentChecks.length === 0} onClick={() => { setChecksOpen(2); void handleCheck() }}>
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>Run checks
-                  </button>
-                </div>
               </>
             )}
+            <h4 className="text-sm font-semibold mt-4 mb-2 text-zinc-700 dark:text-zinc-300">The details of each deployment</h4>
+            {shownDeploymentChecks.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">Every postvalidation check is turned off in the settings.</p>
+            ) : (
+              <StrictnessTable
+                options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
+                enabled={deploymentChecks} required={requiredDeploymentChecks} running={false} unit={{ one: 'deployment', many: 'deployments' }}
+                describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one given for each deployment').replace(/\.$/, '')}
+                outcome={() => undefined} onChoose={chooseDeploymentStrictness} />
+            )}
+            {strictnessLegend}
+            <div className="flex justify-end mt-4">
+              <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={running || (runnableImageChecks.length + runnableDeploymentChecks.length === 0)}
+                      onClick={() => { setChecksOpen(2); void handleAllChecks() }}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>Run checks
+              </button>
+            </div>
           </WizardStep>
 
-          <WizardStep n={2} title="Check results" status={checking ? 'running' : ran ? (checksOpen === 2 ? 'open' : 'done') : 'locked'}
-                      canEdit={!checking} onEdit={() => setChecksOpen(2)} expanded={checksOpen === 2}
-                      description={ran && !checking ? `${deploymentsCount} · checked ${plural(Object.keys(checks).length, 'deployment', 'deployments')}.` : 'How each check went.'}
-                      summary={ran && (requiredDeploymentChecksOk ? 'Checks run — you can continue' : 'A check set to Must pass failed')}
-                      badge={checking ? 'Checking…' : undefined}
-                      action={ran && checksOpen === 2 ? (
-                        <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={checking || runnableDeploymentChecks.length === 0} onClick={() => void handleCheck()}>
-                          {checking ? <SmallSpinner /> : null}{checking ? 'Checking…' : 'Run again'}
+          <WizardStep n={2} title="Check results" status={running ? 'running' : anyRan ? (checksOpen === 2 ? 'open' : 'done') : 'locked'}
+                      canEdit={!running} onEdit={() => setChecksOpen(2)} expanded={checksOpen === 2}
+                      description={validating ? 'Checking the images…' : checking ? 'Checking the details…' : 'How each check went.'}
+                      summary={anyRan && (requiredDeploymentChecksOk && iLeft.length === 0 ? 'Checks run, you can continue' : 'Some deployments are left out, or a check set to Must pass failed')}
+                      badge={running ? 'Checking…' : undefined}
+                      action={anyRan && checksOpen === 2 ? (
+                        <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={running} onClick={() => void handleAllChecks()}>
+                          {running ? <SmallSpinner /> : null}{running ? 'Checking…' : 'Run again'}
                         </button>
                       ) : undefined}>
+            {iRan && <h4 className="text-sm font-semibold mb-2 text-zinc-700 dark:text-zinc-300">The images</h4>}
+            {iRan && (
+              <SessionResults
+                running={validating} checks={runnableImageChecks} onLeaveOut={(names) => setIncluded((set) => new Set([...set].filter((n) => !names.includes(n))))}
+                folders={(scan?.deployments ?? []).filter((d) => validations[d.name]).map((d) => ({
+                  name: d.name, images: d.image_count, reportId: validations[d.name].result?.report_id ?? null, error: validations[d.name].error,
+                  included: included.has(d.name) && freeOfErrors(d.name),
+                  problem: Boolean(validations[d.name].error) || runnableImageChecks.some((c) => imageCheckPassed(c, validations[d.name].result ?? null) === false),
+                  plain: validations[d.name].result && !validations[d.name].result!.report_id ? <ValidationReport validation={validations[d.name].result!} /> : undefined,
+                }))}
+                banner={iProblems.length === 0 && iLeft.length === 0
+                  ? { tone: 'ok', text: 'Every check passed in every folder.' }
+                  : { tone: iLeft.length > 0 ? 'error' : 'warn', text: <>{plural(iProblems.length, 'check found', 'checks found')} problems in {iWithProblems.length} of {plural(candidates.length, 'folder', 'folders')}.{' '}
+                      {iLeft.length > 0
+                        ? <>{plural(iLeft.length, 'folder fails', 'folders fail')} a check set to Must pass, or could not be checked, so {iLeft.length === 1 ? 'it is' : 'they are'} left out: <span className="font-mono">{iLeft.map((d) => d.name).join(', ')}</span>.</>
+                        : requiredImageChecks.size === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'}</> }}
+                byCheck={
+                  <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={validating} results
+                                   unit={{ one: 'folder', many: 'folders' }} describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]}
+                                   outcome={(c) => (candidates.some((d) => imageCheckPassed(c, validations[d.name]?.result ?? null) !== null) ? { failed: iFailedIn(c), images: null } : undefined)} />
+                } />
+            )}
+            <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
+                            names={candidates.filter((d) => imageCheckPassed('sequence', validations[d.name]?.result ?? null) === false).map((d) => d.name)} />
+            <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
+                            names={candidates.filter((d) => imageCheckPassed('sequence', validations[d.name]?.result ?? null) === false).map((d) => d.name)} />
+            {ran && <h4 className="text-sm font-semibold mt-6 mb-2 text-zinc-700 dark:text-zinc-300">The details of each deployment</h4>}
             {ran && !checking && outcomeBanner(problems.length, blocking.length, requiredDeploymentChecks.size, plural(withProblems.length, 'deployment', 'deployments'))}
-            <StrictnessTable
-              options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
-              enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
-              describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one you chose for each deployment').replace(/\.$/, '')}
-              outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
+            {(ran || checking) && (
+              <StrictnessTable
+                options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
+                enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
+                describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one given for each deployment').replace(/\.$/, '')}
+                outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
+            )}
             <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
                             names={chosen.filter((d) => deploymentCheckPassed('time_range', checks[d.name]?.result ?? null) === false).map((d) => d.name)} />
             <div className="mt-4 space-y-2">
@@ -1388,7 +1492,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       {stepKey === 'prepare' && (() => {
         const rows: { key: string; label: string; always?: boolean; step?: PreprocessStep; text: ReactNode; disabledReason?: string }[] = [
           { key: 'copy', label: 'Copy into the collection', always: true, text: <>Copies the images of each deployment into its own folder in the revision&rsquo;s collection. Anything that isn&rsquo;t an image is copied as it is.</> },
-          { key: 'dates', label: 'Read the capture dates', always: true, text: <>From each image&rsquo;s EXIF, as the camera&rsquo;s local time in its location&rsquo;s timezone, ignoring summer time where the location says so{preSettings.convert_to_utc ? ', converted to UTC' : ''}.</> },
+          { key: 'dates', label: 'Read the capture dates', always: true, text: <>From each image&rsquo;s EXIF, as the cameras&rsquo; clock has them ({cameraZone}). The times are never shifted.</> },
           { key: 'rename', label: 'Rename the images', step: 'rename', text: <><span className="font-mono">{'<deployment>__<YYYYMMDD>_<n>.<EXT>'}</span> in upper case.</> },
           { key: 'resize', label: 'Resize the images', step: 'resize', text: <>Images wider than <strong>{preSettings.resize_width} px</strong> are resized to that width, keeping their proportions.</> },
           { key: 'metadata', label: 'Add metadata', step: 'metadata', text: <>Authorship, rights and license, written into each image as XMP — owner <span className="font-mono">{preSettings.owner || 'Unknown'}</span>, publisher <span className="font-mono">{preSettings.publisher || 'Unknown'}</span>.</>, disabledReason: exiftool === false ? 'ExifTool is not installed, and writing the metadata needs it.' : undefined },
@@ -1406,7 +1510,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
             <StepHeading>Prepare and save</StepHeading>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection. Nothing is uploaded to Trapper yet.
+              Choose what is done to the images of every deployment, see how it went, and save the collection in your collections folder. Nothing is uploaded to Trapper yet.
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
@@ -1444,7 +1548,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               <div className="flex justify-end mt-4">
                 <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={importing || pending.length === 0} onClick={handleImport}>
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>
-                  {`Import ${pending.length} deployment${pending.length === 1 ? '' : 's'}`}
+                  {`Process ${pending.length} deployment${pending.length === 1 ? '' : 's'}`}
                 </button>
               </div>
             </WizardStep>
@@ -1452,13 +1556,13 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             <WizardStep n={2} title="Preprocessing results" status={allDone ? 'done' : importing ? 'running' : started ? 'open' : 'locked'} canEdit={false} onEdit={() => {}} expanded={allDone}
                         badge={importing ? 'Importing…' : undefined}
                         description="How each deployment went: its images are copied, renamed, resized and tagged into its folder in the revision’s collection."
-                        action={!importing && failures > 0 ? <button type="button" className={`${btnPrimary} flex items-center gap-2`} onClick={handleImport}>{`Import the ${pending.length} left`}</button> : undefined}>
+                        action={!importing && failures > 0 ? <button type="button" className={`${btnPrimary} flex items-center gap-2`} onClick={handleImport}>{`Process the ${pending.length} left`}</button> : undefined}>
               <div className="mb-4">
                 <div className="flex items-baseline justify-between text-sm">
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{chosen.filter((d) => runs[d.name]?.done).length} of {plural(chosen.length, 'deployment', 'deployments')} imported</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{chosen.filter((d) => runs[d.name]?.done).length} of {plural(chosen.length, 'deployment', 'deployments')} processed</span>
                   <span className="text-zinc-500 dark:text-zinc-400">{chosen.length === 0 ? 0 : Math.round((chosen.filter((d) => runs[d.name]?.done).length / chosen.length) * 100)}%</span>
                 </div>
-                <div role="progressbar" aria-label="Deployments imported" aria-valuemin={0} aria-valuemax={100}
+                <div role="progressbar" aria-label="Deployments processed" aria-valuemin={0} aria-valuemax={100}
                      aria-valuenow={chosen.length === 0 ? 0 : Math.round((chosen.filter((d) => runs[d.name]?.done).length / chosen.length) * 100)}
                      className="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
                   <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${chosen.length === 0 ? 0 : (chosen.filter((d) => runs[d.name]?.done).length / chosen.length) * 100}%` }} />
@@ -1469,12 +1573,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   const run = runs[d.name]
                   const id = fieldsOf(d.name).deployment_id
                   return (
-                    <li key={d.name} className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-sm" aria-label={`Import of ${id}`}>
+                    <li key={d.name} className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-sm" aria-label={`Processing of ${id}`}>
                       <span className="font-mono">{id}</span>{' '}
-                      {!run && <span className="text-zinc-500 dark:text-zinc-400">— waiting</span>}
-                      {run && !run.done && !run.error && <span className="text-zinc-500 dark:text-zinc-400">— importing…
+                      {!run && <span className="text-zinc-500 dark:text-zinc-400">: waiting</span>}
+                      {run && !run.done && !run.error && <span className="text-zinc-500 dark:text-zinc-400">: processing…
                         {(() => { const last = [...run.events].reverse().find((e) => e.type === 'copy'); return last && last.type === 'copy' ? ` ${last.index}/${last.total}` : '' })()}</span>}
-                      {run?.done && <span className="text-emerald-600 dark:text-emerald-400">✔ imported — <span className="font-mono">{run.destDir}</span></span>}
+                      {run?.done && <span className="text-emerald-600 dark:text-emerald-400">✔ processed: <span className="font-mono">{run.destDir}</span></span>}
                       {run?.error && !run.done && <span className="text-red-600 dark:text-red-400">⚠ {run.error}</span>}
                       {(() => { const done = run?.events.find((e) => e.type === 'done'); return done && done.type === 'done' && done.report_id ? <ReportPanel reportId={done.report_id} /> : null })()}
                       {run?.events.filter((e) => e.type === 'skipped').map((e, i) => (
@@ -1489,22 +1593,22 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             <WizardStep n={3} title="Save to your collection" status={allDone ? 'done' : 'locked'} canEdit={false} onEdit={() => {}} expanded={allDone}
                         description="Available once the images are prepared.">
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                The {deploymentsCount} go into revision {revisionName}&rsquo;s collection of <span className="font-mono">{projectId}</span>. Each deployment is consolidated: its
+                The {deploymentsCount} go into collection {revisionName} of <span className="font-mono">{projectId}</span>. Each deployment is consolidated: its
                 metadata is written and it is <strong>sealed</strong>, so it can&rsquo;t be modified afterwards — and it can then be uploaded.
               </p>
               {allDone && (
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">✔ Session imported — {chosen.length} deployment(s).</p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">✔ Collection processed: {chosen.length} deployment(s).</p>
                   {collectionPath && <button type="button" className={btnOutline} onClick={handleOpenFolder}>Open folder</button>}
-                  {onUpload && projectId && revisionValid && (
-                    <button type="button" className={btnPrimary} onClick={() => onUpload({ researchProjectId: projectId, collection: revisionName })}>
-                      Upload to Trapper
-                    </button>
-                  )}
                   {openFolderError && <p className="text-sm text-red-600 dark:text-red-400">{openFolderError}</p>}
                 </div>
               )}
             </WizardStep>
+            {allDone && projectId && revisionValid && (
+              <NextStep n={5} title="Upload to Trapper" onGo={onUpload && (() => onUpload({ researchProjectId: projectId, collection: revisionName }))}>
+                The deployments of {revisionName} are ready: upload them to Trapper.
+              </NextStep>
+            )}
           </div>
         )
       })()}
@@ -1513,8 +1617,6 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       <div className="flex justify-between items-start mt-10">
         {step > 0 && !importing ? (
           <button type="button" className={btnOutline} onClick={() => setStep((s) => s - 1)} disabled={allDone}><span aria-hidden="true">← </span>Back</button>
-        ) : stepKey === 'images' && imagesOpen === 3 ? (
-          <button type="button" className={btnOutline} disabled={validating} onClick={() => setImagesOpen(2)}><span aria-hidden="true">← </span>Back</button>
         ) : <div />}
 
         {stepKey === 'images' && (

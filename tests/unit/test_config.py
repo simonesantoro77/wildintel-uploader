@@ -40,7 +40,8 @@ def test_the_validation_checks_are_all_shown_by_default():
     assert all(vars(settings.VALIDATION).values())
     assert set(vars(settings.VALIDATION)) == {"corrupted", "sequence", "structure", "camera", "exif", "duplicates"}
     checks = {k: v for k, v in vars(settings.POSTVALIDATION).items() if isinstance(v, bool)}
-    assert all(checks.values())
+    assert all(v for k, v in checks.items() if k != "camera")
+    assert checks["camera"] is False  # the camera id comes from the field records, not from the camera
     assert set(checks) == {
         "deployment_id", "collection_prefix", "collection_name", "location", "time_range", "camera",
         "image_count", "sequence_count", "sequence_length",

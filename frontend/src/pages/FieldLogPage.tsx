@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
+import NextStep from '../components/NextStep'
 import WizardStep from '../components/WizardStep'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import type { FieldDeployment, FieldlogResult, LocalResearchProject, ResearchProject } from '../types'
@@ -38,12 +39,18 @@ function FileField({ id, label, hint, value, onChange, onBrowse, disabled }: {
   )
 }
 
-/** Field records, the first step of the workflow: the Epicollect download of a field trip and the fieldwork datasheet are read
+/** Field records, the first step of the workflow: the field data download of a field trip and the fieldwork datasheet are read
  * together — the trip's visits are added to the datasheet, each deployment of the collection gets its start and end (UTC),
  * who set it up, its camera and its card, and the data are checked (sites that are not locations yet, a camera at two
  * sites…). Nothing is written until "Write the files": the updated datasheet beside the original, and the collection's
  * FileTimestampLog and FieldworkLog in its folder. */
-export default function FieldLogPage() {
+/** Where the next step starts from: the research project and the collection just written. */
+export interface CollectionTarget {
+  researchProjectId: string
+  collection: string
+}
+
+export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: CollectionTarget) => void } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [epicollect, setEpicollect] = useState('')
@@ -169,7 +176,7 @@ export default function FieldLogPage() {
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Field records</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-        After each field trip: the field data download (from Epicollect or another field app) and the fieldwork datasheet, read together. The trip&rsquo;s visits are added to the datasheet, each
+        After each field trip: the field data download (from the field app) and the fieldwork datasheet, read together. The trip&rsquo;s visits are added to the datasheet, each
         deployment of the collection gets its start and end, who set it up, its camera and its card, and the field data are checked before any card is copied.
         Every time is <strong>UTC</strong>. Nothing is written until you press <strong>Write the files</strong>.
       </p>
@@ -194,7 +201,7 @@ export default function FieldLogPage() {
         </div>
         <FileField id="fieldlog-epicollect" label="Field data download (CSV)" value={epicollect} disabled={busy}
                    onChange={(v) => { setEpicollect(v); changed() }} onBrowse={() => void browse('epicollect')}
-                   hint="The CSV downloaded from the field app (Epicollect or another) — all its entries or just this trip's." />
+                   hint="The CSV downloaded from the field app: all its entries or just this trip's." />
         <FileField id="fieldlog-datasheet" label="Fieldwork datasheet (.xlsx)" value={datasheet} disabled={busy}
                    onChange={(v) => { setDatasheet(v); changed() }} onBrowse={() => void browse('datasheet')}
                    hint="The datasheet as it is now, e.g. TatraFieldSheet_R0001-R0013.xlsx. It is only read: the updated one is a new file beside it." />
@@ -236,7 +243,7 @@ export default function FieldLogPage() {
                 <p className="font-semibold text-amber-900 dark:text-amber-200">{result.new_sites.length === 1 ? '1 site is' : `${result.new_sites.length} sites are`} not among the locations of {projectId}</p>
                 <p className="text-sm text-amber-900/80 dark:text-amber-200/80 mt-1">
                   Check each one is <strong>really new</strong> and not a known site misnamed in the field — look at the nearest location and the similar ids. If it is new,
-                  tick it, check its coordinates (those of its installation) and save it: the upload creates it in Trapper. If it is misnamed, correct it in Epicollect or in the
+                  tick it, check its coordinates (those of its installation) and save it: the upload creates it in Trapper. If it is misnamed, correct it in the field app or in the
                   datasheet and check again.
                 </p>
                 <div className="overflow-x-auto mt-3">
@@ -291,7 +298,7 @@ export default function FieldLogPage() {
                 <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
                   {otherWarnings.map((w) => <li key={w}>{w}</li>)}
                 </ul>
-                <p className={`${hintClass} mt-2`}>Correct them in Epicollect and download it again, or in the datasheet, then check again.</p>
+                <p className={`${hintClass} mt-2`}>Correct them in the field app and download its data again, or in the datasheet, then check again.</p>
               </div>
             )}
 
@@ -356,6 +363,14 @@ export default function FieldLogPage() {
               <>
                 {error && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>}
                 {!projectId && <p className="text-sm text-zinc-600 dark:text-zinc-300">Choose the research project to write the files.</p>}
+                <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                  <p className="font-semibold mb-1">Write the files does three things:</p>
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    <li>The <strong>fieldwork datasheet</strong> with this trip&rsquo;s visits added — a new file beside the one you chose, named after the new range of collections. The original is not changed.</li>
+                    <li>The collection&rsquo;s <strong>FileTimestampLog</strong> — when each deployment started and ended (UTC) — in its folder. Process collection checks the images&rsquo; dates against it.</li>
+                    <li>The collection&rsquo;s <strong>FieldworkLog</strong> — each deployment with who set it up, its camera, its card and the field notes — in its folder. Copy SD cards is guided by it, and its fields go on to Trapper and Camtrap DP.</li>
+                  </ul>
+                </div>
                 <div className="flex justify-end">
                   <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!projectId || busy} onClick={() => void handleWrite()}>
                     {writing && <SmallSpinner />}Write the files
@@ -380,10 +395,10 @@ export default function FieldLogPage() {
               ))}
             </ul>
             {error && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>}
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              Next: copy the cards of the {closedCount} deployment(s) whose card was collected. When the rest of the collection is visited, download Epicollect
-              again and run the field records once more — nothing is added twice.
-            </p>
+            <NextStep n={2} title="Copy SD cards" onGo={onCopyCards && projectId && written.collections[0] ? () => onCopyCards({ researchProjectId: projectId, collection: written.collections[0] }) : undefined}>
+              The cards of the {closedCount} deployment(s) of {written.collections.join(', ')} whose card was collected. When the rest of the collection is visited,
+              download the field data again and run Field records once more — nothing is added twice.
+            </NextStep>
           </div>
         )}
       </WizardStep>

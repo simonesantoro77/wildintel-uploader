@@ -14,8 +14,7 @@ engine (services.fieldlog.engine):
 And writes, in the collection's folder (<collections folder>/<research project>/<R000N>/):
 
   * <R000N>_FileTimestampLog.csv — each closed deployment's start and end, the row of each replaced and the others
-    kept (local_folder_service.upsert_timestamp_log), as the import reads it — and, beside the datasheet, the same in
-    the format wildintel-tools and the FileTimestamps tool write (eleven columns), for whoever still uses it;
+    kept (local_folder_service.upsert_timestamp_log), as the processing reads it;
   * <R000N>_FieldworkLog.csv — every deployment of the collection, closed or open, with its fields named as Camtrap DP
     names them (deploymentID, setupBy, cameraID, deploymentComments…) and what the field trip says of its card.
 
@@ -117,9 +116,14 @@ def _deployment(collection: int, site: str, start: dict, end: dict | None, keep_
     }
 
 
-def _open_deployments(visits: list[dict], keep_seconds: bool) -> list[dict]:
+def _open_deployments(visits: list[dict], keep_seconds: bool, last_session: int) -> list[dict]:
     """Per site, the deployment its latest visit started and no visit has closed yet: the camera is still out there.
-    Not after a visit that took the camera away or found it stolen, nor one that collected nothing."""
+    Not after a visit that took the camera away or found it stolen, nor one that collected nothing.
+
+    It belongs to the collection the visit that closes it will name: the one before the session of that visit. A camera
+    left before the current field trip (last_session) is collected on it, so its deployment is the collection being
+    completed (last_session - 1) — also when its site was not reached on one or more trips before. One left on the current
+    trip is collected on the next, so it is the next collection's (last_session)."""
     latest: dict[str, dict] = {}
     for v in visits:
         if v.get("status", "").lower() in engine.NOT_VISITED_STATUS:
@@ -131,7 +135,8 @@ def _open_deployments(visits: list[dict], keep_seconds: bool) -> list[dict]:
         action = v["action"].lower()
         if action in engine.END_ACTIONS or action in engine.LOST_ACTIONS:
             continue
-        out.append(_deployment(v["snum"], site, v, None, keep_seconds))
+        collection = last_session - 1 if v["snum"] < last_session else last_session
+        out.append(_deployment(collection, site, v, None, keep_seconds))
     return out
 
 
@@ -200,7 +205,28 @@ def _checks(prep: dict, locations: list[dict] | None) -> dict:
         unknown = sorted({v["site"] for v in current if v["site"].lower() not in known})
         for site in unknown:
             new_sites.append(_new_site(site, [v for v in prep["visits"] if v["site"] == site], locations))
-    shared: list[str] = []
+    # An Installation (a new site, or a new camera at a site) while the card left at the visit before was not collected:
+    # nothing closes that deployment, so its card would be left out. A Revision and an Installation the same day (a camera
+    # changed) are fine.
+    replaced: list[str] = []
+    by_site: dict[str, list[dict]] = {}
+    for v in prep["visits"]:
+        if v.get("status", "").lower() not in engine.NOT_VISITED_STATUS:
+            by_site.setdefault(v["site"], []).append(v)
+    for v in current:
+        if v["action"].lower() != "installation":
+            continue
+        before = [b for b in by_site.get(v["site"], []) if b["when"] < v["when"]]
+        if not before:
+            continue
+        last = max(before, key=lambda b: b["when"])
+        action = last["action"].lower()
+        if action in engine.END_ACTIONS or action in engine.LOST_ACTIONS or (v["when"] - last["when"]).total_seconds() < 86400:
+            continue
+        replaced.append(f"{v['session']} {v['site']}: Installation on {v['when']:%Y-%m-%d} while the card left there on "
+                        f"{last['when']:%Y-%m-%d} ({last['session']} {last['action']}) was not collected — no Revision or "
+                        "Desinstallation before it, so that card has no deployment. Check the field data.")
+    shared: list[str] = replaced
     for what, key in (("Camera", "cam"), ("Card", "sd")):
         by_session: dict[tuple, set] = {}
         for v in current:
@@ -233,7 +259,7 @@ def _work(epicollect: str, datasheet: str, research_project_id: str | None, sett
         _deployment(iv["dep"], iv["site"], iv["start_visit"], iv["end_visit"], keep)
         for iv in prep["intervals"] if iv["dep"] in collections
     ]
-    open_ = [d for d in _open_deployments(prep["visits"], keep) if int(d["collection"][1:]) >= min(collections)]
+    open_ = [d for d in _open_deployments(prep["visits"], keep, prep["last_s"]) if int(d["collection"][1:]) >= min(collections)]
     checks = _checks(prep, _locations(research_project_id, settings))
     if checks["new_sites"]:
         prep["report"].warn(
@@ -350,15 +376,6 @@ def apply(epicollect: str, datasheet: str, research_project_id: str, settings: c
         files += engine.write_datasheets(prep, str(sheet), str(sheet.parent), settings.FIELDLOG.datasheet_format)
     except OSError as exc:
         raise FieldlogError(f"Could not write the updated datasheet: {exc}") from exc
-    # The log in the format wildintel-tools and the FileTimestamps tool write (eleven columns, the hours without a
-    # leading zero), beside the datasheet as that tool left it — for whoever still uses it.
-    for collection in sorted({iv["dep"] for iv in prep["intervals"] if engine.session_name(iv["dep"]) in result["collections"]}):
-        legacy = Path(engine.unique_path(str(sheet.parent / f"{engine.session_name(collection)}_FileTimestampLog.csv")))
-        try:
-            engine.write_log(str(legacy), [iv for iv in prep["intervals"] if iv["dep"] == collection], settings.FIELDLOG.keep_seconds)
-            files.append(str(legacy))
-        except OSError as exc:
-            prep["report"].warn(f"Could not write {legacy.name} beside the datasheet: {exc}")
     for collection in result["collections"]:
         collection_dir = project / collection
         deployments = [d for d in result["deployments"] if d["collection"] == collection]
@@ -370,10 +387,9 @@ def apply(epicollect: str, datasheet: str, research_project_id: str, settings: c
                 start = dt.datetime.strptime(d["start"], "%Y-%m-%dT%H:%M:%SZ")
                 end = dt.datetime.strptime(d["end"], "%Y-%m-%dT%H:%M:%SZ")
                 try:
-                    written = local_folder_service.upsert_timestamp_log(collection_dir, d["deployment_id"], start, end)
+                    local_folder_service.upsert_timestamp_log(collection_dir, d["deployment_id"], start, end)
                 except local_folder_service.LocalFolderError as exc:
-                    prep["report"].warn(f"{d['deployment_id']}: not put in the FileTimestampLog — {exc}")
-                    continue
+                    prep["report"].warn(f"{d['deployment_id']}: not put in the FileTimestampLog: {exc}")
             log = local_folder_service.timestamp_log_path(collection_dir)
             if log.is_file() and str(log) not in files:
                 files.append(str(log))

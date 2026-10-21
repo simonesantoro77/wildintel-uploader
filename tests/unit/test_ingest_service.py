@@ -49,7 +49,7 @@ def test_the_status_says_which_cards_are_to_copy(recorded):
 
     states = {d["deployment_id"]: d["state"] for d in status["deployments"]}
     assert states == {"R0002-TATR_0001": "to_copy", "R0002-TATR_0002": "out"}
-    assert status["counts"] == {"out": 1, "to_copy": 1, "copied": 0}
+    assert status["counts"] == {"out": 1, "to_copy": 1, "copied": 0, "processed": 0}
 
 
 def test_preparing_makes_a_folder_ready_for_import_session(recorded):
@@ -113,6 +113,47 @@ def test_a_deployment_whose_camera_is_still_out_gets_no_card(recorded, tmp_path)
         _copy(_card(tmp_path / "sd"), "R0002-TATR_0002")
     with pytest.raises(ing.IngestError, match="not in the field records"):
         _copy(_card(tmp_path / "sd2", days=("2026:02:22",)), "R0002-TATR_0077")
+
+
+def test_the_label_on_the_card_is_required_and_a_different_one_must_be_confirmed(recorded, tmp_path):
+    _, cards = recorded
+    card = _card(tmp_path / "sd")
+    with pytest.raises(ing.IngestError, match="label written on the card"):
+        _copy(card, card_label="")
+    with pytest.raises(ing.IngestError, match="field records say 1b"):
+        _copy(card, card_label="8")
+
+    _copy(card, card_label="8", label_confirmed=True)
+    folder = cards / "TATRA" / "R0002"
+    record = json.loads((folder / "R0002-TATR_0001" / ing.COPY_RECORD_FILE).read_text())
+    assert record["label_mismatch"] is True and record["field_card"] == "1b"
+    [row] = ing.read_corrections("TATRA", "R0002")
+    assert (row["deployment"], row["field records say"], row["found"]) == ("R0002-TATR_0001", "1b", "8")
+
+
+def test_cards_copied_or_processed_are_not_offered_again(recorded, tmp_path):
+    root, _ = recorded
+    card = _card(tmp_path / "sd")
+    _copy(card)
+    assert ing.inspect_source(str(_card(tmp_path / "sd2", days=("2026:02:23",))), "TATRA", "R0002")["candidates"] == []
+
+    processed = root / "TATRA" / "R0002" / "R0002-TATR_0001"
+    processed.mkdir(parents=True, exist_ok=True)
+    (processed / lfs.DEPLOYMENT_METADATA_FILE).write_text("{}")
+    assert {d["deployment_id"]: d["state"] for d in ing.collection_status("TATRA", "R0002")["deployments"]}["R0002-TATR_0001"] == "processed"
+
+
+def test_the_cards_collections_and_the_field_details_are_offered(recorded, tmp_path):
+    ing.prepare_collection("TATRA", "R0002")
+    [found] = ing.card_collections()
+    assert (found["research_project_id"], found["collection"], found["deployments"], found["processed"]) == ("TATRA", "R0002", 1, 0)
+    details = ing.field_details("TATRA", "R0002")["R0002-TATR_0001"]
+    assert details["location_id"] == "TATR_0001" and details["card"] == "1b" and isinstance(details["tags"], list)
+
+
+def test_only_a_removable_drive_is_ejected(tmp_path):
+    with patch("platform.system", return_value="Linux"):
+        assert ing.eject(str(tmp_path))["ejected"] is False
 
 
 def test_files_with_the_same_name_in_two_folders_are_both_kept(recorded, tmp_path):

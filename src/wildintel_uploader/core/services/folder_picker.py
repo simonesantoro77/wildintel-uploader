@@ -33,9 +33,18 @@ def _pick_linux(title: str) -> str | None:
 
 
 def _pick_macos(title: str) -> str | None:
-    script = f'POSIX path of (choose folder with prompt "{title}")'
+    script = f'POSIX path of (choose folder with prompt "{_applescript_quote(title)}")'
     result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
     return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+def _ps_quote(text: str) -> str:
+    """Text for a single-quoted PowerShell string: a quote inside it is doubled ("deployment's" would end it)."""
+    return text.replace("'", "''")
+
+
+def _applescript_quote(text: str) -> str:
+    return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _pick_windows(title: str) -> str | None:
@@ -43,7 +52,7 @@ def _pick_windows(title: str) -> str | None:
         "Add-Type -AssemblyName System.Windows.Forms | Out-Null; "
         "$owner = New-Object System.Windows.Forms.Form; $owner.TopMost = $true; $owner.ShowInTaskbar = $false; $owner.Show(); $owner.Activate(); "
         "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
-        f"$f.Description = '{title}'; "
+        f"$f.Description = '{_ps_quote(title)}'; "
         "$r = $f.ShowDialog($owner); $owner.Close(); "
         "if ($r -eq 'OK') { Write-Output $f.SelectedPath }"
     )
@@ -93,7 +102,7 @@ def _pick_file_linux(title: str, patterns: list[str]) -> str | None:
 def _pick_file_macos(title: str, patterns: list[str]) -> str | None:
     kinds = [p.split(".")[-1] for p in patterns if "." in p]
     of_type = f" of type {{{', '.join(chr(34) + k + chr(34) for k in kinds)}}}" if kinds else ""
-    script = f'POSIX path of (choose file with prompt "{title}"{of_type})'
+    script = f'POSIX path of (choose file with prompt "{_applescript_quote(title)}"{of_type})'
     result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
     return result.stdout.strip() or None if result.returncode == 0 else None
 
@@ -107,7 +116,7 @@ def _pick_file_windows(title: str, patterns: list[str]) -> str | None:
         "$owner = New-Object System.Windows.Forms.Form; $owner.TopMost = $true; $owner.ShowInTaskbar = $false; "
         "$owner.StartPosition = 'CenterScreen'; $owner.Size = New-Object System.Drawing.Size(1, 1); $owner.Show(); $owner.Activate(); "
         "$f = New-Object System.Windows.Forms.OpenFileDialog; "
-        f"$f.Title = '{title}'; $f.Filter = '{filter_}'; "
+        f"$f.Title = '{_ps_quote(title)}'; $f.Filter = '{_ps_quote(filter_)}'; "
         "$r = $f.ShowDialog($owner); $owner.Close(); "
         "if ($r -eq 'OK') { Write-Output $f.FileName }"
     )

@@ -122,12 +122,7 @@ def test_applying_writes_the_datasheet_and_the_collection_files(trip):
     log = lfs.read_timestamp_log(lfs.timestamp_log_path(collection))
     assert log == [{"Deployment": "R0002-TATR_0001", "StartDate": "2026:02:20", "StartTime": "09:30:00",
                     "EndDate": "2026:03:30", "EndTime": "08:15:00"}]
-    legacy = sheet.parent / "R0002_FileTimestampLog.csv"
-    assert str(legacy) in result["files"]
-    assert legacy.read_text().splitlines()[:2] == [
-        "Deployment,StartDate,StartTime,EndDate,EndTime, ,Deployment_Or,StartDate_Or,StartTime_Or,EndDate_Or,EndTime_Or",
-        "R0002-TATR_0001,2026:02:20,9:30:00,2026:03:30,8:15:00,,R0002-TATR_0001,2026:02:20,9:30:00,2026:03:30,8:15:00",
-    ]
+    assert not (sheet.parent / "R0002_FileTimestampLog.csv").exists()  # the old eleven-column log is not written
     rows = fs.read_fieldwork_log(collection)
     assert [(r["deploymentID"], r["status"]) for r in rows] == [("R0002-TATR_0001", "closed"), ("R0002-TATR_0002", "open")]
     assert rows[0]["setupBy"] == "Ben" and rows[0]["cameraID"] == "11" and rows[0]["deploymentEnd"] == "2026-03-30T08:15:00Z"
@@ -247,3 +242,24 @@ def test_the_api_saves_new_locations(trip):
     response = client.post("/api/fieldlog/add-locations", json={"research_project_id": "TATRA", "locations": [{"location_id": "TATR_0003", "latitude": 49.3, "longitude": 20.2}]})
 
     assert response.status_code == 200 and response.json()["results"][0]["location_id"] == "TATR_0003"
+
+
+def test_a_camera_not_reached_for_a_while_is_still_a_deployment_of_the_collection_being_completed():
+    import datetime as dt
+    visit = lambda site, snum, day, action="Revision": {"site": site, "session": f"R{snum:04d}", "snum": snum, "when": dt.datetime(2026, 1, day), "action": action, "status": "OK", "cam": 1, "nphotos": 5}
+    visits = [visit("A", 40, 1, "Installation"), visit("B", 41, 2), visit("C", 42, 3), visit("D", 43, 4)]
+
+    found = {d["site"]: d["collection"] for d in fs._open_deployments(visits, False, 43)}
+
+    # A, B and C will be collected on this trip (R0043): they are R0042's, like the ones collected already; D was left on it.
+    assert found == {"A": "R0042", "B": "R0042", "C": "R0042", "D": "R0043"}
+
+
+def test_an_installation_while_the_camera_before_was_not_collected_is_reported(trip, tmp_path):
+    _, _, sheet = trip
+    rows = [EPI_ROWS[0], ("u3", "2026-03-30T11:00:00.000Z", "Carla", "3", "30/03/2026", "2", "16", "Installation", "OK", "OK", "", "2c", "OK", "", "49.2", "20.1")]
+    epi = _epicollect(tmp_path / "swap.csv", rows)
+
+    warnings = fs.analyze(str(epi), str(sheet), "TATRA")["warnings"]
+
+    assert any("TATR_0002" in w and "not collected" in w for w in warnings)

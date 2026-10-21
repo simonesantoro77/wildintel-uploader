@@ -140,7 +140,7 @@ class PostvalidationSettings(BaseModel):
     collection_name: bool = Field(default=True, description="Collection name. (POSTVALIDATION.collection_name)")
     location: bool = Field(default=True, description="The id's location is the one chosen. (POSTVALIDATION.location)")
     time_range: bool = Field(default=True, description="Image dates fit the deployment. (POSTVALIDATION.time_range)")
-    camera: bool = Field(default=True, description="Camera consistency. (POSTVALIDATION.camera)")
+    camera: bool = Field(default=False, description="The camera declared is the one in the images. Off: the camera id comes from the field records, not from the camera. (POSTVALIDATION.camera)")
     image_count: bool = Field(default=True, description="The number of images is like the previous revisions'. (POSTVALIDATION.image_count)")
     sequence_count: bool = Field(default=True, description="The number of sequences is like the previous revisions'. (POSTVALIDATION.sequence_count)")
     sequence_length: bool = Field(default=True, description="The length of the sequences is like the previous revisions'. (POSTVALIDATION.sequence_length)")

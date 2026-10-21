@@ -562,12 +562,12 @@ def test_import_local_without_preprocessing_copies_as_before(tmp_path: Path):
     assert (tmp_path / "collections" / "DONA" / "R0003" / "R0003-DONA_01" / "IMG_0001.jpg").is_file()
 
 
-def test_import_local_without_a_location_timezone_is_a_plain_400_before_touching_anything(tmp_path: Path):
-    response = _client().post("/api/deployment-import/import-local", json=_import_local_payload(tmp_path, location_time={}))
+def test_import_local_does_not_need_a_location_timezone(tmp_path: Path):
+    """The images are read on the cameras' clock: a location without a timezone is no reason to stop."""
+    with patch("wildintel_uploader.web.api.routers.deployment_import.preprocessing_service.preprocess_stream", return_value=iter([])):
+        response = _client().post("/api/deployment-import/import-local", json=_import_local_payload(tmp_path, location_time={}))
 
-    assert response.status_code == 400
-    assert "has no timezone" in response.json()["detail"]
-    assert not (tmp_path / "collections" / "DONA" / "R0003").exists()
+    assert response.status_code == 200
 
 
 def test_import_local_reports_metadata_without_exiftool_as_a_plain_400(tmp_path: Path):
@@ -775,9 +775,9 @@ def test_existing_deployments_needs_some_ids():
     assert response.status_code == 422
 
 
-# ── the timezone is the location's, and only there ─────────────────────────
+# ── the images' times are the cameras' clock, never shifted ────────────────
 
-def test_import_local_reads_the_images_in_the_kept_locations_timezone(tmp_path: Path):
+def test_import_local_reads_the_images_on_the_cameras_clock_whatever_the_locations_timezone(tmp_path: Path):
     payload = _import_local_payload(tmp_path, location_time={"timezone": "Atlantic/Canary", "ignore_dst": False})
 
     with patch("wildintel_uploader.web.api.routers.deployment_import.preprocessing_service.preprocess_stream", return_value=iter([])) as stream:
@@ -785,7 +785,7 @@ def test_import_local_reads_the_images_in_the_kept_locations_timezone(tmp_path: 
 
     assert response.status_code == 200
     options = stream.call_args.args[4]
-    assert (options.timezone, options.ignore_dst) == ("Atlantic/Canary", False)
+    assert (options.timezone, options.ignore_dst) == ("UTC", False)
 
 
 def test_a_request_cannot_carry_a_timezone_of_its_own_into_the_import(tmp_path: Path):
@@ -794,7 +794,7 @@ def test_a_request_cannot_carry_a_timezone_of_its_own_into_the_import(tmp_path: 
     with patch("wildintel_uploader.web.api.routers.deployment_import.preprocessing_service.preprocess_stream", return_value=iter([])) as stream:
         _client().post("/api/deployment-import/import-local", json=payload)
 
-    assert stream.call_args.args[4].timezone == "Atlantic/Canary"  # the extra fields are ignored
+    assert stream.call_args.args[4].timezone == "UTC"  # the extra fields are ignored
 
 
 def test_import_registers_the_deployment_in_the_kept_locations_timezone(tmp_path: Path):
@@ -840,8 +840,8 @@ def test_import_local_with_preprocessing_writes_images_json_with_the_dates_and_h
     image = info["images"][0]
     extra = image["extra"]
     assert image["name"] == "R0003-DONA_01__20240701_1.JPEG" and image["source"] == "local" and extra["original"] == "IMG_0001.jpg"
-    assert image["local_time"] == "2024-07-01T10:00:00" and extra["taken_at"].startswith("2024-07-01T09:00:00")  # Madrid, ignoring summer time (UTC+1) → UTC
-    assert extra["timestamp"] == 1719824400.0
+    assert image["local_time"] == "2024-07-01T10:00:00" and extra["taken_at"].startswith("2024-07-01T10:00:00")  # the cameras' clock, UTC: never shifted
+    assert extra["timestamp"] == 1719828000.0
     assert extra["size_bytes"] == (folder / image["name"]).stat().st_size and len(extra["sha1"]) == 40
 
 

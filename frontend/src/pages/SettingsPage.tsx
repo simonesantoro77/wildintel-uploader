@@ -1008,7 +1008,7 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
               <SelectBox
                 label="Time of a visit" value={draft.fieldlog.time_source} onChange={(v) => setFieldlog('time_source', v)}
                 options={[
-                  { value: 'created_at', label: 'When its Epicollect entry was created (UTC) — recommended' },
+                  { value: 'created_at', label: 'When its entry was created in the field app (UTC), recommended' },
                   { value: 'hour', label: 'The date and hour typed in the form' },
                 ]}
               />
@@ -1043,7 +1043,7 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
               <p className={`${hintClass} px-1`}>Keeping it takes the images&rsquo; space twice while the deployment is being prepared, but any correction can be undone from it.</p>
               <NumberBox label="Files vs. photos counted in the field" value={draft.countTolerance} limits={SIMILARITY_TOLERANCE} onChange={(v) => set('countTolerance', v)} unit="% apart before it is pointed out" />
             </Row>
-            <Row label="Field data columns" description="The column of the field data download (Epicollect or another field app) that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
+            <Row label="Field data columns" description="The column of the field data download (from the field app) that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
               <div className="space-y-2">
                 {fieldColumns.map((c) => (
                   <TextBox

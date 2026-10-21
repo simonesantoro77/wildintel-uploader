@@ -573,11 +573,12 @@ export interface CardCopy {
   last: string | null
 }
 
-/** A deployment of a collection as far as its card goes: camera still out, card to copy, or copied. */
+/** A deployment of a collection as far as its card goes: camera still out, card to copy, copied, or already processed
+ * into the collection by Process collection. */
 export interface CardDeployment {
   deployment_id: string
   site: string | null
-  state: 'out' | 'to_copy' | 'copied'
+  state: 'out' | 'to_copy' | 'copied' | 'processed'
   start: string | null
   end: string | null
   card: string | null
@@ -592,7 +593,17 @@ export interface CardsStatus {
   has_fieldwork_log: boolean
   deployments: CardDeployment[]
   unexpected: { deployment_id: string; copy: CardCopy | null }[]
-  counts: { out: number; to_copy: number; copied: number }
+  counts: { out: number; to_copy: number; copied: number; processed: number }
+}
+
+/** A correction for the field data, written down while copying a card (a label that is not the one noted in the field). */
+export interface FieldCorrection {
+  deployment: string
+  what: string
+  'field records say': string
+  found: string
+  'when (UTC)': string
+  by: string
 }
 
 /** A deployment a card may belong to, best first, with what fits and what doesn't. */
@@ -932,4 +943,26 @@ export interface EpicollectInput {
 export interface EpicollectForm {
   project: { name: string; slug: string }
   inputs: EpicollectInput[]
+}
+
+/** A collection in the cards folder, as Copy SD cards left it: one subfolder per deployment. */
+export interface CardCollection {
+  research_project_id: string
+  collection: string
+  folder: string
+  deployments: number
+  /** How many of them are already processed into the collections folder. */
+  processed: number
+}
+
+/** What the field records say of a deployment (its row of the collection's FieldworkLog). */
+export interface FieldDetail {
+  location_id: string | null
+  start: string | null
+  end: string | null
+  setup_by: string | null
+  camera_id: string | null
+  tags: string[]
+  comments: string | null
+  card: string | null
 }

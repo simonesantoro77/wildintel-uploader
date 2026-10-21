@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import CardsPage, { datesOff, size } from './CardsPage'
+import CardsPage, { datesOff, labelMismatch, size } from './CardsPage'
 import { api } from '../api'
 import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { CardDeployment, CardInspection, CardsStatus } from '../types'
@@ -9,7 +9,7 @@ import type { CardDeployment, CardInspection, CardsStatus } from '../types'
 vi.mock('../api', () => ({
   api: {
     listResearchProjects: vi.fn(), ingestCollections: vi.fn(), ingestPrepare: vi.fn(), ingestStatus: vi.fn(), ingestInspect: vi.fn(),
-    ingestCopy: vi.fn(), ingestScanTree: vi.fn(), browseFolder: vi.fn(), timefixTimeline: vi.fn(),
+    ingestCopy: vi.fn(), ingestEject: vi.fn(), ingestCorrections: vi.fn(), ingestScanTree: vi.fn(), browseFolder: vi.fn(), timefixTimeline: vi.fn(),
   },
 }))
 const mockedApi = vi.mocked(api, true)
@@ -20,7 +20,7 @@ const dep = (id: string, over: Partial<CardDeployment> = {}): CardDeployment => 
 })
 const STATUS: CardsStatus = {
   collection: 'R0042', cards_dir: '/data/cards/DONA/R0042', has_fieldwork_log: true,
-  deployments: [dep('R0042-DONA_0007_B'), dep('R0042-DONA_0072', { state: 'out', card: '72b' })], unexpected: [], counts: { out: 1, to_copy: 1, copied: 0 },
+  deployments: [dep('R0042-DONA_0007_B'), dep('R0042-DONA_0072', { state: 'out', card: '72b' })], unexpected: [], counts: { out: 1, to_copy: 1, copied: 0, processed: 0 },
 }
 const SEEN: CardInspection = {
   source: '/media/SD', file_count: 3, image_count: 3, video_count: 0, other_count: 0, total_bytes: 3_000_000, subfolders: 1,
@@ -34,7 +34,9 @@ beforeEach(() => {
   mockedApi.ingestCollections.mockResolvedValue({ results: ['R0042'] })
   mockedApi.ingestPrepare.mockResolvedValue(STATUS)
   mockedApi.ingestInspect.mockResolvedValue(SEEN)
-  mockedApi.ingestStatus.mockResolvedValue({ ...STATUS, deployments: [dep('R0042-DONA_0007_B', { state: 'copied' }), STATUS.deployments[1]], counts: { out: 1, to_copy: 0, copied: 1 } })
+  mockedApi.ingestStatus.mockResolvedValue({ ...STATUS, deployments: [dep('R0042-DONA_0007_B', { state: 'copied' }), STATUS.deployments[1]], counts: { out: 1, to_copy: 0, copied: 1, processed: 0 } })
+  mockedApi.ingestEject.mockResolvedValue({ ejected: true, message: 'E: ejected: you can take the card out.' })
+  mockedApi.ingestCorrections.mockResolvedValue({ results: [] })
   mockedApi.ingestCopy.mockImplementation(async (_p, _c, _s, _l, _d, onEvent) => {
     onEvent({ type: 'copy', index: 1, total: 3, name: 'IMG_0001.JPG' })
     onEvent({ type: 'done', record: { card_label: '7B', copied_at: '2026-10-20T18:00:00Z', copied_by: 'me', file_count: 3, total_bytes: 3, source: '/media/SD', first: null, last: null, deployment_id: 'R0042-DONA_0007_B', path: '/x' } })
@@ -51,7 +53,7 @@ async function chooseProject() {
 async function lookAtCard() {
   await chooseProject()
   await userEvent.type(screen.getByLabelText('The card'), '/media/SD')
-  await userEvent.type(screen.getByLabelText('Label on the card'), '7B')
+  await userEvent.type(screen.getByLabelText(/Label on the card/), '7B')
   await userEvent.click(screen.getByRole('button', { name: 'Look at the card' }))
 }
 
@@ -71,9 +73,39 @@ describe('CardsPage', () => {
     expect(await screen.findByText('✓ Card 7B, as noted in the field.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Copy into R0042-DONA_0007_B' }))
 
-    expect(mockedApi.ingestCopy).toHaveBeenCalledWith('DONA', 'R0042', '/media/SD', '7B', 'R0042-DONA_0007_B', expect.any(Function))
+    expect(mockedApi.ingestCopy).toHaveBeenCalledWith('DONA', 'R0042', '/media/SD', '7B', 'R0042-DONA_0007_B', expect.any(Function), false, false)
     expect(await screen.findByText(/Card copied into R0042-DONA_0007_B/)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('✔ Copied')).toBeInTheDocument())
+    expect(mockedApi.ingestEject).toHaveBeenCalledWith('/media/SD')
+    expect(screen.getByText(/you can take the card out/)).toBeInTheDocument()
+  })
+
+  it('asks to confirm a card whose label is not the one noted in the field, and says the next step', async () => {
+    const onProcess = vi.fn()
+    render(<CardsPage onProcess={onProcess} />)
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
+    await screen.findByText('Cards of R0042')
+    await userEvent.type(screen.getByLabelText('The card'), '/media/SD')
+    await userEvent.type(screen.getByLabelText(/Label on the card/), '8')
+    await userEvent.click(screen.getByRole('button', { name: 'Look at the card' }))
+
+    expect(await screen.findByRole('alert', { name: 'Card label' })).toHaveTextContent('the field records say 7B')
+    const copyButton = screen.getByRole('button', { name: 'Copy into R0042-DONA_0007_B' })
+    expect(copyButton).toBeDisabled()
+    await userEvent.click(screen.getByLabelText(/copy it anyway/))
+    await userEvent.click(copyButton)
+    expect(mockedApi.ingestCopy).toHaveBeenCalledWith('DONA', 'R0042', '/media/SD', '8', 'R0042-DONA_0007_B', expect.any(Function), false, true)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Go to Process collection →' }))
+    expect(onProcess).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', folder: '/data/cards/DONA/R0042' })
+  })
+
+  it('opens on the collection given by Field records', async () => {
+    mockedApi.ingestCollections.mockResolvedValue({ results: ['R0043', 'R0042'] })
+    render(<CardsPage initial={{ researchProjectId: 'DONA', collection: 'R0042' }} />)
+    await screen.findByText('Cards of R0042')
+    expect(mockedApi.ingestPrepare).toHaveBeenCalledWith('DONA', 'R0042')
   })
 
   it('does not offer to copy a card that was copied already', async () => {
@@ -114,6 +146,7 @@ describe('the dates of a card', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
     await screen.findByText('Cards of R0042')
     await userEvent.type(screen.getByLabelText('The card'), '/media/SD')
+    await userEvent.type(screen.getByLabelText(/Label on the card/), '7B')
     await userEvent.click(screen.getByRole('button', { name: 'Look at the card' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Copy into R0042-DONA_0007_B' }))
 
@@ -126,6 +159,14 @@ describe('the dates of a card', () => {
     const copy = { card_label: null, copied_at: null, copied_by: null, file_count: 1, total_bytes: 1, source: '', first: '2020-01-01T00:00:00', last: '2026-07-01T00:00:00' }
     expect(datesOff(dep('R0042-DONA_0007_B', { copy }))).toBe(true)
     expect(datesOff(dep('R0042-DONA_0007_B', { copy: { ...copy, first: '2026-06-01T08:30:00' } }))).toBe(false)
+  })
+})
+
+describe('labelMismatch', () => {
+  it('compares the labels whatever their case and spaces', () => {
+    expect(labelMismatch('7B', ' 7b ')).toBe(false)
+    expect(labelMismatch('8b', '8')).toBe(true)
+    expect(labelMismatch(null, '8')).toBe(false)
   })
 })
 
