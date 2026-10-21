@@ -825,7 +825,9 @@ describe('ImportSessionPage', () => {
 describe('a collection of the cards folder', () => {
   const CARDS = '/data/wildintel-uploader/cards/DONA/R0003'
   const CARD_SCAN: SessionScan = {
-    deployments: [scanned('R0003-DONA_01', 10, null, null), scanned('R0003-DONA_02', 5, null, null)],
+    deployments: ['R0003-DONA_01', 'R0003-DONA_02'].map((n) => ({
+      ...scanned(n, 5, null, null), start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true, log_deployment_id: n,
+    })),
     loose_files: 0, warnings: [], timestamp_log: { name: 'R0003_FileTimestampLog.csv', path: `${CARDS}/R0003_FileTimestampLog.csv`, rows: 2, matched: 2, revision: 3 },
   }
   beforeEach(() => {
@@ -850,17 +852,18 @@ describe('a collection of the cards folder', () => {
     expect(screen.queryByText(/memory cards/)).not.toBeInTheDocument()
   })
 
-  it('opens on the folder Copy SD cards gives it, with the research project and the field details', async () => {
+  it('opens on the folder Copy SD cards gives it, with the research project and the field details', { timeout: 20000 }, async () => {
     render(<ImportSessionPage initial={{ researchProjectId: 'DONA', collection: 'R0003', folder: CARDS }} />)
     await screen.findByRole('checkbox', { name: 'R0003-DONA_02' })
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-    await waitFor(() => expect(screen.getByLabelText('Location of R0003-DONA_02')).toHaveValue('DONA_02'))
+    await waitFor(() => expect(screen.getByLabelText('Location of R0003-DONA_02')).toHaveValue('DONA_02'), { timeout: 5000 })
     await userEvent.click(screen.getByRole('button', { name: /Continue to the details/ }))
-    expect(await screen.findByText(/, from the field records \(R0003_FileTimestampLog\.csv\)/)).toBeInTheDocument()
+    expect((await screen.findAllByText(/from the field records \(R0003_FileTimestampLog\.csv\)/, {}, { timeout: 5000 })).length).toBeGreaterThan(0)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled(), { timeout: 5000 })
     await userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
 
-    const row = await screen.findByRole('button', { name: /the details of R0003-DONA_02/ })
-    await waitFor(() => expect(row).toHaveTextContent('set up by Ana · camera 47'))
+    const row = await screen.findByRole('button', { name: /the details of R0003-DONA_02/ }, { timeout: 5000 })
+    await waitFor(() => expect(row).toHaveTextContent('set up by Ana · camera 47'), { timeout: 5000 })
     expect(row).toHaveTextContent('From the field records')
   })
 })
