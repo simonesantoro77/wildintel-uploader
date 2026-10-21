@@ -91,12 +91,6 @@ const next = () => userEvent.click(screen.getByRole('button', { name: 'Continue'
 const chooseStrictness = (check: string, choice: 'Skip' | 'Warn' | 'Must pass') =>
   userEvent.click(within(screen.getByRole('radiogroup', { name: `How strict: ${check}` })).getByRole('radio', { name: choice }))
 
-/** From the folder's step to the choosing of the checks. */
-const toChecksSubstep = async () => {
-  await scanSession()
-  await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
-  await screen.findByText('Choose the checks')
-}
 /** The id the deployment being edited gets, which its heading tells. */
 const activeHeading = () => within(screen.getByRole('group', { name: /^(Dates|Details) of/ })).getAllByRole('heading', { level: 5 })[0]
 const expectId = (id: string) => expect(activeHeading()).toHaveTextContent(id)
