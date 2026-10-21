@@ -22,6 +22,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     others kept) — and, beside the datasheet, the same log in the old eleven-column format of wildintel-tools — and `<R000N>_FieldworkLog.csv`: every deployment with Camtrap DP's field names (`deploymentID`,
     `deploymentStart`/`End` in UTC, `setupBy` and `cameraID` from the start visit, `deploymentComments` from both
     visits' notes as `Start: … | End: …`) and what the field trip says of its card.
+  - The research project is chosen among those of the Trapper account (or the ones kept here): choosing it brings its
+    locations into the collections folder — the missing ones added, the ones there kept, those saved from the field too —
+    with no Sync nor classification project needed. It says when Trapper already has the collection.
+  - A new site comes with what tells it from a misnamed one: its installation's coordinates, the nearest location and
+    how far, and the ids one character apart. Ticked and confirmed, it is saved as a location (source "field"), and the
+    upload creates it in Trapper.
   - **Settings › Field records**: the time of a visit (the entry's, or the date and hour typed), the timezone of the
     cameras' clocks (UTC), the seconds, the format of the updated datasheet, and the Epicollect column of each field
     for forms named otherwise. `/api/fieldlog/*`.
@@ -127,6 +133,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reports to look at again or delete.
 
 ### Changed
+- **Sync local collections** works from the research project's own collections, not a classification project's: nothing is
+  ticked to begin with, several collections and deployments can be chosen at once, and each says what is already here. A
+  classification project is only asked for to download images (Trapper only gives the files through one). Collections made
+  in Trapper for some purpose (R0039-SOLONOVIEMBRE, any name that is not R0000) are downloaded by their images into
+  `downloads/<research project>/<collection>/<deployment>/`, apart from the field collections.
 - **Scan** only counts the files and the images of the folder; it no longer opens them. Their dates and camera are read when the
   deployment details open (`/api/deployment-import/guess-details`), so scanning thousands of images is instant.
 - The validation step is a dashboard: when it was last run, the valid images, the images with issues and the tests that failed, a table of tests with

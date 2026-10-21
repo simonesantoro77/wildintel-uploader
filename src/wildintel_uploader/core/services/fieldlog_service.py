@@ -135,35 +135,71 @@ def _open_deployments(visits: list[dict], keep_seconds: bool) -> list[dict]:
     return out
 
 
-def _location_ids(research_project_id: str | None, settings: config.Settings) -> list[str] | None:
-    """The ids of the research project's locations kept in the collections folder — None when it has none kept."""
+def _locations(research_project_id: str | None, settings: config.Settings) -> list[dict] | None:
+    """The research project's locations kept in the collections folder — None when it has none kept."""
     if not research_project_id:
         return None
     try:
         locations = local_folder_service.list_locations(config.collections_dir(settings), research_project_id)
     except local_folder_service.LocalFolderError as exc:
         raise FieldlogError(str(exc)) from exc
-    ids = [str(l.get("location_id", "")).strip() for l in locations if l.get("location_id")]
-    return ids or None
+    kept = [l for l in locations if l.get("location_id")]
+    return kept or None
 
 
-def _checks(prep: dict, location_ids: list[str] | None) -> dict:
+def _distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """The distance between two points on the Earth, in metres (haversine)."""
+    from math import asin, cos, radians, sin, sqrt
+    dlat, dlon = radians(lat2 - lat1), radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 2 * 6371000 * asin(sqrt(a))
+
+
+def _one_apart(a: str, b: str) -> bool:
+    """Whether two ids differ by one character — typed, missed or swapped: TATR_0004 / TATR_0005, DONA_0022 / DONA_0022_B is not."""
+    a, b = a.lower(), b.lower()
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        diff = [i for i in range(len(a)) if a[i] != b[i]]
+        return len(diff) == 1 or (len(diff) == 2 and diff[1] == diff[0] + 1 and a[diff[0]] == b[diff[1]] and a[diff[1]] == b[diff[0]])
+    short, long_ = (a, b) if len(a) < len(b) else (b, a)
+    return any(long_[:i] + long_[i + 1:] == short for i in range(len(long_)))
+
+
+def _new_site(site: str, visits: list[dict], known: list[dict]) -> dict:
+    """A site of the field records that is not a location yet, with what helps tell a really new site from a misnamed one:
+    the coordinates of its installation (its first visit), the nearest location kept and how far, and the ids one
+    character apart from its own."""
+    first = min(visits, key=lambda v: v["when"])
+    lat, lon = first.get("lat"), first.get("lon")
+    nearest = None
+    if lat is not None and lon is not None:
+        distances = [
+            (_distance_m(lat, lon, float(l["latitude"]), float(l["longitude"])), l["location_id"])
+            for l in known if l.get("latitude") is not None and l.get("longitude") is not None
+        ]
+        if distances:
+            metres, location_id = min(distances)
+            nearest = {"location_id": location_id, "distance_m": round(metres)}
+    return {
+        "site": site, "session": first["session"], "action": first["action"], "when": _iso(first["when"]),
+        "latitude": lat, "longitude": lon, "visits": len(visits), "nearest": nearest,
+        "similar": sorted(l["location_id"] for l in known if _one_apart(site, str(l["location_id"]))),
+    }
+
+
+def _checks(prep: dict, locations: list[dict] | None) -> dict:
     """What the app checks on top of the engine, on the sessions being checked: sites that are not locations of the
     research project yet, and a camera or a card at more than one site in a session."""
     sessions = set(prep["check_sessions"])
     current = [v for v in prep["visits"] if v["snum"] in sessions]
     new_sites: list[dict] = []
-    if location_ids is not None:
-        known = {i.lower() for i in location_ids}
-        seen: dict[str, dict] = {}
-        for v in sorted(current, key=lambda v: v["when"]):
-            if v["site"].lower() in known or v["site"] in seen:
-                continue
-            seen[v["site"]] = {
-                "site": v["site"], "session": v["session"], "action": v["action"],
-                "latitude": v.get("lat"), "longitude": v.get("lon"),
-            }
-        new_sites = list(seen.values())
+    if locations is not None:
+        known = {str(l["location_id"]).lower() for l in locations}
+        unknown = sorted({v["site"] for v in current if v["site"].lower() not in known})
+        for site in unknown:
+            new_sites.append(_new_site(site, [v for v in prep["visits"] if v["site"] == site], locations))
     shared: list[str] = []
     for what, key in (("Camera", "cam"), ("Card", "sd")):
         by_session: dict[tuple, set] = {}
@@ -175,7 +211,7 @@ def _checks(prep: dict, location_ids: list[str] | None) -> dict:
         for (session, _, shown), sites in sorted(by_session.items()):
             if len(sites) > 1:
                 shared.append(f"{session}: {what.lower()} {shown} is at {len(sites)} sites ({', '.join(sorted(sites))}).")
-    return {"new_sites": new_sites, "shared": shared, "locations_known": location_ids is not None}
+    return {"new_sites": new_sites, "shared": shared, "locations_known": locations is not None}
 
 
 def _work(epicollect: str, datasheet: str, research_project_id: str | None, settings: config.Settings | None) -> tuple[dict, dict]:
@@ -198,11 +234,11 @@ def _work(epicollect: str, datasheet: str, research_project_id: str | None, sett
         for iv in prep["intervals"] if iv["dep"] in collections
     ]
     open_ = [d for d in _open_deployments(prep["visits"], keep) if int(d["collection"][1:]) >= min(collections)]
-    checks = _checks(prep, _location_ids(research_project_id, settings))
+    checks = _checks(prep, _locations(research_project_id, settings))
     if checks["new_sites"]:
         prep["report"].warn(
-            "Sites not among the locations of %s: %s. Add them to the research project's locations in Trapper, then take "
-            "the locations again, so their deployments can be uploaded."
+            "Sites not among the locations of %s: %s. Check each one is really new and not a site misnamed in the field; "
+            "then save it as a location, with the coordinates of its installation — the upload creates it in Trapper."
             % (research_project_id, ", ".join(s["site"] for s in checks["new_sites"]))
         )
     for line in checks["shared"]:
@@ -250,6 +286,35 @@ def _write_fieldwork_log(collection_dir: Path, deployments: list[dict]) -> Path:
                 "endSession": end["session"] if end else "", "endAction": end["action"] if end else "",
             })
     return path
+
+
+def add_locations(research_project_id: str, sites: list[dict], settings: config.Settings | None = None) -> list[dict]:
+    """Saves sites of the field records as locations of the research project in the collections folder — each
+    {"location_id", "latitude", "longitude"}, in the cameras' timezone (UTC unless the settings say otherwise) and marked
+    as coming from the field: the upload creates them in Trapper. Returns the locations saved.
+
+    Raises:
+        FieldlogError: the research project isn't kept here, a site is already a location, or its coordinates are missing.
+    """
+    settings = settings or config.load_settings()
+    root = config.collections_dir(settings)
+    saved = []
+    for site in sites:
+        location_id = str(site.get("location_id") or "").strip().upper()
+        lat, lon = site.get("latitude"), site.get("longitude")
+        if not location_id:
+            raise FieldlogError("A location needs its id.")
+        if lat is None or lon is None or not (-90 <= float(lat) <= 90 and -180 <= float(lon) <= 180):
+            raise FieldlogError(f"{location_id} needs valid coordinates (latitude -90 to 90, longitude -180 to 180).")
+        location = {
+            "location_id": location_id, "name": location_id, "timezone": settings.FIELDLOG.camera_timezone, "ignore_dst": False,
+            "latitude": float(lat), "longitude": float(lon), "coordinate_uncertainty": None, "source": "field",
+        }
+        try:
+            saved.append(local_folder_service.write_location(root, research_project_id, location))
+        except local_folder_service.LocalFolderError as exc:
+            raise FieldlogError(str(exc)) from exc
+    return saved
 
 
 def read_fieldwork_log(collection_dir: Path) -> list[dict]:

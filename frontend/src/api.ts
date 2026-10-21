@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, FieldlogColumn, FieldlogResult, CardsStatus, CardInspection, CardCopyEvent, TreeFolder, Timeline,
+  Report, ReportSummary, RepairCollection, RepairEvent, RepairState, EpicollectForm, OtherCollection, FieldlogColumn, FieldlogResult, CardsStatus, CardInspection, CardCopyEvent, TreeFolder, Timeline,
 } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
@@ -120,6 +120,12 @@ export const api = {
     post<FieldlogResult>('/api/fieldlog/analyze', { epicollect, datasheet, research_project_id: researchProjectId }),
   fieldlogApply: (epicollect: string, datasheet: string, researchProjectId: string) =>
     post<FieldlogResult>('/api/fieldlog/apply', { epicollect, datasheet, research_project_id: researchProjectId }),
+  /** A research project of Trapper and its locations, taken into the collections folder — no classification project needed. */
+  fieldlogTakeProject: (project: { pk: number; name?: string; acronym?: string }) =>
+    post<{ research_project: string; created: string[]; kept: string[] }>('/api/fieldlog/take-project', project),
+  /** Sites of the field records saved as locations of the research project — the upload creates them in Trapper. */
+  fieldlogAddLocations: (researchProjectId: string, locations: { location_id: string; latitude: number; longitude: number }[]) =>
+    post<{ results: LocalLocation[] }>('/api/fieldlog/add-locations', { research_project_id: researchProjectId, locations }),
   fieldlogOpenFolder: (path: string) =>
     post<{ opened: string }>('/api/fieldlog/open-folder', { path }),
 
@@ -190,19 +196,20 @@ export const api = {
     post<{ last: number | null; next: number }>('/api/deployment-import/next-revision', { research_project_id: researchProjectId, location_id: locationId }),
 
   // Creates in the collections folder what Trapper has for the classification project and it lacks.
-  // The collections of the classification project that can be synced, each with the ids of its deployments.
-  syncCollectionNames: (creds: TrapperCredentials, researchProjectPk: number, classificationProjectPk: number) =>
-    post<{ results: SyncCollection[] }>('/api/sync/collection-names', { ...creds, research_project_pk: researchProjectPk, classification_project_pk: classificationProjectPk }),
+  // The research project's collections: the field ones with their deployments and what is already here, and the others.
+  syncCollectionNames: (creds: TrapperCredentials, researchProject: ResearchProject) =>
+    post<{ field: SyncCollection[]; other: OtherCollection[] }>('/api/sync/collection-names', { ...creds, research_project_pk: researchProject.pk, research_project_acronym: researchProject.acronym ?? null }),
 
   // Creates in the collections folder what Trapper has for the classification project and it lacks, one deployment at a time:
   // onEvent gets a progress message per step, and the last event is the done one with the result.
   syncCollections: (
-    creds: TrapperCredentials, researchProject: ResearchProject, classificationProjectPk: number, collections: string[], deployments: string[],
-    downloadImages: boolean, onEvent: (event: SyncEvent) => void,
+    creds: TrapperCredentials, researchProject: ResearchProject, classificationProjectPk: number | null, collections: string[], deployments: string[],
+    downloadImages: boolean, otherCollections: { pk: number; name: string }[], onEvent: (event: SyncEvent) => void,
   ) =>
     streamNdjson<SyncEvent>('/api/sync/collections', {
       ...creds, research_project_pk: researchProject.pk, research_project_name: researchProject.name,
       research_project_acronym: researchProject.acronym ?? null, classification_project_pk: classificationProjectPk, collections, deployments, download_images: downloadImages,
+      other_collections: otherCollections,
     }, onEvent, 'The sync ended unexpectedly.'),
 
   saveLocalLocation: (researchProjectId: string, location: LocalLocation) =>

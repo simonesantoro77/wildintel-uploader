@@ -1,4 +1,4 @@
-"""Sync the local collections folder with what Trapper has for a classification project.
+"""Sync the local collections folder with what Trapper has for a research project.
 
 Trapper is read, never changed; the collections folder only gets what it is missing — what is already
 there is left as it is, whatever Trapper says:
@@ -9,8 +9,10 @@ there is left as it is, whatever Trapper says:
                                                     /<R0003>_FileTimestampLog.csv
                                                     /<deployment id>/deployment.json
 
-The collections are those of the classification project whose name starts with R; a deployment of the
-research project goes to the one its id starts with (R0003-DONA_01 → R0003). The images are not downloaded, so
+The collections are those linked to the research project whose name is a field collection's (R0003, see
+is_field_collection); a deployment of the research project goes to the one its id starts with (R0003-DONA_01 → R0003).
+The other collections — subsets made in Trapper, whatever their name — are downloaded by their images instead, apart
+(see download_collection_stream). A classification project is only needed to download images. The images are not downloaded, so
 there is no preprocessing log; images.json is made from what Trapper holds for each deployment's images (names,
 when they were taken, what they show) — not the size, the pixels nor the hashes, which Trapper doesn't have.
 
@@ -39,21 +41,106 @@ DOWNLOAD_WORKERS = 4  # images downloaded at once
 PROGRESS_EVERY = 25  # a message each so many images
 
 
-def collection_names(credentials: tuple[str, str, str], classification_project_pk: int) -> list[str]:
-    """The names of the classification project's collections that start with R, sorted."""
+def is_field_collection(name: str) -> bool:
+    """A collection of the field work: named R + four digits (R0033), optionally with a _suffix — the rest are collections made
+    in Trapper for some purpose (R0039-SOLONOVIEMBRE, Pilot…)."""
+    return bool(deployment_import_service._COLLECTION_NAME_RE.match((name or "")[:1].upper() + (name or "")[1:]))
+
+
+def project_collections(credentials: tuple[str, str, str], research_project_pk: int) -> list[dict]:
+    """Every collection linked to the research project in Trapper, {"pk" (the collection's own), "name"}, sorted by name —
+    read from the research project itself, with no classification project involved."""
     client = trapper_service.client(*credentials)
-    collections = client.classification_projects.where_project_collections(classification_project_pk, page_size=trapper_service.LIST_PAGE_SIZE)
-    return sorted({c.name for c in collections if c.name and c.name.upper().startswith("R")}, key=str.lower)
+    links = client.research_projects.where_project_collections(research_project_pk, page_size=trapper_service.LIST_PAGE_SIZE)
+    seen: dict[str, dict] = {}
+    for link in links:
+        if link.name and link.name.lower() not in seen:
+            seen[link.name.lower()] = {"pk": link.collection_pk or link.pk, "name": link.name}
+    return sorted(seen.values(), key=lambda c: c["name"].lower())
 
 
-def collections_with_deployments(credentials: tuple[str, str, str], research_project_pk: int, classification_project_pk: int) -> list[dict]:
-    """The collections starting with R of the classification project, each {"name", "deployments"}: the ids (upper case)
-    of the research project's deployments that belong to it."""
+def collection_names(credentials: tuple[str, str, str], research_project_pk: int) -> list[str]:
+    """The names of the research project's field collections (see is_field_collection), sorted."""
+    return [c["name"] for c in project_collections(credentials, research_project_pk) if is_field_collection(c["name"])]
+
+
+def collections_with_deployments(credentials: tuple[str, str, str], research_project_pk: int, root: Path | None = None, project_id: str | None = None) -> dict:
+    """What can be synced, to choose from: {"field": [{"name", "deployments", "local"}], "other": [{"pk", "name", "downloaded"}]}.
+    A field collection's deployments are the ids (upper case) of the research project's deployments that start with its name;
+    "local" says what the collections folder already has of it: {"exists", "deployments": ids there, "with_images": ids with
+    image files}. An other collection is downloaded by its images (see download_collection_stream); "downloaded" is how many
+    of them are already in the downloads folder."""
     deployments = trapper_service.list_deployments(*credentials, research_project_pk)
-    result = []
-    for name in collection_names(credentials, classification_project_pk):
+    folder = root / project_id if root and project_id else None
+    downloads = downloads_dir(root, project_id) if root and project_id else None
+    field, other = [], []
+    for collection in project_collections(credentials, research_project_pk):
+        name = collection["name"]
+        if not is_field_collection(name):
+            there = downloads / _safe_name(name) if downloads else None
+            count = sum(1 for p in there.rglob("*") if p.is_file()) if there and there.is_dir() else 0
+            other.append({"pk": collection["pk"], "name": name, "downloaded": count})
+            continue
         ids = sorted(deployment_id for deployment_id, _ in _deployments_of(deployments, name))
-        result.append({"name": name, "deployments": ids})
+        local = {"exists": False, "deployments": [], "with_images": []}
+        if folder is not None and (folder / name).is_dir():
+            local["exists"] = True
+            for deployment_id in ids:
+                target = folder / name / deployment_id
+                if (target / local_folder_service.DEPLOYMENT_METADATA_FILE).is_file():
+                    local["deployments"].append(deployment_id)
+                if target.is_dir() and any(p.suffix.lower() in deployment_import_service.IMAGE_EXTENSIONS for p in target.iterdir()):
+                    local["with_images"].append(deployment_id)
+        field.append({"name": name, "deployments": ids, "local": local})
+    return {"field": field, "other": other}
+
+
+def downloads_dir(root: Path, project_id: str) -> Path:
+    """Where the collections that are not field collections are downloaded: beside the collections folder, in
+    downloads/<research project>/ — apart, so they never mix with the collections of the field work."""
+    return root.parent / "downloads" / project_id
+
+
+def _safe_name(name: str) -> str:
+    """A collection's name as a folder name: whatever it is called in Trapper, with the characters no system allows replaced."""
+    cleaned = "".join("_" if c in '<>:"/\\|?*' or ord(c) < 32 else c for c in name).strip().rstrip(".")
+    return cleaned or "collection"
+
+
+def download_collection_stream(credentials: tuple[str, str, str], root: Path, project_id: str, classification_project_pk: int, collection: dict) -> Iterator[dict]:
+    """Downloads the images of a collection that is not a field one — a subset made in Trapper — through the classification
+    project, into downloads/<research project>/<collection>/<deployment>/, the ones already there kept. Yields progress
+    messages and returns {"name", "folder", "downloaded", "already", "bytes", "failed"}."""
+    target = downloads_dir(root, project_id) / _safe_name(collection["name"])
+    client = trapper_service.client(*credentials)
+    media = list(client.classification_media.where_collection_media(classification_project_pk, collection["pk"], page_size=trapper_service.LIST_PAGE_SIZE))
+    todo = []
+    for m in media:
+        folder = target / _safe_name((m.deploymentID or "no-deployment").upper())
+        if Path(m.fileName).name == m.fileName and not (folder / m.fileName).is_file():
+            todo.append((str(m.filePath), folder / m.fileName))
+    result = {"name": collection["name"], "folder": str(target), "downloaded": 0, "already": len(media) - len(todo), "bytes": 0, "failed": []}
+    yield {"type": "progress", "message": f"{collection['name']}: {len(todo)} image(s) to download" + (f", {result['already']} already here." if result["already"] else ".")}
+    if not todo:
+        return result
+    download = trapper_service.file_downloader(*credentials)
+    pool = ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS)
+    try:
+        for _, path in todo:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        futures = {pool.submit(download, url, path): path.name for url, path in todo}
+        for count, future in enumerate(as_completed(futures), 1):
+            try:
+                result["bytes"] += future.result()
+                result["downloaded"] += 1
+            except Exception as exc:
+                logger.warning("%s: downloading %s failed: %s", collection["name"], futures[future], exc)
+                result["failed"].append({"deployment_id": collection["name"], "name": futures[future], "error": str(exc)})
+            if count % PROGRESS_EVERY == 0 and count < len(todo):
+                yield {"type": "progress", "message": f"{collection['name']}: {count}/{len(todo)} images ({result['bytes'] / 1e6:.1f} MB)."}
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
+    yield {"type": "progress", "message": f"{collection['name']}: {result['downloaded']} image(s) downloaded ({result['bytes'] / 1e6:.1f} MB)."}
     return result
 
 
@@ -173,9 +260,35 @@ def _download_images(
     return result
 
 
+def take_locations(credentials: tuple[str, str, str], root: Path, research_project: dict) -> dict:
+    """The research project and its locations, taken from Trapper into the collections folder — what the field records
+    need, with no classification project nor collection involved. What is already there is kept; the locations it lacks
+    are added. Returns {"research_project", "created": [location ids], "kept": [location ids]}.
+
+    Raises:
+        local_folder_service.LocalFolderError: the research project can't be a folder name.
+    """
+    project_id = research_project.get("acronym") or str(research_project["pk"])
+    folder = local_folder_service.project_dir(root, project_id)
+    if not (folder / local_folder_service.RESEARCH_PROJECT_METADATA_FILE).is_file():
+        record = ResearchProjectRecord.model_construct(name=research_project.get("name") or project_id, acronym=project_id, trapper_pk=research_project["pk"])
+        local_folder_service.write_research_project(root, record.model_dump())
+    known = {l.get("location_id", "").lower() for l in local_folder_service.list_locations(root, project_id)}
+    created, kept = [], []
+    for location in trapper_service.list_locations(*credentials, research_project["pk"]):
+        if location["location_id"].lower() in known:
+            kept.append(location["location_id"].upper())
+            continue
+        record = {k: location.get(k) for k in ("location_id", "name", "timezone", "ignore_dst", "latitude", "longitude")}
+        local_folder_service.write_location(root, project_id, {**record, "location_id": location["location_id"].upper(), "coordinate_uncertainty": None, "trapper_pk": location["pk"]})
+        created.append(location["location_id"].upper())
+    return {"research_project": project_id, "created": created, "kept": kept}
+
+
 def sync_stream(
-    credentials: tuple[str, str, str], root: Path, research_project: dict, classification_project_pk: int,
+    credentials: tuple[str, str, str], root: Path, research_project: dict, classification_project_pk: int | None = None,
     only: list[str] | None = None, only_deployments: list[str] | None = None, download_images: bool = False,
+    other_collections: list[dict] | None = None,
 ) -> Iterator[dict]:
     """Creates, under root, what Trapper has for the classification project and the folder lacks — one deployment at a time.
 
@@ -199,6 +312,8 @@ def sync_stream(
 
     project_id = research_project.get("acronym") or str(research_project["pk"])
     folder = local_folder_service.project_dir(root, project_id)
+    if (download_images or other_collections) and not classification_project_pk:
+        raise local_folder_service.LocalFolderError("Downloading images needs a classification project: Trapper only gives the files through one.")
     created: dict[str, list[str]] = {"research_project": [], "locations": [], "collections": [], "deployments": [], "timestamp_log": [], "images": []}
     kept: dict[str, list[str]] = {key: [] for key in created}
 
@@ -228,7 +343,7 @@ def sync_stream(
 
     yield say("Reading the deployments and collections from Trapper…")
     deployments = trapper_service.list_deployments(*credentials, research_project["pk"])
-    names = collection_names(credentials, classification_project_pk)
+    names = collection_names(credentials, research_project["pk"])
     if only is not None:
         wanted = {n.lower() for n in only}
         names = [n for n in names if n.lower() in wanted]
@@ -295,13 +410,17 @@ def sync_stream(
                     logger.warning("%s: no timestamp log row: %s", deployment_id, exc)
             yield say(f"{prefix}: done.")
 
+    others = []
+    for collection in other_collections or []:
+        got = yield from download_collection_stream(credentials, root, project_id, classification_project_pk, collection)
+        others.append(got)
     unassigned = sorted(d["deployment_id"].upper() for d in deployments if d["deployment_id"] and d["deployment_id"].upper() not in claimed)
     yield {"type": "done", "research_project_id": project_id, "folder": str(folder), "created": created, "kept": kept, "unassigned": unassigned, "failed": failed, "collections": names,
-           **({"downloaded": downloaded} if download_images else {})}
+           **({"downloaded": downloaded} if download_images else {}), **({"others": others} if other_collections else {})}
 
 
 def sync(
-    credentials: tuple[str, str, str], root: Path, research_project: dict, classification_project_pk: int,
+    credentials: tuple[str, str, str], root: Path, research_project: dict, classification_project_pk: int | None,
     only: list[str] | None = None, only_deployments: list[str] | None = None, download_images: bool = False,
 ) -> dict:
     """sync_stream run to its end: what it created and kept, without the progress."""

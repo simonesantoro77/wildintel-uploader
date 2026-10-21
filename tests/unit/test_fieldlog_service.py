@@ -193,3 +193,57 @@ def test_the_camera_timezone_must_be_a_timezone():
     with pytest.raises(ValueError):
         config.FieldlogSettings(camera_timezone="Mars/Olympus")
     assert config.FieldlogSettings().camera_timezone == "UTC"
+
+
+def test_a_research_project_and_its_locations_are_taken_from_trapper(tmp_path):
+    from wildintel_uploader.core.services import sync_service
+    root = tmp_path / "collections"
+    lfs.write_research_project(root, {"acronym": "DONA_24", "name": "Doñana"})
+    lfs.write_location(root, "DONA_24", {"location_id": "DONA_0001", "timezone": "UTC"})
+    trapper = [
+        {"pk": 1, "location_id": "dona_0001", "name": "a", "timezone": "Europe/Madrid", "ignore_dst": True, "latitude": 37.0, "longitude": -6.4},
+        {"pk": 2, "location_id": "dona_0002", "name": "b", "timezone": "UTC", "ignore_dst": False, "latitude": 37.1, "longitude": -6.5},
+    ]
+    with patch("wildintel_uploader.core.services.trapper_service.list_locations", return_value=trapper):
+        done = sync_service.take_locations(("u", "n", "p"), root, {"pk": 9, "name": "Doñana", "acronym": "DONA_24"})
+
+    assert (done["created"], done["kept"]) == (["DONA_0002"], ["DONA_0001"])
+    assert [l["location_id"] for l in lfs.list_locations(root, "DONA_24")] == ["DONA_0001", "DONA_0002"]
+    assert lfs.list_locations(root, "DONA_24")[0]["timezone"] == "UTC"  # what was kept stays as it was
+
+
+def test_a_new_site_comes_with_what_tells_it_from_a_misnamed_one(trip):
+    root, epi, sheet = trip
+    lfs.update_location(root, "TATRA", "TATR_0002", {"latitude": 49.3005, "longitude": 20.2})
+
+    [site] = fs.analyze(str(epi), str(sheet), "TATRA")["new_sites"]
+
+    assert site["site"] == "TATR_0003" and site["action"] == "Installation"
+    assert (site["latitude"], site["longitude"]) == (49.3, 20.2)  # its installation's
+    assert site["nearest"] == {"location_id": "TATR_0002", "distance_m": 56}
+    assert site["similar"] == ["TATR_0001", "TATR_0002"]  # one character apart: misnamed?
+
+
+def test_ids_one_character_apart():
+    assert fs._one_apart("TATR_0004", "tatr_0005") and fs._one_apart("DONA_0022", "DONA_022")
+    assert fs._one_apart("DONA_0012", "DONA_0021")  # two digits swapped
+    assert not fs._one_apart("DONA_0022", "DONA_0022_B") and not fs._one_apart("TATR_0004", "TATR_0004")
+
+
+def test_new_sites_are_saved_as_locations_from_the_field(trip):
+    root, epi, sheet = trip
+    [saved] = fs.add_locations("TATRA", [{"location_id": "tatr_0003", "latitude": 49.3, "longitude": 20.2}])
+
+    assert saved["location_id"] == "TATR_0003" and saved["source"] == "field" and saved["timezone"] == "UTC"
+    assert fs.analyze(str(epi), str(sheet), "TATRA")["new_sites"] == []
+    with pytest.raises(fs.FieldlogError, match="already exists"):
+        fs.add_locations("TATRA", [{"location_id": "TATR_0003", "latitude": 49.3, "longitude": 20.2}])
+    with pytest.raises(fs.FieldlogError, match="valid coordinates"):
+        fs.add_locations("TATRA", [{"location_id": "TATR_0009", "latitude": 120, "longitude": 20.2}])
+
+
+def test_the_api_saves_new_locations(trip):
+    client = TestClient(app)
+    response = client.post("/api/fieldlog/add-locations", json={"research_project_id": "TATRA", "locations": [{"location_id": "TATR_0003", "latitude": 49.3, "longitude": 20.2}]})
+
+    assert response.status_code == 200 and response.json()["results"][0]["location_id"] == "TATR_0003"

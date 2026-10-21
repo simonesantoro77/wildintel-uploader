@@ -8,7 +8,7 @@ import type { FieldDeployment, FieldlogResult } from '../types'
 
 vi.mock('../api', () => ({
   api: {
-    listResearchProjects: vi.fn(), fieldlogLast: vi.fn(), fieldlogPickFile: vi.fn(), fieldlogAnalyze: vi.fn(), fieldlogApply: vi.fn(), fieldlogOpenFolder: vi.fn(),
+    listResearchProjects: vi.fn(), trapperResearchProjects: vi.fn(), fieldlogTakeProject: vi.fn(), fieldlogAddLocations: vi.fn(), fieldlogLast: vi.fn(), fieldlogPickFile: vi.fn(), fieldlogAnalyze: vi.fn(), fieldlogApply: vi.fn(), fieldlogOpenFolder: vi.fn(),
   },
 }))
 const mockedApi = vi.mocked(api, true)
@@ -25,7 +25,7 @@ const RESULT: FieldlogResult = {
     dep('R0002-TATR_0002', { status: 'open', end: null, end_visit: null, comments: '' }),
     dep('R0003-TATR_0003', { collection: 'R0003', status: 'open', end: null, end_visit: null }),
   ],
-  new_sites: [{ site: 'TATR_0003', session: 'R0003', action: 'Installation', latitude: 49.3, longitude: 20.2 }],
+  new_sites: [{ site: 'TATR_0003', session: 'R0003', action: 'Installation', when: '2026-03-30T10:05:00Z', latitude: 49.3, longitude: 20.2, visits: 1, nearest: { location_id: 'TATR_0002', distance_m: 56 }, similar: ['TATR_0002'] }],
   locations_known: true,
   warnings: ['Sites not among the locations of TATRA: TATR_0003. Add them…', 'R0003: camera 11 is at 2 sites (TATR_0001, TATR_0003).'],
   notes: ['Datasheet: TatraFieldSheet_R0001-R0002.xlsx (4 visits, sessions R0001 to R0002)'],
@@ -35,6 +35,7 @@ const RESULT: FieldlogResult = {
 beforeEach(() => {
   vi.clearAllMocks()
   mockedApi.listResearchProjects.mockResolvedValue({ results: [{ ...EMPTY_RESEARCH_PROJECT, name: 'Tatra', acronym: 'TATRA', trapper_pk: 3 }] })
+  mockedApi.trapperResearchProjects.mockRejectedValue(new Error('no account'))
   mockedApi.fieldlogLast.mockResolvedValue({ epicollect: null, datasheet: '/data/TatraFieldSheet_R0001-R0002.xlsx', research_project_id: 'TATRA' })
   mockedApi.fieldlogPickFile.mockResolvedValue({ path: '/data/form-backup.csv' })
   mockedApi.fieldlogAnalyze.mockResolvedValue(RESULT)
@@ -100,5 +101,37 @@ describe('utc', () => {
     expect(utc('2026-03-30T08:15:00Z')).toBe('2026-03-30 08:15 UTC')
     expect(utc('2026-03-30T08:15:42Z')).toBe('2026-03-30 08:15:42 UTC')
     expect(utc(null)).toBe('—')
+  })
+})
+
+describe('the research project and its new sites', () => {
+  it('chooses a research project of Trapper and brings its locations', async () => {
+    mockedApi.trapperResearchProjects.mockResolvedValue({ results: [{ pk: 9, name: 'Doñana', acronym: 'DONA_24' }] } as never)
+    mockedApi.fieldlogTakeProject.mockResolvedValue({ research_project: 'DONA_24', created: ['DONA_0001', 'DONA_0002'], kept: [] })
+    mockedApi.fieldlogLast.mockResolvedValue({ epicollect: null, datasheet: null, research_project_id: null })
+    render(<FieldLogPage />)
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'DONA_24 — Doñana (Trapper)' }))
+
+    expect(mockedApi.fieldlogTakeProject).toHaveBeenCalledWith({ pk: 9, name: 'Doñana', acronym: 'DONA_24' })
+    expect(await screen.findByText('Locations from Trapper: 2 added, 0 already here.')).toBeInTheDocument()
+  })
+
+  it('warns that a new site may be a misnamed one, and saves it when ticked', async () => {
+    mockedApi.fieldlogAddLocations.mockResolvedValue({ results: [] })
+    await checked()
+
+    const panel = await screen.findByLabelText('New sites')
+    expect(within(panel).getByText('⚠ 56 m from TATR_0002')).toBeInTheDocument()
+    expect(within(panel).getByText('⚠ Like TATR_0002 — a typo?')).toBeInTheDocument()
+    const save = within(panel).getByRole('button', { name: 'Save 0 as new location(s)' })
+    expect(save).toBeDisabled() // nothing is saved unless ticked
+    await userEvent.click(within(panel).getByLabelText('Save TATR_0003 as a new location'))
+    const lat = within(panel).getByLabelText('Latitude of TATR_0003')
+    await userEvent.clear(lat)
+    await userEvent.type(lat, '49.31')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Save 1 as new location(s)' }))
+
+    expect(mockedApi.fieldlogAddLocations).toHaveBeenCalledWith('TATRA', [{ location_id: 'TATR_0003', latitude: 49.31, longitude: 20.2 }])
   })
 })

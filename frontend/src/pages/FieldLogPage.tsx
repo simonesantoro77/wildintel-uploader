@@ -3,7 +3,7 @@ import { api } from '../api'
 import Combobox from '../components/Combobox'
 import WizardStep from '../components/WizardStep'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
-import type { FieldDeployment, FieldlogResult, LocalResearchProject } from '../types'
+import type { FieldDeployment, FieldlogResult, LocalResearchProject, ResearchProject } from '../types'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
 const inputClass = 'flex-1 min-w-0 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -55,11 +55,18 @@ export default function FieldLogPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'closed' | 'open'>('all')
   const [showNotes, setShowNotes] = useState(false)
+  // The research projects of the Trapper account (null: not asked yet or no account), and what choosing one brought.
+  const [trapperProjects, setTrapperProjects] = useState<ResearchProject[] | null>(null)
+  const [taking, setTaking] = useState<{ busy: boolean; done?: string; error?: string } | null>(null)
+  // The new sites ticked to be saved, with their coordinates as typed.
+  const [newSites, setNewSites] = useState<Record<string, { tick: boolean; lat: string; lon: string }>>({})
+  const [savingSites, setSavingSites] = useState<{ busy: boolean; error?: string; done?: string }>({ busy: false })
 
   const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
   useEffect(() => {
     api.listResearchProjects().then(({ results }) => setProjects(results)).catch((e) => setError(message(e, 'Could not read the collections folder.')))
+    api.trapperResearchProjects({}).then(({ results }) => setTrapperProjects(results)).catch(() => setTrapperProjects(null))
     api.fieldlogLast()
       .then((last) => {
         if (last.research_project_id) setProjectId(last.research_project_id)
@@ -69,6 +76,48 @@ export default function FieldLogPage() {
   }, [])
 
   function changed() { setResult(null); setWritten(null); setError(null) }
+
+  /** Choosing a research project: one of Trapper's brings itself and its locations into the collections folder — the missing
+   * ones added, the ones there kept as they are (those saved from the field too). */
+  async function chooseProject(acronym: string) {
+    setProjectId(acronym); changed(); setTaking(null)
+    const inTrapper = trapperProjects?.find((p) => (p.acronym ?? String(p.pk)) === acronym)
+    if (!inTrapper) return
+    setTaking({ busy: true })
+    try {
+      const done = await api.fieldlogTakeProject({ pk: inTrapper.pk, name: inTrapper.name, acronym: inTrapper.acronym ?? undefined })
+      setProjects((await api.listResearchProjects()).results)
+      setTaking({ busy: false, done: done.created.length ? `Locations from Trapper: ${done.created.length} added, ${done.kept.length} already here.` : `Locations up to date with Trapper (${done.kept.length}).` })
+    } catch (e) {
+      setTaking({ busy: false, error: message(e, 'Could not take the locations from Trapper.') })
+    }
+  }
+
+  const projectOptions = useMemo(() => {
+    const options = new Map<string, string>()
+    for (const p of trapperProjects ?? []) options.set(p.acronym ?? String(p.pk), `${p.acronym ?? p.pk} — ${p.name} (Trapper)`)
+    for (const p of projects) if (!options.has(p.acronym)) options.set(p.acronym, `${p.acronym} — ${p.name} (only here)`)
+    return [...options].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))
+  }, [trapperProjects, projects])
+
+  useEffect(() => {
+    setNewSites(Object.fromEntries((result?.new_sites ?? []).map((s) => [s.site, { tick: false, lat: s.latitude == null ? '' : String(s.latitude), lon: s.longitude == null ? '' : String(s.longitude) }])))
+  }, [result])
+
+  const coordinate = (v: string, max: number) => (/^-?\d+(\.\d+)?$/.test(v.trim()) && Math.abs(Number(v)) <= max ? Number(v) : null)
+  const tickedSites = Object.entries(newSites).filter(([, v]) => v.tick)
+  const sitesValid = tickedSites.every(([, v]) => coordinate(v.lat, 90) !== null && coordinate(v.lon, 180) !== null)
+
+  async function saveSites() {
+    setSavingSites({ busy: true })
+    try {
+      const saved = await api.fieldlogAddLocations(projectId, tickedSites.map(([site, v]) => ({ location_id: site, latitude: Number(v.lat), longitude: Number(v.lon) })))
+      await handleCheck()
+      setSavingSites({ busy: false, done: `${saved.results.length} location(s) saved. The upload creates them in Trapper.` })
+    } catch (e) {
+      setSavingSites({ busy: false, error: message(e, 'Could not save the locations.') })
+    }
+  }
 
   async function browse(kind: 'epicollect' | 'datasheet') {
     try {
@@ -131,11 +180,17 @@ export default function FieldLogPage() {
         <div className="mb-4">
           <label className={labelClass} htmlFor="fieldlog-research-project">Research project</label>
           <Combobox
-            id="fieldlog-research-project" options={projects.map((p) => ({ value: p.acronym, label: `${p.acronym} — ${p.name}` }))}
-            value={projectId} onChange={(v) => { setProjectId(v); changed() }} disabled={busy}
-            placeholder={projects.length === 0 ? 'No research projects yet' : 'Select a research project…'} clearLabel="Clear research project"
+            id="fieldlog-research-project" options={projectOptions}
+            value={projectId} onChange={(v) => void chooseProject(v)} disabled={busy || Boolean(taking?.busy)}
+            placeholder={projectOptions.length === 0 ? 'No research projects — set the Trapper account in Settings' : 'Select a research project…'} clearLabel="Clear research project"
           />
-          <p className={`${hintClass} mt-1`}>Its locations are what the sites of the trip are checked against, and its collections folder is where the files go.</p>
+          <p className={`${hintClass} mt-1`}>
+            {trapperProjects ? 'The research projects of your Trapper account: choosing one brings its locations, keeping the ones already here. ' : 'The research projects kept in your collections folder (set the Trapper account in Settings to choose from Trapper). '}
+            Its locations are what the sites of the trip are checked against, and its folder is where the files go.
+          </p>
+          {taking?.busy && <p className="text-sm mt-1 flex items-center gap-2"><SmallSpinner />Taking the locations from Trapper…</p>}
+          {taking?.done && <p className="text-sm mt-1 text-emerald-700 dark:text-emerald-400" role="status">{taking.done}</p>}
+          {taking?.error && <p className="text-sm mt-1 text-red-600 dark:text-red-400" role="alert">{taking.error}</p>}
         </div>
         <FileField id="fieldlog-epicollect" label="Epicollect download (CSV)" value={epicollect} disabled={busy}
                    onChange={(v) => { setEpicollect(v); changed() }} onBrowse={() => void browse('epicollect')}
@@ -170,26 +225,60 @@ export default function FieldLogPage() {
               ))}
             </dl>
 
+            {result.in_trapper && result.in_trapper.length > 0 && (
+              <p className="text-sm rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-amber-900 dark:text-amber-200" role="alert">
+                Trapper already has the collection {result.in_trapper.join(', ')}: some of its deployments may be uploaded already. Check the collection before copying its cards.
+              </p>
+            )}
+
             {result.new_sites.length > 0 && (
-              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-4" role="alert">
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-4" role="alert" aria-label="New sites">
                 <p className="font-semibold text-amber-900 dark:text-amber-200">{result.new_sites.length === 1 ? '1 site is' : `${result.new_sites.length} sites are`} not among the locations of {projectId}</p>
                 <p className="text-sm text-amber-900/80 dark:text-amber-200/80 mt-1">
-                  Usually a site installed on this trip. Add {result.new_sites.length === 1 ? 'it' : 'them'} to the research project&rsquo;s locations in Trapper (with
-                  the coordinates below, or better ones), then take the locations again (Utils › Sync local collections). Their cards can be copied meanwhile,
-                  but they are not uploaded until the location exists.
+                  Check each one is <strong>really new</strong> and not a known site misnamed in the field — look at the nearest location and the similar ids. If it is new,
+                  tick it, check its coordinates (those of its installation) and save it: the upload creates it in Trapper. If it is misnamed, correct it in Epicollect or in the
+                  datasheet and check again.
                 </p>
                 <div className="overflow-x-auto mt-3">
                   <table className="text-sm">
-                    <thead><tr className="text-left text-xs text-amber-900/70 dark:text-amber-200/70"><th className="pr-6 py-1 font-medium">Site</th><th className="pr-6 py-1 font-medium">Visit</th><th className="pr-6 py-1 font-medium">Latitude</th><th className="py-1 font-medium">Longitude</th></tr></thead>
+                    <thead>
+                      <tr className="text-left text-xs text-amber-900/70 dark:text-amber-200/70">
+                        {['', 'Site', 'Installed', 'Latitude', 'Longitude', 'Is it really new?'].map((h, i) => <th key={i} className="pr-4 py-1 font-medium">{h}</th>)}
+                      </tr>
+                    </thead>
                     <tbody>
-                      {result.new_sites.map((s) => (
-                        <tr key={s.site}><td className="pr-6 py-1 font-mono">{s.site}</td><td className="pr-6 py-1">{s.session} · {s.action}</td><td className="pr-6 py-1 tabular-nums">{s.latitude ?? '—'}</td><td className="py-1 tabular-nums">{s.longitude ?? '—'}</td></tr>
-                      ))}
+                      {result.new_sites.map((s) => {
+                        const v = newSites[s.site] ?? { tick: false, lat: '', lon: '' }
+                        const set = (change: Partial<typeof v>) => setNewSites((all) => ({ ...all, [s.site]: { ...v, ...change } }))
+                        const close = s.nearest && s.nearest.distance_m < 500
+                        return (
+                          <tr key={s.site} className="align-top">
+                            <td className="pr-4 py-1"><input type="checkbox" aria-label={`Save ${s.site} as a new location`} checked={v.tick} disabled={savingSites.busy} onChange={(e) => set({ tick: e.target.checked })} /></td>
+                            <td className="pr-4 py-1 font-mono">{s.site}</td>
+                            <td className="pr-4 py-1 whitespace-nowrap">{s.session} · {s.action}<span className={`block ${hintClass}`}>{utc(s.when)} · {s.visits} visit(s)</span></td>
+                            <td className="pr-4 py-1"><input aria-label={`Latitude of ${s.site}`} className={`${inputClass} w-28 py-1`} value={v.lat} disabled={savingSites.busy} onChange={(e) => set({ lat: e.target.value })} /></td>
+                            <td className="pr-4 py-1"><input aria-label={`Longitude of ${s.site}`} className={`${inputClass} w-28 py-1`} value={v.lon} disabled={savingSites.busy} onChange={(e) => set({ lon: e.target.value })} /></td>
+                            <td className="py-1 text-xs">
+                              {s.nearest && <span className={`block ${close ? 'font-semibold text-red-700 dark:text-red-400' : ''}`}>{close ? '⚠ ' : ''}{s.nearest.distance_m} m from {s.nearest.location_id}</span>}
+                              {s.similar.length > 0 && <span className="block font-semibold text-red-700 dark:text-red-400">⚠ Like {s.similar.join(', ')} — a typo?</span>}
+                              {!s.nearest && s.similar.length === 0 && <span className={hintClass}>No known location to compare with.</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
+                <div className="flex items-center gap-3 flex-wrap mt-3">
+                  {savingSites.error && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{savingSites.error}</p>}
+                  {!sitesValid && <p className="text-sm text-red-600 dark:text-red-400">Coordinates in decimal degrees: latitude −90 to 90, longitude −180 to 180.</p>}
+                  <button type="button" className={`${btnPrimary} ml-auto flex items-center gap-2`} disabled={!projectId || tickedSites.length === 0 || !sitesValid || savingSites.busy} onClick={() => void saveSites()}>
+                    {savingSites.busy && <SmallSpinner />}Save {tickedSites.length} as new location(s)
+                  </button>
+                </div>
               </div>
             )}
+            {savingSites.done && <p className="text-sm text-emerald-700 dark:text-emerald-400" role="status">{savingSites.done}</p>}
             {!result.locations_known && (
               <p className="text-sm text-zinc-600 dark:text-zinc-300 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3">
                 {projectId ? `${projectId} has no locations kept yet` : 'No research project chosen'}, so the sites of the trip are not checked against them.

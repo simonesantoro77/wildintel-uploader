@@ -328,12 +328,23 @@ export interface SyncResult {
     failed: { deployment_id: string; name: string; error: string }[]
     not_held: Record<string, string[]>
   }
+  /** Only when other collections were asked for: what was downloaded of each, and where. */
+  others?: { name: string; folder: string; downloaded: number; already: number; bytes: number; failed: { deployment_id: string; name: string; error: string }[] }[]
 }
 
-/** A collection the sync can bring, and the deployments in it. */
+/** A field collection the sync can bring (R0003…), its deployments in Trapper, and what the collections folder already has of it. */
 export interface SyncCollection {
   name: string
   deployments: string[]
+  local: { exists: boolean; deployments: string[]; with_images: string[] }
+}
+
+/** A collection of the research project that is not a field one — a subset made in Trapper — downloaded by its images. */
+export interface OtherCollection {
+  pk: number
+  name: string
+  /** How many of its files are already in the downloads folder. */
+  downloaded: number
 }
 
 /** What the sync reports as it goes: a message per step, and at the end the result. */
@@ -518,10 +529,17 @@ export interface FieldDeployment {
 /** A site visited in the field that isn't among the research project's locations yet. */
 export interface NewSite {
   site: string
+  /** Its installation: the first visit. */
   session: string
   action: string
+  when: string
   latitude: number | null
   longitude: number | null
+  visits: number
+  /** The nearest location kept, and how far — a "new" site a few metres from a known one is likely misnamed. */
+  nearest: { location_id: string; distance_m: number } | null
+  /** Locations whose id is one character apart from this one's. */
+  similar: string[]
 }
 
 /** POST /api/fieldlog/analyze (and apply, with the files written). */
@@ -537,6 +555,8 @@ export interface FieldlogResult {
   warnings: string[]
   notes: string[]
   camera_timezone: string
+  /** Which of its collections Trapper already has — null when that couldn't be asked. */
+  in_trapper?: string[] | null
   files?: string[]
   collection_dirs?: string[]
 }

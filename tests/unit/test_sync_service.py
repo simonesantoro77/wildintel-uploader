@@ -112,11 +112,15 @@ def test_the_endpoint_syncs_the_collections_folder(tmp_path: Path):
     assert (tmp_path / "DONA" / "R0003" / "R0003-DONA_01" / "deployment.json").is_file()
 
 
-def test_collection_names_keeps_those_starting_with_r_of_the_classification_project():
+def test_collection_names_are_the_field_collections_of_the_research_project():
     client = MagicMock()
-    client.classification_projects.where_project_collections.return_value = [SimpleNamespace(name=n) for n in ("R0002", "Pilot", "r0001", "R0002")]
+    client.research_projects.where_project_collections.return_value = [
+        SimpleNamespace(pk=1, collection_pk=11, name=n) for n in ("R0002", "Pilot", "r0001", "R0002", "R0039-SOLONOVIEMBRE", "R0003_b")
+    ]
     with patch("wildintel_uploader.core.services.sync_service.trapper_service.client", return_value=client):
-        assert sync_service.collection_names(CREDS, 10) == ["r0001", "R0002"]
+        assert sync_service.collection_names(CREDS, 2) == ["r0001", "R0002", "R0003_b"]
+        assert [c["name"] for c in sync_service.project_collections(CREDS, 2)] == ["Pilot", "r0001", "R0002", "R0003_b", "R0039-SOLONOVIEMBRE"]
+    client.research_projects.where_project_collections.assert_called_with(2, page_size=sync_service.trapper_service.LIST_PAGE_SIZE)
 
 
 def test_only_the_chosen_collections_are_synced(tmp_path: Path):
@@ -142,15 +146,49 @@ def test_only_the_chosen_deployments_are_synced_and_the_others_are_not_called_un
     assert "R0003-DONA_01" not in result["unassigned"]
 
 
-def test_the_endpoint_lists_the_collections_and_their_deployments():
+def test_the_endpoint_lists_the_field_collections_and_the_others_with_what_is_here(tmp_path: Path):
     from wildintel_uploader.web.main import app
-    payload = {**dict(zip(("url", "username", "password"), CREDS)), "research_project_pk": 2, "classification_project_pk": 10}
+    payload = {**dict(zip(("url", "username", "password"), CREDS)), "research_project_pk": 2, "research_project_acronym": "DONA"}
+    _run(tmp_path)  # R0003 kept here, its deployments too
+    collections = [{"pk": 11, "name": "R0003"}, {"pk": 12, "name": "R0039-SOLONOVIEMBRE"}, {"pk": 13, "name": "solo linces"}]
     with patch("wildintel_uploader.core.services.sync_service.trapper_service.list_deployments", return_value=DEPLOYMENTS), \
-         patch("wildintel_uploader.core.services.sync_service.collection_names", return_value=["R0003"]):
+         patch("wildintel_uploader.core.services.sync_service.project_collections", return_value=collections), \
+         patch("wildintel_uploader.web.api.routers.sync.config.collections_dir", return_value=tmp_path):
         response = TestClient(app).post("/api/sync/collection-names", json=payload)
 
-    assert response.json()["results"][0]["name"] == "R0003"
-    assert "R0003-DONA_01" in response.json()["results"][0]["deployments"]
+    body = response.json()
+    [field] = body["field"]
+    assert field["name"] == "R0003" and "R0003-DONA_01" in field["deployments"]
+    assert field["local"]["exists"] and "R0003-DONA_01" in field["local"]["deployments"] and field["local"]["with_images"] == []
+    assert [o["name"] for o in body["other"]] == ["R0039-SOLONOVIEMBRE", "solo linces"]
+
+
+def test_other_collections_are_downloaded_apart_by_their_images(tmp_path: Path):
+    root = tmp_path / "collections"
+    media = [SimpleNamespace(deploymentID="r0039-dona_01", fileName="a.jpg", filePath="https://t/a"),
+             SimpleNamespace(deploymentID="r0039-dona_02", fileName="b.jpg", filePath="https://t/b")]
+    client = MagicMock()
+    client.classification_media.where_collection_media.return_value = media
+
+    def fake_download(url, path):
+        path.write_bytes(b"x")
+        return 1
+
+    with patch("wildintel_uploader.core.services.sync_service.trapper_service.client", return_value=client), \
+         patch("wildintel_uploader.core.services.sync_service.trapper_service.file_downloader", return_value=fake_download):
+        events = list(sync_service.download_collection_stream(CREDS, root, "DONA", 10, {"pk": 12, "name": "R0039/SOLO:NOV"}))
+        again = list(sync_service.download_collection_stream(CREDS, root, "DONA", 10, {"pk": 12, "name": "R0039/SOLO:NOV"}))
+
+    folder = tmp_path / "downloads" / "DONA" / "R0039_SOLO_NOV"
+    assert (folder / "R0039-DONA_01" / "a.jpg").is_file() and (folder / "R0039-DONA_02" / "b.jpg").is_file()
+    client.classification_media.where_collection_media.assert_called_with(10, 12, page_size=sync_service.trapper_service.LIST_PAGE_SIZE)
+    assert "2 image(s) to download" in events[0]["message"] and "0 image(s) to download, 2 already here" in again[0]["message"]
+
+
+def test_downloading_needs_a_classification_project(tmp_path: Path):
+    import pytest
+    with pytest.raises(local_folder_service.LocalFolderError, match="classification project"):
+        list(sync_service.sync_stream(CREDS, tmp_path, PROJECT, None, download_images=True))
 
 
 # ── Downloading the images ───────────────────────────────────────────────────────────────────────────────────────────

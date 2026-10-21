@@ -437,23 +437,34 @@ class SaveDetailsRequest(BaseModel):
     deployment: DeploymentFields
 
 
+class OtherCollection(BaseModel):
+    """A collection of the research project that is not a field one, to download by its images."""
+
+    pk: int
+    name: str
+
+
 class SyncCollectionsRequest(TrapperCredentials):
-    """Sync the collections folder with the classification project's collections, deployments and locations."""
+    """Sync the collections folder with the research project's collections, deployments and locations."""
 
     research_project_pk: int
     research_project_name: Optional[str] = None
     research_project_acronym: Optional[str] = None
-    classification_project_pk: int
-    # The collections to sync, by name; left out, every collection starting with R is synced.
+    # Only needed to download images: Trapper gives the files only through a classification project.
+    classification_project_pk: Optional[int] = None
+    # The field collections to sync, by name; left out, all of them are.
     collections: Optional[list[str]] = None
     # The deployments to sync, by id, within those collections; left out, all of them are.
     deployments: Optional[list[str]] = None
     # Also download the images of those deployments from Trapper (through the classification project's media), into their folders.
     download_images: bool = False
+    # Other collections (subsets made in Trapper) to download by their images, apart.
+    other_collections: list[OtherCollection] = []
 
 
 class SyncCollectionNamesRequest(TrapperCredentials):
-    """The collections of a classification project that can be synced, and the deployments in each."""
+    """The collections of a research project that can be synced, the deployments in each and what is already here."""
 
     research_project_pk: int
-    classification_project_pk: int
+    research_project_acronym: Optional[str] = None
+    classification_project_pk: Optional[int] = None

@@ -20,9 +20,11 @@ logger = logging.getLogger(__name__)
 
 @router.post("/collection-names")
 def collection_names(req: SyncCollectionNamesRequest) -> dict:
-    """The collections starting with R of a classification project and their deployments, to choose what to sync."""
+    """The research project's collections, to choose what to sync: the field ones with their deployments and what the
+    collections folder already has of each, and the other ones (subsets made in Trapper), to download by their images."""
+    project_id = req.research_project_acronym or str(req.research_project_pk)
     try:
-        return {"results": sync_service.collections_with_deployments(resolve(req), req.research_project_pk, req.classification_project_pk)}
+        return sync_service.collections_with_deployments(resolve(req), req.research_project_pk, config.collections_dir(), project_id)
     except Exception as exc:
         logger.warning("Reading the collections of the classification project failed: %s", exc, exc_info=debugging())
         raise http_exc(exc) from exc
@@ -43,7 +45,10 @@ def sync_collections(req: SyncCollectionsRequest) -> StreamingResponse:
         local_folder_service.project_dir(config.collections_dir(), project["acronym"] or str(project["pk"]))
     except local_folder_service.LocalFolderError as exc:
         raise HTTPException(400, str(exc)) from exc
-    events = sync_service.sync_stream(credentials, config.collections_dir(), project, req.classification_project_pk, req.collections, req.deployments, req.download_images)
+    if (req.download_images or req.other_collections) and not req.classification_project_pk:
+        raise HTTPException(400, "Downloading images needs a classification project: Trapper only gives the files through one.")
+    events = sync_service.sync_stream(credentials, config.collections_dir(), project, req.classification_project_pk, req.collections, req.deployments, req.download_images,
+                                      [c.model_dump() for c in req.other_collections])
 
     def lines() -> Iterator[str]:
         try:
