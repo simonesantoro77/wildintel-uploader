@@ -72,8 +72,13 @@ jobs:
             os: ubuntu-22.04
           - name: Windows (portable .exe)
             os: windows-latest
-          - name: macOS (.dmg)
+          # Two macOS builds: Apple Silicon (M1 and later) and Intel.
+          - name: macOS Apple Silicon (.dmg)
             os: macos-latest
+            arch: arm64
+          - name: macOS Intel (.dmg)
+            os: macos-15-intel
+            arch: x86_64
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.version.outputs.version }}
@@ -177,13 +182,13 @@ jobs:
             -volname "WildINTEL Uploader ${VERSION}" \
             -srcfolder dmg_staging \
             -ov -format UDZO \
-            "dist/wildintel-uploader-${VERSION}-macos-arm64.dmg"
+            "dist/wildintel-uploader-${VERSION}-macos-${{ matrix.arch }}.dmg"
 
       - run: ls -lh dist/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: packages-${{ runner.os }}
+          name: packages-${{ runner.os }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
           path: |
             dist/*.AppImage
             dist/*.exe
