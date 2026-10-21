@@ -162,7 +162,7 @@ def test_an_image_the_preprocessing_recorded_but_is_missing_is_refused(tmp_path:
     collection = _imported(tmp_path, 2)
     next((collection / DEPLOYMENT_ID).glob("*.JPEG")).unlink()
 
-    with pytest.raises(up.TrapperUploadError, match="1 image\\(s\\) the preprocessing recorded are missing"):
+    with pytest.raises(up.TrapperUploadError, match="1 image\\(s\\) recorded when the images were prepared are missing"):
         _build(tmp_path, collection)
 
 

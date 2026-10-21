@@ -1,5 +1,6 @@
 """Copying the SD cards, guided by the field records: the collection's cards folder, a card looked at and matched to
 its deployment, the checked copy and its record, and folders that come from elsewhere."""
+import csv
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -151,9 +152,41 @@ def test_the_cards_collections_and_the_field_details_are_offered(recorded, tmp_p
     assert details["location_id"] == "TATR_0001" and details["card"] == "1b" and isinstance(details["tags"], list)
 
 
+def test_the_camtrap_fields_of_the_field_records_fill_the_details_in(recorded):
+    root, _ = recorded
+    log = root / "TATRA" / "R0002" / "R0002_FieldworkLog.csv"
+    rows = fs.read_fieldwork_log(log.parent)
+    rows[0].update(cameraHeight="1.2", baitUse="true", featureType="trailGame", habitat="forest", cameraTilt="")
+    with log.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=fs.FIELDWORK_LOG_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    details = ing.field_details("TATRA", "R0002")[rows[0]["deploymentID"]]
+
+    assert (details["camera_height"], details["bait_use"], details["feature_type"], details["habitat"], details["camera_tilt"]) == (1.2, True, "trailGame", "forest", None)
+
+
 def test_only_a_removable_drive_is_ejected(tmp_path):
     with patch("platform.system", return_value="Linux"):
         assert ing.eject(str(tmp_path))["ejected"] is False
+
+
+def test_a_card_is_only_said_ejected_once_windows_has_ejected_it():
+    from unittest.mock import MagicMock
+    windll = MagicMock()
+    windll.kernel32.GetDriveTypeW.return_value = 2  # removable
+    with patch("platform.system", return_value="Windows"), patch("ctypes.windll", windll, create=True):
+        with patch.object(ing, "_eject_windows_ioctl", return_value=(True, "")):
+            assert ing.eject("E:\\DCIM") == {"ejected": True, "message": "E: ejected: you can take the card out."}
+        with patch.object(ing, "_eject_windows_ioctl", return_value=(False, "something still has a file of the card open")), \
+             patch.object(ing, "_eject_windows_shell", return_value=False) as shell:
+            done = ing.eject("E:\\")
+        assert done["ejected"] is False and "file of the card open" in done["message"] and shell.called
+        with patch.object(ing, "_eject_windows_ioctl", return_value=(False, "busy")), patch.object(ing, "_eject_windows_shell", return_value=True):
+            assert ing.eject("E:\\")["ejected"] is True
+        windll.kernel32.GetDriveTypeW.return_value = 3  # a fixed disk is never ejected
+        assert ing.eject("C:\\cards")["ejected"] is False
 
 
 def test_files_with_the_same_name_in_two_folders_are_both_kept(recorded, tmp_path):

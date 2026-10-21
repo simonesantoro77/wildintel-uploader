@@ -3,8 +3,9 @@ import { api } from '../api'
 import Combobox from '../components/Combobox'
 import NextStep from '../components/NextStep'
 import type { ProcessTarget } from './CardsPage'
+import type { CollectionTarget } from './FieldLogPage'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
-import type { LocalResearchProject, TimeSegment, Timeline } from '../types'
+import type { CardsStatus, LocalResearchProject, TimeSegment, Timeline } from '../types'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
 const inputClass = 'rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60'
@@ -74,9 +75,9 @@ function TimeChart({ timeline }: { timeline: Timeline }) {
   )
 }
 
-/** Fixing the dates and times of a copied card's images: where the clock went wrong, a run of images shifted by an offset
- * (or to match an image whose real time is known), images with no time to trust removed — every fix written down, and
- * the card kept as it came so it can be put back. */
+/** Checking and fixing the dates and times of a copied card's images: where the clock went wrong, a run of images shifted
+ * by an offset (or to match an image whose real time is known), images with no time to trust removed — every fix written
+ * down. */
 /** A deployment whose dates are to be fixed, when the page is opened from where the problem was found. */
 export interface TimeFixTarget {
   researchProjectId: string
@@ -99,7 +100,7 @@ export function FixDatesBanner({ folder, names, onFixDates }: { folder: string; 
     <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm" role="note" aria-label="Fix dates and times">
       <p className="text-amber-900 dark:text-amber-200">
         The dates of {names.length === 1 ? 'one deployment' : `${names.length} deployments`} don&rsquo;t look right — a camera clock that went wrong.
-        {where && onFixDates ? ' Fix them, then run the checks again:' : ' They can be fixed in Fix dates and times when the folder is a collection copied with Copy SD cards.'}
+        {where && onFixDates ? ' Fix them, then run the checks again:' : ' They can be fixed in Check and fix dates and times when the folder is a collection copied with Copy SD cards.'}
       </p>
       {where && onFixDates && (
         <div className="flex flex-wrap gap-2 mt-2">
@@ -117,7 +118,12 @@ export function parentFolder(folder: string): string {
   return folder.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '')
 }
 
-export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixTarget; onProcess?: (target: ProcessTarget) => void } = {}) {
+export default function TimeFixPage({ initial, onProcess, onCopyCards }: {
+  initial?: TimeFixTarget
+  onProcess?: (target: ProcessTarget) => void
+  /** Back to Copy SD cards, when the collection still has cards to copy. */
+  onCopyCards?: (target: CollectionTarget) => void
+} = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<{ collection: string; deployments: string[] }[]>([])
@@ -135,9 +141,20 @@ export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixT
   const [refImage, setRefImage] = useState('')
   const [refTime, setRefTime] = useState('')
   const [reason, setReason] = useState('')
-  const [confirm, setConfirm] = useState<null | { kind: 'remove'; names: string[] } | { kind: 'restore' }>(null)
+  const [confirm, setConfirm] = useState<null | { kind: 'remove'; names: string[] }>(null)
+  // How the copy of the collection's cards is going: while some are left, the next step is to go on copying them.
+  const [cards, setCards] = useState<CardsStatus | null>(null)
 
   const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
+
+  useEffect(() => {
+    setCards(null)
+    if (!projectId || !collection) return
+    let cancelled = false
+    api.ingestStatus(projectId, collection).then((s) => { if (!cancelled) setCards(s) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [projectId, collection])
+  const cardsLeft = cards?.counts.to_copy ?? 0
 
   useEffect(() => {
     api.listResearchProjects().then(({ results }) => setProjects(results)).catch((e) => setError(message(e, 'Could not read the collections folder.')))
@@ -212,11 +229,11 @@ export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixT
   return (
     <div className="max-w-screen-lg mx-auto px-4 py-8 space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Fix dates and times</h2>
+        <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Check and fix dates and times</h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           For a copied card whose camera clock went wrong: see where the time jumps, shift a run of images by an offset — or to match an image whose real time
-          you know — and remove the images whose time can&rsquo;t be trusted. Every fix is written down, and the card is kept as it came, so it can be put back.
-          Then process the collection with Process collection.
+          you know — and remove the images whose time can&rsquo;t be trusted. Every fix is written down in the deployment&rsquo;s folder
+          (<span className="font-mono">time_corrections.json</span>); a shift is undone by shifting back. Then process the collection with Process collection.
         </p>
       </div>
 
@@ -294,7 +311,7 @@ export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixT
           {confirm?.kind === 'remove' && (
             <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-4 space-y-3" role="alertdialog" aria-label="Remove images">
               <p className="text-sm text-red-800 dark:text-red-300">
-                Remove {confirm.names.length} image(s) from {deployment}? They won&rsquo;t be imported nor uploaded. They stay in the copy of the card kept as it came.
+                Remove {confirm.names.length} image(s) from {deployment}? They are deleted from the copy of the card and won&rsquo;t be imported nor uploaded; their names are written down with the fix.
               </p>
               <input className={`${inputClass} w-full`} placeholder="Why (e.g. the clock reset and nothing tells when they were taken)" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Why they are removed" />
               <div className="flex justify-end gap-2">
@@ -371,10 +388,7 @@ export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixT
           </section>
 
           <section aria-label="Fixes made">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="font-semibold mr-auto">Fixes made</h3>
-              {timeline.has_originals && <button type="button" className={btnOutline} disabled={busy} onClick={() => setConfirm({ kind: 'restore' })}>Put back as the card was</button>}
-            </div>
+            <h3 className="font-semibold mb-2">Fixes made</h3>
             {timeline.corrections.length === 0 && <p className={hintClass}>None: the images are as they came from the card.</p>}
             <ol className="space-y-1 text-sm">
               {timeline.corrections.map((c, i) => (
@@ -387,19 +401,19 @@ export default function TimeFixPage({ initial, onProcess }: { initial?: TimeFixT
                 </li>
               ))}
             </ol>
-            {confirm?.kind === 'restore' && (
-              <div className="mt-3 rounded-xl border border-amber-300 dark:border-amber-800 p-3 flex items-center gap-3 flex-wrap" role="alertdialog" aria-label="Put back">
-                <p className="text-sm mr-auto">Undo every fix of {deployment}? The images go back to how the card had them.</p>
-                <button type="button" className={btnOutline} onClick={() => setConfirm(null)}>Cancel</button>
-                <button type="button" className={btnPrimary} disabled={busy} onClick={() => void run(() => api.timefixRestore(projectId, collection, deployment), 'Could not put the card back.')}>Put back</button>
-              </div>
-            )}
           </section>
 
-          <NextStep n={4} title="Process collection"
-                    onGo={onProcess && (() => onProcess({ researchProjectId: projectId, collection, folder: parentFolder(timeline.folder) }))}>
-            When the dates of every deployment are right, process the collection&rsquo;s cards folder to check the images and prepare the deployments for Trapper.
-          </NextStep>
+          {cardsLeft > 0 && onCopyCards ? (
+            <NextStep n={2} title="Copy SD cards" label="Back to Copy SD cards"
+                      onGo={() => onCopyCards({ researchProjectId: projectId, collection })}>
+              {cardsLeft === 1 ? 'One card' : `${cardsLeft} cards`} of {collection} still to copy. Go on copying them; the collection is processed once every card is in.
+            </NextStep>
+          ) : (
+            <NextStep n={3} title="Process collection"
+                      onGo={onProcess && (() => onProcess({ researchProjectId: projectId, collection, folder: parentFolder(timeline.folder) }))}>
+              When the dates of every deployment are right, process the collection&rsquo;s cards folder to check the images and prepare the deployments for Trapper.
+            </NextStep>
+          )}
         </>
       )}
     </div>

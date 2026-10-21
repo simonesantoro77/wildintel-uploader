@@ -417,9 +417,9 @@ def validate_images(source_dir: Path, checks: frozenset[str] | None = None, *, d
         reads the serial number of most camera traps) did the reading.
       - exif_missing: the EXIF fields the rest of the wizard needs — the
         capture date ("date", for the deployment's dates and the order and
-        range checks), the camera "camera_model" and the camera id
-        ("camera_id", its serial number) — each with how many images lack it
-        and a few example files.
+        range checks) and the camera "camera_model" — each with how many
+        images lack it and a few example files. The camera id is not asked
+        for: it comes from the field records.
       - duplicates: groups of two or more files with exactly the same
         content (a card copied twice, a file renamed and kept), each with
         the size and the files. Only files of the same size are compared,
@@ -450,14 +450,12 @@ def validate_images(source_dir: Path, checks: frozenset[str] | None = None, *, d
         taken = dict(zip(images, parallel.pmap(_image_datetime, images)))
 
     if "exif" in checks:
-        missing: dict[str, list[Path]] = {"date": [], "camera_model": [], "camera_id": []}
+        missing: dict[str, list[Path]] = {"date": [], "camera_model": []}
         for path in sorted(images):
             if taken[path] is None:
                 missing["date"].append(path)
             if cameras[path].model is None:
                 missing["camera_model"].append(path)
-            if cameras[path].camera_id is None:
-                missing["camera_id"].append(path)
         result["exif_missing"] = {
             field: {
                 "count": len(paths), "examples": [str(p.relative_to(source_dir)) for p in paths[:3]],

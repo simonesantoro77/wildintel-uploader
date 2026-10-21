@@ -7,6 +7,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Upcoming release
 
+### Changed (after the second testing of 21 Oct)
+- **Menu**: four steps (Field records › Copy SD cards › Process collection › Upload to Trapper). Fixing dates and times is
+  no longer a step of its own: Copy SD cards takes you there when a card needs it, and it is in Utils as **Check and fix
+  dates and times**. Coming from Copy SD cards while cards are left, its next step is **Back to Copy SD cards**, not
+  Process collection.
+- **Field records**: the two files are called **Field survey (from App)** (the CSV of the field app) and **Field history**
+  (the fieldwork datasheet), each explained under it. The research project is no longer filled in from last time: it is
+  chosen, which brings its locations. The sites not visited on this trip are not a warning any more: the deployments still
+  open (camera still out) are listed apart. The texts say "the deployments' or collection's FileTimestampLog/FieldworkLog".
+- **Camtrap DP fields from the field**: cameraModel, cameraDelay, cameraHeight, cameraDepth, cameraTilt, cameraHeading,
+  detectionDistance, timestampIssues, baitUse, featureType, habitat, deploymentGroups and deploymentTags are read from the
+  field survey when it has them (a column of the same name, or the one set in Settings › Field records), kept in the field
+  history (a column of that name is added when missing) so that a later trip still has them, written to the FieldworkLog
+  and filled into each deployment by Process collection. When the setup and the retrieval visit differ: a text is kept as
+  `Setup: … | Retrieval: …` (setupBy and habitat), the tags and groups of both are joined, and a number, yes/no, feature
+  type or camera model keeps the setup's value, the retrieval's noted in deploymentComments. A value that is not valid
+  (a height that is not a number, a feature type not in the list) is left out and pointed out.
+- deploymentComments says `Setup: … | Retrieval: …` instead of `Start: … | End: …`.
+- **Check and fix dates and times** keeps no second copy of the card: the `originals` folder is gone, and with it "Put back
+  as the card was". Every fix is still written down in `time_corrections.json`; images removed are deleted from the copy.
+  The setting "Keep the untouched copy of each card" is gone too.
+- **Copy SD cards**: on Windows the card is ejected for real (the volume locked, dismounted and ejected, waiting for it,
+  with Explorer's Eject as a fallback) and the page only says it is out once the system does; otherwise it says why.
+- **Process collection**: the locations step says to check that each folder has the right location, and the tick boxes
+  it had (that did nothing visible) are gone. The *Required EXIF fields* check no longer asks for the camera id (it comes
+  from the field records): only the capture date and the camera model.
+- "Preprocessing" is called **Prepare images** (the steps, the results, the reports and Settings).
+
 ### Changed (after the testing of 21 Oct)
 - The app opens on the menu: the welcome screen is gone, and the title goes back to the menu. Each step ends with a
   **Next step** button to the one that follows (Field records › Copy SD cards › Fix dates and times › Process collection ›

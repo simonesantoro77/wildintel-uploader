@@ -758,7 +758,7 @@ def test_validate_images_exif_check_counts_the_images_missing_each_field(tmp_pat
     missing = result["exif_missing"]
     assert missing["date"] == {"count": 2, "examples": ["bare.jpg", "no_date.jpg"]}
     assert missing["camera_model"] == {"count": 1, "examples": ["bare.jpg"]}
-    assert missing["camera_id"] == {"count": 2, "examples": ["bare.jpg", "no_serial.jpg"]}
+    assert "camera_id" not in missing  # the camera id comes from the field records
     assert set(result) == {"checked_count", "exif_missing", "exiftool"}  # only what was asked
 
 
@@ -767,7 +767,7 @@ def test_validate_images_exif_check_finds_nothing_missing_when_every_image_has_e
 
     result = svc.validate_images(folder, frozenset({"exif"}))
 
-    assert {field: info["count"] for field, info in result["exif_missing"].items()} == {"date": 0, "camera_model": 0, "camera_id": 0}
+    assert {field: info["count"] for field, info in result["exif_missing"].items()} == {"date": 0, "camera_model": 0}
 
 
 def test_validate_images_exif_and_camera_checks_read_the_camera_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_exiftool):

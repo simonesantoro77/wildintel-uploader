@@ -32,7 +32,7 @@ the Trapper server you configure. The welcome screen says what it does; press **
 
 Before you start using the application it has to be configured. To do so, press **⚙️ Settings** (top right) and fill in the
 **Trapper** server, username and password — see [Settings](#2-settings); you can test them right there. Also fill in who owns the
-images (Preprocessing › Authorship) if you are going to import some.
+images (Prepare images › Authorship) if you are going to import some.
 
 ## 2. Settings
 
@@ -95,9 +95,9 @@ that take a value mean:
 | Previous revisions needed | 2 | With fewer, the statistical checks are skipped. |
 | Number of images / sequences / length of sequences | 50 % each | How different a value can be and still count as similar. |
 
-### Preprocessing
+### Prepare images
 
-![Settings › Preprocessing](img/screenshots/settings-preprocessing.png)
+![Settings › Prepare images](img/screenshots/settings-preprocessing.png)
 
 What a new import does to the images — the wizard lists it before preparing, and a run can still
 switch each step off.
@@ -114,7 +114,7 @@ switch each step off.
 
 ### Reports
 
-Every **validation**, **postvalidation**, **preprocessing** and **repair** leaves a **report** of what it checked and did,
+Every **validation**, **postvalidation**, **image preparation** and **repair** leaves a **report** of what it checked and did,
 image by image. The step shows it right below its results — the same file you can download, so what you see is
 what is kept:
 
@@ -133,7 +133,7 @@ What each report holds:
 | **Validation** | each image and check — corrupted, shooting order, EXIF fields, duplicates —, and the folder for the structure and camera checks | The ones that passed too, so the report says what was checked, not only what failed. |
 | **Postvalidation** | the deployment for the naming and statistical checks, and each image for its date and camera | Why a check failed — *241 images — like the previous revisions (median 238, ±50 %)*. |
 | **Repair** | each image and check, and each metadata file | What the repair wrote and what the images passed, as the new seal says — and the preprocessing checks: names, size, metadata. |
-| **Preprocessing** | each image | What was done — *IMG_0001.JPG → R0003-DONA_01__20240904_1.JPEG; date 2024-09-04T11:10:00+00:00 (exif); resized* — and the ones that were **skipped**, with the reason. |
+| **Prepare images** | each image | What was done — *IMG_0001.JPG → R0003-DONA_01__20240904_1.JPEG; date 2024-09-04T11:10:00+00:00 (exif); resized* — and the ones that were **skipped**, with the reason. |
 
 **Settings › Reports** lists all of them, newest first, with *View*, *CSV*, *JSON* and *Delete* (which
 asks again). They are kept in the `reports` folder of the images folder until you delete them. A check you run twice
@@ -365,9 +365,9 @@ failed it (*Out of range*, *Other camera*) as thumbnails. The [report](#reports)
 
 ### Stage 4 — Prepare and save
 
-![Stage 4 — Preprocessing steps](img/screenshots/step-preprocessing.png)
+![Stage 4 — Prepare images](img/screenshots/step-preprocessing.png)
 
-**1. Preprocessing steps.** Choose what to do to the images; the table says what each step does. Press **Start preparing**.
+**1. Prepare images.** Choose what to do to the images; the table says what each step does. Press **Start preparing**.
 
 1. **Copy into the collection** — always. Anything that isn't an image is copied as it is.
 2. **Read the capture dates** — always. From each image's EXIF, as the camera's local time in the
@@ -388,7 +388,7 @@ Each optional step can be switched off for this run (its checkbox). Its values c
 originals are never touched. Nothing is final yet: you can go back, change something and **Prepare again** — the folder is
 simply redone.
 
-**2. Preprocessing results.** The images processed and skipped, a status for each step and, opened from it, the skipped
+**2. Prepared images.** The images processed and skipped, a status for each step and, opened from it, the skipped
 images as thumbnails. The [report](#reports) says what was done to each image. **Continue to save** goes on.
 
 **3. Save to your collection.**
@@ -443,7 +443,7 @@ The four stages are those of [Import a deployment](#5-import-a-deployment), with
    *More details*: the camera and the site of each, with **Fill in from the previous revision** for the ones that have one.
 
 3. **Check details** — the deployments' checks, for each deployment, by folder or by check.
-4. **Prepare and save** — one list of preprocessing steps for all, then each deployment in turn, with its own result.
+4. **Prepare and save** — one list of steps to prepare the images for all, then each deployment in turn, with its own result.
    If some fail, **Import the N left** resumes with the ones that are still pending. Saving seals each of them.
 
 When it ends, **Upload to Trapper** goes to the upload page with the collection chosen.

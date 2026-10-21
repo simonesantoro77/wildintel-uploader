@@ -8,15 +8,16 @@ describe('MenuPage', () => {
     render(<MenuPage onChoose={vi.fn()} />)
 
     const steps = screen.getAllByRole('listitem').map((li) => li.querySelector('strong')?.textContent)
-    expect(steps).toEqual(['Field records', 'Copy SD cards', 'Fix dates and times', 'Process collection', 'Upload to Trapper'])
-    expect(screen.getByText('Only if needed')).toBeInTheDocument()
+    expect(steps).toEqual(['Field records', 'Copy SD cards', 'Process collection', 'Upload to Trapper'])
+    // Fixing dates and times is reached from Copy SD cards, or from the utilities: not a step of its own.
+    expect(screen.queryByRole('button', { name: /^.*Check and fix dates and times$/ })).not.toBeInTheDocument()
   })
 
   it('opens each step, and a single deployment beside the collection', async () => {
     const onChoose = vi.fn()
     render(<MenuPage onChoose={onChoose} />)
 
-    for (const [name, task] of [[/Field records/, 'fieldlog'], [/Copy SD cards/, 'cards'], [/Fix dates and times/, 'timefix'], [/^Process collection/, 'session'], [/Upload to Trapper/, 'upload'], [/Process deployment/, 'deployment']] as const) {
+    for (const [name, task] of [[/Field records/, 'fieldlog'], [/Copy SD cards/, 'cards'], [/^Process collection/, 'session'], [/Upload to Trapper/, 'upload'], [/Process deployment/, 'deployment']] as const) {
       await userEvent.click(screen.getByRole('button', { name }))
       expect(onChoose).toHaveBeenLastCalledWith(task)
     }

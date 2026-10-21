@@ -62,8 +62,3 @@ def remove(req: RemoveRequest) -> dict:
     """Takes images whose time can't be made right out of the deployment; returns the timeline after it."""
     return _call(timefix_service.remove, req.research_project_id, req.collection, req.deployment_id, req.names, req.reason)
 
-
-@router.post("/restore")
-def restore(req: DeploymentRequest) -> dict:
-    """Puts the deployment back as its card was; returns the timeline after it."""
-    return _call(timefix_service.restore, req.research_project_id, req.collection, req.deployment_id)

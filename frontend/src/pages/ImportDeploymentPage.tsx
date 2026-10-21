@@ -471,7 +471,7 @@ export const IMAGE_CHECK_DESCRIPTIONS: Record<ImageCheck, string> = {
   sequence: 'Checks that the shooting order matches the order of the file names',
   structure: 'Checks that all the images are in one folder, with no subfolders',
   camera: 'Checks that every image was taken by the same camera (model and id)',
-  exif: 'Checks that every image has its capture date, camera model and camera id',
+  exif: 'Checks that every image has its capture date and camera model (the camera id comes from the field records)',
   duplicates: 'Checks for images with exactly the same content',
 }
 
@@ -607,7 +607,7 @@ export function buildDeploymentId(revision: string, locationId: string | null | 
   return `R${String(n).padStart(4, '0')}-${locationId.trim()}`
 }
 
-export const EXIF_FIELD_LABELS: Record<ExifField, string> = { date: 'a capture date', camera_model: 'a camera model', camera_id: 'a camera id' }
+export const EXIF_FIELD_LABELS: Record<ExifField, string> = { date: 'a capture date', camera_model: 'a camera model' }
 
 /** "Reconyx HC600 · id P800HG08", whichever of the two is known. */
 export function describeCamera(camera: CameraGroup): string {
@@ -1078,10 +1078,10 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.exif_missing !== undefined && (
         <div className={imageCheckPassed('exif', validation) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
           {imageCheckPassed('exif', validation) ? (
-            <p>✔ Every image has its capture date, camera model and camera id.</p>
+            <p>✔ Every image has its capture date and camera model.</p>
           ) : (
             <ul className="list-disc ml-6">
-              {(Object.keys(EXIF_FIELD_LABELS) as ExifField[]).filter((f) => validation.exif_missing![f].count > 0).map((f) => (
+              {(Object.keys(EXIF_FIELD_LABELS) as ExifField[]).filter((f) => (validation.exif_missing![f]?.count ?? 0) > 0).map((f) => (
                 <li key={f}>
                   ⚠ {validation.exif_missing![f].count} image(s) without {EXIF_FIELD_LABELS[f]}, e.g. {validation.exif_missing![f].examples.join(', ')}
                 </li>
@@ -1991,7 +1991,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
         },
       )
     } catch (e) {
-      setPreprocessError(e instanceof Error ? e.message : 'The preprocessing failed.')
+      setPreprocessError(e instanceof Error ? e.message : 'Preparing the images failed.')
     } finally {
       setPreprocessing(false)
     }
@@ -2728,7 +2728,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
-            <WizardStep n={1} title="Preprocessing steps" status={prepStarted ? 'done' : 'open'} canEdit={!preprocessing} onEdit={handleEditPreprocessSteps}
+            <WizardStep n={1} title="Prepare images" status={prepStarted ? 'done' : 'open'} canEdit={!preprocessing} onEdit={handleEditPreprocessSteps}
                         summary={`${activeRows.length} ${activeRows.length === 1 ? 'step' : 'steps'} chosen`}
                         description="Choose what to do to the images. They're copied, renamed, resized and tagged into the deployment's folder. Your originals are never touched, and nothing is final until you save.">
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
@@ -2800,7 +2800,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
               </div>
             </WizardStep>
 
-            <WizardStep n={2} title="Preprocessing results" status={preprocessing ? 'running' : preprocessError ? 'error' : doneRun ? 'done' : 'locked'} canEdit={resultsDone && !importing && !destDir} onEdit={() => setResultsDone(false)} expanded={doneRun && !resultsDone} badge={preprocessing ? 'Preparing…' : undefined}
+            <WizardStep n={2} title="Prepared images" status={preprocessing ? 'running' : preprocessError ? 'error' : doneRun ? 'done' : 'locked'} canEdit={resultsDone && !importing && !destDir} onEdit={() => setResultsDone(false)} expanded={doneRun && !resultsDone} badge={preprocessing ? 'Preparing…' : undefined}
                         action={!preprocessing && !destDir && !resultsDone && (doneRun || preprocessError) ? <button type="button" className={btnOutline} disabled={importing} onClick={handlePreprocess}>Prepare again</button> : undefined}
                         summary={preprocessed?.type === 'done' ? `${(preprocessed.processed ?? 0).toLocaleString('en-US')} ${preprocessed.processed === 1 ? 'image' : 'images'} prepared${preprocessed.skipped ? `, ${preprocessed.skipped} skipped` : ''}` : undefined}
                         description="How each step went, and which images, if any, had to be skipped.">
@@ -2817,7 +2817,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
               )}
               <ValidationDashboard
                 variant="steps" preprocessing lastRunLine
-                title="Preprocessing" subtitle={scan ? `${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'image' : 'images'}` : ''}
+                title="Prepare images" subtitle={scan ? `${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'image' : 'images'}` : ''}
                 reportId={preprocessed?.type === 'done' ? preprocessed.report_id ?? null : null}
                 running={preprocessing} canRun={Boolean(plannedCollection) && !preprocessing} onRun={handlePreprocess} runLabel="Start preparing" runningLabel="Preparing…"
               >

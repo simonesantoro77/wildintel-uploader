@@ -7,7 +7,7 @@ import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { Timeline } from '../types'
 
 vi.mock('../api', () => ({
-  api: { listResearchProjects: vi.fn(), timefixCollections: vi.fn(), timefixTimeline: vi.fn(), timefixShift: vi.fn(), timefixRemove: vi.fn(), timefixRestore: vi.fn() },
+  api: { listResearchProjects: vi.fn(), timefixCollections: vi.fn(), timefixTimeline: vi.fn(), timefixShift: vi.fn(), timefixRemove: vi.fn(), ingestStatus: vi.fn() },
 }))
 const mockedApi = vi.mocked(api, true)
 
@@ -22,7 +22,7 @@ const BROKEN: Timeline = {
     { first_index: 0, last_index: 0, first: 'IMG_0001.JPG', last: 'IMG_0001.JPG', first_time: '2026-06-02T10:00:00', last_time: '2026-06-02T10:00:00', count: 1, inside: 1, state: 'ok', suggestion: null },
     { first_index: 1, last_index: 1, first: 'IMG_0002.JPG', last: 'IMG_0002.JPG', first_time: '2020-01-01T00:00:00', last_time: '2020-01-01T00:00:00', count: 1, inside: 0, state: 'outside', suggestion: { offset_seconds: OFFSET, why: 'so that it goes on' } },
   ],
-  undated: ['IMG_0003.JPG'], outside: 1, problems: ['1 image(s) have no date.'], ok: false, corrections: [], has_originals: false,
+  undated: ['IMG_0003.JPG'], outside: 1, problems: ['1 image(s) have no date.'], ok: false, corrections: [],
 }
 
 beforeEach(() => {
@@ -30,8 +30,9 @@ beforeEach(() => {
   mockedApi.listResearchProjects.mockResolvedValue({ results: [{ ...EMPTY_RESEARCH_PROJECT, name: 'Doñana', acronym: 'DONA', trapper_pk: 2 }] })
   mockedApi.timefixCollections.mockResolvedValue({ results: [{ collection: 'R0042', deployments: ['R0042-DONA_0011'] }] })
   mockedApi.timefixTimeline.mockResolvedValue(BROKEN)
-  mockedApi.timefixShift.mockResolvedValue({ ...BROKEN, ok: true, problems: [], corrections: [{ at: '2026-10-20T18:00:00Z', by: 'me', action: 'shift', first: 'IMG_0002.JPG', last: 'IMG_0002.JPG', count: 1, offset_seconds: OFFSET }], has_originals: true })
-  mockedApi.timefixRemove.mockResolvedValue({ ...BROKEN, has_originals: true })
+  mockedApi.timefixShift.mockResolvedValue({ ...BROKEN, ok: true, problems: [], corrections: [{ at: '2026-10-20T18:00:00Z', by: 'me', action: 'shift', first: 'IMG_0002.JPG', last: 'IMG_0002.JPG', count: 1, offset_seconds: OFFSET }] })
+  mockedApi.timefixRemove.mockResolvedValue({ ...BROKEN })
+  mockedApi.ingestStatus.mockResolvedValue({ counts: { out: 0, to_copy: 0, copied: 1, processed: 0 } } as never)
 })
 
 async function openDeployment() {
@@ -97,5 +98,26 @@ describe('opened from where the dates were found wrong', () => {
     render(<FixDatesBanner folder="/data/cards/DONA/R0042/" names={['R0042-DONA_0011']} onFixDates={onFixDates} />)
     await userEvent.click(screen.getByRole('button', { name: 'Fix dates of R0042-DONA_0011' }))
     expect(onFixDates).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0011' })
+  })
+})
+
+describe('the next step', () => {
+  it('goes back to Copy SD cards while the collection has cards left to copy', async () => {
+    mockedApi.ingestStatus.mockResolvedValue({ counts: { out: 0, to_copy: 3, copied: 1, processed: 0 } } as never)
+    const onCopyCards = vi.fn()
+    const onProcess = vi.fn()
+    render(<TimeFixPage initial={{ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0011' }} onCopyCards={onCopyCards} onProcess={onProcess} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Back to Copy SD cards/ }))
+    expect(onCopyCards).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042' })
+    expect(screen.queryByRole('button', { name: /Go to Process collection/ })).not.toBeInTheDocument()
+  })
+
+  it('goes on to Process collection once every card is copied', async () => {
+    const onProcess = vi.fn()
+    render(<TimeFixPage initial={{ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0011' }} onCopyCards={vi.fn()} onProcess={onProcess} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Go to Process collection/ }))
+    expect(onProcess).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', folder: '/cards/DONA/R0042' })
   })
 })

@@ -166,12 +166,26 @@ def field_details(research_project_id: str, collection: str, settings: config.Se
     details = {}
     for row in rows:
         tags = [t.strip() for t in re.split(r"[;,|]", row.get("deploymentTags") or "") if t.strip()]
-        details[row.get("deploymentID", "")] = {
+        detail = {
             "location_id": row.get("locationID") or None, "start": row.get("deploymentStart") or None, "end": row.get("deploymentEnd") or None,
             "setup_by": row.get("setupBy") or None, "camera_id": row.get("cameraID") or None, "tags": tags,
             "comments": row.get("deploymentComments") or None, "card": row.get("cardSD") or None,
         }
+        # The other Camtrap DP fields the field records noted, as the deployment's details name them.
+        for column, key in _FIELD_DETAIL_KEYS.items():
+            value, _ = fieldlog_service._parse_extra(column, row.get(column))
+            detail[key] = value
+        details[row.get("deploymentID", "")] = detail
     return details
+
+
+# FieldworkLog column -> the deployment's detail it fills in (deploymentTags goes into "tags" above).
+_FIELD_DETAIL_KEYS = {
+    "cameraModel": "camera_model", "cameraDelay": "camera_interval", "cameraHeight": "camera_height",
+    "cameraDepth": "camera_depth", "cameraTilt": "camera_tilt", "cameraHeading": "camera_heading",
+    "detectionDistance": "detection_distance", "timestampIssues": "timestamp_issues", "baitUse": "bait_use",
+    "featureType": "feature_type", "habitat": "habitat", "deploymentGroups": "deployment_groups",
+}
 
 
 def collection_status(research_project_id: str, collection: str, settings: config.Settings | None = None) -> dict:
@@ -510,25 +524,88 @@ def read_corrections(research_project_id: str, collection: str, settings: config
 
 # ── ejecting the card ───────────────────────────────────────────────────────
 
+def _eject_windows_ioctl(drive: str) -> tuple[bool, str]:
+    """Ejects a removable drive ("E:") the way Windows' own "Eject" does, waiting for it: the volume is locked (nothing
+    may have a file of it open), dismounted, its removal allowed and its media ejected. (ok, what went wrong)."""
+    import ctypes
+    import time
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.DeviceIoControl.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD,
+                                         ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]
+    kernel32.DeviceIoControl.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    generic_read, generic_write, share_read, share_write, open_existing = 0x80000000, 0x40000000, 0x1, 0x2, 3
+    lock, dismount, media_removal, eject_media = 0x00090018, 0x00090020, 0x002D4804, 0x002D4808
+    invalid = wintypes.HANDLE(-1).value
+
+    handle = kernel32.CreateFileW(f"\\\\.\\{drive}", generic_read | generic_write, share_read | share_write, None, open_existing, 0, None)
+    if handle in (None, invalid):
+        return False, f"could not open {drive} (error {ctypes.get_last_error()})"
+    returned = wintypes.DWORD()
+
+    def control(code: int, data=None, size: int = 0) -> bool:
+        return bool(kernel32.DeviceIoControl(handle, code, data, size, None, 0, ctypes.byref(returned), None))
+
+    try:
+        for _ in range(20):  # a file closed a moment ago, an antivirus scanning the card: a few seconds to let go
+            if control(lock):
+                break
+            time.sleep(0.25)
+        else:
+            return False, "something still has a file of the card open (a window showing it, a viewer, an antivirus)"
+        if not control(dismount):
+            return False, f"could not dismount it (error {ctypes.get_last_error()})"
+        allow = ctypes.c_ubyte(0)  # PREVENT_MEDIA_REMOVAL { PreventMediaRemoval = FALSE }
+        control(media_removal, ctypes.byref(allow), 1)
+        if not control(eject_media):
+            return False, f"could not eject its media (error {ctypes.get_last_error()})"
+        return True, ""
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _eject_windows_shell(drive: str) -> bool:
+    """Windows Explorer's "Eject" on the drive, waiting until the drive is gone (the verb itself returns at once)."""
+    import subprocess
+    script = (
+        f"$d = (New-Object -ComObject Shell.Application).Namespace(17).ParseName('{drive}\\'); "
+        "if ($d -eq $null) { exit 3 }; $d.InvokeVerb('Eject'); "
+        f"for ($i = 0; $i -lt 40; $i++) {{ if (-not (Test-Path '{drive}\\')) {{ exit 0 }}; Start-Sleep -Milliseconds 250 }}; exit 2"
+    )
+    result = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True, text=True, check=False)
+    return result.returncode == 0
+
+
 def eject(source: str) -> dict:
     """Ejects the removable drive a card was copied from, so it can be taken out: {"ejected", "message"}. Only a drive the
-    system says is removable is ejected, never a folder of a fixed disk."""
+    system says is removable is ejected, never a folder of a fixed disk. "ejected" is only true once the system says the
+    card is out."""
     import platform
     import subprocess
     path = Path(source).expanduser()
     system = platform.system()
     if system == "Windows":
-        drive = path.drive  # "E:"
+        from pathlib import PureWindowsPath
+        drive = PureWindowsPath(source).drive  # "E:"
         if not drive:
             return {"ejected": False, "message": "The card is not on a drive of its own."}
         import ctypes
         if ctypes.windll.kernel32.GetDriveTypeW(f"{drive}\\") != 2:  # DRIVE_REMOVABLE
-            return {"ejected": False, "message": f"{drive} is not a removable drive: nothing ejected."}
-        script = f"(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{drive}').InvokeVerb('Eject')"
-        result = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True, text=True, check=False)
-        if result.returncode != 0:
-            return {"ejected": False, "message": f"Could not eject {drive}: {result.stderr.strip()}"}
-        return {"ejected": True, "message": f"{drive} ejected: you can take the card out."}
+            return {"ejected": False, "message": f"{drive} is not a removable drive: nothing ejected. Eject it from the system before taking it out."}
+        try:
+            ok, why = _eject_windows_ioctl(drive)
+        except Exception as exc:  # ctypes missing a call on an odd Windows: Explorer's way below
+            ok, why = False, str(exc)
+        if not ok:
+            logger.info("Ejecting %s directly failed (%s): trying Explorer's Eject", drive, why)
+            ok = _eject_windows_shell(drive)
+        if ok:
+            return {"ejected": True, "message": f"{drive} ejected: you can take the card out."}
+        return {"ejected": False, "message": f"Could not eject {drive}: {why}. Close it and eject it from the system before taking it out."}
     if system == "Darwin":
         parts = path.resolve().parts
         if len(parts) < 3 or parts[1] != "Volumes":

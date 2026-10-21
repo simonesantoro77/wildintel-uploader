@@ -162,8 +162,6 @@ export const api = {
     post<Timeline>('/api/timefix/shift', { research_project_id: researchProjectId, collection, deployment_id: deploymentId, first, last, offset_seconds: offsetSeconds, reason }),
   timefixRemove: (researchProjectId: string, collection: string, deploymentId: string, names: string[], reason: string) =>
     post<Timeline>('/api/timefix/remove', { research_project_id: researchProjectId, collection, deployment_id: deploymentId, names, reason }),
-  timefixRestore: (researchProjectId: string, collection: string, deploymentId: string) =>
-    post<Timeline>('/api/timefix/restore', { research_project_id: researchProjectId, collection, deployment_id: deploymentId }),
 
   browseFolder: (title?: string) =>
     post<{ path: string | null }>('/api/deployment-import/browse-folder', { title: title ?? null }),
@@ -278,7 +276,7 @@ export const api = {
   ) =>
     streamNdjson<ImportEvent>('/api/deployment-import/preprocess', {
       source_dir: sourceDir, collection_dir: collectionDir, collection_name: collectionName, deployment, preprocessing,
-    }, onEvent, 'The preprocessing ended unexpectedly.'),
+    }, onEvent, 'Preparing the images ended unexpectedly.'),
 
   // Freezes the preprocessed deployment: writes its metadata and seals it.
   consolidate: (sourceDir: string, collectionDir: string, deployment: DeploymentFields, onEvent: (event: ImportEvent) => void) =>

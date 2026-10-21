@@ -639,12 +639,12 @@ describe('ImportSessionPage', () => {
     expect(mockedApi.openFolder).toHaveBeenCalledWith(COLLECTION)
   })
 
-  it('has Preprocessing steps to choose what to do, Preprocessing results for how it went, and Save to your collection', async () => {
+  it('has Prepare images to choose what to do, Prepared images for how it went, and Save to your collection', async () => {
     await toDetails()
     await next(); await next()
 
-    expect(await screen.findByText('Preprocessing steps', { selector: 'h4' })).toBeInTheDocument()
-    expect(screen.getByText('Preprocessing results', { selector: 'h4' })).toBeInTheDocument()
+    expect(await screen.findByText('Prepare images', { selector: 'h4' })).toBeInTheDocument()
+    expect(screen.getByText('Prepared images', { selector: 'h4' })).toBeInTheDocument()
     expect(screen.getByText('Save to your collection', { selector: 'h4' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Process 2 deployments' }))
 

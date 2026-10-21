@@ -259,7 +259,7 @@ const SECTIONS: { id: SectionId; label: string; icon: () => ReactNode }[] = [
   { id: 'epicollect', label: 'Epicollect5', icon: FileIcon },
   { id: 'validation', label: 'Validation', icon: CheckIcon },
   { id: 'postvalidation', label: 'Postvalidation', icon: ShieldIcon },
-  { id: 'preprocessing', label: 'Preprocessing', icon: ImageIcon },
+  { id: 'preprocessing', label: 'Prepare images', icon: ImageIcon },
   { id: 'reports', label: 'Reports', icon: ReportIcon },
   { id: 'config', label: 'Config', icon: FileIcon },
 ]
@@ -424,7 +424,7 @@ const IMAGE_CHECKS: { key: ImageCheck; label: string; hint: string }[] = [
   { key: 'sequence', label: 'Shooting order vs. filename sequence', hint: 'A higher-numbered file dated earlier than a lower-numbered one — a clock reset, or cards mixed.' },
   { key: 'structure', label: 'Folder structure (subdirectories)', hint: 'Images spread over subfolders instead of one flat folder.' },
   { key: 'camera', label: 'Same camera (model and id) on every image', hint: 'More than one camera among the images. Reads the serial number with ExifTool when it is installed.' },
-  { key: 'exif', label: 'Required EXIF fields', hint: 'Capture date, camera model and camera id on every image.' },
+  { key: 'exif', label: 'Required EXIF fields', hint: 'Capture date and camera model on every image. The camera id comes from the field records.' },
   { key: 'duplicates', label: 'Duplicate images', hint: 'Files with exactly the same content.' },
 ]
 
@@ -534,7 +534,7 @@ function ConfigsEditor({ onSwitched, onError }: { onSwitched: () => void; onErro
     <div className="space-y-4">
       <p className={`${hintClass} leading-relaxed`}>
         Each config is a settings file; the active one is what the app reads and saves — the folder the images are kept in,
-        the Trapper account, the checks and the preprocessing. A new one starts from the default values. Keep in mind these
+        the Trapper account, the checks and how the images are prepared. A new one starts from the default values. Keep in mind these
         files hold your passwords as plain text.
       </p>
       <div className="flex items-center justify-between">
@@ -1032,18 +1032,9 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
               <p className={`${hintClass} px-1`}>Only matters for datasheets that are not in the standard format, like Doñana&rsquo;s (Spanish headers, R/I/D/ROBADA).</p>
             </Row>
             <Row label="SD cards" description="Each card is copied untouched into the cards folder (inside the images folder), ready for Process collection.">
-              <SelectBox
-                label="Keep the untouched copy of each card" value={draft.keepCards} onChange={(v) => set('keepCards', v)}
-                options={[
-                  { value: 'until_verified', label: 'Until its deployment is uploaded and verified in Trapper (recommended)' },
-                  { value: 'always', label: 'Always' },
-                  { value: 'until_imported', label: 'Until it is imported into its collection' },
-                ]}
-              />
-              <p className={`${hintClass} px-1`}>Keeping it takes the images&rsquo; space twice while the deployment is being prepared, but any correction can be undone from it.</p>
               <NumberBox label="Files vs. photos counted in the field" value={draft.countTolerance} limits={SIMILARITY_TOLERANCE} onChange={(v) => set('countTolerance', v)} unit="% apart before it is pointed out" />
             </Row>
-            <Row label="Field data columns" description="The column of the field data download (from the field app) that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
+            <Row label="Field data columns" description="The column of the field survey (the CSV from the field app) that gives each field. Blank, the default name is used — Tatra's and Doñana's forms need nothing here. Fill in only the ones a form names otherwise.">
               <div className="space-y-2">
                 {fieldColumns.map((c) => (
                   <TextBox

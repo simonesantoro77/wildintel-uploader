@@ -160,7 +160,7 @@ def check_images(deployment_dir: Path, log: dict) -> list[dict]:
     entries = log.get("images", [])
     missing = [e["name"] for e in entries if not (deployment_dir / e["name"]).is_file()]
     if missing:
-        raise TrapperUploadError(f"{len(missing)} image(s) the preprocessing recorded are missing from {deployment_dir}: {', '.join(missing[:3])}…")
+        raise TrapperUploadError(f"{len(missing)} image(s) recorded when the images were prepared are missing from {deployment_dir}: {', '.join(missing[:3])}…")
     if not entries:
         raise TrapperUploadError(f"There are no images to upload in {deployment_dir}.")
     return entries

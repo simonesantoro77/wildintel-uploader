@@ -93,7 +93,7 @@ export interface SequenceIssue {
 export type ImageCheck = 'corrupted' | 'sequence' | 'structure' | 'camera' | 'exif' | 'duplicates'
 
 /** The EXIF fields the wizard needs of every image. */
-export type ExifField = 'date' | 'camera_model' | 'camera_id'
+export type ExifField = 'date' | 'camera_model'
 
 /** How many images lack one of them, with a few examples. */
 export interface MissingExif {
@@ -689,7 +689,6 @@ export interface Timeline {
   problems: string[]
   ok: boolean
   corrections: TimeCorrection[]
-  has_originals: boolean
 }
 
 /** An Epicollect column the field records read: the datasheet field it gives, and its name unless the settings map it. */
@@ -965,4 +964,17 @@ export interface FieldDetail {
   tags: string[]
   comments: string | null
   card: string | null
+  // The other Camtrap DP fields, when the field survey noted them.
+  camera_model?: string | null
+  camera_interval?: number | null
+  camera_height?: number | null
+  camera_depth?: number | null
+  camera_tilt?: number | null
+  camera_heading?: number | null
+  detection_distance?: number | null
+  timestamp_issues?: boolean | null
+  bait_use?: boolean | null
+  feature_type?: FeatureType | null
+  habitat?: string | null
+  deployment_groups?: string | null
 }

@@ -38,13 +38,13 @@ export default function App() {
   function openSettings(section?: 'epicollect') { setSettingsSection(section); setSettingsOpen(true) }
   // Where the upload page starts from, when it is reached from a finished import.
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null)
-  // The deployment Fix dates and times opens on, when it is reached from where its dates were found wrong.
+  // The deployment Check and fix dates and times opens on, when it is reached from where its dates were found wrong.
   const [timefixTarget, setTimefixTarget] = useState<TimeFixTarget | null>(null)
   function goToTimeFix(target: TimeFixTarget) { setTimefixTarget(target); setTask('timefix') }
   // The collection Copy SD cards opens on, when it is reached from Field records.
   const [cardsTarget, setCardsTarget] = useState<CollectionTarget | null>(null)
   function goToCards(target: CollectionTarget) { setCardsTarget(target); setTask('cards') }
-  // The cards folder Process collection opens on, when it is reached from Copy SD cards or Fix dates and times.
+  // The cards folder Process collection opens on, when it is reached from Copy SD cards or Check and fix dates and times.
   const [processTarget, setProcessTarget] = useState<ProcessTarget | null>(null)
   function goToProcess(target: ProcessTarget) { setProcessTarget(target); setTask('session') }
 
@@ -100,7 +100,7 @@ export default function App() {
               : task === 'upload'
               ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} />
               : task === 'utils'
-              ? <UtilsPage onBack={() => setTask(null)} />
+              ? <UtilsPage onBack={() => setTask(null)} onProcess={goToProcess} onCopyCards={goToCards} />
               : task === 'sync'
               ? <SyncCollectionsPage />
               : task === 'repair'
@@ -110,7 +110,7 @@ export default function App() {
               : task === 'cards'
               ? <CardsPage onFixDates={goToTimeFix} onProcess={goToProcess} initial={cardsTarget ?? undefined} />
               : task === 'timefix'
-              ? <TimeFixPage initial={timefixTarget ?? undefined} onProcess={goToProcess} />
+              ? <TimeFixPage initial={timefixTarget ?? undefined} onProcess={goToProcess} onCopyCards={goToCards} />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage

@@ -4,7 +4,7 @@ import ReportPanel from './ReportPanel'
 import type { ReportKind, ReportSummary } from '../types'
 import { btnOutline } from '../pages/ImportDeploymentPage'
 
-const KIND_LABELS: Record<ReportKind, string> = { validation: 'Validation', postvalidation: 'Postvalidation', preprocessing: 'Preprocessing', repair: 'Repair' }
+const KIND_LABELS: Record<ReportKind, string> = { validation: 'Validation', postvalidation: 'Postvalidation', preprocessing: 'Prepare images', repair: 'Repair' }
 
 const formatDate = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -34,7 +34,7 @@ export default function ReportsList() {
   return (
     <div className="py-3">
       <p className="text-zinc-500 dark:text-zinc-400 mb-5 text-sm">
-        Every validation, postvalidation, preprocessing and repair leaves a report of what was checked and done, image by image. Look at one again, download it
+        Every validation, postvalidation, image preparation and repair leaves a report of what was checked and done, image by image. Look at one again, download it
         (a CSV opens in a spreadsheet; the JSON has everything), or delete the ones you no longer need.
       </p>
       {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}

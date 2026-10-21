@@ -237,7 +237,7 @@ function TripCards({ onFixDates, onProcess, initial }: TripProps) {
                 <ul className="list-disc pl-5 text-amber-900/90 dark:text-amber-200/90">{dateCheck.problems.map((p) => <li key={p}>{p}</li>)}</ul>
                 {onFixDates && (
                   <button type="button" className={`${btnOutline} mt-2`} onClick={() => onFixDates({ researchProjectId: projectId, collection, deploymentId: dateCheck.deploymentId })}>
-                    Fix dates and times of {dateCheck.deploymentId}
+                    Check and fix dates and times of {dateCheck.deploymentId}
                   </button>
                 )}
               </div>
@@ -378,11 +378,11 @@ function TripCards({ onFixDates, onProcess, initial }: TripProps) {
             </section>
           )}
 
-          <NextStep n={allDone ? 4 : 3} title={allDone ? 'Process collection' : 'Fix dates and times (only if needed)'}
+          <NextStep n={3} title="Process collection"
                     onGo={allDone ? (onProcess && (() => onProcess({ researchProjectId: projectId, collection: status.collection, folder: status.cards_dir }))) : undefined}>
             {allDone
               ? 'Every collected card is copied. Process the cards folder to check the images and prepare the deployments for Trapper.'
-              : `Copy the ${status.counts.to_copy} card(s) left. If a card\u2019s dates look wrong, fix them from the warning; then process the collection.`}
+              : `Copy the ${status.counts.to_copy} card(s) left first. If a card\u2019s dates look wrong, check and fix them from the warning, then come back here.`}
           </NextStep>
         </>
       )}

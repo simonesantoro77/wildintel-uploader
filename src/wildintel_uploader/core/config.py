@@ -126,7 +126,7 @@ class ValidationSettings(BaseModel):
     sequence: bool = Field(default=True, description="Shooting order vs. filename sequence. (VALIDATION.sequence)")
     structure: bool = Field(default=True, description="Folder structure (subdirectories). (VALIDATION.structure)")
     camera: bool = Field(default=True, description="Same camera (model and id) on every image. (VALIDATION.camera)")
-    exif: bool = Field(default=True, description="Required EXIF fields (capture date, camera model and id). (VALIDATION.exif)")
+    exif: bool = Field(default=True, description="Required EXIF fields (capture date and camera model; the camera id comes from the field records). (VALIDATION.exif)")
     duplicates: bool = Field(default=True, description="Duplicate images (same content). (VALIDATION.duplicates)")
 
 
@@ -242,7 +242,7 @@ class IngestSettings(BaseModel):
 
     keep_cards: Literal["until_verified", "always", "until_imported"] = Field(
         default="until_verified",
-        description="How long the untouched copy of each card is kept: until its deployment is uploaded and verified in Trapper, always, or until it is imported into its collection. (INGEST.keep_cards)",
+        description="Not used any more: no second copy of a card is kept when its dates are fixed. Kept so older settings files still load. (INGEST.keep_cards)",
     )
     count_tolerance: float = Field(
         default=10.0, ge=0, le=1000,

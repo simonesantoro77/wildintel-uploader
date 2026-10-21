@@ -40,14 +40,22 @@ const STEPS: { key: StepKey; label: string }[] = [
 /** The deployment checks Process collection runs: not the camera's, as the camera id comes from the field records. */
 const FIELD_DEPLOYMENT_CHECKS = ALL_DEPLOYMENT_CHECKS.filter((c) => c !== 'camera')
 
-/** The details of a deployment the field records give: who set it up, the camera, its tags and notes — only where
- * nothing was typed yet. */
+/** The details of a deployment the field records give: who set it up, the camera, its tags and notes, and the other
+ * Camtrap DP fields noted in the field — only where nothing was typed yet. */
 export function withFieldDetails(fields: DeploymentFields, detail: FieldDetail | undefined): DeploymentFields {
   if (!detail) return fields
+  const pick = <T,>(typed: T | null | undefined, field: T | null | undefined): T | null => (typed ?? null) !== null && typed !== '' ? typed as T : field ?? null
   return {
     ...fields,
     setup_by: fields.setup_by || detail.setup_by, camera_id: fields.camera_id || detail.camera_id,
     comments: fields.comments || detail.comments, tags: fields.tags.length ? fields.tags : detail.tags,
+    camera_model: pick(fields.camera_model, detail.camera_model), camera_interval: pick(fields.camera_interval, detail.camera_interval),
+    camera_height: pick(fields.camera_height, detail.camera_height), camera_depth: pick(fields.camera_depth, detail.camera_depth),
+    camera_tilt: pick(fields.camera_tilt, detail.camera_tilt), camera_heading: pick(fields.camera_heading, detail.camera_heading),
+    detection_distance: pick(fields.detection_distance, detail.detection_distance),
+    timestamp_issues: pick(fields.timestamp_issues, detail.timestamp_issues), bait_use: pick(fields.bait_use, detail.bait_use),
+    feature_type: pick(fields.feature_type, detail.feature_type), habitat: pick(fields.habitat, detail.habitat),
+    deployment_groups: pick(fields.deployment_groups, detail.deployment_groups),
   }
 }
 
@@ -94,9 +102,9 @@ interface Props {
   onOpenSettings?: (section?: 'epicollect') => void
   /** Whether the settings are open over the wizard: what they hold is read again once they close. */
   settingsOpen?: boolean
-  /** Opens Fix dates and times on a deployment whose dates a check found wrong. */
+  /** Opens Check and fix dates and times on a deployment whose dates a check found wrong. */
   onFixDates?: (target: TimeFixTarget) => void
-  /** The collection's cards folder to open on, when it is reached from Copy SD cards or Fix dates and times. */
+  /** The collection's cards folder to open on, when it is reached from Copy SD cards or Check and fix dates and times. */
   initial?: ProcessTarget
 }
 
@@ -188,7 +196,6 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
   const [locFilter, setLocFilter] = useState('')
   const [locTab, setLocTab] = useState<'all' | 'missing' | 'ready'>('all')
   // The folders ticked in the table of locations: "Assign" then only touches those.
-  const [locSelected, setLocSelected] = useState<Set<string>>(new Set())
   const [addingLocation, setAddingLocation] = useState(false)
   const [locationDraft, setLocationDraft] = useState(EMPTY_LOCATION_DRAFT)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -454,7 +461,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
   const onPickLocation = useCallback((name: string, id: string) => pickRef.current(name, id), [])
 
   // What the banner assigns: the suggestions of the folders ticked, or all of them when none is.
-  const suggestedNow = locSelected.size > 0 ? suggested.filter((x) => locSelected.has(x.name)) : suggested
+  const suggestedNow = suggested
   const shownLocations = chosen.filter((d) => d.name.toLowerCase().includes(locFilter.trim().toLowerCase())
     && (locTab === 'all' || (locTab === 'ready') === Boolean(drafts[d.name]?.fields.location_id)))
 
@@ -1025,15 +1032,15 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                   <input aria-label="Filter by name" className={`${inputClass} !w-56`} placeholder="Filter by name…" value={locFilter} onChange={(e) => setLocFilter(e.target.value)} />
                 </div>
               </div>
+              <p className="mb-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <strong>Check that each folder has the right location.</strong> They are matched automatically, from the folder&rsquo;s name or the field records;
+                if one is wrong, pick the right location in its row, or add it if it is missing.
+              </p>
               <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <table className="w-full text-sm">
                   <thead className="bg-zinc-50 dark:bg-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 sticky top-0 z-10">
                     <tr>
-                      <th scope="col" className="w-10 pl-4 py-2.5 text-left">
-                        <input type="checkbox" aria-label="Select all folders" checked={shownLocations.length > 0 && shownLocations.every((d) => locSelected.has(d.name))}
-                               onChange={(e) => setLocSelected(e.target.checked ? new Set(shownLocations.map((d) => d.name)) : new Set())} />
-                      </th>
-                      <th scope="col" className="px-3 py-2.5 text-left">Folder</th>
+                      <th scope="col" className="pl-4 pr-3 py-2.5 text-left">Folder</th>
                       <th scope="col" className="px-3 py-2.5 text-left">Location</th>
                       <th scope="col" className="px-4 py-2.5 text-right">Status</th>
                     </tr>
@@ -1046,8 +1053,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                       return (
                         <Fragment key={d.name}>
                           <tr>
-                            <td className="pl-4 py-3 align-top"><input type="checkbox" aria-label={`Select ${d.name}`} checked={locSelected.has(d.name)} onChange={() => setLocSelected((set) => toggled(set, d.name))} /></td>
-                            <td className="px-3 py-3 align-top">
+                            <td className="pl-4 pr-3 py-3 align-top">
                               <span className="block font-mono font-semibold text-zinc-900 dark:text-zinc-100">{d.name}</span>
                               <span className="block text-xs text-zinc-500 dark:text-zinc-400">{plural(d.image_count, 'image', 'images')}</span>
                               {entry?.locationFrom && (
@@ -1095,7 +1101,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                             </td>
                           </tr>
                           {addingLocation && activeName === d.name && (
-                            <tr><td /><td colSpan={3} className="px-3 pb-4">
+                            <tr><td colSpan={3} className="px-4 pb-4">
                 
       <div className="mt-4 p-4 rounded border border-zinc-200 dark:border-zinc-700">
         <h6 className="text-sm font-semibold mb-3">New location</h6>
@@ -1121,7 +1127,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                         </Fragment>
                       )
                     })}
-                    {shownLocations.length === 0 && <tr><td colSpan={4} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No folder matches.</td></tr>}
+                    {shownLocations.length === 0 && <tr><td colSpan={3} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No folder matches.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -1514,7 +1520,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
-            <WizardStep n={1} title="Preprocessing steps" status={status1} canEdit={false} onEdit={() => {}}
+            <WizardStep n={1} title="Prepare images" status={status1} canEdit={false} onEdit={() => {}}
                         description={`Choose what to do to the images of every deployment as they are imported. Your originals are never touched. ${describePreprocessing(effectiveSteps)}.`}
                         summary={describePreprocessing(effectiveSteps)}>
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
@@ -1544,7 +1550,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Each optional step can be switched off for this run; its values come from Settings › Preprocessing.</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Each optional step can be switched off for this run; its values come from Settings › Prepare images.</p>
               <div className="flex justify-end mt-4">
                 <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={importing || pending.length === 0} onClick={handleImport}>
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M6 4l14 8-14 8z" /></svg>
@@ -1553,7 +1559,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
               </div>
             </WizardStep>
 
-            <WizardStep n={2} title="Preprocessing results" status={allDone ? 'done' : importing ? 'running' : started ? 'open' : 'locked'} canEdit={false} onEdit={() => {}} expanded={allDone}
+            <WizardStep n={2} title="Prepared images" status={allDone ? 'done' : importing ? 'running' : started ? 'open' : 'locked'} canEdit={false} onEdit={() => {}} expanded={allDone}
                         badge={importing ? 'Importing…' : undefined}
                         description="How each deployment went: its images are copied, renamed, resized and tagged into its folder in the revision’s collection."
                         action={!importing && failures > 0 ? <button type="button" className={`${btnPrimary} flex items-center gap-2`} onClick={handleImport}>{`Process the ${pending.length} left`}</button> : undefined}>
@@ -1605,7 +1611,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
               )}
             </WizardStep>
             {allDone && projectId && revisionValid && (
-              <NextStep n={5} title="Upload to Trapper" onGo={onUpload && (() => onUpload({ researchProjectId: projectId, collection: revisionName }))}>
+              <NextStep n={4} title="Upload to Trapper" onGo={onUpload && (() => onUpload({ researchProjectId: projectId, collection: revisionName }))}>
                 The deployments of {revisionName} are ready: upload them to Trapper.
               </NextStep>
             )}

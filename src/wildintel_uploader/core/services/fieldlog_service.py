@@ -16,7 +16,12 @@ And writes, in the collection's folder (<collections folder>/<research project>/
   * <R000N>_FileTimestampLog.csv — each closed deployment's start and end, the row of each replaced and the others
     kept (local_folder_service.upsert_timestamp_log), as the processing reads it;
   * <R000N>_FieldworkLog.csv — every deployment of the collection, closed or open, with its fields named as Camtrap DP
-    names them (deploymentID, setupBy, cameraID, deploymentComments…) and what the field trip says of its card.
+    names them (deploymentID, setupBy, cameraID, deploymentComments, and cameraModel, cameraHeight, baitUse, habitat…
+    when the field survey has them) and what the field trip says of its card.
+
+When the setup visit and the retrieval visit say something different of a field, both are kept: a text as
+"Setup: … | Retrieval: …", the tags and groups of both together, and a number, a yes/no or a feature type (which must
+be one value in Camtrap DP) as the setup visit says it, with the retrieval's value noted in deploymentComments.
 
 Every time is UTC: the time of a visit is when its Epicollect entry was created.
 """
@@ -35,8 +40,20 @@ from wildintel_uploader.core.services.fieldlog import engine
 logger = logging.getLogger(__name__)
 
 FIELDWORK_LOG_SUFFIX = "_FieldworkLog.csv"
+# The Camtrap DP fields a visit may bring besides setupBy, cameraID and the notes (engine.EXTRA_FIELDS): the kind of
+# value each one is, and its limits.
+FEATURE_TYPES = ("roadPaved", "roadDirt", "trailHiking", "trailGame", "roadUnderpass", "roadOverpass", "roadBridge",
+                 "culvert", "burrow", "nestSite", "carcass", "waterSource", "fruitingTree")
+EXTRA_KINDS: dict[str, tuple] = {
+    "cameraModel": ("single",), "cameraDelay": ("int", 0, None), "cameraHeight": ("float", 0, None),
+    "cameraDepth": ("float", 0, None), "cameraTilt": ("int", -90, 90), "cameraHeading": ("int", 0, 360),
+    "detectionDistance": ("float", 0, None), "timestampIssues": ("bool",), "baitUse": ("bool",),
+    "featureType": ("enum",), "habitat": ("text",), "deploymentGroups": ("list",), "deploymentTags": ("list",),
+}
+assert list(EXTRA_KINDS) == engine.EXTRA_FIELDS
 FIELDWORK_LOG_FIELDS = [
-    "deploymentID", "locationID", "deploymentStart", "deploymentEnd", "setupBy", "cameraID", "deploymentTags",
+    "deploymentID", "locationID", "deploymentStart", "deploymentEnd", "setupBy", "cameraID",
+    *[f for f in engine.EXTRA_FIELDS if f != "deploymentTags"], "deploymentTags",
     "deploymentComments", "status", "collection", "cardSD", "photosCounted", "startSession", "startAction",
     "endSession", "endAction",
 ]
@@ -46,6 +63,7 @@ COLUMN_FIELDS: list[tuple[str, str, str]] = [
     (engine.EPI_CREATED, engine.EPI_CREATED, "Time of the entry (UTC)"),
     (engine.EPI_DATE, engine.EPI_DATE, "Date typed"),
     (engine.EPI_HOUR, engine.EPI_HOUR, "Hour typed"),
+    *((field, field, f"{field} (Camtrap DP, optional)") for field in engine.EXTRA_FIELDS),
 ]
 
 
@@ -66,14 +84,101 @@ def _iso(when: dt.datetime | None) -> str:
     return when.strftime("%Y-%m-%dT%H:%M:%SZ") if when else ""
 
 
-def _comments(start: dict, end: dict | None) -> str:
-    """What both visits noted: "Start: …" and "End: …", each only when it says something."""
+def _comments(start: dict, end: dict | None, retrieval_notes: list[str] | None = None) -> str:
+    """What both visits noted: "Setup: …" and "Retrieval: …", each only when it says something — the retrieval's with
+    the values of its fields that could not be kept beside the setup's."""
     parts = []
     if start.get("notes"):
-        parts.append(f"Start: {start['notes']}")
-    if end and end.get("notes"):
-        parts.append(f"End: {end['notes']}")
+        parts.append(f"Setup: {start['notes']}")
+    retrieval = [n for n in [end.get("notes") if end else None, *(retrieval_notes or [])] if n]
+    if retrieval:
+        parts.append(f"Retrieval: {'; '.join(retrieval)}")
     return " | ".join(parts)
+
+
+def _both(setup, retrieval) -> str | None:
+    """A text both visits give: one value when they agree or only one gives it, else "Setup: … | Retrieval: …"."""
+    setup, retrieval = (str(v).strip() if v not in (None, "") else None for v in (setup, retrieval))
+    if not setup or not retrieval or setup.lower() == retrieval.lower():
+        return setup or retrieval
+    return f"Setup: {setup} | Retrieval: {retrieval}"
+
+
+_TRUE = {"true", "yes", "y", "si", "sí", "s", "1", "verdadero", "x"}
+_FALSE = {"false", "no", "n", "0", "falso"}
+
+
+def _parse_extra(field: str, raw) -> tuple[object, str | None]:
+    """A field's value as Camtrap DP has it — a number, a yes/no, one of the feature types, a text or a list — or None
+    with why it can't be one."""
+    if raw in (None, ""):
+        return None, None
+    text = str(raw).strip()
+    kind = EXTRA_KINDS[field]
+    if kind[0] in ("int", "float"):
+        try:
+            number = float(text.replace(",", "."))
+        except ValueError:
+            return None, f"{field} '{text}' is not a number"
+        if kind[0] == "int":
+            if not number.is_integer():
+                return None, f"{field} '{text}' is not a whole number"
+            number = int(number)
+        lo, hi = kind[1], kind[2]
+        if (lo is not None and number < lo) or (hi is not None and number > hi):
+            limits = f"{lo} to {hi}" if hi is not None else f"{lo} or more"
+            return None, f"{field} {text} is out of its range ({limits})"
+        return number, None
+    if kind[0] == "bool":
+        low = text.lower()
+        if low in _TRUE:
+            return True, None
+        if low in _FALSE:
+            return False, None
+        return None, f"{field} '{text}' is not yes or no"
+    if kind[0] == "enum":
+        match = next((t for t in FEATURE_TYPES if t.lower() == text.replace(" ", "").lower()), None)
+        return (match, None) if match else (None, f"{field} '{text}' is not one of {', '.join(FEATURE_TYPES)}")
+    if kind[0] == "list":
+        return [t.strip() for t in text.replace(";", "|").replace(",", "|").split("|") if t.strip()], None
+    return text, None
+
+
+def _extras(start: dict, end: dict | None) -> tuple[dict, list[str], list[str]]:
+    """The Camtrap DP fields of a deployment from its setup and retrieval visits: {field: value}, the notes of the
+    retrieval's values that could not be kept, and what could not be read."""
+    out: dict[str, object] = {}
+    retrieval_notes: list[str] = []
+    problems: list[str] = []
+    for field, kind in EXTRA_KINDS.items():
+        values = []
+        for visit in (start, end):
+            value, problem = _parse_extra(field, ((visit or {}).get("extra") or {}).get(field))
+            if problem:
+                problems.append(f"{visit['session']} {visit['site']}: {problem}; left out")
+            values.append(value)
+        setup, retrieval = values
+        if kind[0] == "list":
+            joined = list(dict.fromkeys([*(setup or []), *(retrieval or [])]))
+            if joined:
+                out[field] = " | ".join(joined)
+        elif kind[0] == "text":
+            value = _both(setup, retrieval)
+            if value:
+                out[field] = value
+        else:
+            value = setup if setup is not None else retrieval
+            if value is not None:
+                out[field] = value
+            if setup is not None and retrieval is not None and str(setup).lower() != str(retrieval).lower():
+                retrieval_notes.append(f"{field} {_shown(retrieval)} (setup {_shown(setup)})")
+    return out, retrieval_notes, problems
+
+
+def _shown(value) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return str(value)
 
 
 def _number(value) -> int | None:
@@ -97,8 +202,9 @@ def _visit(v: dict | None) -> dict | None:
 
 def _deployment(collection: int, site: str, start: dict, end: dict | None, keep_seconds: bool) -> dict:
     """A deployment as the page shows it and the FieldworkLog keeps it. The camera and the card are the ones the start
-    visit left there; the photos counted are the end visit's."""
+    visit left there; the photos counted are the end visit's; who set it up and the other fields, both visits'."""
     trim = (lambda d: d) if keep_seconds else (lambda d: d.replace(second=0))
+    fields, retrieval_notes, problems = _extras(start, end)
     return {
         "deployment_id": deployment_id(collection, site),
         "collection": engine.session_name(collection),
@@ -106,11 +212,13 @@ def _deployment(collection: int, site: str, start: dict, end: dict | None, keep_
         "status": "closed" if end else "open",
         "start": _iso(trim(start["when"])),
         "end": _iso(trim(end["when"])) if end else None,
-        "setup_by": start.get("trappers"),
+        "setup_by": _both(start.get("trappers"), end.get("trappers") if end else None),
         "camera_id": None if start.get("cam") is None else str(start["cam"]),
         "card": start.get("sd"),
         "photos_counted": _number(end.get("nphotos")) if end else None,
-        "comments": _comments(start, end),
+        "comments": _comments(start, end, retrieval_notes),
+        "fields": fields,
+        "field_problems": problems,
         "start_visit": _visit(start),
         "end_visit": _visit(end),
     }
@@ -243,7 +351,7 @@ def _checks(prep: dict, locations: list[dict] | None) -> dict:
 def _work(epicollect: str, datasheet: str, research_project_id: str | None, settings: config.Settings | None) -> tuple[dict, dict]:
     settings = settings or config.load_settings()
     options = settings.FIELDLOG
-    for label, path in (("field data download", epicollect), ("fieldwork datasheet", datasheet)):
+    for label, path in (("field survey (from App)", epicollect), ("field history", datasheet)):
         if not path or not Path(path).expanduser().is_file():
             raise FieldlogError(f"The {label} is not a file: {path or '(none chosen)'}")
     try:
@@ -269,6 +377,8 @@ def _work(epicollect: str, datasheet: str, research_project_id: str | None, sett
         )
     for line in checks["shared"]:
         prep["report"].warn(line)
+    for problem in dict.fromkeys(p for d in closed + open_ for p in d["field_problems"]):
+        prep["report"].warn(problem)
     lines = prep["report"].lines
     result = {
         "datasheet": os.path.basename(datasheet),
@@ -295,6 +405,15 @@ def analyze(epicollect: str, datasheet: str, research_project_id: str | None = N
     return _work(epicollect, datasheet, research_project_id, settings)[1]
 
 
+def _cell(value) -> str:
+    """A field's value as the FieldworkLog writes it: Camtrap DP's true/false for a yes/no."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
 def _write_fieldwork_log(collection_dir: Path, deployments: list[dict]) -> Path:
     path = collection_dir / f"{collection_dir.name}{FIELDWORK_LOG_SUFFIX}"
     with path.open("w", newline="", encoding="utf-8-sig") as f:
@@ -305,7 +424,8 @@ def _write_fieldwork_log(collection_dir: Path, deployments: list[dict]) -> Path:
             writer.writerow({
                 "deploymentID": d["deployment_id"], "locationID": d["site"], "deploymentStart": d["start"],
                 "deploymentEnd": d["end"] or "", "setupBy": d["setup_by"] or "", "cameraID": d["camera_id"] or "",
-                "deploymentTags": "", "deploymentComments": d["comments"], "status": d["status"],
+                **{f: _cell(d["fields"].get(f)) for f in engine.EXTRA_FIELDS},
+                "deploymentComments": d["comments"], "status": d["status"],
                 "collection": d["collection"], "cardSD": d["card"] or "",
                 "photosCounted": "" if d["photos_counted"] is None else d["photos_counted"],
                 "startSession": start["session"], "startAction": start["action"],

@@ -77,11 +77,11 @@ def test_the_trip_closes_the_deployments_of_the_previous_collection(trip):
     assert closed["status"] == "closed"
     assert (closed["start"], closed["end"]) == ("2026-02-20T09:30:00Z", "2026-03-30T08:15:00Z")
     # The camera, the card and who set it up are the start visit's; a full card closes it all the same.
-    assert (closed["setup_by"], closed["camera_id"], closed["card"], closed["photos_counted"]) == ("Ben", "11", "1b", None)
-    assert closed["comments"] == "End: card full"
+    assert (closed["setup_by"], closed["camera_id"], closed["card"], closed["photos_counted"]) == ("Setup: Ben | Retrieval: Carla", "11", "1b", None)
+    assert closed["comments"] == "Retrieval: card full"
     # TATR_0002 is not visited yet: its camera is still out there.
     assert by_id["R0002-TATR_0002"]["status"] == "open"
-    assert by_id["R0002-TATR_0002"]["comments"] == "Start: tilted"
+    assert by_id["R0002-TATR_0002"]["comments"] == "Setup: tilted"
     assert by_id["R0003-TATR_0003"]["status"] == "open"
 
 
@@ -125,7 +125,7 @@ def test_applying_writes_the_datasheet_and_the_collection_files(trip):
     assert not (sheet.parent / "R0002_FileTimestampLog.csv").exists()  # the old eleven-column log is not written
     rows = fs.read_fieldwork_log(collection)
     assert [(r["deploymentID"], r["status"]) for r in rows] == [("R0002-TATR_0001", "closed"), ("R0002-TATR_0002", "open")]
-    assert rows[0]["setupBy"] == "Ben" and rows[0]["cameraID"] == "11" and rows[0]["deploymentEnd"] == "2026-03-30T08:15:00Z"
+    assert rows[0]["setupBy"] == "Setup: Ben | Retrieval: Carla" and rows[0]["cameraID"] == "11" and rows[0]["deploymentEnd"] == "2026-03-30T08:15:00Z"
 
 
 def test_applying_again_keeps_the_other_rows_of_the_timestamp_log(trip):
@@ -149,7 +149,7 @@ def test_a_research_project_is_needed_to_write(trip):
 
 def test_a_missing_input_is_an_error(trip, tmp_path):
     _, epi, _ = trip
-    with pytest.raises(fs.FieldlogError, match="datasheet"):
+    with pytest.raises(fs.FieldlogError, match="field history"):
         fs.analyze(str(epi), str(tmp_path / "missing.xlsx"))
 
 
@@ -181,7 +181,7 @@ def test_the_api_analyzes_and_applies(trip):
     assert applied.status_code == 200
     assert last["research_project_id"] == "TATRA" and last["datasheet"].endswith("R0001-R0003.xlsx")
     assert client.post("/api/fieldlog/analyze", json={**payload, "datasheet": "/nope.xlsx"}).status_code == 400
-    assert len(client.get("/api/fieldlog/columns").json()["results"]) == 16
+    assert len(client.get("/api/fieldlog/columns").json()["results"]) == 16 + len(fs.engine.EXTRA_FIELDS)
 
 
 def test_the_camera_timezone_must_be_a_timezone():
@@ -263,3 +263,77 @@ def test_an_installation_while_the_camera_before_was_not_collected_is_reported(t
     warnings = fs.analyze(str(epi), str(sheet), "TATRA")["warnings"]
 
     assert any("TATR_0002" in w and "not collected" in w for w in warnings)
+
+
+def _with_extra_columns(sheet: Path, epi: Path) -> None:
+    """The setup visits of R0002 with Camtrap DP fields in the field history, and the R0003 visits with them in the field
+    survey: TATR_0001's height and habitat noted otherwise when its card was collected."""
+    wb = openpyxl.load_workbook(sheet)
+    ws = wb.active
+    extra = ["cameraHeight", "habitat", "baitUse", "deploymentTags"]
+    for i, name in enumerate(extra, start=len(HEADERS) + 1):
+        ws.cell(1, i).value = name
+    ws.cell(4, len(HEADERS) + 1).value = 1.2  # R0002 TATR_0001
+    ws.cell(4, len(HEADERS) + 2).value = "forest"
+    ws.cell(4, len(HEADERS) + 3).value = "yes"
+    ws.cell(4, len(HEADERS) + 4).value = "edge"
+    wb.save(sheet)
+    rows = [row + extra_values for row, extra_values in zip(EPI_ROWS, [("1,5", "meadow", "si", "edge|wet"), ("abc", "", "", "")])]
+    with epi.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(EPI_HEADERS + extra)
+        writer.writerows(rows)
+
+
+def test_camtrap_fields_of_both_visits_are_kept_setup_first(trip):
+    _, epi, sheet = trip
+    _with_extra_columns(sheet, epi)
+
+    result = fs.analyze(str(epi), str(sheet), "TATRA")
+
+    closed = next(d for d in result["deployments"] if d["deployment_id"] == "R0002-TATR_0001")
+    assert closed["fields"] == {"cameraHeight": 1.2, "habitat": "Setup: forest | Retrieval: meadow", "baitUse": True,
+                                "deploymentTags": "edge | wet"}
+    assert closed["comments"] == "Retrieval: card full; cameraHeight 1.5 (setup 1.2)"
+    # A value that can't be a height is left out, and said.
+    assert any("R0003 TATR_0003: cameraHeight 'abc' is not a number" in w for w in result["warnings"])
+
+
+def test_camtrap_fields_reach_the_fieldwork_log_and_stay_in_the_field_history(trip):
+    root, epi, sheet = trip
+    _with_extra_columns(sheet, epi)
+
+    result = fs.apply(str(epi), str(sheet), "TATRA")
+
+    rows = fs.read_fieldwork_log(root / "TATRA" / "R0002")
+    first = next(r for r in rows if r["deploymentID"] == "R0002-TATR_0001")
+    assert (first["cameraHeight"], first["baitUse"], first["deploymentTags"]) == ("1.2", "true", "edge | wet")
+    updated = next(f for f in result["files"] if f.endswith("R0001-R0003.xlsx"))
+    ws = openpyxl.load_workbook(updated).active
+    heads = [c.value for c in ws[1]]
+    assert ws.cell(6, heads.index("habitat") + 1).value == "meadow"  # the R0003 visit of TATR_0001, kept for later trips
+
+
+def test_a_camtrap_column_the_field_history_lacks_is_added(trip, tmp_path):
+    _, _, sheet = trip
+    epi = tmp_path / "with-height.csv"
+    with epi.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(EPI_HEADERS + ["cameraHeight"])
+        writer.writerows(row + ("0.8",) for row in EPI_ROWS)
+
+    result = fs.apply(str(epi), str(sheet), "TATRA")
+
+    updated = next(f for f in result["files"] if f.endswith("R0001-R0003.xlsx"))
+    ws = openpyxl.load_workbook(updated).active
+    heads = [c.value for c in ws[1]]
+    assert "cameraHeight" in heads and ws.cell(7, heads.index("cameraHeight") + 1).value == "0.8"
+
+
+def test_the_sites_not_visited_are_a_note_not_a_warning(trip):
+    _, epi, sheet = trip
+
+    result = fs.analyze(str(epi), str(sheet), "TATRA")
+
+    assert not any("not in" in w and "visited" in w for w in result["warnings"])
+    assert any("their cameras still out: TATR_0002" in n for n in result["notes"])

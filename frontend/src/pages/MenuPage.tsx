@@ -2,11 +2,10 @@ import type { Task } from '../types'
 
 /** The steps of the workflow, in the order they are done after a field trip. */
 const STEPS: { n: number; task: Task; emoji: string; title: string; description: string; when?: string }[] = [
-  { n: 1, task: 'fieldlog', emoji: '📋', title: 'Field records', description: 'Add the field data download (from the field app) to the fieldwork datasheet, check it, and get each deployment’s start and end (UTC) for the collection.' },
-  { n: 2, task: 'cards', emoji: '💾', title: 'Copy SD cards', description: 'Each card matched to its deployment by the field records, copied untouched and checked, never twice. Also folders organized some other way.' },
-  { n: 3, task: 'timefix', emoji: '🕑', title: 'Fix dates and times', description: 'Shift a run of images whose camera clock went wrong, or remove the ones with no time to trust. Every fix written down; the card can be put back.', when: 'Only if needed' },
-  { n: 4, task: 'session', emoji: '🗂️', title: 'Process collection', description: 'The copied cards of a collection, one folder per deployment: checks, renaming, resizing and metadata, then kept in the collection.' },
-  { n: 5, task: 'upload', emoji: '☁️', title: 'Upload to Trapper', description: 'Send the deployments of a processed collection to Trapper — creating their location and the deployment there if they are missing.' },
+  { n: 1, task: 'fieldlog', emoji: '📋', title: 'Field records', description: 'Add the field survey (from the field app) to the field history, check it, and get each deployment’s start and end (UTC) for the collection.' },
+  { n: 2, task: 'cards', emoji: '💾', title: 'Copy SD cards', description: 'Each card matched to its deployment by the field records, copied untouched and checked. If a card’s dates and times look wrong, you are taken to check and fix them. Also folders organized some other way.' },
+  { n: 3, task: 'session', emoji: '🗂️', title: 'Process collection', description: 'The copied cards of a collection, one folder per deployment: checks and preparing the images (renaming, resizing and metadata), then kept in the collection.' },
+  { n: 4, task: 'upload', emoji: '☁️', title: 'Upload to Trapper', description: 'Send the deployments of a processed collection to Trapper — creating their location and the deployment there if they are missing.' },
 ]
 
 interface Props {
@@ -50,7 +49,7 @@ export default function MenuPage({ onChoose }: Props) {
       >
         <span className="text-lg">🧰</span>
         <strong>Utils</strong>
-        <span className="text-zinc-500 dark:text-zinc-400">: repair local deployments, sync local collections from Trapper</span>
+        <span className="text-zinc-500 dark:text-zinc-400">: check and fix dates and times, repair local deployments, sync local collections from Trapper</span>
       </button>
     </div>
   )

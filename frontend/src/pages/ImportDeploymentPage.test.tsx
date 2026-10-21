@@ -227,7 +227,7 @@ async function goToPostvalidation(revision = '1', fillDetails?: () => Promise<vo
 /** From the postvalidation → step "preprocessing" (the list of what is done to the images). */
 async function advanceToPreprocessing() {
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-  await screen.findByText('Preprocessing steps', { selector: 'h4' })
+  await screen.findByText('Prepare images', { selector: 'h4' })
 }
 
 /** Runs the preprocessing, and goes on when it is done. */
@@ -275,7 +275,7 @@ describe('ImportDeploymentPage', () => {
     expect(await screen.findByText('Check the details', { selector: 'h4' })).toBeInTheDocument() // straight from the details
 
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-    expect(await screen.findByText('Preprocessing steps', { selector: 'h4' })).toBeInTheDocument() // the list of what is done to the images
+    expect(await screen.findByText('Prepare images', { selector: 'h4' })).toBeInTheDocument() // the list of what is done to the images
 
     await runPreprocessingAndContinue()
     expect(await screen.findByText('Save to your collection', { selector: 'h4' })).toBeInTheDocument()
@@ -975,7 +975,7 @@ describe('ImportDeploymentPage', () => {
     })
 
     describe('the EXIF fields the wizard needs', () => {
-      const COMPLETE = { date: { count: 0, examples: [] }, camera_model: { count: 0, examples: [] }, camera_id: { count: 0, examples: [] } }
+      const COMPLETE = { date: { count: 0, examples: [] }, camera_model: { count: 0, examples: [] } }
 
       it('is one of the checks, on by default (it warns)', async () => {
         await goToValidateStep()
@@ -983,12 +983,12 @@ describe('ImportDeploymentPage', () => {
         expect(strictness('Required photo data', 'Warn')).toBeChecked()
       })
 
-      it('passes when every image has its capture date, camera model and camera id', async () => {
+      it('passes when every image has its capture date and camera model', async () => {
         mockedApi.validateImages.mockResolvedValue({ checked_count: 3, exif_missing: COMPLETE })
         await goToValidateStep()
         await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-        expect(await screen.findByText('✔ Every image has its capture date, camera model and camera id.')).toBeInTheDocument()
+        expect(await screen.findByText('✔ Every image has its capture date and camera model.')).toBeInTheDocument()
       })
 
       it('says how many images lack each field, with examples, and leaves out the fields nobody lacks', async () => {
@@ -997,14 +997,12 @@ describe('ImportDeploymentPage', () => {
           exif_missing: {
             date: { count: 0, examples: [] },
             camera_model: { count: 2, examples: ['a.jpg', 'b.jpg'] },
-            camera_id: { count: 10, examples: ['a.jpg', 'b.jpg', 'c.jpg'] },
           },
         })
         await goToValidateStep()
         await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
         expect(await screen.findByText(/2 image\(s\) without a camera model, e\.g\. a\.jpg, b\.jpg/)).toBeInTheDocument()
-        expect(screen.getByText(/10 image\(s\) without a camera id, e\.g\. a\.jpg, b\.jpg, c\.jpg/)).toBeInTheDocument()
         expect(screen.queryByText(/without a capture date/)).not.toBeInTheDocument()
       })
 
@@ -1805,7 +1803,7 @@ describe('ImportDeploymentPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await screen.findByText('Preprocessing steps', { selector: 'h4' })
+      await screen.findByText('Prepare images', { selector: 'h4' })
 
       expect(screen.getByRole('checkbox', { name: 'Rename the images' })).not.toBeChecked()
     })
@@ -1851,15 +1849,15 @@ describe('ImportDeploymentPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await screen.findByText('Preprocessing steps', { selector: 'h4' })
+      await screen.findByText('Prepare images', { selector: 'h4' })
       expect(screen.getByRole('button', { name: 'Save deployment' })).toBeDisabled() // what it did may be stale now
     })
 
-    it('has Preprocessing steps to choose what to do and Preprocessing results for how it went, with Prepare again in its header', async () => {
+    it('has Prepare images to choose what to do and Prepared images for how it went, with Prepare again in its header', async () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
-      expect(screen.getByText('Preprocessing steps', { selector: 'h4' })).toBeInTheDocument()
-      expect(screen.getByText('Preprocessing results', { selector: 'h4' })).toBeInTheDocument()
+      expect(screen.getByText('Prepare images', { selector: 'h4' })).toBeInTheDocument()
+      expect(screen.getByText('Prepared images', { selector: 'h4' })).toBeInTheDocument()
       expect(screen.getAllByRole('button', { name: 'Back' })).toHaveLength(1) // the one at the bottom, until it has run
 
       await userEvent.click(screen.getByRole('button', { name: 'Start preparing' }))
@@ -1867,7 +1865,7 @@ describe('ImportDeploymentPage', () => {
 
       expect(screen.getAllByRole('button', { name: 'Back' })).toHaveLength(1) // now beside Continue, and Prepare again is in the step's header
       expect(screen.getByRole('button', { name: 'Back' }).parentElement).toContainElement(screen.getByRole('button', { name: 'Continue to save' }))
-      expect(screen.getByRole('button', { name: 'Prepare again' }).closest('section')).toContainElement(screen.getByText(/Preprocessing results/, { selector: 'h4' }))
+      expect(screen.getByRole('button', { name: 'Prepare again' }).closest('section')).toContainElement(screen.getByText(/Prepared images/, { selector: 'h4' }))
     })
 
     it('does not list every image as it goes', async () => {

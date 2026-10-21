@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import FieldLogPage, { utc } from './FieldLogPage'
@@ -46,13 +46,19 @@ beforeEach(() => {
 async function checked() {
   render(<FieldLogPage />)
   await screen.findByDisplayValue('/data/TatraFieldSheet_R0001-R0002.xlsx')
+  await userEvent.click(await screen.findByLabelText('Research project'))
+  await userEvent.click(await screen.findByRole('option', { name: 'TATRA — Tatra (only here)' }))
   await userEvent.click(screen.getAllByRole('button', { name: 'Browse…' })[0])
   await screen.findByDisplayValue('/data/form-backup.csv')
   await userEvent.click(screen.getByRole('button', { name: 'Check the field records' }))
 }
 
 describe('FieldLogPage', () => {
-  it('starts from the datasheet and the research project used last, and checks the trip', async () => {
+  it('starts from the field history used last, but asks for the research project, and checks the trip', async () => {
+    render(<FieldLogPage />)
+    await screen.findByDisplayValue('/data/TatraFieldSheet_R0001-R0002.xlsx')
+    expect(screen.getByLabelText('Research project')).toHaveValue('') // not filled in from last time: it has to be chosen
+    cleanup()
     await checked()
 
     expect(mockedApi.fieldlogAnalyze).toHaveBeenCalledWith('/data/form-backup.csv', '/data/TatraFieldSheet_R0001-R0002.xlsx', 'TATRA')
@@ -68,6 +74,14 @@ describe('FieldLogPage', () => {
     const alert = await screen.findByText(/1 site is not among the locations of TATRA/)
     expect(within(alert.parentElement!).getByText('TATR_0003')).toBeInTheDocument()
     expect(screen.getByText('R0003: camera 11 is at 2 sites (TATR_0001, TATR_0003).')).toBeInTheDocument()
+  })
+
+  it('lists the deployments still open apart from what is to look at', async () => {
+    await checked()
+
+    const open = await screen.findByLabelText('Still open')
+    expect(within(open).getByText('Still open (1)')).toBeInTheDocument()
+    expect(within(open).getByText('TATR_0002')).toBeInTheDocument()
   })
 
   it('filters the deployments by whether their card was collected', async () => {

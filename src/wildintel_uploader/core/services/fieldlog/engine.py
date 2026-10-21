@@ -45,6 +45,12 @@ EPI_TO_SHEET = collections.OrderedDict([
     ('Longitude',       'long_13_Coordenates'),
     ('Latitude',        'lat_13_Coordenates'),
 ])
+# Camtrap DP fields of a deployment the field app may also ask for (setupBy, cameraID and deploymentComments come from
+# Trappers, Camera and Notes). Each is read from the column of its own name, or the one the settings map it to, when the
+# field survey has it; kept in the field history under the same name, so that a later trip still has it.
+EXTRA_FIELDS = ['cameraModel', 'cameraDelay', 'cameraHeight', 'cameraDepth', 'cameraTilt', 'cameraHeading',
+                'detectionDistance', 'timestampIssues', 'baitUse', 'featureType', 'habitat', 'deploymentGroups',
+                'deploymentTags']
 EPI_CREATED = 'created_at'      # UTC timestamp of the entry: gives Date and Time of the visit (as in R0012 and R0013)
 EPI_DATE = '3_Date'             # typed date, only used as a cross check
 EPI_HOUR = '14_Hour'            # local hour, only used with -timesource hour
@@ -230,6 +236,11 @@ def read_epicollect(path, report, overrides=None):
             missing.append(extra)
         cols[extra] = found
     cols[EPI_HOUR] = find_column(headers, overrides.get(EPI_HOUR, EPI_HOUR))
+    for field in EXTRA_FIELDS:
+        cols[field] = find_column(headers, overrides.get(field, field))
+    found_extra = [f for f in EXTRA_FIELDS if cols[f]]
+    if found_extra:
+        report.info('Camtrap DP fields in the field survey: %s' % ', '.join(found_extra))
     if missing:
         raise FieldlogError('The Epicollect file does not have these columns: %s. '
                          'Columns found: %s. '
@@ -360,7 +371,8 @@ def read_sheet_visits(ws, colidx, report):
                            action=str(g('Action') or '').strip(), nphotos=np_,
                            status=str(g('Status') or '').strip(), trappers=_text(g('Trappers')),
                            sd=_text(g('SD')), notes=_text(g('Notes')),
-                           lat=to_float(g('Latitude')), lon=to_float(g('Longitude'))))
+                           lat=to_float(g('Latitude')), lon=to_float(g('Longitude')),
+                           extra={f: _text(g(f)) for f in EXTRA_FIELDS if f in colidx}))
     return visits
 
 
@@ -405,7 +417,8 @@ def epicollect_to_rows(epi_rows, cols, prefix, time_source, report):
             when=when, Site=site, Camera=to_int(get('Camera')), Action=get('Action') or None,
             Status=get('Status') or None, CardBatteriesOK=get('CardBatteriesOK') or None,
             NumPhotos=to_int(get('NumPhotos')), SD=get('SD') or None, DateTimeOK=get('DateTimeOK') or None,
-            Notes=get('Notes') or None, Longitude=to_float(get('Longitude')), Latitude=to_float(get('Latitude'))))
+            Notes=get('Notes') or None, Longitude=to_float(get('Longitude')), Latitude=to_float(get('Latitude')),
+            extra={f: (r.get(cols[f]) or '').strip() or None for f in EXTRA_FIELDS if cols.get(f)}))
     if legacy:
         report.info('Epicollect entries without collection number or location (old form versions), ignored: %d' % legacy)
     return out
@@ -444,7 +457,7 @@ def new_to_visits(new):
     return [dict(row=None, site=r['Site'], session=r['Session'], snum=r['snum'], cam=r['Camera'],
                  when=r['when'], action=(r['Action'] or ''), nphotos=r['NumPhotos'],
                  status=(r['Status'] or ''), trappers=r['Trappers'], sd=r['SD'], notes=r['Notes'],
-                 lat=r['Latitude'], lon=r['Longitude'], new=True) for r in new]
+                 lat=r['Latitude'], lon=r['Longitude'], extra=dict(r.get('extra') or {}), new=True) for r in new]
 
 
 def _text(v):
@@ -470,8 +483,10 @@ def check_history(visits, check_sessions, report):
         prev = set(v['site'] for v in visits if v['snum'] == s - 1)
         miss = sorted(prev - set(v['site'] for v in cur))
         if miss:
-            report.warn('%s: sites visited in %s but not in %s: %s' % (session_name(s), session_name(s - 1),
-                                                                      session_name(s), ', '.join(miss)))
+            # Not a problem: a camera left on the trip before and not visited on this one is still out, its deployment
+            # open until a later trip collects its card (the page lists the open deployments).
+            report.info('%s: sites visited in %s and not on this trip, their cameras still out: %s'
+                        % (session_name(s), session_name(s - 1), ', '.join(miss)))
         cnt = collections.Counter((v['site'], v['action'].lower()) for v in cur)
         for (site, act), n in sorted(cnt.items()):
             if n > 1 and act == 'revision':
@@ -578,7 +593,26 @@ def last_data_row(ws, colidx):
     return last
 
 
+def extra_columns(ws, colidx, new):
+    """The Camtrap DP fields the new rows bring that the datasheet has no column for yet: added at the end of row 1,
+    named as Camtrap DP names them, so that the field history keeps them for the trips to come."""
+    present = {f for row in new for f, v in (row.get('extra') or {}).items() if v not in (None, '')}
+    heads = sheet_headers(ws)
+    for field in EXTRA_FIELDS:
+        if field in colidx or field not in present:
+            continue
+        if field in heads:
+            colidx[field] = heads.index(field) + 1
+            continue
+        col = max(len(heads), max(colidx.values())) + 1
+        ws.cell(1, col).value = field
+        ws.cell(1, col)._style = copy(ws.cell(1, col - 1)._style)
+        heads = sheet_headers(ws)
+        colidx[field] = col
+
+
 def append_rows(ws, colidx, new):
+    extra_columns(ws, colidx, new)
     last = last_data_row(ws, colidx)
     ncols = max(colidx.values())
     for k, row in enumerate(new, start=1):
@@ -592,6 +626,9 @@ def append_rows(ws, colidx, new):
         for name in ('Trappers', 'Session', 'Site', 'Camera', 'Action', 'Status', 'CardBatteriesOK',
                      'NumPhotos', 'SD', 'DateTimeOK', 'Notes', 'Longitude', 'Latitude'):
             put(name, row[name])
+        for field, value in (row.get('extra') or {}).items():
+            if field in colidx and value not in (None, ''):
+                put(field, value)
         put('Date', dt.datetime.combine(row['when'].date(), dt.time(0, 0)))
         put('Time', row['when'].time())
         ws.cell(r, colidx['Date']).number_format = 'dd/mm/yyyy;@'

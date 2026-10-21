@@ -14,7 +14,7 @@ interface Props {
 }
 
 const TASK_TITLES: Record<SessionSummary['task'], string> = { deployment: 'Process deployment', upload: 'Upload deployment to Trapper', session: 'Process collection',
-  'upload-session': 'Upload session to Trapper', utils: 'Utilities', sync: 'Sync local collections', repair: 'Repair local deployments', fieldlog: 'Field records', cards: 'Copy SD cards', timefix: 'Fix dates and times',
+  'upload-session': 'Upload session to Trapper', utils: 'Utilities', sync: 'Sync local collections', repair: 'Repair local deployments', fieldlog: 'Field records', cards: 'Copy SD cards', timefix: 'Check and fix dates and times',
 }
 
 const PHASE_LABELS: Record<SessionSummary['phase'], string> = {

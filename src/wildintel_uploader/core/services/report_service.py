@@ -38,7 +38,7 @@ LABELS = {
     "deployment_id": "Deployment id format", "collection_prefix": "Deployment id starts with its collection",
     "collection_name": "Collection name", "location": "The id's location is the one chosen", "time_range": "Image dates fit the deployment",
     "image_count": "Number of images", "sequence_count": "Number of sequences", "sequence_length": "Length of the sequences",
-    "preprocessing": "Preprocessing",
+    "preprocessing": "Prepare images",
     "metadata_files": "Metadata files", "camera_match": "The camera is the deployment's",
     "preprocessing_names": "Names of the preprocessed images", "preprocessing_size": "Size of the preprocessed images",
     "preprocessing_metadata": "XMP metadata of the images", "preprocessing_hash": "Images unchanged since they were preprocessed",
@@ -127,7 +127,7 @@ def validation_report(found: dict, source: Path, checks: Iterable[str] | None = 
         for field, info in found.get("exif_missing", {}).items():
             for name in info.get("files", []):
                 missing.setdefault(name, []).append(field.replace("_", " "))
-        b.per_image("exif", images, {name: "no " + ", no ".join(fields) for name, fields in missing.items()}, "has its capture date, camera model and camera id",
+        b.per_image("exif", images, {name: "no " + ", no ".join(fields) for name, fields in missing.items()}, "has its capture date and camera model",
                     tags={name: ", ".join(f"No {field}" if i == 0 else f"no {field}" for i, field in enumerate(fields)) for name, fields in missing.items()})
     if "duplicates" in ran:
         problems = {name: "same content as " + ", ".join(f for f in g["files"] if f != name) for g in found.get("duplicates", []) for name in g["files"]}
@@ -192,7 +192,7 @@ def repair_report(deployment_id: str, dest: Path, files: list[tuple[str, bool, s
 
 def preprocessing_report(records: list[dict], skipped: list[dict], deployment_id: str, source: Path, dest: Path, options: dict) -> dict:
     """What preprocessing did to each image — and the ones it couldn't process."""
-    b = _Builder("preprocessing", f"Preprocessing of {deployment_id}", source_dir=str(source), deployment_id=deployment_id, parameters={**options, "destination": str(dest)})
+    b = _Builder("preprocessing", f"Images prepared for {deployment_id}", source_dir=str(source), deployment_id=deployment_id, parameters={**options, "destination": str(dest)})
     b.checked = len(records) + len(skipped)
     for r in records:
         steps = [f"{r['original']} → {r['name']}" if r["name"] != r["original"] else r["original"], f"date {r['date']} ({r['date_source']})"]

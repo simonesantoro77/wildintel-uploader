@@ -76,7 +76,7 @@ export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: C
     api.trapperResearchProjects({}).then(({ results }) => setTrapperProjects(results)).catch(() => setTrapperProjects(null))
     api.fieldlogLast()
       .then((last) => {
-        if (last.research_project_id) setProjectId(last.research_project_id)
+        // The research project is not filled in from last time: it must be chosen, which brings its locations to check the sites against.
         if (last.datasheet) setDatasheet(last.datasheet)
       })
       .catch(() => {})
@@ -176,14 +176,14 @@ export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: C
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Field records</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-        After each field trip: the field data download (from the field app) and the fieldwork datasheet, read together. The trip&rsquo;s visits are added to the datasheet, each
+        After each field trip: the <strong>field survey</strong> (downloaded from the field app) and the <strong>field history</strong> (the fieldwork datasheet), read together. The trip&rsquo;s visits are added to the field history, each
         deployment of the collection gets its start and end, who set it up, its camera and its card, and the field data are checked before any card is copied.
         Every time is <strong>UTC</strong>. Nothing is written until you press <strong>Write the files</strong>.
       </p>
 
       <WizardStep n={1} title="Choose the files" status={result ? 'done' : 'open'} canEdit={!busy} onEdit={changed}
                   summary={result && <>{projectId || 'No research project'} · {result.datasheet}</>}
-                  description="The research project, the field data download of the trip and the datasheet as it is now.">
+                  description="The research project, the field survey of the trip and the field history as it is now.">
         <div className="mb-4">
           <label className={labelClass} htmlFor="fieldlog-research-project">Research project</label>
           <Combobox
@@ -199,12 +199,12 @@ export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: C
           {taking?.done && <p className="text-sm mt-1 text-emerald-700 dark:text-emerald-400" role="status">{taking.done}</p>}
           {taking?.error && <p className="text-sm mt-1 text-red-600 dark:text-red-400" role="alert">{taking.error}</p>}
         </div>
-        <FileField id="fieldlog-epicollect" label="Field data download (CSV)" value={epicollect} disabled={busy}
+        <FileField id="fieldlog-epicollect" label="Field survey (from App)" value={epicollect} disabled={busy}
                    onChange={(v) => { setEpicollect(v); changed() }} onBrowse={() => void browse('epicollect')}
-                   hint="The CSV downloaded from the field app: all its entries or just this trip's." />
-        <FileField id="fieldlog-datasheet" label="Fieldwork datasheet (.xlsx)" value={datasheet} disabled={busy}
+                   hint="The CSV downloaded from the field app after the trip, with what was noted at each site: all its entries or just this trip's." />
+        <FileField id="fieldlog-datasheet" label="Field history" value={datasheet} disabled={busy}
                    onChange={(v) => { setDatasheet(v); changed() }} onBrowse={() => void browse('datasheet')}
-                   hint="The datasheet as it is now, e.g. TatraFieldSheet_R0001-R0013.xlsx. It is only read: the updated one is a new file beside it." />
+                   hint="The fieldwork datasheet (.xlsx) with every visit of the earlier trips, as it is now, e.g. TatraFieldSheet_R0001-R0013.xlsx. It is only read: the one with this trip added is a new file beside it." />
         {error && !result && <p className="text-sm text-red-600 dark:text-red-400 mb-3" role="alert">{error}</p>}
         <div className="flex justify-end">
           <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!ready || busy} onClick={() => void handleCheck()}>
@@ -292,6 +292,14 @@ export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: C
               </p>
             )}
 
+            {openCount > 0 && (
+              <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4" aria-label="Still open">
+                <p className="font-semibold text-sm mb-1">Still open ({openCount})</p>
+                <p className={`${hintClass} mb-2`}>Deployments whose camera is still out: by the field records, their card has not been collected yet. They are closed when a later trip collects it.</p>
+                <p className="text-sm font-mono text-zinc-700 dark:text-zinc-300 break-words">{own.filter((d) => d.status === 'open').map((d) => d.site).join(', ')}</p>
+              </div>
+            )}
+
             {otherWarnings.length > 0 && (
               <div className="rounded-lg border border-amber-200 dark:border-amber-800 p-4">
                 <p className="font-semibold text-sm mb-2">To look at ({otherWarnings.length})</p>
@@ -366,9 +374,9 @@ export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: C
                 <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800 px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
                   <p className="font-semibold mb-1">Write the files does three things:</p>
                   <ul className="list-disc pl-5 space-y-0.5">
-                    <li>The <strong>fieldwork datasheet</strong> with this trip&rsquo;s visits added — a new file beside the one you chose, named after the new range of collections. The original is not changed.</li>
-                    <li>The collection&rsquo;s <strong>FileTimestampLog</strong> — when each deployment started and ended (UTC) — in its folder. Process collection checks the images&rsquo; dates against it.</li>
-                    <li>The collection&rsquo;s <strong>FieldworkLog</strong> — each deployment with who set it up, its camera, its card and the field notes — in its folder. Copy SD cards is guided by it, and its fields go on to Trapper and Camtrap DP.</li>
+                    <li>The <strong>field history</strong> with this trip&rsquo;s visits added: a new file beside the one you chose, named after the new range of collections. The original is not changed.</li>
+                    <li>The deployments&rsquo; or collection&rsquo;s <strong>FileTimestampLog</strong>, when each deployment started and ended (UTC), in its folder. Process deployment or Process collection checks the images&rsquo; dates against it.</li>
+                    <li>The deployments&rsquo; or collection&rsquo;s <strong>FieldworkLog</strong>, each deployment with who set it up and collected it, its camera, its card, the field notes and the other Camtrap DP fields noted in the field, in its folder. Copy SD cards is guided by it, and its fields go on to Trapper and Camtrap DP.</li>
                   </ul>
                 </div>
                 <div className="flex justify-end">

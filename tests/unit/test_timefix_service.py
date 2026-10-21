@@ -1,5 +1,5 @@
 """Fixing the dates and times of a copied card: the timeline and its segments against the deployment's period, a run of
-images shifted, images removed, and the card put back — the untouched copy kept and every fix written down."""
+images shifted and images removed — every fix written down, and no second copy of the card kept."""
 import datetime as dt
 import json
 import shutil
@@ -22,14 +22,13 @@ DEP = "R0002-TATR_0001"  # its period: 2026-02-20 09:30 → 2026-03-30 08:15 (UT
 @pytest.fixture
 def copied(recorded, tmp_path, monkeypatch):  # noqa: F811
     """R0002-TATR_0001's card copied: two images in its period, then the clock reset to 2020 for two more."""
-    monkeypatch.setattr(tf, "originals_dir", lambda settings=None: tmp_path / "originals")
     card = tmp_path / "sd"
     for i, taken in enumerate(["2026:02:21 10:00:00", "2026:02:22 10:00:00", "2020:01:01 00:00:00", "2020:01:01 06:00:00"], start=1):
         _make_jpeg(card / "DCIM" / f"IMG_{i:04d}.JPG", taken=taken)
     _copy(card)
     ing.prepare_collection("TATRA", "R0002")
     _, cards = recorded
-    return cards / "TATRA" / "R0002" / DEP, tmp_path / "originals" / "TATRA" / "R0002" / DEP
+    return cards / "TATRA" / "R0002" / DEP
 
 
 def _times(folder):
@@ -49,38 +48,27 @@ def test_the_timeline_splits_where_the_time_goes_backwards(copied):
 
 
 @needs_exiftool
-def test_shifting_a_run_fixes_it_and_keeps_the_card_as_it_was(copied):
-    folder, originals = copied
+def test_shifting_a_run_fixes_it_and_keeps_no_second_copy(copied, tmp_path):
+    folder = copied
     offset = tf.timeline("TATRA", "R0002", DEP)["segments"][1]["suggestion"]["offset_seconds"]
 
     after = tf.shift("TATRA", "R0002", DEP, "IMG_0003.JPG", None, offset, "clock reset after the batteries died")
 
     assert after["ok"] and len(after["segments"]) == 1
     assert _times(folder) == ["2026-02-21T10:00:00", "2026-02-22T10:00:00", "2026-02-22T10:00:01", "2026-02-22T16:00:01"]
-    assert _times(originals)[2] == "2020-01-01T00:00:00"  # the untouched copy
+    assert not any(p.name == "originals" for p in tmp_path.rglob("originals"))
     [entry] = after["corrections"]
     assert (entry["action"], entry["first"], entry["last"], entry["count"], entry["offset_seconds"]) == ("shift", "IMG_0003.JPG", "IMG_0004.JPG", 2, offset)
     assert entry["reason"] == "clock reset after the batteries died"
 
 
 def test_images_without_a_time_to_trust_are_removed(copied):
-    folder, originals = copied
+    folder = copied
     after = tf.remove("TATRA", "R0002", DEP, ["IMG_0003.JPG", "IMG_0004.JPG"], "no way to know when")
 
     assert after["ok"] and [i["name"] for i in after["images"]] == ["IMG_0001.JPG", "IMG_0002.JPG"]
-    assert (originals / "IMG_0004.JPG").is_file()
+    assert not (folder / "IMG_0004.JPG").exists()
     assert json.loads((folder / tf.CORRECTIONS_FILE).read_text())[0]["action"] == "remove"
-
-
-def test_the_card_can_be_put_back(copied):
-    folder, _ = copied
-    with pytest.raises(tf.TimeFixError, match="not been fixed"):
-        tf.restore("TATRA", "R0002", DEP)
-    tf.remove("TATRA", "R0002", DEP, ["IMG_0004.JPG"])
-
-    after = tf.restore("TATRA", "R0002", DEP)
-
-    assert len(after["images"]) == 4 and [c["action"] for c in after["corrections"]] == ["remove", "restore"]
 
 
 def test_a_run_must_be_in_the_deployment(copied):

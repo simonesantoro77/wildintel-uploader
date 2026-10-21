@@ -151,7 +151,7 @@ describe('the dates of a card', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Copy into R0042-DONA_0007_B' }))
 
     expect(await screen.findByLabelText('Dates of the card')).toHaveTextContent('15 image(s) were taken outside')
-    await userEvent.click(screen.getByRole('button', { name: 'Fix dates and times of R0042-DONA_0007_B' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Check and fix dates and times of R0042-DONA_0007_B' }))
     expect(onFixDates).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', deploymentId: 'R0042-DONA_0007_B' })
   })
 

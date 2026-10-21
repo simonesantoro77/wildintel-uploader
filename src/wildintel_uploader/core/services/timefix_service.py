@@ -11,13 +11,11 @@ The fixes are made on the copy of the card in the cards folder, never on the car
 
   * shift() moves the date and time of a run of images (from one image to another, in the camera's order) by an
     offset, with ExifTool — every date of the image: DateTimeOriginal, CreateDate and ModifyDate;
-  * remove() takes out images whose time can't be made right — nothing goes on without a time to trust;
-  * restore() puts the copy back as the card was.
+  * remove() takes out images whose time can't be made right — nothing goes on without a time to trust.
 
-Before the first fix, the copy as it came from the card is kept apart, in <images folder>/originals/<research
-project>/<R000N>/<deployment>/ — the untouched copy the settings say how long to keep (INGEST.keep_cards) — and every
-fix is written down in the deployment's time_corrections.json: what, to which images, by how much, why, when and by
-whom. Nothing is changed without a record of it.
+No second copy of the card is kept: every fix is written down in the deployment's time_corrections.json — what, to
+which images, by how much, why, when and by whom — so a shift can be undone by shifting back. Nothing is changed
+without a record of it.
 """
 from __future__ import annotations
 
@@ -25,7 +23,6 @@ import datetime as dt
 import getpass
 import json
 import logging
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -44,12 +41,7 @@ class TimeFixError(Exception):
     """A deployment's images can't be read or fixed."""
 
 
-def originals_dir(settings: config.Settings | None = None) -> Path:
-    """Where the copy of each card is kept as it came, once its images start being fixed."""
-    return config.data_dir(settings) / "originals"
-
-
-def _dirs(research_project_id: str, collection: str, deployment_id: str, settings: config.Settings | None) -> tuple[Path, Path]:
+def _dir(research_project_id: str, collection: str, deployment_id: str, settings: config.Settings | None) -> Path:
     try:
         cards = ingest_service.card_collection_dir(research_project_id, collection, settings)
     except ingest_service.IngestError as exc:
@@ -59,7 +51,7 @@ def _dirs(research_project_id: str, collection: str, deployment_id: str, setting
     folder = cards / deployment_id
     if not folder.is_dir():
         raise TimeFixError(f"{deployment_id} has no copied card in {cards}.")
-    return folder, originals_dir(settings) / research_project_id / cards.name / deployment_id
+    return folder
 
 
 def _images(folder: Path) -> list[Path]:
@@ -123,7 +115,7 @@ def timeline(research_project_id: str, collection: str, deployment_id: str, sett
         TimeFixError: the deployment has no copied card.
     """
     settings = settings or config.load_settings()
-    folder, originals = _dirs(research_project_id, collection, deployment_id, settings)
+    folder = _dir(research_project_id, collection, deployment_id, settings)
     images = _images(folder)
     times = parallel.pmap(dis._image_datetime, images, settings.GENERAL.workers)
     period = _period(folder.parent, deployment_id, settings)
@@ -177,19 +169,8 @@ def timeline(research_project_id: str, collection: str, deployment_id: str, sett
         "tolerance_hours": settings.POSTVALIDATION.tolerance_hours, "camera_timezone": settings.FIELDLOG.camera_timezone,
         "images": [{"name": p.name, "time": t.isoformat() if t else None} for p, t in zip(images, times)],
         "segments": segments, "undated": undated, "outside": outside, "problems": problems, "ok": not problems,
-        "corrections": read_corrections(folder), "has_originals": originals.is_dir(),
+        "corrections": read_corrections(folder),
     }
-
-
-def _keep_originals(folder: Path, originals: Path) -> None:
-    """Keeps the copy as it came from the card, once — before anything in it is changed."""
-    if originals.is_dir():
-        return
-    originals.parent.mkdir(parents=True, exist_ok=True)
-    partial = originals.with_name(originals.name + ".part")
-    shutil.rmtree(partial, ignore_errors=True)
-    shutil.copytree(folder, partial, ignore=shutil.ignore_patterns(CORRECTIONS_FILE))
-    partial.rename(originals)
 
 
 def _run(images: list[Path], first: str, last: str | None) -> list[Path]:
@@ -223,14 +204,13 @@ def shift(research_project_id: str, collection: str, deployment_id: str, first: 
         TimeFixError: no such images, no ExifTool, or ExifTool fails.
     """
     settings = settings or config.load_settings()
-    folder, originals = _dirs(research_project_id, collection, deployment_id, settings)
+    folder = _dir(research_project_id, collection, deployment_id, settings)
     if not offset_seconds:
         raise TimeFixError("An offset of 0 changes nothing.")
     exiftool = camera_info.exiftool_path()
     if exiftool is None:
         raise TimeFixError("Fixing the dates needs ExifTool, and it isn't installed.")
     run = _run(_images(folder), first, last)
-    _keep_originals(folder, originals)
     argfile = folder / ".timefix-args.txt"
     argfile.write_text("\n".join(str(p) for p in run) + "\n", encoding="utf-8")
     try:
@@ -247,51 +227,23 @@ def shift(research_project_id: str, collection: str, deployment_id: str, first: 
 
 def remove(research_project_id: str, collection: str, deployment_id: str, names: list[str], reason: str = "",
            settings: config.Settings | None = None) -> dict:
-    """Takes images whose time can't be made right out of the deployment. They stay in the untouched copy of the card.
+    """Takes images whose time can't be made right out of the deployment: they are deleted, and their names written down.
     Returns the timeline after it.
 
     Raises:
         TimeFixError: an image isn't in the deployment, or none is given.
     """
     settings = settings or config.load_settings()
-    folder, originals = _dirs(research_project_id, collection, deployment_id, settings)
+    folder = _dir(research_project_id, collection, deployment_id, settings)
     present = {p.name: p for p in _images(folder)}
     missing = [n for n in names if n not in present]
     if not names:
         raise TimeFixError("No image chosen to remove.")
     if missing:
         raise TimeFixError(f"Not in the deployment: {', '.join(missing[:5])}.")
-    _keep_originals(folder, originals)
     for name in names:
         present[name].unlink()
     _record(folder, {"action": "remove", "names": names, "count": len(names), "reason": reason.strip() or None})
     logger.info("%s: %d image(s) removed for their time", deployment_id, len(names))
     return timeline(research_project_id, collection, deployment_id, settings)
 
-
-def restore(research_project_id: str, collection: str, deployment_id: str, settings: config.Settings | None = None) -> dict:
-    """Puts the deployment back as its card was: every fix undone. Returns the timeline after it.
-
-    Raises:
-        TimeFixError: nothing was fixed — there is no untouched copy to go back to.
-    """
-    settings = settings or config.load_settings()
-    folder, originals = _dirs(research_project_id, collection, deployment_id, settings)
-    if not originals.is_dir():
-        raise TimeFixError(f"{deployment_id} has not been fixed: it is as its card was.")
-    for path in folder.iterdir():
-        if path.name == CORRECTIONS_FILE:
-            continue
-        if path.is_dir():
-            shutil.rmtree(path)
-        else:
-            path.unlink()
-    for path in originals.iterdir():
-        target = folder / path.name
-        if path.is_dir():
-            shutil.copytree(path, target)
-        else:
-            shutil.copy2(path, target)
-    _record(folder, {"action": "restore"})
-    logger.info("%s: put back as its card was", deployment_id)
-    return timeline(research_project_id, collection, deployment_id, settings)
