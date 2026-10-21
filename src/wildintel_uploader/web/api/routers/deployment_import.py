@@ -373,11 +373,11 @@ def _open_in_file_manager(path: Path) -> None:
 
 @router.post("/open-folder")
 def open_folder(req: OpenFolderRequest) -> dict:
-    """Opens a folder kept by the app (inside its data folder — nothing else) in the file explorer."""
+    """Opens a folder kept by the app (inside its data folder, or its collections, reports or packages folder — nothing else) in the file explorer."""
     target = Path(req.path).expanduser().resolve()
-    root = config.data_dir().resolve()
-    if root != target and root not in target.parents:
-        raise HTTPException(400, "Only folders inside the app's data folder can be opened.")
+    roots = [d.resolve() for d in (config.data_dir(), config.collections_dir(), config.reports_dir(), config.packages_dir())]
+    if not any(root == target or root in target.parents for root in roots):
+        raise HTTPException(400, "Only folders inside the app's data folder, or its collections, reports or packages folder, can be opened.")
     if not target.is_dir():
         raise HTTPException(404, "That folder does not exist.")
     try:

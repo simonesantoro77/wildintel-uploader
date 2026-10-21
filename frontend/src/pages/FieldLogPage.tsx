@@ -3,6 +3,7 @@ import { api } from '../api'
 import Combobox from '../components/Combobox'
 import NextStep from '../components/NextStep'
 import WizardStep from '../components/WizardStep'
+import BackButton from '../components/BackButton'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import type { FieldDeployment, FieldlogResult, LocalResearchProject, ResearchProject } from '../types'
 
@@ -50,7 +51,7 @@ export interface CollectionTarget {
   collection: string
 }
 
-export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: CollectionTarget) => void } = {}) {
+export default function FieldLogPage({ onCopyCards, onBack }: { onCopyCards?: (target: CollectionTarget) => void; onBack?: () => void } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [epicollect, setEpicollect] = useState('')
@@ -206,7 +207,8 @@ export default function FieldLogPage({ onCopyCards }: { onCopyCards?: (target: C
                    onChange={(v) => { setDatasheet(v); changed() }} onBrowse={() => void browse('datasheet')}
                    hint="The fieldwork datasheet (.xlsx) with every visit of the earlier trips, as it is now, e.g. TatraFieldSheet_R0001-R0013.xlsx. It is only read: the one with this trip added is a new file beside it." />
         {error && !result && <p className="text-sm text-red-600 dark:text-red-400 mb-3" role="alert">{error}</p>}
-        <div className="flex justify-end">
+        <div className={`flex items-center gap-3 ${onBack ? 'justify-between' : 'justify-end'}`}>
+          {onBack && <BackButton onClick={onBack} disabled={busy} />}
           <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!ready || busy} onClick={() => void handleCheck()}>
             {checking && <SmallSpinner />}Check the field records
           </button>

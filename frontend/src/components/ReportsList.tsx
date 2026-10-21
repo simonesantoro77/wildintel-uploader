@@ -4,7 +4,7 @@ import ReportPanel from './ReportPanel'
 import type { ReportKind, ReportSummary } from '../types'
 import { btnOutline } from '../pages/ImportDeploymentPage'
 
-const KIND_LABELS: Record<ReportKind, string> = { validation: 'Validation', postvalidation: 'Postvalidation', preprocessing: 'Prepare images', repair: 'Repair' }
+const KIND_LABELS: Record<ReportKind, string> = { validation: 'Validation', postvalidation: 'Postvalidation', preprocessing: 'Prepare images', repair: 'Repair', upload: 'Upload' }
 
 const formatDate = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -34,7 +34,7 @@ export default function ReportsList() {
   return (
     <div className="py-3">
       <p className="text-zinc-500 dark:text-zinc-400 mb-5 text-sm">
-        Every validation, postvalidation, image preparation and repair leaves a report of what was checked and done, image by image. Look at one again, download it
+        Every validation, postvalidation, image preparation, repair and upload leaves a report of what was checked and done – image by image, or deployment by deployment for an upload. Look at one again, download it
         (a CSV opens in a spreadsheet; the JSON has everything), or delete the ones you no longer need.
       </p>
       {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
@@ -49,7 +49,7 @@ export default function ReportsList() {
                   <span className="mr-2 text-xs font-medium px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">{KIND_LABELS[r.kind]}</span>{r.title}
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  {formatDate(r.created_at)} · {r.checked} image(s) · {r.totals.failed === 0 ? 'nothing failed' : <span className="text-amber-600 dark:text-amber-400">{r.totals.failed} problem(s)</span>}
+                  {formatDate(r.created_at)} · {r.checked} {r.kind === 'upload' ? 'deployment(s)' : 'image(s)'} · {r.totals.failed === 0 ? 'nothing failed' : <span className="text-amber-600 dark:text-amber-400">{r.totals.failed} problem(s)</span>}
                 </p>
                 {r.source_dir && <p className="text-xs text-zinc-400 dark:text-zinc-500 font-mono break-all mt-0.5">{r.source_dir}</p>}
               </div>

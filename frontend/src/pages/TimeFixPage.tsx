@@ -4,6 +4,7 @@ import Combobox from '../components/Combobox'
 import NextStep from '../components/NextStep'
 import type { ProcessTarget } from './CardsPage'
 import type { CollectionTarget } from './FieldLogPage'
+import BackButton from '../components/BackButton'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import type { CardsStatus, LocalResearchProject, TimeSegment, Timeline } from '../types'
 
@@ -118,11 +119,13 @@ export function parentFolder(folder: string): string {
   return folder.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '')
 }
 
-export default function TimeFixPage({ initial, onProcess, onCopyCards }: {
+export default function TimeFixPage({ initial, onProcess, onCopyCards, onBack }: {
   initial?: TimeFixTarget
   onProcess?: (target: ProcessTarget) => void
   /** Back to Copy SD cards, when the collection still has cards to copy. */
   onCopyCards?: (target: CollectionTarget) => void
+  /** Out of the task: to the menu, or to the list of Utils. */
+  onBack?: () => void
 } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
@@ -416,6 +419,7 @@ export default function TimeFixPage({ initial, onProcess, onCopyCards }: {
           )}
         </>
       )}
+      {onBack && <div className="pt-4"><BackButton onClick={onBack} disabled={busy} /></div>}
     </div>
   )
 }

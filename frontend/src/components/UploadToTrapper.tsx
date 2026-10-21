@@ -1,5 +1,8 @@
+import { BadgeIcon, StatusIcon } from './Notice'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { api } from '../api'
+import { formatRun } from './ValidationDashboard'
 import { Bar, Spinner, Tile, btnOutline, btnPrimary, count, formatBytes, formatDuration, panel } from './PrepareFiles'
 
 /** One deployment of an upload, as the page has followed it. */
@@ -30,7 +33,7 @@ function Phase({ n, state, title, children, right }: { n: number; state: 'done' 
   return (
     <div className={`flex items-start gap-4 px-5 py-4 ${state === 'running' ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''}`}>
       <span className="mt-0.5 flex w-6 h-6 shrink-0 items-center justify-center">
-        {state === 'done' ? <span aria-hidden="true" className="flex w-6 h-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs">✓</span>
+        {state === 'done' ? <span aria-hidden="true" className="flex w-6 h-6 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-3.5 w-3.5" /></span>
           : state === 'running' ? <Spinner />
           : <span aria-hidden="true" className="flex w-6 h-6 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-700 text-xs text-zinc-600 dark:text-zinc-300">{n}</span>}
       </span>
@@ -103,7 +106,7 @@ export function UploadingToTrapper({ items, target, startedAt, onStop }: {
           {items.map((i) => (
             <li key={i.id} className="flex items-center gap-4 px-5 py-3">
               <span className="w-5 shrink-0 flex justify-center">
-                {i.state === 'done' ? <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">✓</span> : i.state === 'working' ? <Spinner /> : i.state === 'failed' ? <span aria-hidden="true" className="text-red-600 dark:text-red-400">✕</span> : null}
+                {i.state === 'done' ? <StatusIcon kind="success" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> : i.state === 'working' ? <Spinner /> : i.state === 'failed' ? <StatusIcon kind="error" className="h-5 w-5 text-red-600 dark:text-red-400" /> : null}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</p>
@@ -144,34 +147,41 @@ function Pill({ children, tone }: { children: ReactNode; tone: 'green' | 'grey' 
 }
 
 /** What was sent, once the upload has ended — whether it all went well or not. */
-export function UploadedToTrapper({ collection, researchProject, items, startedAt, finishedAt, onMore }: {
+export function UploadedToTrapper({ collection, researchProject, items, startedAt, finishedAt, reportId, onMore, filesNote }: {
   collection: string; researchProject: string; items: UploadItem[]; startedAt: number; finishedAt: number; onMore: () => void
+  /** The report kept of this upload, once it is. */
+  reportId?: string | null
+  /** What became of the package files — deleted, or kept where. */
+  filesNote?: ReactNode
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const sent = items.filter((i) => i.state === 'done')
   const failed = items.filter((i) => i.state !== 'done')
-  const finished = new Date(finishedAt)
-  const when = `${finished.getUTCDate()} ${finished.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })} ${finished.getUTCFullYear()}, ${String(finished.getUTCHours()).padStart(2, '0')}:${String(finished.getUTCMinutes()).padStart(2, '0')} UTC`
   const locations = [...new Set(sent.map((i) => i.locationId).filter(Boolean) as string[])]
   const locationsCreated = new Set(sent.filter((i) => i.locationCreated).map((i) => i.locationId))
-  const created = sent.filter((i) => i.deploymentCreated).length + locationsCreated.size
+  const deploymentsCreated = sent.filter((i) => i.deploymentCreated).length
   const collectionUrl = sent.map((i) => i.collectionUrl).filter(Boolean).pop()
   return (
     <div>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 -mt-3 mb-4">
+        Last run {formatRun(new Date(finishedAt).toISOString())} · took {formatDuration(finishedAt - startedAt)} {reportId && <> · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={api.reportUrl(reportId, 'csv')} download>Download report</a></>}
+      </p>
       {failed.length === 0 ? (
         <div role="status" className="flex items-center gap-4 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 mb-4">
-          <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span>
+          <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-5 w-5" /></span>
           <div>
             <p className="font-semibold text-emerald-900 dark:text-emerald-100">Upload complete</p>
-            <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">{when} · took {formatDuration(finishedAt - startedAt)}. All the images are in Trapper.</p>
+            <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">All the images are in Trapper.</p>
           </div>
         </div>
       ) : (
         <div role="alert" className="rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-5 py-4 mb-4">
-          <p className="font-semibold text-amber-900 dark:text-amber-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(failed.length, 'deployment')} could not be uploaded`}</p>
-          <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300 list-disc ml-5">
-            {failed.map((i) => <li key={i.id}><span className="font-mono">{i.id}</span>: {i.error ?? 'It was not uploaded.'}</li>)}
-          </ul>
+          <p className="font-semibold text-amber-900 dark:text-amber-200">{sent.length === 0 ? 'Nothing was uploaded' : `${count(sent.length, 'deployment')} uploaded, ${failed.length} could not be uploaded`}</p>
+          {sent.length === 0 && (
+            <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300 list-disc ml-5">
+              {failed.map((i) => <li key={i.id}><span className="font-mono">{i.id}</span>: {i.error ?? 'It was not uploaded.'}</li>)}
+            </ul>
+          )}
         </div>
       )}
 
@@ -181,11 +191,17 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <Tile value={String(sent.length)} label="Deployments" />
+      {sent.length > 0 && filesNote && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">{filesNote}</div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+        <Tile value={String(sent.length)} label="Deployments uploaded" tone={sent.length > 0 ? 'green' : undefined} />
+        <Tile value={String(failed.length)} label="Deployments failed" tone={failed.length > 0 ? 'amber' : undefined} />
         <Tile value={sent.reduce((sum, i) => sum + i.images, 0).toLocaleString('en-US')} label="Images sent" />
         <Tile value={formatBytes(sent.reduce((sum, i) => sum + i.bytes, 0))} label="Total size" />
-        <Tile value={String(created)} label="Created in Trapper" />
+        <Tile value={String(locationsCreated.size)} label="Locations created in Trapper" />
+        <Tile value={String(deploymentsCreated)} label="Deployments created in Trapper" />
       </div>
 
       {sent.length > 0 && (
@@ -193,10 +209,20 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
           <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">Deployments</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">Open one to see what happened to it.</p>
           <ul className={`${panel} divide-y divide-zinc-200 dark:divide-zinc-700 mb-5`}>
+            {failed.map((i) => (
+              <li key={i.id} className="flex items-center gap-3 px-5 py-3">
+                <StatusIcon kind="warning" className="h-5 w-5 text-amber-500" />
+                <span className="flex-1 min-w-0">
+                  <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-400">{i.error ?? 'It was not uploaded.'}</span>
+                </span>
+                <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">Not uploaded</span>
+              </li>
+            ))}
             {sent.map((i) => (
               <li key={i.id}>
                 <button type="button" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)} className="flex w-full items-center gap-3 px-5 py-3 text-left">
-                  <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">✓</span>
+                  <StatusIcon kind="success" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   <span className="flex-1 min-w-0">
                     <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
                     <span className="block text-xs text-zinc-500 dark:text-zinc-400">{count(i.images, 'image')} · {formatBytes(i.bytes)} sent</span>

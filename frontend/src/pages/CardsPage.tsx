@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
+import BackButton from '../components/BackButton'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import NextStep from '../components/NextStep'
 import { utc } from './FieldLogPage'
@@ -46,6 +47,8 @@ interface TripProps {
   onProcess?: (target: ProcessTarget) => void
   /** The collection to open on, when Copy SD cards is reached from Field records. */
   initial?: CollectionTarget
+  /** Out of the task, back to the menu. */
+  onBack?: () => void
 }
 
 function StateBadge({ state }: { state: CardDeployment['state'] }) {
@@ -518,7 +521,7 @@ function FoldersFromElsewhere() {
 }
 
 /** Copying the SD cards — between the field records and the import. */
-export default function CardsPage({ onFixDates, onProcess, initial }: TripProps = {}) {
+export default function CardsPage({ onFixDates, onProcess, initial, onBack }: TripProps = {}) {
   const [mode, setMode] = useState<'trip' | 'tree'>('trip')
   return (
     <div className="max-w-screen-lg mx-auto px-4 py-8">
@@ -536,6 +539,7 @@ export default function CardsPage({ onFixDates, onProcess, initial }: TripProps 
         ))}
       </div>
       {mode === 'trip' ? <TripCards onFixDates={onFixDates} onProcess={onProcess} initial={initial} /> : <FoldersFromElsewhere />}
+      {onBack && <div className="mt-10"><BackButton onClick={onBack} /></div>}
     </div>
   )
 }

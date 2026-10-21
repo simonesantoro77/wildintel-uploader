@@ -43,15 +43,16 @@ dot marks a section with an invalid value.
 
 ![Settings › General](img/screenshots/settings-general.png)
 
-- **Images folder** — where the collections folder lives. Blank uses
+- **Data folder** — where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
   `Documents/wildintel-uploader`; a path must be absolute (or start with `~`).
+- **Collections folder**, **Reports folder** and **Packages folder** — where the collections, the reports of the checks and the packages made to upload to Trapper are kept. Blank, each is a folder (`collections`, `reports`, `packages`) inside the data folder; set one to keep it somewhere else, on another disk for instance. A path must be absolute (or start with `~`). What is already kept in the old place is not moved: do it by hand.
 - **Workers** — how many images are validated and preprocessed at once. Up to the number of
   processors of your machine pays off; the default is that number, up to 4.
 - **Log level** — how much the app logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
   every step.
-- **Log file** — download it, or delete it. It rotates at 5 MB keeping the last 5. Attach it to any
+- **Log file** — download it, or delete it. It lives in the log folder of your system (`~/.local/state/wildintel-uploader/log` on Linux), which can't be changed. It rotates at 5 MB keeping the last 5. Attach it to any
   bug report.
-- **Update** — looks for a newer version.
+- **About** — at the top: the app's name and version, **Check for updates** (it offers the download when there is a newer version), and links to **Report a problem** (a GitHub issue that already says the version and your browser), the **Documentation**, the **GitHub** project and **What's new** (the release notes).
 
 ### Trapper
 
@@ -136,7 +137,7 @@ What each report holds:
 | **Prepare images** | each image | What was done — *IMG_0001.JPG → R0003-DONA_01__20240904_1.JPEG; date 2024-09-04T11:10:00+00:00 (exif); resized* — and the ones that were **skipped**, with the reason. |
 
 **Settings › Reports** lists all of them, newest first, with *View*, *CSV*, *JSON* and *Delete* (which
-asks again). They are kept in the `reports` folder of the images folder until you delete them. A check you run twice
+asks again). They are kept in the `reports` folder of the data folder until you delete them. A check you run twice
 makes two reports.
 
 ### Multiple configs
@@ -359,6 +360,12 @@ is uploaded. They need at least the *previous revisions needed* of the settings,
 skipped; what a sequence is, what "similar" means and what it is compared to are the
 [Postvalidation settings](#postvalidation).
 
+When the checks are run on a **session**, the results show the same as those of its folders: the figures, a message that says
+whether you can continue, and the deployments — or, by check, the table — with the checks each one failed, **View the images**
+and **Download report**.
+
+![The checks of a session: one deployment failed two checks](img/screenshots/session-check-results.png)
+
 It has the same two steps as the images' checks: **choose how strict** each one is (skip, warn, must pass), press
 **Run checks**, and read the **results** — when it was run, the figures, the table, and, opened from a check, the images that
 failed it (*Out of range*, *Other camera*) as thumbnails. The [report](#reports) downloads.
@@ -515,6 +522,8 @@ there; **Test connection** is in [Settings › Trapper](#trapper)). The page is 
 | **Rehearse first (dry run)** | Looks at Trapper and says what would be created and how the images would be packed. Nothing is created, sent or written. |
 | **Only prepare the files** | Writes the zips, the yamls and the collection's `_deployments.csv` and leaves them, to send some other way. Needs no account if the research project was filled in from Trapper. |
 
+With **Upload to Trapper**, tick **Delete the package files once they are uploaded** to take the zips, the yamls and the deployment's row of the `_deployments.csv` away when Trapper has them. Unticked (the default) they stay in the packages folder, as when only preparing them, and the result says where. The option is also offered when you go on to upload files you have just prepared.
+
 The size of the zips is a setting: [Settings › Trapper](#trapper). The page says what you will get before you go on.
 
 ### Step 3 — Upload
@@ -525,12 +534,16 @@ deployments and images have been sent and a row for each deployment with its sta
 *process*, *wait*) are each marked as running, done or skipped. The steps that made or found something in Trapper — the *location*, the *deployment* and, at the end, the
 *collection* — show **a link to its page in Trapper** (for example `https://trapper.example.org/geomap/deployment/detail/47/`),
 to check there that it was created or updated. A dry run links to what is already there; what it would create has no page yet. **Stop** ends it —
-what is already in Trapper stays there. When one fails, the others go on, and the summary says so: *"2 deployment(s) uploaded, 1
-failed."* **Upload more** starts over.
+what is already in Trapper stays there. When one fails, the others go on, and the summary says so: *"1 deployment uploaded, 1
+could not be uploaded."* The failed one is in the list with its reason — when Trapper refuses a deployment because its location belongs to
+someone else, the reason says who owns it. The page shows the date of the run and a **Download report** link: the report of the upload is kept with the others
+(*Settings › Reports*), a row per deployment and step. **Upload more** starts over.
 
 ![An upload midway: the first deployment is done, the second is sending its zip](img/screenshots/upload-running.png)
 
-The zips and yamls are written under `<images folder>/packages/<research project>/`. A deployment
+![An upload that ended with one deployment failed](img/screenshots/upload-result.png)
+
+The zips and yamls are written under `<data folder>/packages/<research project>/`. A deployment
 that was uploaded gets an `upload.json`, which is what the list uses to say so.
 
 ## 8. Utils

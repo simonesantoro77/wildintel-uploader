@@ -116,8 +116,25 @@ def write_details_phase(task_id: str, *, deployment: dict) -> dict[str, Any]:
     return manifest
 
 
+def migrate_legacy_sessions() -> None:
+    """Moves the sessions kept where they used to be (<documents>/wildintel-uploader/sessions) to where they are kept now, the
+    ones that are not there already; the old folder goes when it is empty. Nothing happens when they are the same folder."""
+    old, new = config.legacy_sessions_dir(), config.get_sessions_dir()
+    if not old.is_dir() or old.resolve() == new.resolve():
+        return
+    for entry in old.iterdir():
+        if entry.is_dir() and (entry / "session.json").is_file() and not (new / entry.name).exists():
+            new.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(entry), str(new / entry.name))
+    try:
+        old.rmdir()
+    except OSError:
+        pass
+
+
 def list_sessions() -> list[dict[str, Any]]:
     """Every session left on disk, newest first."""
+    migrate_legacy_sessions()
     root = config.get_sessions_dir()
     if not root.is_dir():
         return []

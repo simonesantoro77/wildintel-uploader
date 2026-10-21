@@ -132,11 +132,54 @@ def test_scan_session_takes_the_dates_from_the_timestamp_log(tmp_path: Path):
     assert (first["start_date"], first["end_date"], first["from_timestamp_log"]) == ("2024-09-01T08:00:00", "2024-11-01T09:30:00", True)
     assert (second["start_date"], second["end_date"], second["from_timestamp_log"]) == ("2024-09-02T10:00:00", "2024-11-02T11:00:00", True)
     assert (third["start_date"], third["from_timestamp_log"]) == (None, False)  # no row: no dates here — they are read from its images later
-    assert result["timestamp_log"] == {"name": "R0033_FileTimestampLog.csv", "path": str(session / "R0033_FileTimestampLog.csv"), "rows": 3, "matched": 2, "revision": 33}
+    assert result["timestamp_log"] == {"name": "R0033_FileTimestampLog.csv", "path": str(session / "R0033_FileTimestampLog.csv"), "rows": 3, "matched": 2, "revision": 33, "unmatched": ["R0033-OTHER"]}
     assert (first["log_deployment_id"], second["log_deployment_id"], third["log_deployment_id"]) == ("R0033-DONA_01", "dona_02", None)
-    assert any("1 row(s)" in w and "match no subfolder: R0033-OTHER" in w for w in result["warnings"])  # the log's row with no folder, by name
-    assert any("1 subfolder(s) have no row" in w and "DONA_03" in w for w in result["warnings"])  # and the folder with no row
+    assert result["timestamp_log"]["unmatched"] == ["R0033-OTHER"]  # the log's row with no folder, by name: the page says so after its table
     assert not any("loose" in w for w in result["warnings"])  # the log itself is not a stray file
+
+
+def _session_with_log(tmp_path: Path, folders: list[str], *rows: str) -> dict:
+    session = tmp_path / "R0033"
+    for name in folders:
+        _make_jpeg(session / name / "a.jpg", taken="2024:09:04 13:10:00")
+    _log(session / "R0033_FileTimestampLog.csv", *rows)
+    return svc.scan_session(session)
+
+
+ROW = ",2024:09:01,08:00:00,2024:11:01,09:30:00"
+
+
+def test_every_entry_of_the_timestamp_log_has_its_folder_or_is_listed_as_having_none(tmp_path: Path):
+    complete = _session_with_log(tmp_path / "ok", ["DONA_01", "DONA_02"], "R0033-DONA_01" + ROW, "R0033-DONA_02" + ROW)
+    assert complete["timestamp_log"]["unmatched"] == []
+    assert complete["timestamp_log"]["rows"] == complete["timestamp_log"]["matched"] == 2
+
+    missing = _session_with_log(tmp_path / "bad", ["DONA_01"], "R0033-DONA_01" + ROW, "R0033-DONA_02" + ROW, "R0033-DONA_03" + ROW)
+    assert missing["timestamp_log"]["unmatched"] == ["R0033-DONA_02", "R0033-DONA_03"]  # by name, as written in the log
+    assert missing["timestamp_log"]["rows"] == 3 and missing["timestamp_log"]["matched"] == 1
+    assert not any("match no subfolder" in w for w in missing["warnings"])  # no longer a warning above the table
+
+
+def test_every_folder_of_the_session_says_whether_it_is_in_the_timestamp_log(tmp_path: Path):
+    complete = _session_with_log(tmp_path / "ok", ["DONA_01", "DONA_02"], "R0033-DONA_01" + ROW, "R0033-DONA_02" + ROW)
+    assert all(d["from_timestamp_log"] for d in complete["deployments"])
+    assert complete["timestamp_log"]["matched"] == len(complete["deployments"])
+
+    missing = _session_with_log(tmp_path / "bad", ["DONA_01", "DONA_02", "DONA_03"], "R0033-DONA_01" + ROW)
+    assert [(d["name"], d["from_timestamp_log"]) for d in missing["deployments"]] == [("DONA_01", True), ("DONA_02", False), ("DONA_03", False)]
+    assert missing["timestamp_log"]["matched"] == 1  # the table says which are not in it: no warning for that
+
+
+def test_a_session_without_a_timestamp_log_is_warned_about(tmp_path: Path):
+    session = tmp_path / "R0033"
+    _make_jpeg(session / "DONA_01" / "a.jpg", taken="2024:09:04 13:10:00")
+
+    result = svc.scan_session(session)
+
+    assert result["timestamp_log"] is None
+    assert any("No timestamp log (R0033_FileTimestampLog.csv) was found" in w for w in result["warnings"])
+    _log(session / "R0033_FileTimestampLog.csv", "R0033-DONA_01" + ROW)
+    assert not any("No timestamp log" in w for w in svc.scan_session(session)["warnings"])  # found now
 
 
 def test_scan_session_gives_no_revision_when_the_ids_disagree_or_have_none(tmp_path: Path):

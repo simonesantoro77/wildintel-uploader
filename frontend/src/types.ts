@@ -59,6 +59,8 @@ export interface SessionTimestampLog {
   path: string
   rows: number
   matched: number
+  /** The ids of the rows of the log that no subfolder matches, as written in it. */
+  unmatched?: string[]
   /** The revision number the matched ids start with (R0033-… → 33), when they all agree. */
   revision: number | null
 }
@@ -730,8 +732,13 @@ export interface AppSettings {
   TRAPPER: { base_url: string | null; user_name: string | null; has_password: boolean; max_zip_mb: number }
   /** mapping: the ref of the Epicollect5 input that gives each field of a deployment (deployment field → ref). */
   EPICOLLECT5: { enabled: boolean; unmapped_to_comments: boolean; project_slug: string | null; client_id: string | null; has_secret: boolean; mapping: Record<string, string> }
-  /** The folder where the app keeps the images — its collections go in a "collections" folder inside. */
-  DATA: { dir: string }
+  /** The folder where the app keeps what it makes — its collections, reports and packages go in folders inside it, unless each has one of its own. */
+  DATA: {
+    dir: string
+    collections_dir: string | null; reports_dir: string | null; packages_dir: string | null
+    /** What each is when none of its own is set. */
+    default_collections_dir: string; default_reports_dir: string; default_packages_dir: string
+  }
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
@@ -744,7 +751,7 @@ export interface AppSettingsUpdate {
   GENERAL: { log_level: LogLevel; workers: number }
   TRAPPER: { base_url: string | null; user_name: string | null; user_password: string; max_zip_mb: number }
   EPICOLLECT5: { enabled: boolean; unmapped_to_comments: boolean; project_slug: string | null; client_id: string | null; client_secret: string; mapping: Record<string, string> }
-  DATA: { dir: string | null }
+  DATA: { dir: string | null; collections_dir: string | null; reports_dir: string | null; packages_dir: string | null }
   VALIDATION: ValidationSettings
   POSTVALIDATION: PostvalidationSettings
   PREPROCESSING: PreprocessingSettings
@@ -847,6 +854,8 @@ export type UploadEvent =
     type: 'done'; mode: UploadMode; collection: string; deployment_id: string; parts: number
     /** upload */
     location_created?: boolean; deployment_created?: boolean; bytes?: number
+    /** upload: whether the package files were deleted once up; when they were kept, output_dir, files and file_sizes say where and which. */
+    files_deleted?: boolean
     /** dry run */
     would_create_location?: boolean; would_create_deployment?: boolean
     /** generate */
@@ -858,7 +867,7 @@ export type UploadEvent =
 // ── Reports ─────────────────────────────────────────────────────────────
 
 /** What a report was made of: a validation, a postvalidation or a preprocessing. */
-export type ReportKind = 'validation' | 'postvalidation' | 'preprocessing' | 'repair'
+export type ReportKind = 'validation' | 'postvalidation' | 'preprocessing' | 'repair' | 'upload'
 
 /** One check of one image — or of the whole deployment, "(deployment)". */
 export interface ReportEntry {

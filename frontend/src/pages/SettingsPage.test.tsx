@@ -8,7 +8,7 @@ import { APP_SETTINGS } from '../test/fixtures'
 vi.mock('../api', () => ({
   api: {
     getSettings: vi.fn(), saveSettings: vi.fn(), clearLog: vi.fn(), browseFolder: vi.fn(), trapperTestConnection: vi.fn(), epicollectTestConnection: vi.fn(),
-    checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(), fieldlogColumns: vi.fn(),
+    checkVersion: vi.fn(), checkForUpdate: vi.fn(), listReports: vi.fn(), deleteReport: vi.fn(), getReport: vi.fn(), reportUrl: (id: string, format: string) => `/api/reports/${id}/download?format=${format}`, configs: vi.fn(), addConfig: vi.fn(), activateConfig: vi.fn(), openConfigFolder: vi.fn(), fieldlogColumns: vi.fn(),
   },
 }))
 
@@ -21,7 +21,8 @@ beforeEach(() => {
     GENERAL: { ...APP_SETTINGS.GENERAL, ...update.GENERAL },
     TRAPPER: { ...APP_SETTINGS.TRAPPER, base_url: update.TRAPPER.base_url, user_name: update.TRAPPER.user_name, has_password: APP_SETTINGS.TRAPPER.has_password || !!update.TRAPPER.user_password },
     EPICOLLECT5: { enabled: update.EPICOLLECT5.enabled, unmapped_to_comments: update.EPICOLLECT5.unmapped_to_comments, project_slug: update.EPICOLLECT5.project_slug, client_id: update.EPICOLLECT5.client_id, has_secret: APP_SETTINGS.EPICOLLECT5.has_secret || !!update.EPICOLLECT5.client_secret, mapping: update.EPICOLLECT5.mapping },
-    DATA: { dir: update.DATA.dir ?? APP_SETTINGS.DATA.dir },
+    DATA: { dir: update.DATA.dir ?? APP_SETTINGS.DATA.dir, collections_dir: update.DATA.collections_dir, reports_dir: update.DATA.reports_dir, packages_dir: update.DATA.packages_dir,
+      default_collections_dir: APP_SETTINGS.DATA.default_collections_dir, default_reports_dir: APP_SETTINGS.DATA.default_reports_dir, default_packages_dir: APP_SETTINGS.DATA.default_packages_dir },
     VALIDATION: update.VALIDATION,
     POSTVALIDATION: update.POSTVALIDATION,
     PREPROCESSING: update.PREPROCESSING,
@@ -70,34 +71,35 @@ describe('SettingsPage', () => {
   })
 
   describe('General', () => {
-    it('shows the folder the images are kept in — by default a folder named like the app in the documents folder', async () => {
+    it('shows the data folder — by default a folder named like the app in the documents folder — and what goes in it', async () => {
       render(<SettingsPage onClose={vi.fn()} />)
 
       expect(await screen.findByLabelText('Folder')).toHaveValue('/home/me/Documents/wildintel-uploader')
-      expect(screen.getByText(/collections\/<research project>\/<R0003>\/<deployment>/)).toBeInTheDocument()
+      expect(screen.getByText('Data folder')).toBeInTheDocument()
+      expect(screen.getByText(/the collections, the reports and the packages, each in a folder inside it/)).toBeInTheDocument()
     })
 
-    it('changes the images folder by typing it, or with the native folder browser', async () => {
+    it('changes the data folder by typing it, or with the native folder browser', async () => {
       mockedApi.browseFolder.mockResolvedValue({ path: '/data/images' })
       render(<SettingsPage onClose={vi.fn()} />)
       await screen.findByLabelText('Folder')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Browse for the data folder' }))
       await waitFor(() => expect(screen.getByLabelText('Folder')).toHaveValue('/data/images'))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(mockedApi.saveSettings.mock.calls[0][0].DATA).toEqual({ dir: '/data/images' })
+      expect(mockedApi.saveSettings.mock.calls[0][0].DATA).toEqual({ dir: '/data/images', collections_dir: null, reports_dir: null, packages_dir: null })
     })
 
     it('goes back to the default with a blank folder', async () => {
       render(<SettingsPage onClose={vi.fn()} />)
       await screen.findByLabelText('Folder')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Use the default' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Use the default data folder' }))
       expect(screen.getByLabelText('Folder')).toHaveValue('')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(mockedApi.saveSettings.mock.calls[0][0].DATA).toEqual({ dir: null })
+      expect(mockedApi.saveSettings.mock.calls[0][0].DATA).toEqual({ dir: null, collections_dir: null, reports_dir: null, packages_dir: null })
     })
 
     it('refuses a folder that is not an absolute path', async () => {
@@ -256,6 +258,83 @@ describe('SettingsPage', () => {
       await userEvent.type(screen.getByLabelText('Slug'), 'donana')
       await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
       expect(await screen.findByText('Epicollect5 refused the client id and secret.')).toBeInTheDocument()
+    })
+  })
+
+  describe('About the app', () => {
+    it('shows the name and the version of the app, and the places to go for help', async () => {
+      mockedApi.checkVersion.mockResolvedValue({ current: '0.1.0' })
+      render(<SettingsPage onClose={vi.fn()} />)
+
+      const about = within(await screen.findByRole('group', { name: 'About the app' }))
+      expect(about.getByText('WildINTEL Uploader')).toBeInTheDocument()
+      expect(await about.findByLabelText('Version')).toHaveTextContent('0.1.0')
+      expect(about.getByRole('button', { name: 'Check for updates' })).toBeInTheDocument()
+      expect(about.getByRole('link', { name: /Documentation/ })).toHaveAttribute('href', 'https://wildintelproject.github.io/wildintel-uploader/')
+      expect(about.getByRole('link', { name: /^GitHub/ })).toHaveAttribute('href', 'https://github.com/wildintelproject/wildintel-uploader')
+      expect(about.getByRole('link', { name: /What’s new/ })).toHaveAttribute('href', 'https://github.com/wildintelproject/wildintel-uploader/releases')
+    })
+
+    it('opens a GitHub issue that already says the version', async () => {
+      mockedApi.checkVersion.mockResolvedValue({ current: '0.1.0' })
+      render(<SettingsPage onClose={vi.fn()} />)
+
+      const link = await screen.findByRole('link', { name: /Report a problem/ })
+      await screen.findByLabelText('Version')
+      const href = link.getAttribute('href') ?? ''
+      expect(href.startsWith('https://github.com/wildintelproject/wildintel-uploader/issues/new?body=')).toBe(true)
+      await waitFor(() => expect(decodeURIComponent(screen.getByRole('link', { name: /Report a problem/ }).getAttribute('href') ?? '')).toContain('**Version:** 0.1.0'))
+    })
+
+    it('says it is a development build instead of a version', async () => {
+      mockedApi.checkVersion.mockResolvedValue({ current: 'dev' })
+      render(<SettingsPage onClose={vi.fn()} />)
+
+      expect(await screen.findByLabelText('Version')).toHaveTextContent('Development build')
+    })
+  })
+
+  describe('Collections folder', () => {
+    it('is blank by default, showing where the collections go, and is saved when typed', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      const box = await screen.findByLabelText('Collections folder')
+      expect(box).toHaveValue('')
+      expect(box).toHaveAttribute('placeholder', '/home/me/Documents/wildintel-uploader/collections')
+
+      await userEvent.type(box, '/mnt/disk/collections')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockedApi.saveSettings).toHaveBeenCalled())
+      expect(mockedApi.saveSettings.mock.calls[0][0].DATA).toEqual({ dir: '/home/me/Documents/wildintel-uploader', collections_dir: '/mnt/disk/collections', reports_dir: null, packages_dir: null })
+    })
+
+    it.each([['Reports folder', 'reports_dir', '/mnt/disk/reports', '/home/me/Documents/wildintel-uploader/reports'], ['Packages folder', 'packages_dir', '/mnt/disk/packages', '/home/me/Documents/wildintel-uploader/packages']] as const)(
+      'has a %s beside it, blank by default and saved when typed', async (label, key, typed, placeholder) => {
+        render(<SettingsPage onClose={vi.fn()} />)
+        const box = await screen.findByLabelText(label)
+        expect(box).toHaveValue('')
+        expect(box).toHaveAttribute('placeholder', placeholder)
+
+        await userEvent.type(box, typed)
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(mockedApi.saveSettings).toHaveBeenCalled())
+        expect(mockedApi.saveSettings.mock.calls[0][0].DATA[key]).toBe(typed)
+      })
+
+    it('has no folder for the sessions nor the logs: they live in the state folder', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      await screen.findByLabelText('Collections folder')
+      expect(screen.queryByLabelText('Sessions folder')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Logs folder')).not.toBeInTheDocument()
+    })
+
+    it('must be an absolute path', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      await userEvent.type(await screen.findByLabelText('Collections folder'), 'relative/collections')
+
+      expect(screen.getByText('An absolute path (or one starting with ~).')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
     })
   })
 
@@ -796,7 +875,7 @@ describe('SettingsPage', () => {
       mockedApi.checkForUpdate.mockResolvedValue(CHECK)
       render(<SettingsPage onClose={() => {}} />)
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Check updates' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
 
       expect(await screen.findByText(/up to date \(version 0\.1\.0\)/)).toBeInTheDocument()
     })
@@ -808,7 +887,7 @@ describe('SettingsPage', () => {
       })
       render(<SettingsPage onClose={() => {}} />)
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Check updates' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
 
       expect(await screen.findByRole('link', { name: 'Tap to download 0.2.0' })).toHaveAttribute('href', 'https://dl/app-0.2.0-linux-x86_64.AppImage')
     })
@@ -818,7 +897,7 @@ describe('SettingsPage', () => {
       mockedApi.checkForUpdate.mockResolvedValueOnce(CHECK)
       render(<SettingsPage onClose={() => {}} />)
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Check updates' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
       expect(await screen.findByText(/offline/)).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Tap to retry' }))
 

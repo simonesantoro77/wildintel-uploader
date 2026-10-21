@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import BackButton from '../components/BackButton'
 import OptionCards from '../components/OptionCards'
 import type { Option } from '../components/OptionCards'
 import RepairPage from './RepairPage'
@@ -29,14 +28,13 @@ export default function UtilsPage({ onBack, onProcess, onCopyCards }: Props) {
   if (util) {
     return (
       <div>
-        <div className="mx-auto px-4 pt-6" style={{ maxWidth: 700 }}><BackButton onClick={() => setUtil(null)} /></div>
-        {util === 'timefix' ? <TimeFixPage onProcess={onProcess} onCopyCards={onCopyCards} /> : util === 'repair' ? <RepairPage /> : <SyncCollectionsPage />}
+        {util === 'timefix' ? <TimeFixPage onProcess={onProcess} onCopyCards={onCopyCards} onBack={() => setUtil(null)} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} /> : <SyncCollectionsPage onBack={() => setUtil(null)} />}
       </div>
     )
   }
 
   return (
-    <div className="mx-auto px-4 py-8" style={{ maxWidth: 700 }}>
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h4 className="text-lg font-semibold mb-1">Utilities</h4>
       <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">Fixing the dates of a copied card, and maintenance of the local collections.</p>
       <OptionCards options={UTIL_OPTIONS} selected={null} onChoose={setUtil} />

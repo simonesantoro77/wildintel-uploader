@@ -3,7 +3,7 @@ screen shows of it and what can be downloaded to look at it in detail afterwards
 
 A report is a JSON file in config.reports_dir():
 
-    {"id", "kind": "validation" | "postvalidation" | "preprocessing" | "repair", "title", "created_at", "source_dir",
+    {"id", "kind": "validation" | "postvalidation" | "preprocessing" | "repair" | "upload", "title", "created_at", "source_dir",
      "deployment_id", "parameters", "checked",
      "checks": {check: {"label", "scope": "images" | "deployment", "ok", "failed"}},
      "totals": {"entries", "ok", "failed", "images_with_issues"},
@@ -26,11 +26,11 @@ from typing import Iterable
 from wildintel_uploader.core import config, parallel
 from wildintel_uploader.core.services import deployment_import_service as dis
 
-KINDS = ("validation", "postvalidation", "preprocessing", "repair")
+KINDS = ("validation", "postvalidation", "preprocessing", "repair", "upload")
 DEPLOYMENT = "(deployment)"
 CSV_COLUMNS = ("identifier", "check", "status", "message")
 
-_ID = re.compile(r"^\d{8}-\d{6}_(validation|postvalidation|preprocessing|repair)_[0-9A-Za-z_.-]*$")
+_ID = re.compile(r"^\d{8}-\d{6}_(validation|postvalidation|preprocessing|repair|upload)_[0-9A-Za-z_.-]*$")
 
 LABELS = {
     "corrupted": "Corrupted images", "sequence": "Shooting order vs. filename sequence", "structure": "Folder structure",
@@ -202,6 +202,23 @@ def preprocessing_report(records: list[dict], skipped: list[dict], deployment_id
     for item in skipped:
         b.add(item["name"], "preprocessing", False, item["detail"])
     b.entries.sort(key=lambda e: dis._natural_key(Path(e["identifier"])))
+    return b.build()
+
+
+def upload_report(collection: str, research_project: str, items: list[dict], *, started_at: str, finished_at: str) -> dict:
+    """The report of an upload to Trapper: for each deployment the steps it went through — what each said — and, when it
+    failed, the check "Upload" with the reason. `items` are the page's: {"id", "state": "done" | "failed", "images", "bytes",
+    "location_id", "location_created", "deployment_created", "error", "steps": [{"label", "message"}]}."""
+    b = _Builder("upload", f"Upload of {collection}", source_dir=None, deployment_id=None,
+                 parameters={"collection": collection, "research_project": research_project, "started_at": started_at, "finished_at": finished_at})
+    b.checked = len(items)
+    for item in items:
+        for step in item.get("steps", []):
+            b.add(item["id"], step["label"], True, step["message"], scope="deployment")
+        done = item.get("state") == "done"
+        detail = (f"{item.get('images', 0)} image(s), {item.get('bytes', 0)} bytes sent"
+                  f"{'; location created' if item.get('location_created') else ''}{'; deployment created' if item.get('deployment_created') else ''}.")
+        b.add(item["id"], "Upload", done, detail if done else (item.get("error") or "It was not uploaded."), scope="deployment")
     return b.build()
 
 

@@ -7,7 +7,7 @@ import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { LocalResearchProject, UploadCollection, UploadDeploymentInfo, UploadEvent } from '../types'
 
 vi.mock('../api', () => ({
-  api: { listResearchProjects: vi.fn(), uploadCollections: vi.fn(), uploadDeployment: vi.fn(), openFolder: vi.fn(), trapperGetConfig: vi.fn(), checkUploadSelection: vi.fn(), uploadClassificationProjects: vi.fn() },
+  api: { listResearchProjects: vi.fn(), uploadCollections: vi.fn(), uploadDeployment: vi.fn(), openFolder: vi.fn(), trapperGetConfig: vi.fn(), checkUploadSelection: vi.fn(), uploadClassificationProjects: vi.fn(), saveUploadReport: vi.fn(), reportUrl: vi.fn() },
 }))
 
 const mockedApi = vi.mocked(api)
@@ -47,6 +47,8 @@ const STEP_EVENTS = (id: string): UploadEvent[] => [
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedApi.saveUploadReport.mockResolvedValue({ report_id: '20261006-101500_upload_R0003' })
+  mockedApi.reportUrl.mockImplementation((id, format) => `/api/reports/${id}/download?format=${format}`)
   mockedApi.listResearchProjects.mockResolvedValue({ results: [PROJECT] })
   mockedApi.uploadCollections.mockResolvedValue({ results: COLLECTIONS })
   mockedApi.trapperGetConfig.mockResolvedValue({ base_url: 'https://trapper.example.org', user_name: 'alice@example.org', has_password: true })
@@ -243,8 +245,13 @@ describe('UploadDeploymentPage', () => {
     await proceedToStep3()
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('1 deployment could not be uploaded')
-    expect(alert).toHaveTextContent(/R0003-DONA_01: Trapper has no research project 'DONA' — create it there first/)
+    expect(alert).toHaveTextContent('1 deployment uploaded, 1 could not be uploaded')
+    expect(screen.getByText(/Trapper has no research project 'DONA' — create it there first/)).toBeInTheDocument()
+    expect(screen.getByText('Not uploaded')).toBeInTheDocument() // and the failed one is in the list, not apart
+    expect(await screen.findByRole('link', { name: 'Download report' })).toHaveAttribute('href', '/api/reports/20261006-101500_upload_R0003/download?format=csv')
+    expect(mockedApi.saveUploadReport).toHaveBeenCalledTimes(1)
+    expect(mockedApi.saveUploadReport.mock.calls[0][4]).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'R0003-DONA_01', state: 'failed' })]))
+    expect(screen.getByText(/Last run/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /R0003-DONA_02/ })).toBeInTheDocument() // the other one went up
     expect(mockedApi.uploadDeployment).toHaveBeenCalledTimes(2)
   })
@@ -339,6 +346,47 @@ describe('UploadDeploymentPage', () => {
     expect(screen.getByRole('button', { name: 'Edit Prepare the files' })).toBeInTheDocument()
     expect(screen.queryByText('Files prepared')).not.toBeInTheDocument()
     expect(mockedApi.uploadDeployment.mock.calls.map((c) => c[3])).toEqual(['generate', 'generate', 'upload', 'upload'])
+  })
+
+  describe('deleting the package files once uploaded', () => {
+    const DELETE = /Delete the package files once they are uploaded/
+
+    it('is offered with the upload only, and is off unless ticked', async () => {
+      await pickCollection()
+      expect(screen.getByRole('checkbox', { name: DELETE })).not.toBeChecked()
+      await userEvent.click(screen.getByRole('radio', { name: 'Only prepare the files' }))
+      expect(screen.queryByRole('checkbox', { name: DELETE })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('radio', { name: 'Rehearse first (dry run)' }))
+      expect(screen.queryByRole('checkbox', { name: DELETE })).not.toBeInTheDocument()
+    })
+
+    it('tells the upload to delete them when ticked, and says they were deleted', async () => {
+      mockedApi.uploadDeployment.mockImplementation(async (_rp, _col, id, _mode, onEvent) => {
+        STEP_EVENTS(id).slice(0, -1).forEach(onEvent)
+        onEvent({ type: 'done', mode: 'upload', collection: 'R0003', deployment_id: id, parts: 1, images: 120, bytes: 10, files_deleted: true })
+      })
+      await pickCollection()
+      await userEvent.click(screen.getByRole('checkbox', { name: DELETE }))
+      await proceedToStep3()
+
+      expect(await screen.findByText('Upload complete')).toBeInTheDocument()
+      expect(screen.getByText(/The package files were deleted/)).toBeInTheDocument()
+      expect(mockedApi.uploadDeployment.mock.calls.every((c) => c[7] === true)).toBe(true)
+    })
+
+    it('keeps them by default, and says where', async () => {
+      mockedApi.uploadDeployment.mockImplementation(async (_rp, _col, id, _mode, onEvent) => {
+        STEP_EVENTS(id).slice(0, -1).forEach(onEvent)
+        onEvent({ type: 'done', mode: 'upload', collection: 'R0003', deployment_id: id, parts: 1, images: 120, bytes: 10, files_deleted: false, output_dir: '/data/packages/DONA/R0003', files: ['a.zip'] })
+      })
+      await pickCollection()
+      await proceedToStep3()
+
+      expect(await screen.findByText('Upload complete')).toBeInTheDocument()
+      expect(screen.getByText(/The package files were kept/)).toBeInTheDocument()
+      expect(screen.getByText('/data/packages/DONA/R0003')).toBeInTheDocument()
+      expect(mockedApi.uploadDeployment.mock.calls.every((c) => c[7] === false)).toBe(true)
+    })
   })
 
   it('runs a dry run, saying what would be done and changing nothing', async () => {
@@ -527,5 +575,13 @@ describe('UploadDeploymentPage', () => {
       await pickCollection()
       expect(await screen.findByText(/Trapper has no research project DONA/)).toBeInTheDocument()
     })
+  })
+
+  it('has a Back, level with Continue, that leaves the task from the first step', async () => {
+    const onBack = vi.fn()
+    render(<UploadDeploymentPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
   })
 })

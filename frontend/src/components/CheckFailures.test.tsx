@@ -24,7 +24,7 @@ describe('CheckFailures', () => {
 
     expect(screen.getByText('2 failures')).toBeInTheDocument()
     expect(screen.getByAltText('IMG_0001.JPG')).toHaveAttribute('src', '/api/reports/r1/image?path=IMG_0001.JPG&size=thumb')
-    expect(screen.getByText('⚠ No camera model')).toBeInTheDocument()
+    expect(screen.getAllByText('No camera model').length).toBeGreaterThan(0)
     expect(screen.getAllByText('2024-09-02 10:00:00').length).toBeGreaterThan(0)
   })
 

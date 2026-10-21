@@ -116,7 +116,7 @@ def test_without_a_row_in_the_log_the_period_is_the_one_left_in_deployment_json_
     events = _repair(root)
 
     rows = lfs.read_timestamp_log(lfs.timestamp_log_path(collection))
-    assert [(r["Deployment"], r["StartDate"], r["StartTime"], r["EndTime"]) for r in rows] == [(DEPLOYMENT_ID, "2024:07:01", "10:00:00", "11:30:00")]  # from the images
+    assert [(r["Deployment"], r["StartDate"], r["StartTime"], r["EndTime"]) for r in rows] == [(DEPLOYMENT_ID.lower(), "2024:07:01", "10:00:00", "11:30:00")]  # from the images
     assert lfs.timestamp_log_path(collection).name in events[-1]["written"]
 
 

@@ -94,23 +94,23 @@ export default function App() {
         {settingsOpen && <SettingsPage initialSection={settingsSection} onClose={() => setSettingsOpen(false)} />}
         <div className={settingsOpen ? 'hidden' : ''}>
           {task === 'deployment'
-            ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} />
+            ? <ImportDeploymentPage resumeSession={resumeSession ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={() => setTask(null)} />
             : task === 'session'
-              ? <ImportSessionPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onFixDates={goToTimeFix} initial={processTarget ?? undefined} />
+              ? <ImportSessionPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onFixDates={goToTimeFix} initial={processTarget ?? undefined} onBack={() => setTask(null)} />
               : task === 'upload'
-              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} />
+              ? <UploadDeploymentPage initial={uploadTarget ?? undefined} onOpenSettings={() => openSettings()} onBack={() => setTask(null)} />
               : task === 'utils'
               ? <UtilsPage onBack={() => setTask(null)} onProcess={goToProcess} onCopyCards={goToCards} />
               : task === 'sync'
-              ? <SyncCollectionsPage />
+              ? <SyncCollectionsPage onBack={() => setTask(null)} />
               : task === 'repair'
-              ? <RepairPage />
+              ? <RepairPage onBack={() => setTask(null)} />
               : task === 'fieldlog'
-              ? <FieldLogPage onCopyCards={goToCards} />
+              ? <FieldLogPage onCopyCards={goToCards} onBack={() => setTask(null)} />
               : task === 'cards'
-              ? <CardsPage onFixDates={goToTimeFix} onProcess={goToProcess} initial={cardsTarget ?? undefined} />
+              ? <CardsPage onFixDates={goToTimeFix} onProcess={goToProcess} initial={cardsTarget ?? undefined} onBack={() => setTask(null)} />
               : task === 'timefix'
-              ? <TimeFixPage initial={timefixTarget ?? undefined} onProcess={goToProcess} onCopyCards={goToCards} />
+              ? <TimeFixPage initial={timefixTarget ?? undefined} onProcess={goToProcess} onCopyCards={goToCards} onBack={() => setTask(null)} />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage

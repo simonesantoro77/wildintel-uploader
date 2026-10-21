@@ -7,12 +7,13 @@ import logging
 from collections.abc import Iterator
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 
 from wildintel_uploader.core import config
 from wildintel_uploader.core.logging_setup import debugging
 from wildintel_uploader.core.schemas.requests import AccessCheckRequest, UploadClassificationProjectsRequest, UploadCollectionsRequest, UploadDeploymentRequest
-from wildintel_uploader.core.services import local_folder_service, trapper_service, trapper_upload_service
+from wildintel_uploader.core.services import local_folder_service, report_service, trapper_service, trapper_upload_service
 from wildintel_uploader.web.api.routers.trapper import http_exc, resolve
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
@@ -126,8 +127,9 @@ def upload_deployment(req: UploadDeploymentRequest) -> StreamingResponse:
         raise HTTPException(404, f"{req.deployment_id} isn't in the collection {req.collection}.")
 
     events = trapper_upload_service.upload_stream(
-        credentials, record, collection_dir, req.deployment_id, config.data_dir() / "packages" / req.research_project_id,
+        credentials, record, collection_dir, req.deployment_id, config.packages_dir() / req.research_project_id,
         mode=req.mode, max_zip_bytes=config.max_zip_mb() * 1024 * 1024, classification_project_pk=req.classification_project_pk,
+        delete_after_upload=req.delete_files,
     )
 
     def lines() -> Iterator[str]:
@@ -140,3 +142,18 @@ def upload_deployment(req: UploadDeploymentRequest) -> StreamingResponse:
             yield json.dumps({"type": "error", "detail": detail}) + "\n"
 
     return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+
+class UploadReportRequest(BaseModel):
+    collection: str
+    research_project_id: str
+    started_at: str
+    finished_at: str
+    items: list[dict]
+
+
+@router.post("/report")
+def save_upload_report(req: UploadReportRequest) -> dict:
+    """Keeps the report of an upload that has ended — what went up, what failed and why — with the others, to read or download later."""
+    report = report_service.upload_report(req.collection, req.research_project_id, req.items, started_at=req.started_at, finished_at=req.finished_at)
+    return {"report_id": report_service.save(report)}

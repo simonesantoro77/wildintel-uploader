@@ -1,3 +1,4 @@
+import { BadgeIcon, StatusIcon } from './Notice'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -41,10 +42,10 @@ export function formatDuration(ms: number): string {
 export const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
 const itemBytes = (item: PrepareItem) => item.files.reduce((sum, f) => sum + f.bytes, 0)
 
-export function Tile({ value, label }: { value: string; label: string }) {
+export function Tile({ value, label, tone }: { value: string; label: string; tone?: 'green' | 'amber' }) {
   return (
     <div className={`${panel} px-4 py-3`}>
-      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
+      <p className={`text-2xl font-bold ${tone === 'green' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'amber' ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100'}`}>{value}</p>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
     </div>
   )
@@ -123,7 +124,7 @@ export function PreparingFiles({ items, startedAt, onStop }: {
           {items.map((i) => (
             <li key={i.id} className="flex items-center gap-4 px-5 py-3">
               <span className="w-5 shrink-0 flex justify-center">
-                {i.state === 'done' ? <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">✓</span> : i.state === 'working' ? <Spinner /> : i.state === 'failed' ? <span aria-hidden="true" className="text-red-600 dark:text-red-400">✕</span> : null}
+                {i.state === 'done' ? <StatusIcon kind="success" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> : i.state === 'working' ? <Spinner /> : i.state === 'failed' ? <StatusIcon kind="error" className="h-5 w-5 text-red-600 dark:text-red-400" /> : null}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</p>
@@ -154,9 +155,11 @@ export function PreparingFiles({ items, startedAt, onStop }: {
 }
 
 /** What was written, once the preparing has ended — whether it all went well or not. */
-export function FilesReady({ collection, items, outputDir, startedAt, finishedAt, onOpenFolder, onBack, onUpload }: {
+export function FilesReady({ collection, items, outputDir, startedAt, finishedAt, onOpenFolder, onBack, onUpload, uploadOptions }: {
   collection: string; items: PrepareItem[]; outputDir: string | null; startedAt: number; finishedAt: number
   onOpenFolder: () => void; onBack: () => void; onUpload?: () => void
+  /** What can be chosen for the upload, shown with its button. */
+  uploadOptions?: ReactNode
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -175,7 +178,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
   }
   const banner: ReactNode = failed.length === 0 ? (
     <div role="status" className="flex items-center gap-4 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 mb-4">
-      <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span>
+      <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-5 w-5" /></span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-emerald-900 dark:text-emerald-100">Files prepared</p>
         <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">{when} · took {formatDuration(finishedAt - startedAt)}. Nothing was sent to Trapper.</p>
@@ -219,7 +222,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
               return (
                 <li key={i.id}>
                   <button type="button" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)} className="flex w-full items-center gap-3 px-5 py-3 text-left">
-                    <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">✓</span>
+                    <StatusIcon kind="success" className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     <span className="flex-1 min-w-0">
                       <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
                       <span className="block text-xs text-zinc-500 dark:text-zinc-400">{count(i.images, 'image')} · {count(own.length, 'file')}</span>
@@ -251,6 +254,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
           </div>
         </>
       )}
+      {onUpload && uploadOptions && <div className="mb-4">{uploadOptions}</div>}
       <div className="flex justify-between items-center">
         <button type="button" className={`${btnOutline} flex items-center gap-2`} onClick={onBack}><span aria-hidden="true">←</span>Back</button>
         {onUpload && <button type="button" className="px-4 py-2 text-sm border border-blue-600 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" onClick={onUpload}>Upload to Trapper</button>}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import EpicollectMapping from '../components/EpicollectMapping'
+import { DOCS_URL, REPO_URL } from '../components/Navbar'
 import { COVERAGE_AREAS, ENTITIES } from '../entities'
 import ReportsList from '../components/ReportsList'
 import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, FieldlogColumn, FieldlogSettings, IngestSettings, ImageCheck, LogLevel, SimilarityMethod, UpdateCheck } from '../types'
@@ -114,6 +115,9 @@ interface Draft {
   logLevel: LogLevel
   workers: string
   dataDir: string
+  collectionsDir: string
+  reportsDir: string
+  packagesDir: string
   trapperUrl: string
   maxZipMb: string
   trapperUser: string
@@ -159,6 +163,9 @@ function toDraft(s: AppSettings): Draft {
     logLevel: s.GENERAL.log_level,
     workers: String(s.GENERAL.workers),
     dataDir: s.DATA.dir,
+    collectionsDir: s.DATA.collections_dir ?? '',
+    reportsDir: s.DATA.reports_dir ?? '',
+    packagesDir: s.DATA.packages_dir ?? '',
     trapperUrl: s.TRAPPER.base_url ?? '',
     maxZipMb: String(s.TRAPPER.max_zip_mb),
     trapperUser: s.TRAPPER.user_name ?? '',
@@ -210,7 +217,7 @@ function isAbsolutePath(path: string): boolean {
 }
 
 function sectionValid(d: Draft, id: SectionId): boolean {
-  if (id === 'general') return (d.dataDir.trim() === '' || isAbsolutePath(d.dataDir)) && numberIn(d.workers, WORKERS) !== null
+  if (id === 'general') return (d.dataDir.trim() === '' || isAbsolutePath(d.dataDir)) && FOLDERS.every(({ draftKey }) => d[draftKey].trim() === '' || isAbsolutePath(d[draftKey])) && numberIn(d.workers, WORKERS) !== null
   if (id === 'postvalidation') {
     return numberIn(d.toleranceHours, TOLERANCE) !== null && numberIn(d.sequenceGap, SEQUENCE_GAP) !== null
       && numberIn(d.minRevisions, MIN_REVISIONS) !== null
@@ -228,7 +235,7 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
     GENERAL: { log_level: d.logLevel, workers: Number(d.workers) },
     TRAPPER: { base_url: d.trapperUrl.trim() || null, user_name: d.trapperUser.trim() || null, user_password: d.trapperPassword, max_zip_mb: Number(d.maxZipMb) },
     EPICOLLECT5: { enabled: d.epicollectEnabled, unmapped_to_comments: d.epicollectUnmappedToComments, project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret, mapping: d.epicollectMapping },
-    DATA: { dir: d.dataDir.trim() || null },
+    DATA: { dir: d.dataDir.trim() || null, collections_dir: d.collectionsDir.trim() || null, reports_dir: d.reportsDir.trim() || null, packages_dir: d.packagesDir.trim() || null },
     VALIDATION: d.validation,
     POSTVALIDATION: {
       ...d.postvalidation, tolerance_hours: Number(d.toleranceHours), sequence_gap_seconds: Number(d.sequenceGap),
@@ -249,6 +256,19 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
 }
 
 // ── Layout pieces ───────────────────────────────────────────────────────
+
+/** The folders of the app that can be put somewhere of their own; blank, each is a folder inside the data folder. */
+const FOLDERS: { draftKey: 'collectionsDir' | 'reportsDir' | 'packagesDir'; label: string; description: string; hint: string; dialog: string }[] = [
+  { draftKey: 'collectionsDir', label: 'Collections folder', dialog: 'Select the folder to keep the collections in',
+    description: 'Where the collections are kept before they are uploaded — <folder>/<research project>/<R0003>/<deployment>. Left blank, they go in a “collections” folder inside the data folder.',
+    hint: 'Handy to keep the collections on another disk.' },
+  { draftKey: 'reportsDir', label: 'Reports folder', dialog: 'Select the folder to keep the reports in',
+    description: 'Where the reports of the checks and of the image preparation are kept. Left blank, they go in a “reports” folder inside the data folder.',
+    hint: 'Reports already made stay where they are: move them by hand if you want them in the new folder.' },
+  { draftKey: 'packagesDir', label: 'Packages folder', dialog: 'Select the folder to keep the packages in',
+    description: 'Where the zips, the yamls and the deployments csv made to upload to Trapper are written — <folder>/<research project>/<R0003>. Left blank, they go in a “packages” folder inside the data folder.',
+    hint: 'Handy when the packages are big and the data folder is on a small disk.' },
+]
 
 type SectionId = 'general' | 'trapper' | 'fieldlog' | 'epicollect' | 'validation' | 'postvalidation' | 'preprocessing' | 'reports' | 'config'
 
@@ -474,16 +494,16 @@ function UpdateCheckButton() {
   }
 
   const result = state.kind === 'result' ? state.check : null
-  const buttonClass = `${btnSoft} justify-center w-full`
+  const buttonClass = `${btnSoft} inline-flex items-center gap-2 justify-center`
   return (
     <>
       {result?.update_available ? (
         <a href={result.download_url ?? result.release_url ?? '#'} target="_blank" rel="noreferrer" className={`${buttonClass} no-underline`}>
-          Tap to download {result.latest}
+          <RefreshIcon />Tap to download {result.latest}
         </a>
       ) : (
         <button type="button" className={buttonClass} disabled={state.kind === 'checking'} onClick={check}>
-          {state.kind === 'checking' ? 'Checking…' : state.kind === 'error' ? 'Tap to retry' : 'Check updates'}
+          <RefreshIcon spinning={state.kind === 'checking'} />{state.kind === 'checking' ? 'Checking…' : state.kind === 'error' ? 'Tap to retry' : 'Check for updates'}
         </button>
       )}
       {state.kind === 'error' && <p className="text-xs text-red-600 dark:text-red-400 px-1">{state.message}</p>}
@@ -496,6 +516,69 @@ function UpdateCheckButton() {
         <p className={`${hintClass} px-1`} role="status">Version {result.latest} is available — you have {result.current}.</p>
       )}
     </>
+  )
+}
+
+function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current ${spinning ? 'animate-spin' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 0 0-15.5-6.2L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 15.5 6.2L21 16" /><path d="M16 16h5v5" />
+    </svg>
+  )
+}
+
+const LINK_ICONS: Record<string, ReactNode> = {
+  bug: <><path d="m8 2 1.9 1.9" /><path d="M14.1 3.9 16 2" /><path d="M9 7.1V6a3 3 0 0 1 6 0v1.1" /><path d="M12 20a6 6 0 0 1-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3a6 6 0 0 1-6 6Z" /><path d="M12 20v-9" /><path d="M6.5 13H2" /><path d="M17.5 13H22" /><path d="M3 21c0-2.1 1.7-3.9 3.8-4" /><path d="M20.2 17c2.1.1 3.8 1.9 3.8 4" /></>,
+  book: <><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></>,
+  code: <><path d="m16 18 6-6-6-6" /><path d="m8 6-6 6 6 6" /></>,
+  notes: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /></>,
+}
+
+/** The app, its version and the places to go for help: the update check on the left, the links on the right. */
+function AboutBlock() {
+  const [version, setVersion] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    Promise.resolve().then(() => api.checkVersion()).then((v) => { if (!cancelled) setVersion(v.current) }).catch(() => { /* the version is just not shown */ })
+    return () => { cancelled = true }
+  }, [])
+  const shownVersion = version === null ? null : version === 'dev' ? 'Development build' : version
+  const issue = `${REPO_URL}/issues/new?body=${encodeURIComponent(
+    `**Version:** ${version ?? 'unknown'}\n**Browser:** ${navigator.userAgent}\n\n**What happened?**\n\n**What did you expect?**\n\n**How to reproduce it**\n1. \n\n_Attach the log file (Settings › General › Log file) if you can._\n`,
+  )}`
+  const links = [
+    { icon: 'bug', title: 'Report a problem', subtitle: 'Open a pre-filled GitHub issue', href: issue },
+    { icon: 'book', title: 'Documentation', subtitle: 'The user manual', href: DOCS_URL },
+    { icon: 'code', title: 'GitHub', subtitle: 'Source code', href: REPO_URL },
+    { icon: 'notes', title: 'What’s new', subtitle: 'Show release notes', href: `${REPO_URL}/releases` },
+  ]
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6 py-6" aria-label="About the app" role="group">
+      <div>
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-3xl">📤</span>
+          <div>
+            <h4 className="text-2xl font-semibold leading-tight">WildINTEL Uploader</h4>
+            {shownVersion && <p className="text-sm text-zinc-500 dark:text-zinc-400 font-mono" aria-label="Version">{shownVersion}</p>}
+          </div>
+        </div>
+        <div className="mt-5 space-y-2"><UpdateCheckButton /></div>
+      </div>
+      <ul className="space-y-1">
+        {links.map((l) => (
+          <li key={l.title}>
+            <a href={l.href} target="_blank" rel="noreferrer"
+               className="flex items-center gap-4 rounded-lg px-4 py-2.5 no-underline text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-zinc-600 dark:text-zinc-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{LINK_ICONS[l.icon]}</svg>
+              <span>
+                <span className="block text-base leading-tight">{l.title}</span>
+                <span className="block text-sm text-zinc-500 dark:text-zinc-400">{l.subtitle}</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -694,11 +777,11 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
     }
   }
 
-  async function handleBrowse() {
+  async function handleBrowse(field: 'dataDir' | (typeof FOLDERS)[number]['draftKey'] = 'dataDir') {
     setBrowsing(true)
     try {
-      const { path } = await api.browseFolder('Select the folder to keep the images in')
-      if (path) set('dataDir', path)
+      const { path } = await api.browseFolder(field === 'dataDir' ? 'Select the data folder' : FOLDERS.find((f) => f.draftKey === field)!.dialog)
+      if (path) set(field, path)
     } catch {
       // No native dialog here (a server without a display): the path can still be typed.
     } finally {
@@ -775,22 +858,34 @@ export default function SettingsPage({ onClose, initialSection }: Props) {
 
         {draft && saved && section === 'general' && (
           <div className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-            <Row label="Update" description="Looks for a newer version of the app.">
-              <UpdateCheckButton />
-            </Row>
+            <AboutBlock />
             <Row
-              label="Images folder"
-              description="Where the app keeps the images. Its collections go in a “collections” folder inside it — collections/<research project>/<R0003>/<deployment> — before they are uploaded."
+              label="Data folder"
+              description="Where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. You can put any of them somewhere else below."
             >
               <TextBox label="Folder" value={draft.dataDir} onChange={(v) => set('dataDir', v)} mono error={dataDirError} />
               <div className="flex flex-wrap items-center gap-2">
-                <button type="button" className={btnSoft} disabled={browsing} onClick={handleBrowse}>{browsing ? 'Browsing…' : 'Browse…'}</button>
-                <button type="button" className={btnSoft} onClick={() => set('dataDir', '')} disabled={draft.dataDir === ''}>Use the default</button>
+                <button type="button" className={btnSoft} aria-label="Browse for the data folder" disabled={browsing} onClick={() => handleBrowse('dataDir')}>{browsing ? 'Browsing…' : 'Browse…'}</button>
+                <button type="button" className={btnSoft} aria-label="Use the default data folder" onClick={() => set('dataDir', '')} disabled={draft.dataDir === ''}>Use the default</button>
               </div>
               <p className={`${hintClass} px-1`}>
                 By default a folder named like the app, in your documents folder. Left blank, that is what is used.
               </p>
             </Row>
+            {FOLDERS.map(({ draftKey, label, description, hint }) => {
+              const error = draft[draftKey].trim() !== '' && !isAbsolutePath(draft[draftKey]) ? 'An absolute path (or one starting with ~).' : null
+              const defaultKey = draftKey.replace('Dir', '') as 'collections' | 'reports' | 'packages'
+              return (
+                <Row key={draftKey} label={label} description={description}>
+                  <TextBox label={label} value={draft[draftKey]} onChange={(v) => set(draftKey, v)} mono error={error} placeholder={saved.DATA[`default_${defaultKey}_dir`]} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" className={btnSoft} aria-label={`Browse for the ${defaultKey} folder`} disabled={browsing} onClick={() => handleBrowse(draftKey)}>{browsing ? 'Browsing…' : 'Browse…'}</button>
+                    <button type="button" className={btnSoft} aria-label={`Use the default ${defaultKey} folder`} onClick={() => set(draftKey, '')} disabled={draft[draftKey] === ''}>Use the default</button>
+                  </div>
+                  <p className={`${hintClass} px-1`}>{hint}</p>
+                </Row>
+              )
+            })}
             <Row
               label="Parallel work"
               description="How many images are validated or preprocessed at once. More workers use more CPUs and finish sooner, up to what the machine has."

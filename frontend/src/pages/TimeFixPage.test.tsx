@@ -120,4 +120,20 @@ describe('the next step', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Go to Process collection/ }))
     expect(onProcess).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0042', folder: '/cards/DONA/R0042' })
   })
+
+  it('has a Back that leaves the task', async () => {
+    const onBack = vi.fn()
+    render(<TimeFixPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
+
+  it('has a Back that leaves the task', async () => {
+    const onBack = vi.fn()
+    render(<TimeFixPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
 })

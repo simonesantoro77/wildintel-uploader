@@ -120,7 +120,7 @@ def test_applying_writes_the_datasheet_and_the_collection_files(trip):
     assert openpyxl.load_workbook(updated).active.max_row == 7
     collection = root / "TATRA" / "R0002"
     log = lfs.read_timestamp_log(lfs.timestamp_log_path(collection))
-    assert log == [{"Deployment": "R0002-TATR_0001", "StartDate": "2026:02:20", "StartTime": "09:30:00",
+    assert log == [{"Deployment": "r0002-tatr_0001", "StartDate": "2026:02:20", "StartTime": "09:30:00",
                     "EndDate": "2026:03:30", "EndTime": "08:15:00"}]
     assert not (sheet.parent / "R0002_FileTimestampLog.csv").exists()  # the old eleven-column log is not written
     rows = fs.read_fieldwork_log(collection)
@@ -136,7 +136,7 @@ def test_applying_again_keeps_the_other_rows_of_the_timestamp_log(trip):
     fs.apply(str(epi), str(sheet), "TATRA")
 
     ids = [r["Deployment"] for r in lfs.read_timestamp_log(lfs.timestamp_log_path(collection))]
-    assert ids == ["R0002-TATR_0099", "R0002-TATR_0001"]
+    assert ids == ["r0002-tatr_0099", "r0002-tatr_0001"]  # in lower case, as Trapper keeps its ids
 
 
 def test_a_research_project_is_needed_to_write(trip):

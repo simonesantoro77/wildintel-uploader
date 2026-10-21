@@ -30,21 +30,31 @@ def get_app_documents_dir() -> Path:
 
 
 def get_logs_dir() -> Path:
-    """Where the app's log files go — next to settings.toml (see
-    logging_setup)."""
+    """Where the app's log files go — the log folder of the system, which is state: ~/.local/state/wildintel-uploader/log
+    on Linux (see logging_setup). Not configurable."""
+    return Path(platformdirs.user_log_dir(APP_NAME))
+
+
+def legacy_logs_dir() -> Path:
+    """Where the log files were kept before: next to settings.toml."""
     return DEFAULT_CONFIG_FILE.parent / "logs"
 
 
-def get_sessions_dir() -> Path:
-    """Where in-progress and interrupted wizard runs persist — see
-    services.session_store."""
+def legacy_sessions_dir() -> Path:
+    """Where the sessions were kept before they moved to the state folder: <documents>/wildintel-uploader/sessions."""
     return get_app_documents_dir() / "sessions"
 
 
+def get_sessions_dir() -> Path:
+    """Where in-progress and interrupted wizard runs persist — they are state: ~/.local/state/wildintel-uploader/sessions on
+    Linux (the XDG state folder), the app's folder in Windows and macOS. Not configurable — see services.session_store."""
+    return Path(platformdirs.user_state_dir(APP_NAME)) / "sessions"
+
+
 def default_data_dir() -> Path:
-    """The folder where the app keeps the images — <documents>/wildintel-uploader.
-    Its collections go in a "collections" folder inside it (see
-    collections_dir). DATA.dir can override it."""
+    """The data folder, where the app keeps what it makes — <documents>/wildintel-uploader.
+    Its collections, reports and packages go in folders inside it (see
+    collections_dir, reports_dir, packages_dir). DATA.dir can override it."""
     return get_app_documents_dir()
 
 
@@ -104,11 +114,22 @@ class DataSettings(BaseModel):
     # an old absolute path baked into settings.toml.
     dir: Optional[str] = Field(
         default=None,
-        description="The folder where the app keeps the images — its collections go in a \"collections\" folder inside it, before they are uploaded: collections/<research project id>/<collection>/<deployment id>. (DATA.dir)",
+        description="The data folder, where the app keeps what it makes: its collections (collections/<research project id>/<collection>/<deployment id>), reports and packages go in folders inside it, unless each has one of its own. (DATA.dir)",
+    )
+    collections_dir: Optional[str] = Field(
+        default=None,
+        description="A folder of its own for the collections, instead of the \"collections\" folder inside DATA.dir: <folder>/<research project id>/<collection>/<deployment id>. (DATA.collections_dir)",
+    )
+    reports_dir: Optional[str] = Field(
+        default=None,
+        description="A folder of its own for the reports of the validations, postvalidations and preprocessings, instead of the \"reports\" folder inside DATA.dir. (DATA.reports_dir)",
+    )
+    packages_dir: Optional[str] = Field(
+        default=None,
+        description="A folder of its own for the packages made to upload to Trapper, instead of the \"packages\" folder inside DATA.dir: <folder>/<research project id>/<collection>. (DATA.packages_dir)",
     )
 
-
-    @field_validator("dir")
+    @field_validator("dir", "collections_dir", "reports_dir", "packages_dir")
     @classmethod
     def _absolute(cls, value: Optional[str]) -> Optional[str]:
         if value is None or not value.strip():
@@ -383,9 +404,12 @@ def data_dir(settings: Settings | None = None) -> Path:
 
 def collections_dir(settings: Settings | None = None) -> Path:
     """Where every collection is kept locally before anything is uploaded:
-    <data directory>/collections/<research project id>/<collection, e.g.
-    R0003>/<deployment id>/ (see services.deployment_import_service)."""
-    return data_dir(settings) / "collections"
+    DATA.collections_dir if set, else <data directory>/collections — then
+    <research project id>/<collection, e.g. R0003>/<deployment id>/ (see
+    services.deployment_import_service)."""
+    settings = settings or load_settings()
+    custom = settings.DATA.collections_dir
+    return Path(custom).expanduser() if custom else data_dir(settings) / "collections"
 
 
 def cards_dir(settings: Settings | None = None) -> Path:
@@ -396,5 +420,15 @@ def cards_dir(settings: Settings | None = None) -> Path:
 
 def reports_dir(settings: Settings | None = None) -> Path:
     """Where the reports of the validations, postvalidations and preprocessings are kept:
-    <data directory>/reports/ (see services.report_service)."""
-    return data_dir(settings) / "reports"
+    DATA.reports_dir if set, else <data directory>/reports (see services.report_service)."""
+    settings = settings or load_settings()
+    custom = settings.DATA.reports_dir
+    return Path(custom).expanduser() if custom else data_dir(settings) / "reports"
+
+
+def packages_dir(settings: Settings | None = None) -> Path:
+    """Where the packages made to upload to Trapper are written: DATA.packages_dir if set, else
+    <data directory>/packages — then <research project id>/<collection> (see services.trapper_upload_service)."""
+    settings = settings or load_settings()
+    custom = settings.DATA.packages_dir
+    return Path(custom).expanduser() if custom else data_dir(settings) / "packages"

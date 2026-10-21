@@ -237,7 +237,7 @@ describe('ImportSessionPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
     expect(await screen.findByText(/1 check found problems in 1 of 2 folders/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Summary')).toHaveTextContent('Folders passed')
+    expect(screen.getAllByLabelText('Summary')[0]).toHaveTextContent('Folders passed')
   })
 
   describe('the research project', () => {
@@ -309,6 +309,79 @@ describe('ImportSessionPage', () => {
 
     expect(screen.getByRole('button', { name: /Continue to the details/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+  })
+
+  it('shows what the scan warns about — a missing timestamp log, folders without a row — as warnings', async () => {
+    mockedApi.scanSession.mockResolvedValue({
+      ...SCAN, warnings: ["No timestamp log (S_FileTimestampLog.csv) was found in the session folder, so the dates can't be recovered from it."],
+    })
+    await scanSession()
+
+    expect(await screen.findByText(/No timestamp log \(S_FileTimestampLog\.csv\) was found/)).toBeInTheDocument()
+  })
+
+  it('says that the timestamp log was found and its dates are imported', async () => {
+    mockedApi.scanSession.mockResolvedValue({
+      ...SCAN, warnings: [],
+      deployments: SCAN.deployments.map((d) => ({ ...d, start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true })),
+      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: SCAN.deployments.length, matched: SCAN.deployments.length, revision: null },
+    })
+    await scanSession()
+
+    expect(await screen.findByText(/Timestamp log found:/)).toHaveTextContent('Timestamp log found: S_FileTimestampLog.csv. Its dates are imported.')
+  })
+
+  it('says, for each folder, whether it is in the timestamp log', async () => {
+    mockedApi.scanSession.mockResolvedValue({
+      ...SCAN, warnings: [],
+      deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
+      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null },
+    })
+    await scanSession()
+
+    expect(await screen.findByText(/Timestamp log found:/)).not.toHaveTextContent(/of 3/)
+    expect(screen.getByRole('columnheader', { name: 'In the timestamp log' })).toBeInTheDocument()
+    expect(screen.getAllByText('In the log')).toHaveLength(1)
+    expect(screen.getAllByText('Not in the log')).toHaveLength(2)
+  })
+
+  it('warns, after the table of folders, of the entries of the timestamp log that have no folder', async () => {
+    mockedApi.scanSession.mockResolvedValue({
+      ...SCAN, warnings: [],
+      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 3, matched: 1, revision: null, unmatched: ['R0003-OTHER_01', 'R0003-OTHER_02'] },
+    })
+    await scanSession()
+
+    const warning = await screen.findByText(/entries of the timestamp log have no folder/)
+    expect(warning).toHaveTextContent('2 entries of the timestamp log have no folder: R0003-OTHER_01, R0003-OTHER_02.')
+    expect(screen.getByRole('table').compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()  // it comes after the table
+  })
+
+  it('says nothing about entries without a folder when there are none', async () => {
+    mockedApi.scanSession.mockResolvedValue({
+      ...SCAN, warnings: [],
+      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null, unmatched: [] },
+    })
+    await scanSession()
+
+    await screen.findByText(/Timestamp log found:/)
+    expect(screen.queryByText(/of the timestamp log have no folder|entry of the timestamp log has/)).not.toBeInTheDocument()
+  })
+
+  it('has no timestamp log column when none was found', async () => {
+    await scanSession()
+
+    expect(screen.queryByText(/Timestamp log found:/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'In the timestamp log' })).not.toBeInTheDocument()
+  })
+
+  it('has a Back on the first step that goes back to the menu', async () => {
+    const onBack = vi.fn()
+    render(<ImportSessionPage onBack={onBack} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Back/ }))
+
+    expect(onBack).toHaveBeenCalledTimes(1)
   })
 
   it('fills each deployment’s location from its folder name, and its dates from the scan', async () => {

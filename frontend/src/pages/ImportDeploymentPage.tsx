@@ -14,6 +14,7 @@ import type { Option } from '../components/OptionCards'
 import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import { applyEntry, entryLabel, entryPeriod } from '../epicollectImport'
 import DateSourcePicker from '../components/DateSourcePicker'
+import Notice, { BadgeIcon, Mark, mark, StatusIcon } from '../components/Notice'
 import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
@@ -332,6 +333,16 @@ const STRICTNESS_CHOICES: { value: Strictness; label: string }[] = [
   { value: 'skip', label: 'Skip' }, { value: 'warn', label: 'Warn' }, { value: 'must', label: 'Must pass' },
 ]
 
+/** The colour of each: blue for skipping — neutral, not a problem —, yellow for warning, red for what blocks. */
+const STRICTNESS_ACTIVE: Record<Strictness, string> = {
+  skip: 'bg-blue-600 text-white', warn: 'bg-yellow-500 text-yellow-950', must: 'bg-red-600 text-white',
+}
+const STRICTNESS_SOFT: Record<Strictness, string> = {
+  skip: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300',
+  warn: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300',
+  must: 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300',
+}
+
 export function strictnessOf(enabled: boolean, required: boolean): Strictness {
   return !enabled ? 'skip' : required ? 'must' : 'warn'
 }
@@ -384,13 +395,13 @@ export function StrictnessTable<T extends string>({ options, enabled, required, 
                 </td>
                 <td className="px-4 py-3 text-center">
                   {results ? (
-                    <span className="text-xs text-zinc-600 dark:text-zinc-300">{STRICTNESS_CHOICES.find((c) => c.value === current)!.label}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STRICTNESS_SOFT[current]}`}>{STRICTNESS_CHOICES.find((c) => c.value === current)!.label}</span>
                   ) : (
                   <div role="radiogroup" aria-label={`How strict: ${opt.label}`} className="inline-flex rounded-md border border-zinc-300 dark:border-zinc-600 overflow-hidden">
                     {STRICTNESS_CHOICES.map((c) => (
                       <button key={c.value} type="button" role="radio" aria-checked={current === c.value}
                               className={`px-3 py-1.5 text-xs font-medium leading-tight transition-colors ${
-                                current === c.value ? 'bg-blue-600 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                                current === c.value ? STRICTNESS_ACTIVE[c.value] : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                               }`}
                               onClick={() => onChoose?.(opt.value, c.value)}>{c.label}</button>
                     ))}
@@ -425,11 +436,11 @@ export function StrictnessTable<T extends string>({ options, enabled, required, 
 /** Whether a check is running, or how it ended: passed, or failed — which stops you if it is required to continue. */
 export function CheckStatusIcon({ status, required, label }: { status: CheckStatus; required: boolean; label: string }) {
   if (status === 'running') return <span role="status" aria-label={`${label}: running`} title="Running…" className="inline-flex"><SmallSpinner /></span>
-  if (status === 'passed') return <span role="img" aria-label={`${label}: passed`} title="Passed" className="text-emerald-500">✔</span>
+  if (status === 'passed') return <span role="img" aria-label={`${label}: passed`} title="Passed" className="inline-flex text-emerald-500"><StatusIcon kind="success" className="h-5 w-5" /></span>
   if (status === 'failed') {
     return required
-      ? <span role="img" aria-label={`${label}: failed`} title="Failed — it is required to continue" className="text-red-500">✘</span>
-      : <span role="img" aria-label={`${label}: failed`} title="Failed" className="text-amber-500">⚠</span>
+      ? <span role="img" aria-label={`${label}: failed`} title="Failed — it is required to continue" className="inline-flex text-red-500"><StatusIcon kind="error" className="h-5 w-5" /></span>
+      : <span role="img" aria-label={`${label}: failed`} title="Failed" className="inline-flex text-amber-500"><StatusIcon kind="warning" className="h-5 w-5" /></span>
   }
   return <span aria-hidden="true" className="text-zinc-400 dark:text-zinc-600">–</span>
 }
@@ -1040,24 +1051,24 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.corrupted !== undefined && (
         <p className={validation.corrupted.length ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.corrupted.length
-            ? `⚠ ${validation.corrupted.length} corrupted image(s): ${validation.corrupted.map((c) => c.path).join(', ')}`
-            : '✔ No corrupted images.'}
+            ? mark('warning', `${validation.corrupted.length} corrupted image(s): ${validation.corrupted.map((c) => c.path).join(', ')}`)
+            : mark('success', 'No corrupted images.')}
         </p>
       )}
       {validation.sequence_issues !== undefined && (
         <p className={validation.sequence_issues.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.sequence_issues.length
-            ? `⚠ ${validation.sequence_issues.length} out-of-order shot(s): ${validation.sequence_issues.map((i) => `${i.path_a} (${i.date_a.slice(0, 10)}) → ${i.path_b} (${i.date_b.slice(0, 10)})`).join('; ')}`
-            : '✔ Shots are in chronological order.'}
+            ? mark('warning', `${validation.sequence_issues.length} out-of-order shot(s): ${validation.sequence_issues.map((i) => `${i.path_a} (${i.date_a.slice(0, 10)}) → ${i.path_b} (${i.date_b.slice(0, 10)})`).join('; ')}`)
+            : mark('success', 'Shots are in chronological order.')}
         </p>
       )}
       {validation.cameras !== undefined && (
         <div className={imageCheckPassed('camera', validation) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
           {imageCheckPassed('camera', validation) ? (
-            <p>✔ Every image was taken by the same camera: <span className="font-mono">{describeCamera(validation.cameras[0])}</span>.</p>
+            <p><Mark kind="success" />Every image was taken by the same camera: <span className="font-mono">{describeCamera(validation.cameras[0])}</span>.</p>
           ) : (
             <>
-              {validation.cameras.length > 1 && <p>⚠ The images come from {validation.cameras.length} different cameras:</p>}
+              {validation.cameras.length > 1 && <p><Mark kind="warning" />The images come from {validation.cameras.length} different cameras:</p>}
               {validation.cameras.length > 0 && (
                 <ul className="list-disc ml-6">
                   {validation.cameras.map((c, i) => (
@@ -1067,7 +1078,7 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
                   ))}
                 </ul>
               )}
-              {(validation.cameras_without_info ?? 0) > 0 && <p>⚠ {validation.cameras_without_info} image(s) have no camera information.</p>}
+              {(validation.cameras_without_info ?? 0) > 0 && <p><Mark kind="warning" />{validation.cameras_without_info} image(s) have no camera information.</p>}
             </>
           )}
           {validation.exiftool === false && (
@@ -1078,12 +1089,12 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.exif_missing !== undefined && (
         <div className={imageCheckPassed('exif', validation) ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
           {imageCheckPassed('exif', validation) ? (
-            <p>✔ Every image has its capture date and camera model.</p>
+            <p><Mark kind="success" />Every image has its capture date and camera model.</p>
           ) : (
             <ul className="list-disc ml-6">
               {(Object.keys(EXIF_FIELD_LABELS) as ExifField[]).filter((f) => (validation.exif_missing![f]?.count ?? 0) > 0).map((f) => (
                 <li key={f}>
-                  ⚠ {validation.exif_missing![f].count} image(s) without {EXIF_FIELD_LABELS[f]}, e.g. {validation.exif_missing![f].examples.join(', ')}
+                  <Mark kind="warning" />{validation.exif_missing![f].count} image(s) without {EXIF_FIELD_LABELS[f]}, e.g. {validation.exif_missing![f].examples.join(', ')}
                 </li>
               ))}
             </ul>
@@ -1093,10 +1104,10 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.duplicates !== undefined && (
         <div className={validation.duplicates.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.duplicates.length === 0 ? (
-            <p>✔ No duplicate images.</p>
+            <p><Mark kind="success" />No duplicate images.</p>
           ) : (
             <>
-              <p>⚠ {validation.duplicates.length} group(s) of duplicate images ({validation.duplicates.reduce((n, g) => n + g.files.length - 1, 0)} extra copies):</p>
+              <p><Mark kind="warning" />{validation.duplicates.length} group(s) of duplicate images ({validation.duplicates.reduce((n, g) => n + g.files.length - 1, 0)} extra copies):</p>
               <ul className="list-disc ml-6">
                 {validation.duplicates.map((g, i) => <li key={i} className="font-mono">{g.files.join(' = ')}</li>)}
               </ul>
@@ -1107,8 +1118,8 @@ export function ValidationReport({ validation }: { validation: ValidationResult 
       {validation.subdirectories !== undefined && (
         <p className={validation.subdirectories.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
           {validation.subdirectories.length
-            ? `⚠ Images are spread across ${validation.subdirectories.length} subfolder(s): ${validation.subdirectories.join(', ')}`
-            : '✔ All images are directly in this folder.'}
+            ? mark('warning', `Images are spread across ${validation.subdirectories.length} subfolder(s): ${validation.subdirectories.join(', ')}`)
+            : mark('success', 'All images are directly in this folder.')}
         </p>
       )}
     </div>
@@ -1123,7 +1134,7 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
         const check = result[key]
         return check === undefined ? null : (
           <p key={key} className={check.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-            {check.ok ? '✔' : '⚠'} {check.message}
+            <Mark kind={check.ok ? 'success' : 'warning'} />{check.message}
           </p>
         )
       })}
@@ -1131,7 +1142,7 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
         const stat = result[key]
         return stat === undefined ? null : (
           <div key={key} className={stat.skipped ? 'text-zinc-500 dark:text-zinc-400' : stat.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-            <p>{stat.skipped ? 'ℹ' : stat.ok ? '✔' : '⚠'} {stat.message}</p>
+            <p><Mark kind={stat.skipped ? 'info' : stat.ok ? 'success' : 'warning'} />{stat.message}</p>
             {stat.history.length > 0 && (
               <p className="text-xs ml-5 text-zinc-500 dark:text-zinc-400 font-mono">
                 {stat.history.map((h) => `R${String(h.revision).padStart(4, '0')}: ${Number.isInteger(h.value) ? h.value : h.value.toFixed(1)}`).join(' · ')}
@@ -1143,11 +1154,11 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
       {result.out_of_range !== undefined && (
         result.out_of_range.length === 0 ? (
           <p className="text-emerald-600 dark:text-emerald-400">
-            ✔ The first image is at the start, the last at the end and the rest in between (± {result.tolerance_hours ?? toleranceHours} h).
+            <Mark kind="success" />The first image is at the start, the last at the end and the rest in between (± {result.tolerance_hours ?? toleranceHours} h).
           </p>
         ) : (
           <div className="text-amber-600 dark:text-amber-400">
-            <p>⚠ {result.out_of_range.length} image(s) outside the deployment's dates (± {result.tolerance_hours ?? toleranceHours} h):</p>
+            <p><Mark kind="warning" />{result.out_of_range.length} image(s) outside the deployment's dates (± {result.tolerance_hours ?? toleranceHours} h):</p>
             <ul className="list-disc ml-6">
               {result.out_of_range.map((o) => (
                 <li key={o.path}>
@@ -1162,13 +1173,13 @@ export function DeploymentCheckReport({ result, toleranceHours }: { result: Depl
         <>
           <p className={result.camera_mismatches.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
             {result.camera_mismatches.length
-              ? `⚠ ${result.camera_mismatches.length} image(s) with a different camera model than declared: ${result.camera_mismatches.map((m) => `${m.path} (${m.detected})`).join(', ')}`
-              : '✔ No camera-model mismatches with the declared camera.'}
+              ? mark('warning', `${result.camera_mismatches.length} image(s) with a different camera model than declared: ${result.camera_mismatches.map((m) => `${m.path} (${m.detected})`).join(', ')}`)
+              : mark('success', 'No camera-model mismatches with the declared camera.')}
           </p>
           <p className={(result.camera_models_found?.length ?? 0) > 1 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
             {(result.camera_models_found?.length ?? 0) > 1
-              ? `⚠ ${result.camera_models_found!.length} distinct camera models found across images: ${result.camera_models_found!.join(', ')}`
-              : '✔ All images share the same camera model.'}
+              ? mark('warning', `${result.camera_models_found!.length} distinct camera models found across images: ${result.camera_models_found!.join(', ')}`)
+              : mark('success', 'All images share the same camera model.')}
           </p>
         </>
       )}
@@ -1204,12 +1215,14 @@ interface Props {
   onOpenSettings?: (section?: 'epicollect') => void
   /** Whether the settings are open over the wizard: what they hold is read again once they close. */
   settingsOpen?: boolean
+  /** Goes back to the menu — what Back does on the first step. */
+  onBack?: () => void
 }
 
 // Blank credentials: the backend uses the ones saved in the settings.
 const NO_CREDENTIALS: TrapperCredentials = {}
 
-export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSettings, settingsOpen = false }: Props) {
+export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSettings, settingsOpen = false, onBack }: Props) {
   const [step, setStep] = useState(resumeSession ? STEPS.findIndex((s) => s.key === 'origin') : 0)
 
   // The Trapper account is the one saved in the settings: nothing is asked for here, and the backend
@@ -2054,7 +2067,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
   const connectionForm = <TrapperAccountNotice account={account} conn={conn} onRetry={handleTestConnection} />
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Process deployment</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Organizes a folder of camera-trap images into a local collection. It doesn't upload them to Trapper yet.
@@ -2072,7 +2085,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                 i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
               }`}
             >
-              {i < step ? '✓' : i + 1}
+              {i < step ? <BadgeIcon className="h-4 w-4" /> : i + 1}
             </div>
             <small className={`text-xs text-center ${i === step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
               {s.label}
@@ -2102,10 +2115,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
           <WizardStep n={1} title="Select the folder" status={imagesStatus(1)} canEdit={!validating} onEdit={() => setImagesOpen(1)}
                       description="Where the deployment's camera-trap images are, on this computer."
                       summary={scan && <>{folderName}<br />{imageCount}</>}>
-            <div className="mb-4 flex items-center gap-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-              <span aria-hidden="true">⚠</span>
-              <span>Copy the images from the camera's memory card to a local folder first — don't point this at the card itself.</span>
-            </div>
+            <Notice kind="warning" className="mb-4">Copy the images from the camera's memory card to a local folder first — don't point this at the card itself.</Notice>
             <div className="mb-4">
               <label className={labelClass} htmlFor="source-dir">Folder</label>
               <div className="flex gap-2">
@@ -2130,7 +2140,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                   : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40'
               }`}>
                 <div aria-hidden="true" className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white font-bold ${scan.image_count > 0 ? 'bg-emerald-600' : 'bg-amber-600'}`}>
-                  {scan.image_count > 0 ? '✓' : '!'}
+                  <BadgeIcon kind={scan.image_count > 0 ? 'tick' : 'alert'} className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0 text-sm">
                   <p className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -2147,7 +2157,8 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
             ) : sourceDir ? (
               <button type="button" className={btnOutline} onClick={() => handleScan()}>Scan</button>
             ) : null}
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-between items-center mt-4">
+              {onBack ? <button type="button" className={btnOutline} disabled={scanning} onClick={onBack}><span aria-hidden="true">← </span>Back</button> : <div />}
               <button type="button" aria-label="Continue to the checks" className={btnPrimary} disabled={!scan || scanning} onClick={() => openImagesStep(2)}>Continue<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
@@ -2199,13 +2210,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                 return (
                   <>
                     {report && (
-                      <div role="status" className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-                        problems.length === 0
-                          ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-                          : blocking.length > 0
-                            ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
-                            : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-                      }`}>
+                      <Notice role="status" className="mb-4" kind={problems.length === 0 ? 'success' : blocking.length > 0 ? 'error' : 'warning'}>
                         {problems.length === 0
                           ? 'Every check passed.'
                           : <>{plural(problems.length, 'check found', 'checks found')} problems in {plural(issueImages, 'image', 'images')}. {
@@ -2213,7 +2218,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                                 ? `${plural(blocking.length, 'is', 'are')} set to Must pass — resolve ${blocking.length === 1 ? 'it' : 'them'} to continue.`
                                 : requiredImageChecks.size === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
                             }</>}
-                      </div>
+                      </Notice>
                     )}
                     <StrictnessTable options={shownImageChecks} enabled={imageChecks} required={requiredImageChecks} running={validating} results
                                      describe={(c) => IMAGE_CHECK_DESCRIPTIONS[c]}
@@ -2458,7 +2463,8 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
           )}
 
           {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-between items-center mt-4">
+              <button type="button" className={btnOutline} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
               <button type="button" aria-label="Continue to the dates" className={btnPrimary} disabled={!originReady} onClick={() => { setOriginOpen(2); setOriginReached(2) }}>Continue<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
@@ -2532,10 +2538,10 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                      className={`mt-3 text-sm ${epicollectMessage.kind === 'error' ? 'text-red-600 dark:text-red-400' : 'text-blue-800 dark:text-blue-300'}`}>{epicollectMessage.text}</p>
                 )}
                 {existingFolder && (
-                  <p role="alert" className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-                    ⚠ This deployment already exists: <span className="font-mono break-all">{existingFolder}</span> is already kept, and importing again
+                  <Notice kind="warning" role="alert" className="mt-3">
+                    This deployment already exists: <span className="font-mono break-all">{existingFolder}</span> is already kept, and importing again
                     would be refused as it would mix them. Choose another revision or location, or move that folder away.
-                  </p>
+                  </Notice>
                 )}
               </FormCard>
 
@@ -2553,7 +2559,8 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                   ] satisfies SourceOption[]}
                   manualForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
               </FormCard>
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-between items-center mt-4">
+                <button type="button" className={btnOutline} onClick={() => setOriginOpen(1)}><span aria-hidden="true">← </span>Back</button>
                 <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
               </div>
           </WizardStep>
@@ -2650,13 +2657,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                   return (
                     <>
                       {report && (
-                        <div role="status" className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-                          problems.length === 0
-                            ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-                            : blocking.length > 0
-                              ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
-                              : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-                        }`}>
+                        <Notice role="status" className="mb-4" kind={problems.length === 0 ? 'success' : blocking.length > 0 ? 'error' : 'warning'}>
                           {problems.length === 0
                             ? 'Every check passed.'
                             : <>{plural(passed, 'check', 'checks')} passed, {plural(problems.length, 'check found', 'checks found')} problems — see below. {
@@ -2664,7 +2665,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                                   ? `${plural(blocking.length, 'is', 'are')} set to Must pass — resolve ${blocking.length === 1 ? 'it' : 'them'} to continue.`
                                   : requiredDeploymentChecks.size === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
                               }</>}
-                        </div>
+                        </Notice>
                       )}
                       <StrictnessTable
                         options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
@@ -2919,6 +2920,7 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
                   Upload to Trapper
                 </button>
               )}
+              <button type="button" className={btnOutline} onClick={handleStartOver}>Start over</button>
               {openFolderError && <p className="text-sm text-red-600 dark:text-red-400">{openFolderError}</p>}
               </div>
             </div>
@@ -2929,9 +2931,11 @@ export default function ImportDeploymentPage({ resumeSession, onUpload, onOpenSe
       })()}
 
       {/* Navigation */}
-      <div className="flex justify-between items-start mt-10">
+      <div className="flex justify-between items-end mt-10">
         {destDir ? (
-          <button type="button" className={btnOutline} onClick={handleStartOver}>Start over</button>
+          <div />
+        ) : stepKey === 'origin' ? (
+          originOpen === 3 ? <button type="button" className={btnOutline} onClick={() => setOriginOpen(2)}><span aria-hidden="true">← </span>Back</button> : <div />  // the other two have their own
         ) : step > 0 && !(stepKey === 'prepare' && !preprocessing && !resultsDone && (preprocessed?.type === 'done' || preprocessError)) ? (
           <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
         ) : stepKey === 'images' && imagesOpen === 3 ? (

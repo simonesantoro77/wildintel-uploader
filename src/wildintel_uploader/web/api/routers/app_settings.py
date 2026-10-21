@@ -22,6 +22,9 @@ def _public(settings: config.Settings) -> dict:
     data["TRAPPER"]["has_password"] = bool(data["TRAPPER"].pop("user_password"))
     data["EPICOLLECT5"]["has_secret"] = bool(data["EPICOLLECT5"].pop("client_secret"))
     data["DATA"]["dir"] = data["DATA"]["dir"] or str(config.default_data_dir())
+    # What the collections folder is when no folder of its own is set — shown as the default.
+    for key in ("collections", "reports", "packages"):
+        data["DATA"][f"default_{key}_dir"] = str(config.data_dir(settings) / key)
     # Read-only: where the log goes, and whether the environment overrides
     # the level set here.
     data["GENERAL"]["log_file"] = str(logging_setup.log_file())

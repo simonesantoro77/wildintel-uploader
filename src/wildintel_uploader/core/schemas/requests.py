@@ -54,6 +54,9 @@ class UploadDeploymentRequest(TrapperCredentials):
     mode: Literal["upload", "dry_run", "generate"] = "upload"
     # The classification project the collection goes to — optional when the research project has only one.
     classification_project_pk: Optional[int] = None
+    # With "upload": take the package files away once they are up (the zips, the yamls and the deployment's row of the
+    # deployments csv). Left as they are, they stay in the packages folder, as "generate" leaves them.
+    delete_files: bool = False
 
 
 class AccessCheckRequest(TrapperCredentials):

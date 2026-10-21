@@ -85,6 +85,60 @@ def test_the_data_folder_can_be_changed_and_a_blank_one_goes_back_to_the_default
     assert _put(DATA={"dir": ""})["DATA"]["dir"] == str(config.default_data_dir())
 
 
+def test_the_collections_can_have_a_folder_of_their_own_and_otherwise_follow_the_data_folder(tmp_path: Path):
+    saved = _put(DATA={"dir": str(tmp_path / "images")})
+    assert saved["DATA"]["collections_dir"] is None and saved["DATA"]["default_collections_dir"] == str(tmp_path / "images" / "collections")
+
+    saved = _put(DATA={"dir": str(tmp_path / "images"), "collections_dir": str(tmp_path / "elsewhere")})
+    assert saved["DATA"]["collections_dir"] == str(tmp_path / "elsewhere")
+    assert config.collections_dir() == tmp_path / "elsewhere"  # the data folder is not where they go any more
+    assert config.data_dir() == tmp_path / "images"
+
+    assert _put(DATA={"dir": str(tmp_path / "images"), "collections_dir": ""})["DATA"]["collections_dir"] is None
+    assert config.collections_dir() == tmp_path / "images" / "collections"
+
+
+def test_the_reports_and_the_packages_can_have_a_folder_of_their_own_and_otherwise_follow_the_data_folder(tmp_path: Path):
+    saved = _put(DATA={"dir": str(tmp_path / "images")})
+    assert saved["DATA"]["reports_dir"] is None and saved["DATA"]["packages_dir"] is None
+    assert saved["DATA"]["default_reports_dir"] == str(tmp_path / "images" / "reports")
+    assert saved["DATA"]["default_packages_dir"] == str(tmp_path / "images" / "packages")
+    assert config.reports_dir() == tmp_path / "images" / "reports" and config.packages_dir() == tmp_path / "images" / "packages"
+
+    _put(DATA={"dir": str(tmp_path / "images"), "reports_dir": str(tmp_path / "r"), "packages_dir": str(tmp_path / "p")})
+    assert config.reports_dir() == tmp_path / "r" and config.packages_dir() == tmp_path / "p"
+
+    _put(DATA={"dir": str(tmp_path / "images"), "reports_dir": "", "packages_dir": ""})
+    assert config.reports_dir() == tmp_path / "images" / "reports"
+
+
+def test_the_sessions_and_the_logs_have_no_setting_and_live_in_the_state_folder():
+    body = config.Settings().model_dump(mode="json")
+    assert "sessions_dir" not in body["DATA"] and "logs_dir" not in body["DATA"]
+    assert config.get_sessions_dir().parts[-3:] == ("state", "wildintel-uploader", "sessions") or "wildintel-uploader" in config.get_sessions_dir().parts
+    assert config.get_logs_dir().name.lower() in ("log", "logs")
+
+
+def test_a_relative_folder_is_refused_for_the_collections_the_reports_and_the_packages():
+    for key in ("collections_dir", "reports_dir", "packages_dir"):
+        body = config.Settings().model_dump(mode="json")
+        body["DATA"][key] = "relative/folder"
+
+        assert _client().put("/api/settings", json=body).status_code == 422, key
+
+
+def test_the_collections_folder_can_be_opened_even_outside_the_data_folder(tmp_path: Path):
+    from unittest.mock import patch
+
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "DONA").mkdir(parents=True)
+    _put(DATA={"dir": str(tmp_path / "images"), "collections_dir": str(elsewhere)})
+    with patch("wildintel_uploader.web.api.routers.deployment_import._open_in_file_manager") as opened:
+        assert _client().post("/api/deployment-import/open-folder", json={"path": str(elsewhere / "DONA")}).status_code == 200
+        assert _client().post("/api/deployment-import/open-folder", json={"path": str(tmp_path)}).status_code == 400
+    opened.assert_called_once()
+
+
 def test_a_relative_data_folder_is_refused():
     body = config.Settings().model_dump(mode="json")
     body["DATA"]["dir"] = "relative/images"
@@ -256,3 +310,20 @@ def test_a_config_can_be_downloaded_and_its_folder_opened(config_dir):
     with patch("wildintel_uploader.web.api.routers.app_settings.file_manager.open_folder") as opener:
         assert client.post("/api/settings/configs/b/open-folder").status_code == 200
     opener.assert_called_once_with(config_dir / "configs")
+
+
+def test_log_files_left_next_to_the_settings_are_moved_to_the_log_folder():
+    from wildintel_uploader.core import logging_setup
+
+    for leftover in config.get_logs_dir().glob("wildintel-uploader.log*"):  # the tests' own logging may have started one already
+        leftover.unlink()
+    old = config.legacy_logs_dir()
+    old.mkdir(parents=True, exist_ok=True)
+    (old / "wildintel-uploader.log").write_text("an old line\n", encoding="utf-8")
+    (old / "wildintel-uploader.log.1").write_text("an older one\n", encoding="utf-8")
+
+    logging_setup.migrate_legacy_logs()
+
+    assert (config.get_logs_dir() / "wildintel-uploader.log").read_text(encoding="utf-8") == "an old line\n"
+    assert (config.get_logs_dir() / "wildintel-uploader.log.1").is_file()
+    assert not old.exists()

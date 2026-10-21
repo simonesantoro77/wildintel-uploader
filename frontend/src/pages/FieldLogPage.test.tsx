@@ -148,4 +148,20 @@ describe('the research project and its new sites', () => {
 
     expect(mockedApi.fieldlogAddLocations).toHaveBeenCalledWith('TATRA', [{ location_id: 'TATR_0003', latitude: 49.31, longitude: 20.2 }])
   })
+
+  it('has a Back that leaves the task', async () => {
+    const onBack = vi.fn()
+    render(<FieldLogPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
+
+  it('has a Back that leaves the task', async () => {
+    const onBack = vi.fn()
+    render(<FieldLogPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
 })

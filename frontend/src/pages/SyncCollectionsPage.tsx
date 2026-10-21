@@ -1,3 +1,4 @@
+import BackButton from '../components/BackButton'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
@@ -30,7 +31,7 @@ function unassignedCollections(ids: string[]): string[] {
 /** Brings into the collections folder what a research project has in Trapper and the user chooses: nothing is ticked
  * to begin with. The field collections (R0003…) come with their deployments, timestamp log and, if asked, their images;
  * the other collections — subsets made in Trapper — are downloaded by their images, apart. What is already here is kept. */
-export default function SyncCollectionsPage() {
+export default function SyncCollectionsPage({ onBack }: { onBack?: () => void } = {}) {
   const [projects, setProjects] = useState<ResearchProject[]>([])
   const [projectPk, setProjectPk] = useState('')
   const [loading, setLoading] = useState(false)
@@ -116,7 +117,7 @@ export default function SyncCollectionsPage() {
     : `Here: ${c.local.deployments.length} of ${c.deployments.length} deployment(s)${c.local.with_images.length ? `, ${c.local.with_images.length} with images` : ', no images'}`
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Sync local collections</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Brings into your collections folder what a research project has in Trapper — only what you tick. The research project and its locations always come; then
@@ -221,7 +222,8 @@ export default function SyncCollectionsPage() {
         )}
 
         {error && !started && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
-        <div className="flex justify-end">
+        <div className={`flex items-center gap-3 ${onBack ? 'justify-between' : 'justify-end'}`}>
+          {onBack && <BackButton onClick={onBack} disabled={syncing} />}
           <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!ready || syncing} onClick={() => void handleSync()}>
             Sync
           </button>

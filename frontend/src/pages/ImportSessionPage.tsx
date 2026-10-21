@@ -4,6 +4,8 @@ import type { TimeFixTarget } from './TimeFixPage'
 import type { ProcessTarget } from './CardsPage'
 import NextStep from '../components/NextStep'
 import SessionResults from '../components/SessionResults'
+import DeploymentResults from '../components/DeploymentResults'
+import Notice, { BadgeIcon, Mark } from '../components/Notice'
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import WizardStep from '../components/WizardStep'
@@ -106,9 +108,11 @@ interface Props {
   onFixDates?: (target: TimeFixTarget) => void
   /** The collection's cards folder to open on, when it is reached from Copy SD cards or Check and fix dates and times. */
   initial?: ProcessTarget
+  /** Goes back to the menu: what Back does on the first step. */
+  onBack?: () => void
 }
 
-export default function ImportSessionPage({ onUpload, onFixDates, initial }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onFixDates, initial, onBack }: Props = {}) {
   const [step, setStep] = useState(0)
   const stepKey = STEPS[step].key
   // The sub-steps of the origin: the one open, and the furthest reached.
@@ -813,23 +817,16 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
       <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Skip</strong> doesn't run the check · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Warn</strong> shows the problems but lets you continue · <strong className="font-semibold text-zinc-700 dark:text-zinc-300">Must pass</strong> blocks you until it passes.
     </p>
   )
-  const outcomeBanner = (problems: number, blocking: number, requiredCount: number, what: string) => (
-    <div role="status" className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-      problems === 0
-        ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-        : blocking > 0
-          ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
-          : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-    }`}>
-      {problems === 0
-        ? 'Every check passed in every deployment.'
-        : <>{plural(problems, 'check found', 'checks found')} problems in {what}. {
-            blocking > 0
-              ? `${plural(blocking, 'is', 'are')} set to Must pass — resolve ${blocking === 1 ? 'it' : 'them'} to continue.`
-              : requiredCount === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
-          }</>}
-    </div>
-  )
+  const outcomeBannerOf = (problems: number, blocking: number, requiredCount: number, what: string) => ({
+    kind: (problems === 0 ? 'success' : blocking > 0 ? 'error' : 'warning') as 'success' | 'warning' | 'error',
+    text: problems === 0
+      ? 'Every check passed in every deployment.'
+      : <>{plural(problems, 'check found', 'checks found')} problems in {what}. {
+          blocking > 0
+            ? `${plural(blocking, 'is', 'are')} set to Must pass — resolve ${blocking === 1 ? 'it' : 'them'} to continue.`
+            : requiredCount === 0 ? 'None is set to Must pass, so you can continue.' : 'The ones set to Must pass passed, so you can continue.'
+        }</>,
+  })
   function chooseImageStrictness(check: ImageCheck, strictness: Strictness) {
     setImageChecks((prev) => { const next = new Set(prev); if (strictness === 'skip') next.delete(check); else next.add(check); return next })
     setRequiredImageChecks((prev) => { const next = new Set(prev); if (strictness === 'must') next.add(check); else next.delete(check); return next })
@@ -840,7 +837,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
   }
 
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Process collection</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Processes the cards of a collection, as Copy SD cards left them: checks the images, fills in each deployment from the field records
@@ -859,7 +856,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                 i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
               }`}
             >
-              {i < step ? '✓' : i + 1}
+              {i < step ? <BadgeIcon className="h-4 w-4" /> : i + 1}
             </div>
             <small className={`text-xs text-center ${i === step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
               {s.label}
@@ -927,7 +924,12 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
             {scanError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{scanError}</p>}
             {scan && (
               <div className="mt-4">
-                {scan.warnings.map((w, i) => <p key={i} className="text-sm text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
+                {scan.warnings.map((w, i) => <Notice key={i} kind="warning" className="mb-2">{w}</Notice>)}
+                {scan.timestamp_log && (
+                  <Notice kind="success" role="status" className="mb-2">
+                    Timestamp log found: <span className="font-mono">{scan.timestamp_log.name}</span>. Its dates are imported.
+                  </Notice>
+                )}
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
                   {scan.deployments.length} deployment folder(s){processed.size > 0 ? `, ${processed.size} processed already` : ''}: tick the ones to process.
                   {Object.keys(fieldDetails).length > 0 && ' Their details come from the field records.'}
@@ -939,6 +941,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                       <th scope="col" className="px-3 py-2 text-left">Subfolder</th>
                       <th scope="col" className="px-3 py-2 text-right">Images</th>
                       <th scope="col" className="px-3 py-2 text-left">Dates</th>
+                      {scan.timestamp_log && <th scope="col" className="px-3 py-2 text-left">In the timestamp log</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -950,14 +953,27 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                         <td className="px-3 py-2 font-mono">
                           {d.name}
                           {processed.has(d.name) && <span className="ml-2 rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 font-sans text-xs font-semibold text-blue-700 dark:text-blue-300">Processed already</span>}
-                          {d.warnings.map((w, i) => <p key={i} className="text-xs font-sans text-amber-600 dark:text-amber-400">⚠ {w}</p>)}
+                          {d.warnings.map((w, i) => <p key={i} className="text-xs font-sans text-amber-600 dark:text-amber-400"><Mark kind="warning" />{w}</p>)}
                         </td>
                         <td className="px-3 py-2 text-right">{d.image_count}</td>
                         <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{d.from_timestamp_log ? `${d.start_date?.slice(0, 10) ?? '?'} → ${d.end_date?.slice(0, 10) ?? '?'}` : <span title="Read from the images when the details are asked for">—</span>}</td>
+                        {scan.timestamp_log && (
+                          <td className="px-3 py-2">
+                            {d.from_timestamp_log
+                              ? <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">In the log</span>
+                              : <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">Not in the log</span>}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {scan.timestamp_log && (scan.timestamp_log.unmatched?.length ?? 0) > 0 && (
+                  <Notice kind="warning" role="alert" className="mt-3">
+                    {scan.timestamp_log.unmatched!.length === 1 ? 'An entry of the timestamp log has' : `${scan.timestamp_log.unmatched!.length} entries of the timestamp log have`} no folder:{' '}
+                    <span className="font-mono">{scan.timestamp_log.unmatched!.slice(0, 5).join(', ')}{scan.timestamp_log.unmatched!.length > 5 ? ', …' : ''}</span>.
+                  </Notice>
+                )}
               </div>
             )}
           </WizardStep>
@@ -1004,14 +1020,11 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                   <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => assignSuggested(suggestedNow)}>Assign {suggestedNow.length}</button>
                 </div>
               ) : withLocation < chosen.length && (
-                <div role="alert" className="mb-4 flex items-center gap-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-5 py-4 text-sm text-red-800 dark:text-red-200">
-                  <span aria-hidden="true">⚠</span>
-                  <span>
-                    {localLocations.length === 0
-                      ? <>{projectId} has no locations yet — add them below, one for each deployment.</>
-                      : <>No folder name matches a location in {projectId}. Pick the location of each deployment below, or add the ones that are missing.</>}
-                  </span>
-                </div>
+                <Notice kind="error" role="alert" className="mb-4">
+                  {localLocations.length === 0
+                    ? <>{projectId} has no locations yet — add them below, one for each deployment.</>
+                    : <>No folder name matches a location in {projectId}. Pick the location of each deployment below, or add the ones that are missing.</>}
+                </Notice>
               )}
               <div className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 p-5">
                 <div className="flex items-baseline justify-between gap-3">
@@ -1077,7 +1090,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                                     {fields!.latitude != null && fields!.longitude != null && <span className="block text-zinc-500 dark:text-zinc-400">GPS {fields!.latitude}, {fields!.longitude}</span>}
                                     {zone && zone !== cameraZone && (
                                       <span className="block text-amber-700 dark:text-amber-400">
-                                        ⚠ The location&rsquo;s timezone is {zone}, not {cameraZone}. The photos&rsquo; times are kept as the cameras have them ({cameraZone}): it is not applied to them.
+                                        <Mark kind="warning" />The location&rsquo;s timezone is {zone}, not {cameraZone}. The photos&rsquo; times are kept as the cameras have them ({cameraZone}): it is not applied to them.
                                       </span>
                                     )}
                                   </div>
@@ -1088,10 +1101,10 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                               )}
                               {duplicated(d.name) && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Another deployment of the collection has this id: each needs its own location.</p>}
                               {existingFolder(d.name) && (
-                                <p role="alert" className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                                  ⚠ This deployment already exists: <span className="font-mono break-all">{existingFolder(d.name)}</span> is already kept, and
+                                <Notice kind="warning" role="alert" className="mt-2">
+                                  This deployment already exists: <span className="font-mono break-all">{existingFolder(d.name)}</span> is already kept, and
                                   importing it again would be refused as it would mix them. Choose another location, or move that folder away.
-                                </p>
+                                </Notice>
                               )}
                             </td>
                             <td className="px-4 py-3 align-top text-right">
@@ -1173,11 +1186,11 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
               </div>
             )}
             {revisionValid && existingNames.length > 0 && (
-              <p aria-live="polite" className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-                ⚠ Collection {revisionName} already has {existingNames.length} of these {chosen.length} deployment(s) in the collections folder:{' '}
+              <Notice kind="warning" role="status" className="mt-3">
+                Collection {revisionName} already has {existingNames.length} of these {chosen.length} deployment(s) in the collections folder:{' '}
                 <span className="font-mono">{existingNames.slice(0, 5).map((d) => fieldsOf(d.name).deployment_id).join(', ')}{existingNames.length > 5 ? ', …' : ''}</span>.
                 Processing them again would be refused: leave them out (untick them in the first step).
-              </p>
+              </Notice>
             )}
             {revisionValid && canFillFromPrevious && Object.keys(fieldDetails).length === 0 && (() => {
               const withEarlier = chosen.filter((d) => hasEarlierRevision(d.name))
@@ -1374,6 +1387,13 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
         const iWithProblems = candidates.filter((d) => validations[d.name]?.error || runnableImageChecks.some((c) => imageCheckPassed(c, validations[d.name]?.result ?? null) === false))
         const mustCount = [...requiredImageChecks].length + [...requiredDeploymentChecks].length
         const anyRan = iRan || ran
+        const deploymentByCheck = (
+          <StrictnessTable
+            options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
+            enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
+            describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one given for each deployment').replace(/\.$/, '')}
+            outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
+        )
         const running = validating || checking
         return (
         <div>
@@ -1462,33 +1482,24 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
             )}
             <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
                             names={candidates.filter((d) => imageCheckPassed('sequence', validations[d.name]?.result ?? null) === false).map((d) => d.name)} />
-            <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
-                            names={candidates.filter((d) => imageCheckPassed('sequence', validations[d.name]?.result ?? null) === false).map((d) => d.name)} />
             {ran && <h4 className="text-sm font-semibold mt-6 mb-2 text-zinc-700 dark:text-zinc-300">The details of each deployment</h4>}
-            {ran && !checking && outcomeBanner(problems.length, blocking.length, requiredDeploymentChecks.size, plural(withProblems.length, 'deployment', 'deployments'))}
-            {(ran || checking) && (
-              <StrictnessTable
-                options={shownDeploymentChecks.map((o) => ({ value: o.value, label: DEPLOYMENT_CHECK_DISPLAY[o.value].label }))}
-                enabled={deploymentChecks} required={requiredDeploymentChecks} running={checking} results unit={{ one: 'deployment', many: 'deployments' }}
-                describe={(c) => DEPLOYMENT_CHECK_DISPLAY[c].description('the one given for each deployment').replace(/\.$/, '')}
-                outcome={(c) => (chosen.some((d) => deploymentCheckPassed(c, checks[d.name]?.result ?? null) !== null) ? { failed: failedIn(c), images: null } : undefined)} />
+            {ran && !checking && (
+              <DeploymentResults
+                deployments={chosen.filter((d) => checks[d.name]).map((d) => {
+                  const outcome = checks[d.name]
+                  return {
+                    name: fieldsOf(d.name).deployment_id, images: d.image_count, error: outcome.error,
+                    failed: runnableDeploymentChecks.filter((c) => deploymentCheckPassed(c, outcome.result ?? null) === false).map((c) => DEPLOYMENT_CHECK_DISPLAY[c].label),
+                    reportId: outcome.result?.report_id ?? null,
+                    detail: outcome.result && !outcome.result.report_id ? <DeploymentCheckReport result={outcome.result} toleranceHours={toleranceHours} /> : undefined,
+                  }
+                })}
+                banner={outcomeBannerOf(problems.length, blocking.length, requiredDeploymentChecks.size, plural(withProblems.length, 'deployment', 'deployments'))}
+                byCheck={deploymentByCheck} />
             )}
+            {checking && deploymentByCheck}
             <FixDatesBanner folder={sessionDir} onFixDates={onFixDates}
                             names={chosen.filter((d) => deploymentCheckPassed('time_range', checks[d.name]?.result ?? null) === false).map((d) => d.name)} />
-            <div className="mt-4 space-y-2">
-              {chosen.filter((d) => checks[d.name]).map((d) => {
-                const outcome = checks[d.name]
-                const bad = Boolean(outcome.error) || runnableDeploymentChecks.some((c) => deploymentCheckPassed(c, outcome.result ?? null) === false)
-                return (
-                  <details key={d.name} className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2" open={bad}>
-                    <summary className="cursor-pointer text-sm font-mono">{bad ? '⚠' : '✔'} {fieldsOf(d.name).deployment_id}</summary>
-                    {outcome.error && <p className="text-sm text-red-600 dark:text-red-400">{outcome.error}</p>}
-                    {outcome.result && !outcome.result.report_id && <DeploymentCheckReport result={outcome.result} toleranceHours={toleranceHours} />}
-                    {outcome.result?.report_id && <ReportPanel reportId={outcome.result.report_id} />}
-                  </details>
-                )
-              })}
-            </div>
           </WizardStep>
         </div>
         )
@@ -1584,11 +1595,11 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
                       {!run && <span className="text-zinc-500 dark:text-zinc-400">: waiting</span>}
                       {run && !run.done && !run.error && <span className="text-zinc-500 dark:text-zinc-400">: processing…
                         {(() => { const last = [...run.events].reverse().find((e) => e.type === 'copy'); return last && last.type === 'copy' ? ` ${last.index}/${last.total}` : '' })()}</span>}
-                      {run?.done && <span className="text-emerald-600 dark:text-emerald-400">✔ processed: <span className="font-mono">{run.destDir}</span></span>}
-                      {run?.error && !run.done && <span className="text-red-600 dark:text-red-400">⚠ {run.error}</span>}
+                      {run?.done && <span className="text-emerald-600 dark:text-emerald-400"><Mark kind="success" />processed: <span className="font-mono">{run.destDir}</span></span>}
+                      {run?.error && !run.done && <span className="text-red-600 dark:text-red-400"><Mark kind="warning" />{run.error}</span>}
                       {(() => { const done = run?.events.find((e) => e.type === 'done'); return done && done.type === 'done' && done.report_id ? <ReportPanel reportId={done.report_id} /> : null })()}
                       {run?.events.filter((e) => e.type === 'skipped').map((e, i) => (
-                        <p key={i} className="text-xs text-amber-600 dark:text-amber-400">⚠ Skipped {e.type === 'skipped' ? `${e.name}: ${e.detail}` : ''}</p>
+                        <p key={i} className="text-xs text-amber-600 dark:text-amber-400"><Mark kind="warning" />Skipped {e.type === 'skipped' ? `${e.name}: ${e.detail}` : ''}</p>
                       ))}
                     </li>
                   )
@@ -1604,7 +1615,7 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
               </p>
               {allDone && (
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">✔ Collection processed: {chosen.length} deployment(s).</p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400"><Mark kind="success" />Collection processed: {chosen.length} deployment(s).</p>
                   {collectionPath && <button type="button" className={btnOutline} onClick={handleOpenFolder}>Open folder</button>}
                   {openFolderError && <p className="text-sm text-red-600 dark:text-red-400">{openFolderError}</p>}
                 </div>
@@ -1623,6 +1634,8 @@ export default function ImportSessionPage({ onUpload, onFixDates, initial }: Pro
       <div className="flex justify-between items-start mt-10">
         {step > 0 && !importing ? (
           <button type="button" className={btnOutline} onClick={() => setStep((s) => s - 1)} disabled={allDone}><span aria-hidden="true">← </span>Back</button>
+        ) : step === 0 && onBack ? (
+          <button type="button" className={btnOutline} disabled={scanning} onClick={onBack}><span aria-hidden="true">← </span>Back</button>
         ) : <div />}
 
         {stepKey === 'images' && (

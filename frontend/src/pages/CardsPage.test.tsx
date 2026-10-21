@@ -176,4 +176,20 @@ describe('size', () => {
     expect(size(2_500_000_000)).toBe('2.5 GB')
     expect(size(10)).toBe('1 kB')
   })
+
+  it('has a Back that leaves the task', async () => {
+    const onBack = vi.fn()
+    render(<CardsPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
+
+  it('has a Back that leaves the task', async () => {
+    const onBack = vi.fn()
+    render(<CardsPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
+  })
 })

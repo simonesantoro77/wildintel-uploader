@@ -1,10 +1,13 @@
+import BackButton from '../components/BackButton'
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { api } from '../api'
 import Combobox from '../components/Combobox'
 import { FilesReady, PreparingFiles, btnPrimary as primaryButton, formatBytes } from '../components/PrepareFiles'
 import type { PrepareItem } from '../components/PrepareFiles'
 import { UploadedToTrapper, UploadingToTrapper } from '../components/UploadToTrapper'
 import type { UploadItem } from '../components/UploadToTrapper'
+import Notice, { Mark } from '../components/Notice'
 import WizardStep from '../components/WizardStep'
 import { formatPeriod } from '../dateFormat'
 import type { AccessCheck, ClassificationProject, LocalResearchProject, UploadCollection, UploadTarget, UploadDeploymentInfo, UploadEvent, UploadMode, UploadStep } from '../types'
@@ -75,15 +78,19 @@ interface Props {
   initial?: UploadTarget
   /** Opens the settings, where the Trapper account is. */
   onOpenSettings?: () => void
+  /** Leaves the task, from the first step. */
+  onBack?: () => void
 }
 
-export default function UploadDeploymentPage({ initial, onOpenSettings }: Props = {}) {
+export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }: Props = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<UploadCollection[]>([])
   const [collectionName, setCollectionName] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [mode, setMode] = useState<UploadMode>('upload')
+  // With an upload: whether the package files — the zips, the yamls and the deployments csv — are deleted once they are up.
+  const [deleteFiles, setDeleteFiles] = useState(false)
   const [trapper, setTrapper] = useState<{ base_url: string | null; user_name: string | null; has_password: boolean } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [runs, setRuns] = useState<Record<string, Run>>({})
@@ -99,7 +106,9 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
   // When preparing the files began and ended, and what stops it.
   const [startedAt, setStartedAt] = useState(0)
   const [finishedAt, setFinishedAt] = useState(0)
+  const [reportId, setReportId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const reportKept = useRef(false)
   // The classification project the collection goes to: the ones Trapper has, and the chosen pk (a text, for when they can't be listed).
   const [classifications, setClassifications] = useState<ClassificationProject[]>([])
   const [classificationError, setClassificationError] = useState<string | null>(null)
@@ -212,12 +221,12 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
     const ids = toUpload.map((d) => d.deployment_id)
     const abort = new AbortController()
     abortRef.current = abort
-    setUploading(true); setFinished(false); setOrder(ids); setStartedAt(Date.now())
+    setUploading(true); setFinished(false); setOrder(ids); setStartedAt(Date.now()); setReportId(null); reportKept.current = false
     setRuns(Object.fromEntries(ids.map((id) => [id, EMPTY_RUN])))
     for (const id of ids) {
       try {
         if (abort.signal.aborted) throw new Error('Stopped before it began.')
-        await api.uploadDeployment(projectId, collection.name, id, runMode, (event) => setRuns((r) => ({ ...r, [id]: reduceRun(r[id] ?? EMPTY_RUN, event) })), classificationValue, abort.signal)
+        await api.uploadDeployment(projectId, collection.name, id, runMode, (event) => setRuns((r) => ({ ...r, [id]: reduceRun(r[id] ?? EMPTY_RUN, event) })), classificationValue, abort.signal, runMode === 'upload' && deleteFiles)
       } catch (e) {
         const stopped = abort.signal.aborted
         setRuns((r) => ({ ...r, [id]: { ...(r[id] ?? EMPTY_RUN), progress: null, pack: null, error: stopped ? 'Stopped.' : e instanceof Error ? e.message : 'The upload failed.' } }))
@@ -228,6 +237,16 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
     setUploading(false); setFinished(true)
     if (runMode === 'upload') void loadCollections(projectId).then(() => setCollectionName(collection.name)) // shows what was uploaded
   }
+
+  const deleteOption = (
+    <label className="flex items-start gap-3 cursor-pointer py-1">
+      <input type="checkbox" className="mt-1" checked={deleteFiles} disabled={uploading} onChange={(e) => setDeleteFiles(e.target.checked)} />
+      <span>
+        <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Delete the package files once they are uploaded</span>
+        <span className="block text-xs text-zinc-500 dark:text-zinc-400">The zips, the yamls and the deployments csv are taken away when Trapper has them. Left unticked, they stay in your packages folder.</span>
+      </span>
+    </label>
+  )
 
   const imagesToSend = toUpload.reduce((sum, d) => sum + d.images, 0)
   const blockedBy = !accountOk ? 'Set the Trapper account in the settings first.'
@@ -261,6 +280,16 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
   })
   // Sending the images to Trapper: each deployment as it is, for the progress and for what was set up.
   const sending = mode === 'upload'
+  // What became of the package files: deleted, or kept in the folder the upload wrote them to.
+  const uploadResults = order.map((id) => runs[id]?.result).filter((r): r is Extract<UploadEvent, { type: 'done' }> => r?.type === 'done' && r.mode === 'upload')
+  const keptDir = uploadResults.find((r) => r.files_deleted === false)?.output_dir
+  const filesNote: ReactNode = uploadResults.length === 0 ? null : keptDir ? (
+    <span className="flex items-center gap-3 flex-wrap">
+      <span className="flex-1 min-w-0"><strong className="font-semibold">The package files were kept</strong> in <span className="font-mono break-all">{keptDir}</span>.</span>
+      <button type="button" className={btnOutline} onClick={() => void api.openFolder(keptDir).catch(() => {})}>Open folder</button>
+    </span>
+  ) : <><strong className="font-semibold">The package files were deleted</strong> once they were uploaded.</>
+
   const uploadItems: UploadItem[] = order.map((id, index) => {
     const run = runs[id] ?? EMPTY_RUN
     const info = collection?.deployments.find((d) => d.deployment_id === id)
@@ -290,8 +319,20 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
   })
   const outputDir = order.map((id) => runs[id]?.result?.output_dir).find(Boolean) ?? null
 
+  // The report of an upload that has just ended is kept with the others, once.
+  useEffect(() => {
+    if (!finished || reportKept.current || mode !== 'upload' || !collection || !uploadItems.some((i) => i.state === 'done' || i.state === 'failed')) return
+    reportKept.current = true
+    const items = uploadItems.map((i) => ({
+      id: i.id, state: i.state, images: i.images, bytes: i.bytes, location_id: i.locationId, location_created: i.locationCreated,
+      deployment_created: i.deploymentCreated, error: i.error ?? null, steps: i.state === 'done' ? i.steps.map(({ label, message }) => ({ label, message })) : [],
+    }))
+    api.saveUploadReport(projectId, collection.name, new Date(startedAt).toISOString(), new Date(finishedAt).toISOString(), items)
+      .then((r) => setReportId(r.report_id)).catch(() => { reportKept.current = false })
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="max-w-screen-md mx-auto px-4 py-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8">
       <h2 className="text-xl font-bold mb-1 text-zinc-900 dark:text-zinc-100">Upload deployment to Trapper</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
         Sends deployments from your collections folder to Trapper. Anything missing there is created, then the images are sent for Trapper to process.
@@ -300,21 +341,15 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
       {trapper === null ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Reading the settings…</p>
       ) : connected ? (
-        <div className="flex items-center justify-between gap-3 flex-wrap text-sm text-zinc-600 dark:text-zinc-300 mb-4 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-4 py-2.5">
-          <p>
-            <span aria-hidden="true">ℹ️ </span>Uploading as <span className="font-mono">{trapper.user_name}</span> to <span className="font-mono">{trapper.base_url}</span>
-            {mode === 'generate' ? ' (not needed just to prepare the files).' : ''}
-          </p>
-          {onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Change in Settings</button>}
-        </div>
+        <Notice kind="info" className="mb-4" action={onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Change in Settings</button>}>
+          Uploading as <span className="font-mono">{trapper.user_name}</span> to <span className="font-mono">{trapper.base_url}</span>
+          {mode === 'generate' ? ' (not needed just to prepare the files).' : ''}
+        </Notice>
       ) : (
-        <div className="flex items-center justify-between gap-3 flex-wrap text-sm text-amber-700 dark:text-amber-400 mb-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5">
-          <p>
-            <span aria-hidden="true">ℹ️ </span>There is no Trapper account saved yet — set its URL, username and password in Settings › Trapper first
-            {mode === 'generate' ? ' (to look up a research project that was not filled in from Trapper).' : '.'}
-          </p>
-          {onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Open Settings</button>}
-        </div>
+        <Notice kind="warning" className="mb-4" action={onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Open Settings</button>}>
+          There is no Trapper account saved yet — set its URL, username and password in Settings › Trapper first
+          {mode === 'generate' ? ' (to look up a research project that was not filled in from Trapper).' : '.'}
+        </Notice>
       )}
 
       <WizardStep n={1} title="Choose what to upload" status={stepStatus(1)} canEdit={!uploading} onEdit={() => { setChosen(false); setModeChosen(false); setPrepared(null) }}
@@ -334,15 +369,15 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
             </p>
           ))}
           {selectionChecks?.filter((c) => c.check === 'research_project' && !c.ok).map((c) => (
-            <div key={c.check} role="alert" className="mt-2 rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-3">
-              <p className="text-sm text-red-700 dark:text-red-300"><span aria-hidden="true">⚠ </span>{c.message}</p>
-              <p className="text-xs text-red-700/80 dark:text-red-300/80 mt-1">Research projects can’t be created from here. Create it in Trapper, then check again.</p>
+            <Notice key={c.check} kind="error" role="alert" className="mt-2">
+              <p>{c.message}</p>
+              <p className="text-xs opacity-80 mt-1">Research projects can’t be created from here. Create it in Trapper, then check again.</p>
               <div className="flex items-center gap-2 mt-2">
                 <button type="button" className={btnOutline} disabled={checkingSelection} onClick={() => setRecheck((n) => n + 1)}>Check again</button>
                 {trapper?.base_url && <a className={`${btnPrimary} no-underline`} href={trapper.base_url} target="_blank" rel="noreferrer">Open Trapper</a>}
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">You can still go “Only prepare the files” below without Trapper.</p>
-            </div>
+              <p className="text-xs opacity-80 mt-2">You can still go “Only prepare the files” below without Trapper.</p>
+            </Notice>
           ))}
           {projects.length === 0 && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Nothing is kept in the collections folder yet — import a deployment first.</p>}
         </div>
@@ -364,7 +399,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
                   {c.found ? 'Found in Trapper' : 'Not in Trapper yet — the upload creates it'}
                 </p>
               ) : (
-                <p key={c.check} className="text-xs mt-1 text-red-600 dark:text-red-400">⚠ {c.message}</p>
+                <p key={c.check} className="text-xs mt-1 text-red-600 dark:text-red-400"><Mark kind="warning" />{c.message}</p>
               )
             ))}
           </div>
@@ -445,14 +480,19 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
           </div>
         )}
         {loadError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{loadError}</p>}
-        {collection && (
-          <div className="flex items-center justify-end gap-3 mt-5">
-            {(toUpload.length === 0 || !classificationReady) && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">{toUpload.length === 0 ? 'Pick at least one deployment.' : 'Pick the classification project.'}</p>
+        {(collection || onBack) && (
+          <div className={`flex items-center gap-3 mt-5 ${onBack ? 'justify-between' : 'justify-end'}`}>
+            {onBack && <BackButton onClick={onBack} disabled={uploading} />}
+            {collection && (
+              <div className="flex items-center gap-3">
+                {(toUpload.length === 0 || !classificationReady) && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{toUpload.length === 0 ? 'Pick at least one deployment.' : 'Pick the classification project.'}</p>
+                )}
+                <button type="button" aria-label="Continue to step 2" className={btnPrimary} disabled={toUpload.length === 0 || !classificationReady || uploading} onClick={() => setChosen(true)}>
+                  Continue<span aria-hidden="true"> →</span>
+                </button>
+              </div>
             )}
-            <button type="button" aria-label="Continue to step 2" className={btnPrimary} disabled={toUpload.length === 0 || !classificationReady || uploading} onClick={() => setChosen(true)}>
-              Continue<span aria-hidden="true"> →</span>
-            </button>
           </div>
         )}
       </WizardStep>
@@ -470,6 +510,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
             </label>
           ))}
         </div>
+        {mode === 'upload' && <div className="mt-3">{deleteOption}</div>}
         {toUpload.length > 0 && (
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-3">
             <strong className="text-zinc-700 dark:text-zinc-300">You’ll get: </strong>
@@ -504,6 +545,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
             <FilesReady collection={collection.name} items={prepareItems} outputDir={outputDir} startedAt={startedAt} finishedAt={finishedAt}
                         onOpenFolder={() => void api.openFolder(outputDir!).catch(() => {})}
                         onBack={() => { setRuns({}); setOrder([]); setFinished(false) }}
+                        uploadOptions={deleteOption}
                         onUpload={() => {
                           const done = prepareItems.filter((i) => i.state === 'done')
                           const sizes = new Map(done.flatMap((i) => i.files).map((f) => [f.name, f.bytes])) // the deployments csv is in each one's files
@@ -519,14 +561,18 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
         <WizardStep n={prepared ? 4 : 3} title="Upload to Trapper" status={uploading ? 'running' : finished ? 'done' : 'open'} canEdit={false} onEdit={() => {}} expanded
                     description="Creates what’s missing in Trapper, packs the images and sends them for Trapper to process.">
           {order.length === 0 ? (
-            <div className="flex items-center justify-end gap-3">
-              {blockedBy && <p className="text-xs text-amber-600 dark:text-amber-400">{blockedBy}</p>}
-              <button type="button" className={primaryButton} disabled={Boolean(blockedBy)} onClick={() => void handleUpload()}>{modeInfo.button}</button>
+            <div>
+              <div className="mb-4">{deleteOption}</div>
+              <div className="flex items-center justify-end gap-3">
+                {blockedBy && <p className="text-xs text-amber-600 dark:text-amber-400">{blockedBy}</p>}
+                <button type="button" className={primaryButton} disabled={Boolean(blockedBy)} onClick={() => void handleUpload()}>{modeInfo.button}</button>
+              </div>
             </div>
           ) : uploading ? (
             <UploadingToTrapper items={uploadItems} startedAt={startedAt} target={`${trapper?.base_url ?? 'Trapper'}${trapper?.user_name ? ` as ${trapper.user_name}` : ''}`} onStop={() => abortRef.current?.abort()} />
           ) : (
-            <UploadedToTrapper collection={collection.name} researchProject={projectId} items={uploadItems} startedAt={startedAt} finishedAt={finishedAt}
+            <UploadedToTrapper collection={collection.name} researchProject={projectId} items={uploadItems} startedAt={startedAt} finishedAt={finishedAt} reportId={reportId}
+                               filesNote={filesNote}
                                onMore={() => { setRuns({}); setOrder([]); setFinished(false); setPrepared(null); setModeChosen(false); setChosen(false) }} />
           )}
         </WizardStep>
@@ -553,7 +599,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
                     const info = run.steps[step]!
                     return (
                       <li key={step} className={info.status === 'done' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400'}>
-                        {info.status === 'done' ? '✔' : '…'} <span className="font-medium">{label}</span> — {info.message}
+                        {info.status === 'done' ? <Mark kind="success" /> : '… '}<span className="font-medium">{label}</span> — {info.message}
                         {info.url && (
                           <span className="block text-xs ml-5"><a className="text-blue-600 dark:text-blue-400 hover:underline break-all" href={info.url} target="_blank" rel="noreferrer">{info.url}</a></span>
                         )}
@@ -571,7 +617,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
                 )}
                 {run.result && run.result.mode === 'upload' && (
                   <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    ✔ Uploaded to collection {run.result.collection} in {run.result.parts} package(s).
+                    <Mark kind="success" />Uploaded to collection {run.result.collection} in {run.result.parts} package(s).
                   </p>
                 )}
                 {run.result && run.result.mode === 'dry_run' && (
@@ -586,7 +632,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
                 )}
                 {run.result && run.result.mode === 'generate' && (
                   <div className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    <p>✔ Files written to <span className="font-mono break-all">{run.result.output_dir}</span>:</p>
+                    <p><Mark kind="success" />Files written to <span className="font-mono break-all">{run.result.output_dir}</span>:</p>
                     <ul className="list-disc ml-6 text-xs font-mono">
                       {(run.result.files ?? []).map((f) => <li key={f}>{f}</li>)}
                     </ul>
@@ -595,7 +641,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings }: Props 
                     </button>
                   </div>
                 )}
-                {run.error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">⚠ {run.error}</p>}
+                {run.error && <p className="mt-2 text-sm text-red-600 dark:text-red-400"><Mark kind="warning" />{run.error}</p>}
               </section>
             )
           })}

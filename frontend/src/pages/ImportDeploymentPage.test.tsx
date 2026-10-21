@@ -771,6 +771,21 @@ describe('ImportDeploymentPage', () => {
     expect(screen.getByLabelText('Camera id')).toHaveValue('P800HG08')
   })
 
+  it('has a Back on the first step that goes back to the menu', async () => {
+    const onBack = vi.fn()
+    render(<ImportDeploymentPage onBack={onBack} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Back/ }))
+
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no Back on the first step when there is no menu to go back to', () => {
+    render(<ImportDeploymentPage />)
+
+    expect(screen.queryByRole('button', { name: /^← Back$|^Back$/ })).not.toBeInTheDocument()
+  })
+
   it('asks for the deployment details right after the origin', async () => {
     await goToNewDetailsStep()
     await manualEntry()
@@ -988,7 +1003,7 @@ describe('ImportDeploymentPage', () => {
         await goToValidateStep()
         await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-        expect(await screen.findByText('✔ Every image has its capture date and camera model.')).toBeInTheDocument()
+        expect(await screen.findByText('Every image has its capture date and camera model.')).toBeInTheDocument()
       })
 
       it('says how many images lack each field, with examples, and leaves out the fields nobody lacks', async () => {
@@ -1033,7 +1048,7 @@ describe('ImportDeploymentPage', () => {
         await goToValidateStep()
         await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-        expect(await screen.findByText('✔ No duplicate images.')).toBeInTheDocument()
+        expect(await screen.findByText('No duplicate images.')).toBeInTheDocument()
       })
 
       it('lists each group of identical files and how many extra copies there are', async () => {
@@ -1164,7 +1179,7 @@ describe('ImportDeploymentPage', () => {
 
       mockedApi.validateImages.mockResolvedValue({ checked_count: 2, corrupted: [] })
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
-      await screen.findByText('✔ No corrupted images.')
+      await screen.findByText('No corrupted images.')
       expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     })
 
@@ -1293,9 +1308,9 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-      expect(await screen.findByText("✔ 'R0001-DONA_01' is a valid deployment id.")).toBeInTheDocument()
-      expect(screen.getByText('✔ The deployment id starts with its collection, R0001.')).toBeInTheDocument()
-      expect(screen.getByText("⚠ The deployment id's location is 'DONA_02', but the location chosen is DONA_01.")).toBeInTheDocument()
+      expect(await screen.findByText("'R0001-DONA_01' is a valid deployment id.")).toBeInTheDocument()
+      expect(screen.getByText('The deployment id starts with its collection, R0001.')).toBeInTheDocument()
+      expect(screen.getByText("The deployment id's location is 'DONA_02', but the location chosen is DONA_01.")).toBeInTheDocument()
     })
 
     it('is customized in the settings: the wizard has no tolerance field and runs with the one of the settings, one hour by default', async () => {
@@ -1426,10 +1441,10 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-      expect(await screen.findByText(/✔ The number of images \(310\) is similar to the median of the 3 previous/)).toBeInTheDocument()
+      expect(await screen.findByText(/The number of images \(310\) is similar to the median of the 3 previous/)).toBeInTheDocument()
       expect(screen.getAllByText('R0001: 300 · R0002: 330 · R0003: 270.5')).toHaveLength(2) // under the images and under the sequences checks
-      expect(screen.getByText(/⚠ The number of sequences \(900\) is not similar/)).toBeInTheDocument()
-      expect(screen.getByText(/ℹ Not enough history to judge the length of the sequences: 1 previous revision/)).toBeInTheDocument()
+      expect(screen.getByText(/The number of sequences \(900\) is not similar/)).toBeInTheDocument()
+      expect(screen.getByText(/Not enough history to judge the length of the sequences: 1 previous revision/)).toBeInTheDocument()
     })
 
     it.each([['image_count', 6], ['sequence_count', 7], ['sequence_length', 8]] as const)('blocks continuing when %s is required and not similar', async (key, index) => {

@@ -140,3 +140,18 @@ def test_the_deployment_csv_has_the_dates_trapper_accepts(tmp_path: Path):
 
     _, row = csv_path.read_text(encoding="utf-8").splitlines()
     assert '"2025-05-01T11:07:45"' in row and '"2025-06-12T10:15:27"' in row  # Madrid's wall clock, no Z
+
+
+def test_list_locations_says_who_owns_a_location_and_whether_the_account_can_manage_it():
+    client = MagicMock()
+    client.locations.where.return_value = [
+        SimpleNamespace(pk=5, location_id="mine", name=None, timezone="UTC", owner="alice", delete_data="/geomap/location/5/delete/"),
+        SimpleNamespace(pk=6, location_id="theirs", name=None, timezone="UTC", owner="bob", delete_data=None),
+    ]
+    client.locations.export.return_value = []
+
+    with patch("wildintel_uploader.core.services.trapper_service._client", return_value=client):
+        mine, theirs = trapper_service.list_locations("https://trapper.example.org", "alice", "s3cret", 2)
+
+    assert (mine["owner"], mine["can_manage"]) == ("alice", True)
+    assert (theirs["owner"], theirs["can_manage"]) == ("bob", False)

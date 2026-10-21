@@ -52,7 +52,7 @@ describe('RepairPage', () => {
     await userEvent.click(await screen.findByRole('checkbox', { name: 'R0003-DONA_01' })) // leave this one out
     await check()
 
-    await screen.findByText('⚠ Not valid')
+    await screen.findByText('Not valid')
     expect(mockedApi.repairInspect.mock.calls.map((c) => c[2])).toEqual(['R0003-DONA_02'])
     const problems = screen.getByLabelText('Problems of R0003-DONA_02')
     expect(problems).toHaveTextContent('deployment.json is missing')
@@ -67,7 +67,7 @@ describe('RepairPage', () => {
     await userEvent.click(await screen.findByRole('checkbox', { name: 'R0003-DONA_02' }))
     await check()
 
-    expect(await screen.findByText('✔ Valid')).toBeInTheDocument()
+    expect(await screen.findByText('Valid')).toBeInTheDocument()
     expect(await screen.findByText(/nothing to repair\./)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Repair \d/ })).not.toBeInTheDocument()
   })
@@ -75,7 +75,7 @@ describe('RepairPage', () => {
   it('chooses which of the not valid to repair, and goes back to the first step', async () => {
     await pickCollection()
     await check()
-    await screen.findByText('⚠ Not valid')
+    await screen.findByText('Not valid')
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Select none' })[1]) // the one of the results
     expect(screen.getByRole('button', { name: 'Repair 0 deployments' })).toBeDisabled()
@@ -93,7 +93,7 @@ describe('RepairPage', () => {
     })
     await pickCollection()
     await check()
-    await screen.findByText('⚠ Not valid')
+    await screen.findByText('Not valid')
     mockedApi.repairInspect.mockResolvedValue(state('R0003-DONA_02')) // valid once repaired
     await userEvent.click(screen.getByRole('button', { name: 'Repair 1 deployment' }))
 
@@ -102,7 +102,7 @@ describe('RepairPage', () => {
     expect(within(card).getByText(/the timestamp log says so/)).toBeInTheDocument()
     expect(await within(card).findByText(/Valid again — wrote deployment.json, seal.json/)).toBeInTheDocument()
     expect(await screen.findByText('1 deployment(s) repaired.')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getAllByText('✔ Valid')).toHaveLength(2)) // both are valid now
+    await waitFor(() => expect(screen.getAllByText('Valid')).toHaveLength(2)) // both are valid now
     await userEvent.click(screen.getByRole('button', { name: 'Check another collection' }))
     expect(await screen.findByRole('button', { name: 'Check the deployments' })).toBeInTheDocument()
   })
@@ -129,5 +129,13 @@ describe('RepairPage', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
 
     expect(await screen.findByText('The research project id is no folder name.')).toBeInTheDocument()
+  })
+
+  it('has a Back, level with Continue, that leaves the task from the first step', async () => {
+    const onBack = vi.fn()
+    render(<RepairPage onBack={onBack} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    expect(onBack).toHaveBeenCalled()
   })
 })

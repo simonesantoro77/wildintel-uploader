@@ -115,7 +115,7 @@ wins over the settings page's. Both can also go in `src/wildintel_uploader/web/.
 
 !!! note "Two kinds of settings"
     `web/settings.py` is the **server's** (port, log level, CORS — environment variables).
-    `core/config.py` is the **app's** own `settings.toml` (Trapper account, the images folder,
+    `core/config.py` is the **app's** own `settings.toml` (Trapper account, the data folder,
     checks, preprocessing — the ⚙️ page, and `wildintel-uploader config`).
 
 ## 3. Repository layout
@@ -166,12 +166,12 @@ images; and sessions — `session_example`, and one with a `_FileTimestampLog.cs
 (`session_example_timestamp_log`).
 
 For something bigger, `tools/make_example_deployment.py` makes a deployment of any number of images
-(3000 by default, into `examples/deployment_example_3000/`, which git ignores): small and all
+(3000 by default, into `examples/deployment_example_3000/`, which is kept in the repository): small and all
 different, in bursts of three shots, numbered in the order they were taken, each with the camera's
 make, model and serial number and its capture date in the EXIF — a Reconyx HyperFire 2,
 `P800HG08`. It is what to try a long import, the statistical checks or an upload with.
 
-With `--faulty` (into `examples/deployment_example_3000_faulty/`, also ignored by git) the same 3000 files come with
+With `--faulty` (into `examples/deployment_example_3000_faulty/`, also kept in the repository) the same 3000 files come with
 problems for every validation to find, about 14 % of them: corrupted images (cut short, or empty), duplicates
 (`IMG_0123 (copy).JPG`, `IMG_0123_bak.JPG`), shots out of order, no capture date, no camera model or serial number,
 a second camera (a Bushnell) and some images in a `backup/` subfolder. Run through the wizard, the validation report has
@@ -348,7 +348,7 @@ start-up until the import reaches `done`, which discards it. Credentials never r
 
 ### Logging
 
-`core/logging_setup.py`: console and a rotating file (`logs/wildintel-uploader.log`, 5 MB × 5) at
+`core/logging_setup.py`: console and a rotating file (`wildintel-uploader.log`, 5 MB × 5, in `platformdirs.user_log_dir` — `~/.local/state/wildintel-uploader/log` on Linux; the sessions are in `user_state_dir()/sessions`; neither is configurable, and what an earlier version left beside `settings.toml` or in Documents is moved at start) at
 `GENERAL.log_level`, changed on the fly when the settings are saved. At `DEBUG` each file and each
 Trapper query is logged, and tracebacks are kept; the libraries' byte-level chatter stays at INFO.
 The command line only prints warnings unless given `-v`.
