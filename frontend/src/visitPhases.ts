@@ -14,3 +14,23 @@ export const PHASE_BADGE: Record<VisitState, string> = {
   unknown: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
 }
 
+
+/** The colour of a state on the map of the sites — its point, and the dot of its legend. */
+export const PHASE_FILL: Record<VisitState, string> = {
+  planned: 'fill-zinc-400 dark:fill-zinc-500',
+  deployed: 'fill-amber-500',
+  collected: 'fill-emerald-500',
+  stolen: 'fill-red-500',
+  not_visited: 'fill-slate-500',
+  no_camera: 'fill-sky-500',
+  unknown: 'fill-violet-500',
+}
+export const PHASE_DOT: Record<VisitState, string> = {
+  planned: 'bg-zinc-400 dark:bg-zinc-500',
+  deployed: 'bg-amber-500',
+  collected: 'bg-emerald-500',
+  stolen: 'bg-red-500',
+  not_visited: 'bg-slate-500',
+  no_camera: 'bg-sky-500',
+  unknown: 'bg-violet-500',
+}
