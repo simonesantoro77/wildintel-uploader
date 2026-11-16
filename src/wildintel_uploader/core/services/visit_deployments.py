@@ -156,7 +156,9 @@ def _deployment(collection: int, start: dict, end: dict | None, keep_seconds: bo
         "deployment_id": f"{collection_name(collection)}-{start['location_id']}", "collection": collection_name(collection), "site": start["location_id"],
         "status": "closed" if end else "open", "start": _utc(start.get("when"), keep_seconds), "end": _utc(end.get("when"), keep_seconds) if end else None,
         "setup_by": _both(start.get("setup_by") or start.get("trappers"), (end or {}).get("trappers")), "camera_id": _text(start.get("camera_id")), "card": _text(start.get("sd")),
-        "photos_counted": end.get("num_photos") if end else None, "comments": _comments(start, end, notes), "fields": fields,
+        "photos_counted": end.get("num_photos") if end else None,
+        # the card was full when it was collected: its photos are not counted, and the number is not given — the dashboards say so instead of it
+        "card_full": bool(end and end.get("card_status") == "CardFull"), "comments": _comments(start, end, notes), "fields": fields,
         "start_visit": start, "end_visit": end, "no_images": no_images,
     }
 

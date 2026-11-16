@@ -32,3 +32,10 @@ body {
 /* A question that shows up under the answer that asks it. */
 @keyframes reveal { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 .reveal { animation: reveal 0.3s ease-out; }
+
+/* Printing a page (the statistics report): white paper, and the colours of the bars and badges kept — a browser leaves out the backgrounds unless it is told not to. */
+@page { margin: 12mm; }
+@media print {
+  html, body { background: #fff !important; color: #18181b !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

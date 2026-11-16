@@ -37,6 +37,13 @@ class UploadCollectionsRequest(BaseModel):
     research_project_id: str = Field(min_length=1)
 
 
+class StatisticsRequest(BaseModel):
+    """A revision (collection) kept in the collections folder, to compare its deployments with the previous revisions of their locations."""
+
+    research_project_id: str = Field(min_length=1)
+    collection: str = Field(pattern=r"^R\d{4}(_.+)?$")
+
+
 class RepairRequest(BaseModel):
     """One deployment kept in the collections folder, to look at or to repair."""
 

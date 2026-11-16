@@ -15,6 +15,8 @@ describe('DeploymentsHomePage', () => {
     expect(onChoose).toHaveBeenLastCalledWith('many')
     await userEvent.click(screen.getByRole('button', { name: /deployments dashboard/i }))
     expect(onChoose).toHaveBeenLastCalledWith('status')
+    await userEvent.click(screen.getByRole('button', { name: /Compare the deployments of a revision/ }))
+    expect(onChoose).toHaveBeenLastCalledWith('statistics')
     await userEvent.click(screen.getByRole('button', { name: /back/i }))
     expect(onBack).toHaveBeenCalled()
   })

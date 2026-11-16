@@ -897,6 +897,8 @@ export interface FieldDeployment {
   camera_id: string | null
   card: string | null
   photos_counted: number | null
+  /** The card was full when it was collected, so its photos were not counted: it is told instead of their number. */
+  card_full?: boolean
   start_session: string | null
   end_session: string | null
   /** The day and the time of the start and the end on the wall clock of the location (2026-09-14T08:30:00), and its timezone — what the period is told in. */
@@ -1217,4 +1219,63 @@ export interface TimeFixTarget {
   location_id?: string
   date?: string
   time?: string
+}
+
+/** What a deployment's images look like — the statistics of a revision. Times are seconds since the epoch. */
+export interface StatisticsMetrics {
+  image_count: number
+  sequence_count: number
+  /** The mean number of images per sequence. */
+  sequence_length: number
+  /** The days from the first image to the last, as a fraction; null with fewer than two dated images. */
+  days: number | null
+  images_per_day: number | null
+  /** The images of each calendar day, the days with none included. Only the deployment of a row has it, not the revisions of its location. */
+  daily?: DailyImages[]
+  /** The sequences that began each calendar day, and how many sequences have each number of images (in bins: 1, 2… 6–10, 11–20… 101+). Also only of the deployment of a row. */
+  sequences_daily?: DailySequences[]
+  /** How many sequences have each number of images: [[images, sequences]…], by images. */
+  sequence_lengths?: [number, number][]
+  /** The longest sequence of the deployment (the first, if several tie). */
+  longest_sequence?: LongestSequence | null
+  sequence_median: number
+  sequence_max: number
+  first_image: number | null
+  last_image: number | null
+}
+
+/** The images taken on one day: its date (YYYY-MM-DD) and how many. */
+export interface DailyImages { date: string; images: number }
+
+export interface DailySequences { date: string; sequences: number }
+
+/** A sequence: its images, when it began and ended on the camera's wall clock (2023-11-06T15:00:46) and how long it lasted. */
+export interface LongestSequence { images: number; start: string; end: string; seconds: number }
+
+export type StatisticsCheckName = 'image_count' | 'sequence_count' | 'sequence_length'
+
+/** One metric of a deployment against the previous revisions of its location: skipped when there are too few to judge. */
+export interface StatisticsCheck {
+  ok: boolean
+  skipped: boolean
+  value: number
+  previous: number
+  reference: number | null
+  lower: number | null
+  upper: number | null
+  message: string
+}
+
+/** A revision of a location, with its metrics. */
+export interface StatisticsRevision { revision: number; deployment_id: string; metrics: StatisticsMetrics }
+
+export interface StatisticsRow {
+  deployment_id: string
+  location: string
+  revision: number
+  metrics: StatisticsMetrics
+  checks: Record<StatisticsCheckName, StatisticsCheck>
+  status: 'ok' | 'review' | 'insufficient_history'
+  /** Every revision of the location up to this one, this one last. */
+  revisions: StatisticsRevision[]
 }

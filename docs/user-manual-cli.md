@@ -263,6 +263,8 @@ error, printed as `✘  …` on the standard error.
 | `trapper research-projects` | The research projects the account can see. |
 | `trapper classification-projects --rp PK` | A research project's classification projects. |
 | `trapper locations --rp PK` | A research project's locations, with their timezones. |
+| `statistics collection RP REVISION` | Each deployment of a revision against the previous revisions of its location, with the thresholds of Settings › Postvalidation. |
+| `statistics compare RP DEPLOYMENT DEPLOYMENT` | Two deployments side by side — the same location in two revisions —, with what changed in %. |
 | `import-deployment` | Imports a deployment, interactively — see [above](#5-importing-a-deployment). |
 
 ## 7. Troubleshooting

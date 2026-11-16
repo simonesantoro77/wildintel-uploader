@@ -29,7 +29,7 @@ const STATE_NAME: Record<string, string> = { planned: 'planned', done: 'done', f
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** The deployments the visits of a research project say, as a book: a square for each revision (collection), the status squares of the one picked, and a table — the one a link of the visit book goes to is highlighted. */
-export default function FieldDeployments({ deployments: every, onShowSd, onShowLocation, onShowUploads, highlight, initialFilter = '', onShowVisit, loadDetails, onUpload, onCreate, loadVisits, sdCards, researchProjectId, helpOpen = false, onCloseHelp }: {
+export default function FieldDeployments({ deployments: every, onShowSd, onShowLocation, onShowUploads, onShowStatistics, highlight, initialFilter = '', onShowVisit, loadDetails, onUpload, onCreate, loadVisits, sdCards, researchProjectId, helpOpen = false, onCloseHelp }: {
   /** The help and the legend are open: the panel that says them is this component's, as it knows the states. */
   helpOpen?: boolean
   onCloseHelp?: () => void
@@ -39,6 +39,8 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   onShowLocation?: (site: string) => void
   /** Goes to the uploads dashboard, on the uploads of a deployment. */
   onShowUploads?: (deploymentId: string) => void
+  /** Goes to the statistics, on a deployment: its revision, with it isolated. */
+  onShowStatistics?: (deployment: FieldDeployment) => void
   deployments: FieldDeployment[]; highlight?: string; initialFilter?: Filter; onShowVisit?: (visit: { session: string; site: string }) => void
   /** Reads what a created deployment says of itself: its details, for its View button. */
   loadDetails?: (deploymentId: string) => Promise<DeploymentFields | null>
@@ -139,10 +141,16 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   const goTo = (d: FieldDeployment) => { setJump(d.deployment_id); setView('table'); setListOpen(false); setText('') }
 
   // What a deployment says of itself, as the table and the labels both show it.
-  // the photos counted: a link to look at them when the deployment is created — its images are in the collections folder
+  // the photos counted — or "Card full", when the card was and they were not counted —: a link to look at them when the deployment is created — its images are in the collections folder
+  const photosText = (d: FieldDeployment) => (d.card_full ? 'Card full' : `${d.photos_counted} photos`)
+  const hasPhotosText = (d: FieldDeployment) => d.card_full === true || d.photos_counted != null
+  // a card that was full is told in red, as a state, in place of the number: its photos were not counted
+  const cardFull = 'rounded-md px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
   const photos = (d: FieldDeployment) => (researchProjectId && phaseOf(d) === 'created'
-    ? <LinkButton className="font-semibold" aria-label={`Show the photos of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)}>{d.photos_counted} photos</LinkButton>
-    : `${d.photos_counted} photos`)
+    ? (d.card_full
+      ? <button type="button" title="The card was full, so its photos were not counted. Show the photos" aria-label={`Show the photos of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)} className={`${cardFull} hover:bg-red-200 dark:hover:bg-red-900/60`}>Card full</button>
+      : <LinkButton className="font-semibold" aria-label={`Show the photos of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)}>{photosText(d)}</LinkButton>)
+    : (d.card_full ? <span title="The card was full, so its photos were not counted" className={cardFull}>Card full</span> : photosText(d)))
   const creation = (d: FieldDeployment) => (
     phaseOf(d) === 'not_created'
                           ? <span title="The camera was stolen: the card is gone, so the deployment will not be created" className="rounded-full px-2.5 py-1 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">Not created</span>
@@ -168,6 +176,9 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   const rowOptions = (d: FieldDeployment) => (
     // only what can be done with the row: the options that do not apply to it are not there
                         <RowOptions label={`Options of the deployment ${d.deployment_id}`}>
+                          {phaseOf(d) === 'created' && onShowStatistics && (
+                            <IconButton compact label={`Show the statistics of the deployment ${d.deployment_id}`} title="Show the statistics of the deployment" onClick={() => onShowStatistics(d)} path={<path d="M18 20V10M12 20V4M6 20v-6" />} />
+                          )}
                           {phaseOf(d) === 'created' && (
                             <IconButton compact label={`View the deployment ${d.deployment_id}`} title="View the deployment" onClick={() => showPanel(d.deployment_id)} path={ICON_PATHS.view} />
                           )}
@@ -248,7 +259,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
                         {d.card && (onShowSd || sdCards
                           ? <LinkButton className="font-semibold" aria-label={`Show the state of the SD card ${d.card}`} onClick={() => (sdCards ? setCardPanel(d.card!) : onShowSd?.(d.card!))}>SD {d.card}</LinkButton>
                           : <>SD {d.card}</>)}
-                        {d.card && d.photos_counted != null && ' · '}{d.photos_counted != null && photos(d)}
+                        {d.card && hasPhotosText(d) && ' · '}{hasPhotosText(d) && photos(d)}
                       </td>
                       <td className={TABLE.cell}>
                         {creation(d)}
@@ -295,7 +306,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
                           {d.card && (onShowSd || sdCards
                             ? <LinkButton className="font-semibold" aria-label={`Show the state of the SD card ${d.card}`} onClick={() => (sdCards ? setCardPanel(d.card!) : onShowSd?.(d.card!))}>SD {d.card}</LinkButton>
                             : <>SD {d.card}</>)}
-                          {d.card && d.photos_counted != null && ' · '}{d.photos_counted != null && photos(d)}
+                          {d.card && hasPhotosText(d) && ' · '}{hasPhotosText(d) && photos(d)}
                         </span>
                         <span className="flex items-center gap-2"><span className="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Upload</span>{uploadMark(d)}</span>
                       </div>

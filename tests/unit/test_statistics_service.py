@@ -368,3 +368,104 @@ def test_there_are_no_details_to_fill_in_from_when_there_is_no_earlier_revision(
     assert st.previous_deployment(tmp_path, "DONA", "R0001-DONA_01") is None  # the first one
     assert st.previous_deployment(tmp_path, "DONA", "R0003-DONA_09") is None  # another location
     assert st.previous_deployment(tmp_path, "NOPE", "R0003-DONA_01") is None
+
+
+# ── statistics of a collection ──────────────────────────────────────────────
+
+_TOL = {"image_count": 50.0, "sequence_count": 50.0, "sequence_length": 50.0}
+
+
+def _collection_stats(root: Path, rp: str, collection: str, **kw) -> list[dict]:
+    return st.collection_statistics(root, rp, collection, sequence_gap_seconds=60, min_revisions=2, method="median", tolerances=_TOL, **kw)
+
+
+def test_collection_statistics_flags_only_the_deployment_that_departs(tmp_path):
+    for rev in (1, 2):
+        _revision(tmp_path, "RP", f"R000{rev}-A", _stamps(100, 5), collection=f"R000{rev}")
+        _revision(tmp_path, "RP", f"R000{rev}-B", _stamps(100, 5), collection=f"R000{rev}")
+    _revision(tmp_path, "RP", "R0003-A", _stamps(100, 5), collection="R0003")
+    _revision(tmp_path, "RP", "R0003-B", _stamps(1000, 50), collection="R0003")
+    rows = {r["deployment_id"]: r for r in _collection_stats(tmp_path, "RP", "R0003")}
+    assert rows["R0003-A"]["status"] == "ok"
+    assert rows["R0003-B"]["status"] == "review"
+    assert rows["R0003-B"]["checks"]["image_count"]["previous"] == 2
+
+
+def test_collection_statistics_without_history_is_insufficient(tmp_path):
+    _revision(tmp_path, "RP", "R0001-A", _stamps(10, 5), collection="R0001")
+    assert _collection_stats(tmp_path, "RP", "R0001")[0]["status"] == "insufficient_history"
+
+
+def test_collection_statistics_unknown_collection(tmp_path):
+    with pytest.raises(st.dis.DeploymentImportError):
+        _collection_stats(tmp_path, "RP", "R0009")
+
+
+def test_deployment_metrics_are_kept_and_read_back(tmp_path):
+    folder = _revision(tmp_path, "RP", "R0001-A", _stamps(20, 5), collection="R0001")
+    first = st.deployment_metrics(folder, 60)
+    assert (folder / st.STATS_FILE).is_file()
+    # a doctored cache is what is read back while images.json is the same…
+    kept = json.loads((folder / st.STATS_FILE).read_text())
+    kept["metrics"]["image_count"] = 999
+    (folder / st.STATS_FILE).write_text(json.dumps(kept))
+    assert st.deployment_metrics(folder, 60)["image_count"] == 999
+    # …and it is recomputed when the gap changes or images.json does
+    assert st.deployment_metrics(folder, 5)["image_count"] == first["image_count"]
+    (folder / "images.json").write_text(json.dumps({"images": []}), encoding="utf-8")
+    assert st.deployment_metrics(folder, 60)["image_count"] == 0
+
+
+def test_deployment_without_images_json_is_not_kept(tmp_path):
+    folder = _revision(tmp_path, "RP", "R0001-A", _stamps(5, 5), collection="R0001", log=False)
+    assert st.deployment_metrics(folder, 60)["image_count"] == 5
+    assert not (folder / st.STATS_FILE).exists()
+
+
+def test_compare_deployments_gives_the_change(tmp_path):
+    _revision(tmp_path, "RP", "R0002-A", _stamps(100, 5), collection="R0002")
+    _revision(tmp_path, "RP", "R0003-A", _stamps(200, 5), collection="R0003")
+    result = st.compare_deployments(tmp_path, "RP", "R0002-A", "R0003-A", sequence_gap_seconds=60)
+    assert result["metrics"]["image_count"] == {"first": 100.0, "second": 200.0, "change_percent": 100.0}
+    with pytest.raises(st.dis.DeploymentImportError):
+        st.compare_deployments(tmp_path, "RP", "R0002-A", "R0009-A", sequence_gap_seconds=60)
+
+
+def test_deployment_metrics_say_the_days_it_covers_and_the_images_of_each_calendar_day(tmp_path):
+    stamps = [datetime(2024, 9, 1, 8), datetime(2024, 9, 1, 9), datetime(2024, 9, 3, 23, 30), datetime(2024, 9, 4, 0, 30)]
+    folder = _revision(tmp_path, "RP", "R0001-A", stamps, collection="R0001")
+    metrics = st.deployment_metrics(folder, 60)
+
+    assert metrics["daily"] == [{"date": "2024-09-01", "images": 2}, {"date": "2024-09-02", "images": 0},
+                                {"date": "2024-09-03", "images": 1}, {"date": "2024-09-04", "images": 1}]
+    assert metrics["days"] == pytest.approx(2 + 16.5 / 24)   # from the first image to the last, 1 Sep 08:00 to 4 Sep 00:30
+    assert metrics["images_per_day"] == pytest.approx(4 / metrics["days"])
+
+
+def test_one_image_covers_no_days_and_has_no_daily_rate(tmp_path):
+    folder = _revision(tmp_path, "RP", "R0001-A", [datetime(2024, 9, 1, 8)], collection="R0001")
+    metrics = st.deployment_metrics(folder, 60)
+    assert metrics["days"] is None and metrics["images_per_day"] is None and metrics["daily"] == [{"date": "2024-09-01", "images": 1}]
+
+
+def test_the_rows_keep_the_daily_images_of_the_deployment_but_not_of_each_revision(tmp_path):
+    _revision(tmp_path, "RP", "R0001-A", _stamps(10, 5), collection="R0001")
+    _revision(tmp_path, "RP", "R0002-A", _stamps(10, 5), collection="R0002")
+    [row] = _collection_stats(tmp_path, "RP", "R0002")
+    assert row["metrics"]["daily"] and row["metrics"]["longest_sequence"] and all(not {"daily", "sequences_daily", "longest_sequence"} & r["metrics"].keys() and r["metrics"]["sequence_lengths"] for r in row["revisions"])
+
+
+def test_the_sequences_of_a_deployment_by_day_by_length_and_the_longest(tmp_path):
+    # 1 Sep: a sequence of 3 images and a single one; 3 Sep: a sequence of 12
+    stamps = [datetime(2024, 9, 1, 8, 0, s) for s in (0, 10, 20)] + [datetime(2024, 9, 1, 12)] + [datetime(2024, 9, 3, 9, 0) + timedelta(seconds=s) for s in range(0, 120, 10)]
+    metrics = st.deployment_metrics(_revision(tmp_path, "RP", "R0001-A", stamps, collection="R0001"), 60)
+
+    assert metrics["sequences_daily"] == [{"date": "2024-09-01", "sequences": 2}, {"date": "2024-09-02", "sequences": 0}, {"date": "2024-09-03", "sequences": 1}]
+    assert metrics["sequence_lengths"] == [[1, 1], [3, 1], [12, 1]]
+    assert metrics["longest_sequence"] == {"images": 12, "start": "2024-09-03T09:00:00", "end": "2024-09-03T09:01:50", "seconds": 110.0}
+
+
+def test_no_images_no_histograms(tmp_path):
+    folder = _revision(tmp_path, "RP", "R0001-A", [], collection="R0001")
+    metrics = st.deployment_metrics(folder, 60)
+    assert metrics["sequences_daily"] == [] and metrics["sequence_lengths"] == [] and metrics["longest_sequence"] is None
