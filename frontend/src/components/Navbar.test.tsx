@@ -23,3 +23,19 @@ describe('Navbar', () => {
     expect(onHome).toHaveBeenCalled()
   })
 })
+
+describe('Navbar language', () => {
+  it('has a button that lists the languages and remembers the one chosen', async () => {
+    localStorage.clear()
+    render(<Navbar version={null} onHome={() => {}} onOpenSettings={() => {}} settingsOpen={false} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Language' }))
+    const english = screen.getByRole('option', { name: /English/ })
+    expect(english).toHaveAttribute('aria-selected', 'true')
+
+    await userEvent.click(english)
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(localStorage.getItem('wildintel.language')).toBe('en')
+    expect(document.documentElement.lang).toBe('en')
+  })
+})

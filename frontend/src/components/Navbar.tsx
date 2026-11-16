@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import LanguageButton from './LanguageButton'
 
 interface Props {
   version: string | null
@@ -45,6 +46,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
           >
             ? Help
           </a>
+          <LanguageButton />
           <button
             className={`${btnOutline} ${settingsOpen ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
             title="Settings" aria-label="Settings" aria-pressed={settingsOpen}
