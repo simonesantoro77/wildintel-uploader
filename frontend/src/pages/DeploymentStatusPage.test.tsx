@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
 import DeploymentStatusPage from './DeploymentStatusPage'
 
-vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), fieldDeployments: vi.fn(), getSettings: vi.fn(), collectionPath: vi.fn(), listLocalDeployments: vi.fn(), visitBook: vi.fn(), listVisits: vi.fn() } }))
+vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), fieldDeployments: vi.fn(), getSettings: vi.fn(), collectionPath: vi.fn(), listLocalDeployments: vi.fn(), visitBook: vi.fn(), listVisits: vi.fn(), listLocalLocations: vi.fn() } }))
 const mockedApi = vi.mocked(api)
 
 const deployment = (over: object) => ({
@@ -260,6 +260,54 @@ describe('DeploymentStatusPage', () => {
     // one that is not created has no images to count
     const planned = within(table).getByText('R0003-TATR_0003').closest('tr')!
     expect(within(planned).queryByRole('button', { name: /Show the statistics/ })).not.toBeInTheDocument()
+  })
+
+  const place = (location_id: string, name: string, latitude: number | null, longitude: number | null) => ({ location_id, name, latitude, longitude, timezone: null, coordinate_uncertainty: null, trapper_pk: null })
+
+  it('shows the deployments on a map — a point for each site, coloured by its state, with a tick when it was uploaded — whose card has the buttons of its row', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [place('TATR_0001', 'Ridge', 49.2, 20.1), place('TATR_0002', 'Stream', 49.25, 20.2), place('TATR_0003', 'Pond', 49.22, 20.3)] } as never)
+    const onShowStatistics = vi.fn()
+    render(<DeploymentStatusPage onBack={vi.fn()} onShowStatistics={onShowStatistics} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^R0003/ }))                         // the revision with the three sites
+    expect(screen.getAllByRole('button', { name: /^Show the deployments/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['Show the deployments as a table', 'Show the deployments as labels', 'Show the deployments on a map'])
+    await userEvent.click(screen.getByRole('button', { name: 'Show the deployments on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Deployments on a map' })
+    expect(await within(map).findByRole('button', { name: 'TATR_0001: Created · R0003-TATR_0001 · Uploaded. Choose it' })).toBeInTheDocument()   // uploaded: it has the tick
+    expect(within(map).getByRole('button', { name: 'TATR_0002: Created · R0003-TATR_0002. Choose it' })).toBeInTheDocument()                      // created, not uploaded
+    expect(within(map).getByRole('button', { name: 'TATR_0003: Planned · R0003-TATR_0003. Choose it' })).toBeInTheDocument()
+    const legend = within(map).getByRole('list', { name: 'Legend' })
+    expect(within(legend).getByText('Created').parentElement).toHaveTextContent('2')
+    expect(within(legend).getByText('Planned').parentElement).toHaveTextContent('1')
+    expect(within(legend).getByText('Uploaded')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Deployments' })).not.toBeInTheDocument()                  // no table while the map is
+
+    await userEvent.click(within(map).getByRole('button', { name: /^TATR_0002/ }))                       // the card of a site
+    const card = within(await within(map).findByRole('region', { name: 'Details of TATR_0002' }))
+    expect(card.getByText('Stream')).toBeInTheDocument()
+    expect(card.getByRole('button', { name: 'View the deployment R0003-TATR_0002' })).toBeInTheDocument()  // the buttons of its row
+    await userEvent.click(card.getByRole('button', { name: 'Show the statistics of the deployment R0003-TATR_0002' }))
+    expect(onShowStatistics).toHaveBeenCalledWith(expect.objectContaining({ deployment_id: 'R0003-TATR_0002' }))
+
+    await userEvent.click(card.getByRole('button', { name: 'Show it in the table' }))                    // and to its row, marked
+    const table = await screen.findByRole('table', { name: 'Deployments' })
+    const row = within(table).getByText('R0003-TATR_0002').closest('tr')!
+    expect(row).toHaveAttribute('aria-current', 'true')
+    expect(row.querySelector('[data-marker]')).not.toBeNull()
+  })
+
+  it('shares the point of a site between its deployments in all the revisions, and says how many sites have no coordinates', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [place('TATR_0001', 'Ridge', 49.2, 20.1), place('TATR_0002', 'Stream', null, null)] } as never)
+    render(<DeploymentStatusPage onBack={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^All revisions/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show the deployments on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Deployments on a map' })
+    expect(await within(map).findByText('1 site on the map · 2 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has none, TATR_0003 is not a location here
+    await userEvent.click(within(map).getByRole('button', { name: /^TATR_0001/ }))
+    const card = await within(map).findByRole('region', { name: 'Details of TATR_0001' })
+    expect(card).toHaveTextContent('R0004-TATR_0001')                                                    // the latest deployment of the site
+    expect(card).toHaveTextContent('Deployments:2')                                                      // and it has two
   })
 
   it('lists the deployment of a stolen camera as Not created — nothing to create or upload — and counts it in what was planned', async () => {
