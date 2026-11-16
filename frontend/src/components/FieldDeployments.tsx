@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { api } from '../api'
 import { formatDeploymentPeriod } from '../dateFormat'
-import type { DeploymentFields, DeploymentUploadState, FieldDeployment, SdCard, StoredVisit } from '../types'
+import type { DeploymentFields, DeploymentUploadState, FieldDeployment, LocalLocation, SdCard, StoredVisit } from '../types'
 import { Icon, StateCard } from './Dashboard'
 import { ActiveFilters, HELP_ICONS, HelpCard, HelpDrawer, MetricsSection, ProgressCard, RevisionSelection, RowOptions, TABLE, TableCard, TableFooter, TableToolbar } from './DashboardParts'
 import IconButton, { ICON_PATHS } from './IconButton'
 import LinkButton from './LinkButton'
+import CoordinatesMap, { type MapLegend, type MapPoint } from './CoordinatesMap'
 import { Glyph, ViewSwitch, type View } from './ViewSwitch'
 import DeploymentDetails from './DeploymentDetails'
 import SdCardDetails from './SdCardDetails'
@@ -20,6 +22,9 @@ const LABELS = 6
 export type Filter = '' | 'planned' | 'created' | 'not_created'
 const phaseOf = (d: FieldDeployment): Exclude<Filter, ''> => d.no_images ? 'not_created' : d.images_stored ? 'created' : 'planned'
 const matches = (d: FieldDeployment, f: Filter) => !f || phaseOf(d) === f
+/** The colour of a state on the map of the sites — its point, and the dot of its legend. */
+const PHASE_FILL: Record<Exclude<Filter, ''>, string> = { planned: 'fill-zinc-400 dark:fill-zinc-500', created: 'fill-emerald-500', not_created: 'fill-red-500' }
+const PHASE_DOT: Record<Exclude<Filter, ''>, string> = { planned: 'bg-zinc-400 dark:bg-zinc-500', created: 'bg-emerald-500', not_created: 'bg-red-500' }
 
 
 /** What a destination is called. */
@@ -68,6 +73,16 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   const [text, setText] = useState('')
   // How they are shown: the table, labels, or only the search field — which lists what matches as it is written, and picking one goes to it in the table.
   const [view, setView] = useState<View>('table')
+  // where the locations are — read the first time the map is asked for
+  const [locations, setLocations] = useState<LocalLocation[] | null>(null)
+  useEffect(() => {
+    if (view !== 'map' || !researchProjectId || locations !== null) return
+    let cancelled = false
+    api.listLocalLocations(researchProjectId)
+      .then(({ results }) => { if (!cancelled) setLocations(results) })
+      .catch(() => { if (!cancelled) setLocations([]) })
+    return () => { cancelled = true }
+  }, [view, researchProjectId, locations])
   const [listOpen, setListOpen] = useState(false)
   const [active, setActive] = useState(0)
   const perPage = view === 'labels' ? LABELS : PER_PAGE
@@ -139,6 +154,41 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   const phaseLabel: Record<Exclude<Filter, ''>, string> = { planned: 'Planned', created: 'Created', not_created: 'Not created' }
   // Picking one from the list of the search goes to it in the table: its revision and its page, marked.
   const goTo = (d: FieldDeployment) => { setJump(d.deployment_id); setView('table'); setListOpen(false); setText('') }
+
+  // The sites on the map: one point for each site of the deployments that match — two deployments of a site in different revisions share it: the point is the latest one's —,
+  // coloured by its state, with a tick when it was uploaded.
+  const mapSites = (() => {
+    if (view !== 'map') return { points: [] as MapPoint[], legend: [] as MapLegend[], missing: 0 }
+    const bySite = new Map<string, FieldDeployment[]>()
+    for (const d of shown) bySite.set(d.site.toLowerCase(), [...(bySite.get(d.site.toLowerCase()) ?? []), d])
+    const points: MapPoint[] = []
+    let missing = 0
+    for (const group of bySite.values()) {
+      const latest = [...group].sort((a, b) => b.collection.localeCompare(a.collection) || b.start.localeCompare(a.start))[0]
+      const place = locations?.find((l) => l.location_id.toLowerCase() === latest.site.toLowerCase())
+      if (!place || place.latitude === null || place.longitude === null) { missing += 1; continue }
+      const phase = phaseOf(latest)
+      const uploaded = phase === 'created' && statesOf(latest).some((u) => u.state === 'done')
+      points.push({
+        key: latest.site.toLowerCase(), label: latest.site, latitude: place.latitude, longitude: place.longitude, legend: phase, fill: PHASE_FILL[phase], subtitle: place.name,
+        badge: uploaded ? 'Uploaded' : undefined,
+        lines: [
+          ['State', `${phaseLabel[phase]} · ${latest.deployment_id}`],
+          ['Coords', `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`],
+          ['Period', formatDeploymentPeriod(latest)],
+          ...(latest.card ? [['SD card', latest.card] as [string, string]] : []),
+          ...(latest.card_full ? [['Photos', 'Card full'] as [string, string]] : latest.photos_counted != null ? [['Photos', String(latest.photos_counted)] as [string, string]] : []),
+          ...(latest.camera_id ? [['Camera', latest.camera_id] as [string, string]] : []),
+          ...(group.length > 1 ? [['Deployments', String(group.length)] as [string, string]] : []),
+        ],
+        footer: phase === 'created' ? (uploaded ? 'Uploaded' : 'Not uploaded yet') : phase === 'planned' ? 'Images not stored yet' : 'Camera stolen: no images',
+        // what the card of the site offers: the buttons of its row, and to see it in the table
+        actions: () => rowOptions(latest), pickName: 'Show it in the table', onPick: () => goTo(latest),
+      })
+    }
+    const present = new Set(points.map((p) => p.legend))
+    return { points, missing, legend: (['created', 'planned', 'not_created'] as const).filter((p) => present.has(p)).map((p) => ({ key: p, label: phaseLabel[p], dot: PHASE_DOT[p] })) }
+  })()
 
   // What a deployment says of itself, as the table and the labels both show it.
   // the photos counted — or "Card full", when the card was and they were not counted —: a link to look at them when the deployment is created — its images are in the collections folder
@@ -215,7 +265,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
           <TableCard label="Deployments table">
             <TableToolbar searchLabel="Filter the deployments" placeholder={view === 'search' ? 'Select a deployment…' : 'Search by deployment, location, SD card, camera…'} text={text} onText={(t) => { setText(t); setPage(1); if (view === 'search') { setListOpen(true); setActive(0) } }}
               choice={{ label: 'Status', value: filter, onChange: (v) => { setFilter(v as Filter); setPage(1) }, options: SQUARES.map((q) => ({ value: q.filter, label: q.label })) }}
-              trailing={<ViewSwitch view={view} items="deployments" onChange={(v) => { setView(v); setPage(1); setListOpen(false) }} />}
+              trailing={<ViewSwitch view={view} items="deployments" views={['table', 'labels', 'map', 'search']} onChange={(v) => { setView(v); setPage(1); setListOpen(false) }} />}
               onSearchBlur={() => setListOpen(false)}
               onSearchKeyDown={(e) => {
                 if (view !== 'search') return
@@ -247,8 +297,11 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
                 <tbody className={TABLE.body}>
                   {onPage.map((d) => (
                     <Fragment key={d.deployment_id}>
-                    <tr ref={d.deployment_id === focus ? marked : undefined} aria-current={d.deployment_id === focus ? 'true' : undefined} className={`${TABLE.row(false)} ${d.deployment_id === focus ? 'bg-blue-50 dark:bg-blue-950/40' : ''}`}>
-                      <td className={`${TABLE.cell} font-mono text-xs font-semibold`}>{d.deployment_id}</td>
+                    <tr ref={d.deployment_id === focus ? marked : undefined} aria-current={d.deployment_id === focus ? 'true' : undefined} className={d.deployment_id === focus ? 'row-flash bg-blue-100/80 dark:bg-blue-950/50 transition-colors' : TABLE.row(false)}>
+                      <td className={`${TABLE.cell} border-l-4 font-mono text-xs font-semibold ${d.deployment_id === focus ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+                        {d.deployment_id === focus && <svg data-marker aria-hidden="true" viewBox="0 0 24 24" className="mr-1 inline-block h-4 w-4 -translate-y-px fill-none stroke-blue-600 dark:stroke-sky-400" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 5l8 7-8 7" /></svg>}
+                        {d.deployment_id}
+                      </td>
                       <td className={TABLE.cell}>
                         {d.start_session && (onShowVisit || loadVisits
                           ? <LinkButton className="block text-xs font-semibold" aria-label={`Show the visit ${d.start_session} to ${d.site}`} onClick={() => (loadVisits ? void showVisit(d) : onShowVisit?.({ session: d.start_session!, site: d.site }))}>{d.start_session} · {d.site}</LinkButton>
@@ -278,11 +331,17 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
               </table>
             </div>
             )}
+            {view === 'map' && (
+              <>
+                {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
+                <CoordinatesMap name="Deployments on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" />
+              </>
+            )}
             {view === 'labels' && (
               <div role="group" aria-label="Deployments" className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
                 {onPage.map((d) => (
                   <article key={d.deployment_id} aria-label={`Deployment ${d.deployment_id}`} aria-current={d.deployment_id === focus ? 'true' : undefined}
-                           className={`rounded-2xl border p-5 ${d.deployment_id === focus ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'}`}>
+                           className={`rounded-2xl border p-5 ${d.deployment_id === focus ? 'row-flash border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-500/40' : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'}`}>
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-mono text-base font-bold text-zinc-900 dark:text-white">{d.deployment_id}</span>
                       {creation(d)}
@@ -318,7 +377,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
               </div>
             )}
 
-            {view !== 'search' && shown.length > 0 && (
+            {view !== 'search' && view !== 'map' && shown.length > 0 && (
               <TableFooter from={(current - 1) * perPage + 1} to={Math.min(current * perPage, shown.length)} total={shown.length} noun="deployments" page={current} pages={pages} onPage={setPage} />
             )}
           </TableCard>

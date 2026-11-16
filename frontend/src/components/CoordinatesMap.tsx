@@ -11,6 +11,8 @@ export interface MapPoint {
   /** Which of the legend's entries it is of, and the class that fills it. */
   legend: string
   fill: string
+  /** A small tick on the point, with what it says — "Uploaded": a second thing a colour cannot say; it is in the name of the point and in the legend. */
+  badge?: string
   /** The card over it: its title and name, a few lines — [name, value] — and a last line. */
   subtitle?: string | null
   lines?: [string, string][]
@@ -187,6 +189,11 @@ export default function CoordinatesMap({ name, points, legend, missing = 0, noun
           {legend.filter((l) => counts(l.key) > 0).map((l) => (
             <span key={l.key} role="listitem" className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${l.dot}`} />{l.label}<span className="font-mono text-zinc-500 dark:text-zinc-400">{counts(l.key)}</span></span>
           ))}
+          {[...new Set(points.map((p) => p.badge).filter(Boolean))].map((b) => (
+            <span key={b} role="listitem" className="inline-flex items-center gap-1.5">
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4"><circle cx="8" cy="8" r="6.5" strokeWidth="1" className="fill-white stroke-zinc-400 dark:fill-zinc-900 dark:stroke-zinc-500" /><path d="M5 8l2.200 2.200 3.800-4.200" fill="none" strokeWidth="1.800" strokeLinecap="round" strokeLinejoin="round" className="stroke-emerald-600 dark:stroke-emerald-400" /></svg>{b}
+            </span>
+          ))}
         </div>
         <span className="ml-auto text-zinc-500 dark:text-zinc-400">{points.length} {points.length === 1 ? noun.replace(/s$/, '') : noun} on the map{missing > 0 ? ` · ${missing} with no coordinates, not drawn` : ''}</span>
         <button type="button" aria-pressed={background} onClick={toggleBackground} title="The map behind the points comes from OpenStreetMap: it needs a connection, and it sees which area is drawn"
@@ -234,12 +241,18 @@ export default function CoordinatesMap({ name, points, legend, missing = 0, noun
               const label = plot.labels.get(s.p.key)
               const on = hover === s.p.key, isChosen = chosen === s.p.key
               return (
-                <g key={s.p.key} data-point role="button" tabIndex={0} aria-pressed={isChosen} aria-label={`${s.p.label}${s.p.lines?.[0] ? `: ${s.p.lines[0][1]}` : ''}. ${isChosen ? 'Chosen' : 'Choose it'}`}
+                <g key={s.p.key} data-point role="button" tabIndex={0} aria-pressed={isChosen} aria-label={`${s.p.label}${s.p.lines?.[0] ? `: ${s.p.lines[0][1]}` : ''}${s.p.badge ? ` · ${s.p.badge}` : ''}. ${isChosen ? 'Chosen' : 'Choose it'}`}
                    className="cursor-pointer outline-none [&:focus-visible>circle:nth-child(2)]:stroke-blue-500"
                    onMouseEnter={() => show(s.p.key)} onMouseLeave={scheduleLeave} onFocus={() => show(s.p.key)} onBlur={scheduleLeave}
                    onClick={() => setChosen(isChosen ? null : s.p.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChosen(isChosen ? null : s.p.key) } }}>
                   <circle cx={s.x} cy={s.y} r="20" fill="transparent" />
                   <circle cx={s.x} cy={s.y} r={on || isChosen ? 11 : 9} strokeWidth={isChosen ? 4 : 2.5} className={`${s.p.fill} ${isChosen ? 'stroke-blue-500' : 'stroke-white dark:stroke-zinc-900'} transition-all duration-150`} />
+                  {s.p.badge && (
+                    <g aria-hidden="true" pointerEvents="none">
+                      <circle cx={s.x + 9} cy={s.y - 9} r="6.5" strokeWidth="1" className="fill-white stroke-zinc-400 dark:fill-zinc-900 dark:stroke-zinc-500" />
+                      <path d={`M${s.x + 5.8} ${s.y - 9} l2.3 2.3 l4.1-4.6`} fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="stroke-emerald-600 dark:stroke-emerald-400" />
+                    </g>
+                  )}
                   {label && <text x={label.x} y={label.y} textAnchor={label.anchor} fontSize="13" fontWeight="700" paintOrder="stroke" strokeWidth="4" strokeLinejoin="round" className="fill-zinc-900 dark:fill-zinc-50 stroke-white dark:stroke-zinc-950 font-mono">{s.p.label}</text>}
                 </g>
               )
