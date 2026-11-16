@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { PHASE_BADGE, PHASE_LABEL } from '../visitPhases'
+import { PHASE_BADGE, PHASE_DOT, PHASE_FILL, PHASE_LABEL } from '../visitPhases'
 import { api } from '../api'
 import { formatVisitWhen } from '../dateFormat'
 import { Icon, StateCard } from '../components/Dashboard'
+import Notice from '../components/Notice'
 import { ActiveFilters, DashboardHeader, DownloadButton, HELP_ICONS, HelpButton, HelpCard, HelpDrawer, MetricsSection, ProgressCard, RevisionSelection, RowOptions, TABLE, TableCard, TableFooter, TableToolbar } from '../components/DashboardParts'
 import { Breadcrumb, MENU_ICONS } from '../components/TaskCard'
 import IconButton, { ICON_PATHS } from '../components/IconButton'
@@ -10,10 +11,11 @@ import LinkButton from '../components/LinkButton'
 import EditVisitDialog from '../components/EditVisitDialog'
 import LocationDetails from '../components/LocationDetails'
 import VisitDetails from '../components/VisitDetails'
+import CoordinatesMap, { type MapLegend, type MapPoint } from '../components/CoordinatesMap'
 import { ViewSwitch, type View } from '../components/ViewSwitch'
 import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
-import type { BookVisit, ClosedVisitTarget, LocalLocation, VisitState } from '../types'
-import { btnOutline } from './ImportDeploymentPage'
+import type { BookVisit, ClosedVisitTarget, LocalLocation, RevisionCreated, VisitState } from '../types'
+import { btnOutline, btnPrimary } from './ImportDeploymentPage'
 import { download } from '../csvFile'
 
 interface Props {
@@ -105,9 +107,15 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   }
   const [visits, setVisits] = useState<BookVisit[] | null>(null)
   const [marked, setMarked] = useState<string | null>(null)
+  // the marked row is scrolled to when a visit is brought into view — from the map or a link — and not when a row is pressed: the page would move under the pointer
+  const bringIntoView = useRef(false)
+  // pressing a row marks it, and pressing the marked one again clears it — a button or a link in it only does what it does: it may bring another visit into view, and that one is the marked
+  const pressRow = (key: string, e: { target: EventTarget }) => { if (!(e.target as Element).closest('button,a,input,select,textarea')) setMarked((was) => (was === key ? null : key)) }
   // the visit whose panel is open, and how the visits are seen: as a table or as labels
   const [panelVisit, setPanelVisit] = useState<BookVisit | null>(null)
   const [view, setView] = useState<View>('table')
+  // where the locations are — read the first time the map is asked for
+  const [locations, setLocations] = useState<LocalLocation[] | null>(null)
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('')
   // A revision is one visit to every site: the book can be of one of them, or of all.
@@ -118,8 +126,46 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   const [sort, setSort] = useState<{ key: SortKey; descending: boolean } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  // planning the next revision: what it said, and the closing of the revision before when it asks for it
+  const [creating, setCreating] = useState(false)
+  const [created, setCreated] = useState<RevisionCreated | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [confirmingClose, setConfirmingClose] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const pendingRevision = useRef<string | null>(null)   // the revision to open on when the visits are read again
   const [exportError, setExportError] = useState<string | null>(null)
   const error = projectError ?? loadError ?? exportError
+
+  /** Plans the next revision — a visit to each location that is ready — and opens the visit book on it; if the revision before is not finished, it is said. */
+  async function createRevision() {
+    if (!project) return
+    setCreating(true); setCreateError(null); setCreated(null); setConfirmingClose(false)
+    try {
+      const result = await api.createRevision(project.acronym)
+      pendingRevision.current = result.session
+      setCreated(result)
+      setReloads((n) => n + 1)
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'The revision could not be created.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  /** The locations of the revision before that were not visited are marked as such — the visits that could not be made — and that revision is finished. */
+  async function closePrevious() {
+    if (!project || !unfinished) return
+    setClosing(true)
+    try {
+      setConfirmingClose(false)
+      await api.markNotVisited(project.acronym, unfinished.previous)
+      setReloads((n) => n + 1)
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'The locations could not be marked as not visited.')
+    } finally {
+      setClosing(false)
+    }
+  }
 
   /** The visits of the research project as a CSV file that Register visits › CSV reads back. */
   async function exportVisits() {
@@ -138,7 +184,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   const [editing, setEditing] = useState<BookVisit | null>(null)
   const [reloads, setReloads] = useState(0)
   useEffect(() => {
-    setVisits(null); setLoadError(null); setPage(1); setMarked(null); setRevision(''); defaulted.current = false
+    setVisits(null); setLoadError(null); setPage(1); setMarked(null); setRevision(''); setLocations(null); defaulted.current = false
   }, [project?.acronym])
   useEffect(() => {
     if (!project) return
@@ -147,6 +193,12 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
       .then(({ results }) => {
         if (cancelled) return
         setVisits(results)
+        if (pendingRevision.current) {   // a revision was just planned: the book opens on it, in the same render the visits come in
+          setRevision(pendingRevision.current); setStatusFilter(''); setFilter(''); setPage(1); setMarked(null)
+          pendingRevision.current = null
+          defaulted.current = true
+          return
+        }
         // opens on the latest revision in the same render the visits come in — not after it: what is shown does not change under a click — unless a link brings to one visit
         if (!defaulted.current) {
           defaulted.current = true
@@ -158,10 +210,39 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
     return () => { cancelled = true }
   }, [project?.acronym, reloads]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (view !== 'map' || !project || locations !== null) return
+    let cancelled = false
+    api.listLocalLocations(project.acronym)
+      .then(({ results }) => { if (!cancelled) setLocations(results) })
+      .catch(() => { if (!cancelled) setLocations([]) })    // with no locations the points that have their own coordinates are still drawn
+    return () => { cancelled = true }
+  }, [view, project?.acronym, locations]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the row that was marked — from the map, or from a link — is brought into view, whichever page or view it is on
+  useEffect(() => {
+    if (!marked || !bringIntoView.current) return
+    const row = document.querySelector('tr[aria-current="true"], article[aria-current="true"]')
+    if (!row) return
+    bringIntoView.current = false
+    row.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+  }, [marked, view, page, revision, visits])
+
   // How many rows each status square has — over the rows of the revision picked (all of them when none is), whatever the text filter says.
   const everyRow = visits ?? []
   const revisions = [...new Set(everyRow.map((v) => v.session))].sort((x, y) => y.localeCompare(x))
   const rows = revision ? everyRow.filter((v) => v.session === revision) : everyRow
+
+  // A revision that was planned and has no visit yet cannot take one until the revision before it is finished: the locations still to be visited in that one are what the book
+  // shows as planned in it. Said whenever it is so — not only when the revision is created —, with the way to finish it: mark them as not visited.
+  const unfinished = (() => {
+    const sessions = [...new Set(everyRow.map((v) => v.session))].sort()
+    const latest = sessions[sessions.length - 1]
+    if (!latest || !everyRow.filter((v) => v.session === latest).every((v) => v.not_done)) return null
+    const before = sessions.find((s) => Number(s.slice(1)) === Number(latest.slice(1)) - 1)
+    const missing = before ? everyRow.filter((v) => v.session === before && v.not_done).map((v) => v.location_id) : []
+    return before && missing.length > 0 ? { session: latest, previous: before, missing } : null
+  })()
   const count = (f: StatusFilter) => rows.filter((v) => matches(v, f)).length
   // a visit that could not be made is settled: it counts as completed — what is pending is what is still planned
   const made = rows.filter((v) => !v.not_done && !v.unknown).length
@@ -177,6 +258,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
 
   // a visit is brought into view: on its revision, on its page, and open
   function showVisit(target: BookVisit) {
+    bringIntoView.current = true
     setRevision(target.session); setStatusFilter(''); setFilter(''); setSort(null)
     setPage(Math.floor((visits ?? []).filter((v) => v.session === target.session).sort(byDefault).findIndex((v) => keyOf(v) === keyOf(target)) / perPage) + 1)
     setMarked(keyOf(target))
@@ -217,6 +299,39 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
       const order = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y))
       return (sort.descending ? -order : order) || byDefault(a, b)
     })
+  // The sites on the map: one point for each site of the rows that match — of the revision picked, or the latest visit of each when all are —, coloured by the state of that visit.
+  const mapSites = (() => {
+    if (view !== 'map') return { points: [] as MapPoint[], legend: [] as MapLegend[], missing: 0 }
+    const bySite = new Map<string, BookVisit[]>()
+    for (const v of shown) bySite.set(v.location_id.toLowerCase(), [...(bySite.get(v.location_id.toLowerCase()) ?? []), v])
+    const points: MapPoint[] = []
+    let missing = 0
+    for (const group of bySite.values()) {
+      const latest = [...group].sort((a, b) => b.session.localeCompare(a.session) || Number(a.not_done) - Number(b.not_done))[0]
+      const place = locations?.find((l) => l.location_id.toLowerCase() === latest.location_id.toLowerCase())
+      const own = group.find((w) => w.latitude !== null && w.longitude !== null)
+      const latitude = place?.latitude ?? own?.latitude ?? null, longitude = place?.longitude ?? own?.longitude ?? null
+      if (latitude === null || longitude === null) { missing += 1; continue }
+      const phase = phaseOf(latest) ?? 'unknown'
+      const made = !latest.not_done && !latest.unknown && phase !== 'not_visited'
+      points.push({
+        key: latest.location_id.toLowerCase(), label: latest.location_id, latitude, longitude, legend: phase, fill: PHASE_FILL[phase], subtitle: place?.name,
+        lines: [
+          ['State', `${PHASE_LABEL[phase]} · ${latest.session}`],
+          ['Coords', `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`],
+          ...(made ? [['Visit', formatVisitWhen(latest)] as [string, string]] : []),
+          ...(latest.sd ? [['SD card', latest.sd] as [string, string]] : []),
+          ...(latest.camera_id ? [['Camera', latest.camera_id] as [string, string]] : []),
+          ...(group.length > 1 ? [['Visits', String(group.length)] as [string, string]] : []),
+        ],
+        footer: latest.deployment_id ? `Deployment ${latest.deployment_id}` : made ? 'Images not stored yet' : null,
+        // what the card of the chosen site offers: the buttons of its row, and to see it in the table
+        actions: () => optionsOf(latest), pickName: 'Show it in the table', onPick: () => { setView('table'); showVisit(latest) },
+      })
+    }
+    const present = new Set(points.map((p) => p.legend))
+    return { points, missing, legend: PHASES.filter((p) => present.has(p)).map((p) => ({ key: p, label: PHASE_LABEL[p], dot: PHASE_DOT[p] })) }
+  })()
   const perPage = view === 'labels' ? LABELS : PER_PAGE
   const pages = Math.max(1, Math.ceil(shown.length / perPage))
   const current = Math.min(page, pages)
@@ -291,6 +406,13 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
           {project && visits !== null && visits.length > 0 && (
             <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>
           )}
+          {project && visits !== null && (
+            <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} disabled={creating} title="Plans the next revision: a visit to each location that is ready, planned"
+                    onClick={() => void createRevision()}>
+              <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></>} className="h-4 w-4" />
+              {creating ? 'Creating…' : 'Create the next revision'}
+            </button>
+          )}
           <HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />
         </>}
         aside={<DefaultResearchProject compact project={project} defaultAcronym={defaultAcronym} of="The book" onOpenSettings={onOpenSettings} />} />
@@ -299,6 +421,29 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
 
       {project && (
         <>
+          {createError && <Notice kind="error" role="alert" className="mb-4">{createError}</Notice>}
+          {unfinished && !confirmingClose && (
+            <Notice kind="warning" role="alert" className="mb-4" action={<button type="button" className={btnOutline} disabled={closing} onClick={() => setConfirmingClose(true)}>Mark them as not visited</button>}>
+              <strong>{unfinished.session}</strong> is planned, but <strong>{unfinished.previous}</strong> is not finished: {unfinished.missing.length} {unfinished.missing.length === 1 ? 'location is' : 'locations are'} still to be visited in it ({unfinished.missing.join(', ')}). No visit can be made in {unfinished.session} until it is finished: make those visits, or mark them as not visited.
+            </Notice>
+          )}
+          {unfinished && confirmingClose && (
+            <Notice kind="warning" role="alert" className="mb-4" action={(
+              <span className="flex gap-2">
+                <button type="button" className={btnOutline} disabled={closing} onClick={() => setConfirmingClose(false)}>Cancel</button>
+                <button type="button" className={btnPrimary} disabled={closing} onClick={() => void closePrevious()}>Yes, mark them as not visited</button>
+              </span>
+            )}>
+              Once this is done, the visit book of <strong>{unfinished.previous}</strong> will be consolidated and it cannot be modified. Do you want to mark {unfinished.missing.join(', ')} as not visited?
+            </Notice>
+          )}
+          {created && (
+            <div className="mb-5 space-y-3">
+              <Notice kind="success" role="status" action={<button type="button" className={btnOutline} onClick={() => { setCreated(null); setConfirmingClose(false) }}>Dismiss</button>}>
+                <strong>{created.session}</strong> has been created: a visit is planned to each of the {created.planned.length} {created.planned.length === 1 ? 'location' : 'locations'} that can be visited ({created.planned.join(', ')}).
+              </Notice>
+            </div>
+          )}
           {visits !== null && revisions.length > 0 && (
             <RevisionSelection open={revisionsOpen} onToggle={() => setRevisionsOpen(!revisionsOpen)} hint="Select one to filter planned & completed visits"
               all={{ label: 'All revisions', note: `${everyRow.filter((v) => !v.not_done).length} of ${everyRow.length} done`, percent: everyRow.length ? Math.round((everyRow.filter((v) => !v.not_done).length / everyRow.length) * 100) : 0 }} value={revision}
@@ -323,7 +468,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
           <TableCard label="Visits table">
           <TableToolbar searchLabel="Filter the visits" placeholder="Search by site, revision, camera, card, who, deployment…" text={filter} onText={(t) => { setFilter(t); setPage(1); setMarked(null) }}
             choice={{ label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v as StatusFilter); setPage(1); setMarked(null) }, options: SQUARES.map((q) => ({ value: q.filter, label: q.label })) }}
-            trailing={<ViewSwitch view={view} items="visits" views={['table', 'labels']} onChange={(v) => { setView(v); setPage(1) }} />}
+            trailing={<ViewSwitch view={view} items="visits" views={['table', 'labels', 'map']} onChange={(v) => { setView(v); setPage(1) }} />}
             onReset={() => { setFilter(''); setStatusFilter(''); setRevision(''); setSort(null); setPage(1); setMarked(null) }} />
           {visits !== null && (
             <ActiveFilters filters={[{ label: `Revision: ${revision || 'All'}`, tone: 'blue' }, { label: `Status: ${statusFilter ? PHASE_LABEL[statusFilter] : 'All'}`, tone: 'green' }]} summary={`${shown.length} of ${everyRow.length} visits match`} />
@@ -355,8 +500,11 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                       const key = keyOf(v)
                       return (
                         <Fragment key={key}>
-                          <tr ref={focus && marked === key ? (el) => el?.scrollIntoView?.({ block: 'center' }) : undefined} aria-current={marked === key ? 'true' : undefined} className={TABLE.row(marked === key)}>
-                            <td className="px-4 py-3 font-mono font-semibold text-zinc-900 dark:text-zinc-200">{v.session}</td>
+                          <tr aria-current={marked === key ? 'true' : undefined} onClick={(e) => pressRow(key, e)} className={`cursor-pointer ${marked === key ? 'row-flash bg-blue-100/80 dark:bg-blue-950/50 transition-colors' : TABLE.row(false)}`}>
+                            <td className={`border-l-4 px-4 py-3 font-mono font-semibold text-zinc-900 dark:text-zinc-200 ${marked === key ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+                              {marked === key && <svg data-marker aria-hidden="true" viewBox="0 0 24 24" className="mr-1 inline-block h-4 w-4 -translate-y-px fill-none stroke-blue-600 dark:stroke-sky-400" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 5l8 7-8 7" /></svg>}
+                              {v.session}
+                            </td>
                             <td className="px-4 py-3 font-mono">
                               {project
                                 ? <LinkButton title={`Show the details of the location ${v.location_id}`} className="font-mono" onClick={() => void showSite(v.location_id)}>{v.location_id}</LinkButton>
@@ -376,10 +524,16 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                 </table>
               </div>
               )}
+              {view === 'map' && (
+                <>
+                  {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
+                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" />
+                </>
+              )}
               {view === 'labels' && (
                 <div role="group" aria-label="Visits" className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
                   {onPage.map((v) => (
-                    <article key={keyOf(v)} aria-label={`Visit ${v.session} to ${v.location_id}`} className={`rounded-2xl border p-5 ${marked === keyOf(v) ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'}`}>
+                    <article key={keyOf(v)} aria-label={`Visit ${v.session} to ${v.location_id}`} aria-current={marked === keyOf(v) ? 'true' : undefined} onClick={(e) => pressRow(keyOf(v), e)} className={`cursor-pointer rounded-2xl border p-5 ${marked === keyOf(v) ? 'row-flash border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-500/40' : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'}`}>
                       <div className="flex items-center justify-between gap-3">
                         {project
                           ? <LinkButton title={`Show the details of the location ${v.location_id}`} className="font-mono text-base font-bold" onClick={() => void showSite(v.location_id)}>{v.location_id}</LinkButton>
@@ -398,7 +552,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                   {shown.length === 0 && <p className="col-span-full py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">{visits.length === 0 ? 'No visit has been registered to this research project yet.' : 'No visit matches.'}</p>}
                 </div>
               )}
-              {shown.length > 0 && (
+              {shown.length > 0 && view !== 'map' && (
                 <TableFooter from={(current - 1) * perPage + 1} to={Math.min(current * perPage, shown.length)} total={shown.length} noun="visits" page={current} pages={pages} onPage={(n) => { setPage(n); setMarked(null) }} />
               )}
               </>

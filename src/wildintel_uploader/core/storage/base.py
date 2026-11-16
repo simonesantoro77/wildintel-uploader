@@ -1,6 +1,6 @@
 """What the app needs of where it keeps its records — and nothing about how they are kept.
 
-The **records** are what the app keeps of a research project: the project itself and, for each, its *locations*, *visits*, *unknown visits*, *cameras*,
+The **records** are what the app keeps of a research project: the project itself and, for each, its *locations*, *visits*, *unknown visits*, the *planned revisions*, *cameras*,
 *SD cards*, *roles* and the *uploads that failed*; and, belonging to none, the *trappers*. They are plain `dict`s — the JSON the app has always kept, with the fields its models give them — so anything that can keep a
 list of them under a research project can be a backend: a folder of JSON files today, a database tomorrow (see `register`).
 
@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 
 # What is kept for each research project, besides the project itself. Each is a list of records, in the order they were kept. (Locations, cameras, SD cards and roles
 # belong to the project; the trappers, the people, are global and are not here.)
-RECORD_KINDS = ("locations", "visits", "unknown_visits", "cameras", "sd_cards", "roles", "upload_failures")
+RECORD_KINDS = ("locations", "visits", "unknown_visits", "planned_revisions", "cameras", "sd_cards", "roles", "upload_failures")
 
 # What is kept for all of them, belonging to no research project: the trappers, the people.
 GLOBAL_KINDS = ("trappers",)

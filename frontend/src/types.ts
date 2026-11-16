@@ -1279,3 +1279,10 @@ export interface StatisticsRow {
   /** Every revision of the location up to this one, this one last. */
   revisions: StatisticsRevision[]
 }
+
+/** What planning the next revision says: its name, the locations that have a planned visit in it, and — when the revision before is not finished — which locations are still to be visited in it. */
+export interface RevisionCreated {
+  session: string
+  planned: string[]
+  previous: { session: string; missing: string[] } | null
+}
