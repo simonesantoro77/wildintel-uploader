@@ -212,7 +212,7 @@ What the visits do to the **entities** is `visit_rules.entity_changes`, applied 
 
 ### Storage
 
-The **records** — the research projects and, for each, its locations, visits, unknown visits, cameras, SD cards and failed uploads — are kept through a **layer of
+The **records** — the research projects and, for each, its locations, visits, unknown visits, planned revisions, cameras, SD cards and failed uploads — are kept through a **layer of
 abstraction**, `core/storage`: today they are JSON files in the collections folder, and a database can be added later **without changing the code that uses them**.
 
 - `storage.base.ProjectStore` is the interface — a few methods: the research projects (`list_projects`, `has_project`, `get_project`, `add_project`, `save_project`,

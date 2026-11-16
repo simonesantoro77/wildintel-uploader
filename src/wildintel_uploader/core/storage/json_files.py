@@ -2,7 +2,7 @@
 
     <collections folder>/<research project id>/research_project.json
     <collections folder>/<research project id>/locations.json
-    <collections folder>/<research project id>/visits.json      (and unknown_visits.json, cameras.json, sd_cards.json, roles.json, upload_failures.json)
+    <collections folder>/<research project id>/visits.json      (and unknown_visits.json, planned_revisions.json, cameras.json, sd_cards.json, roles.json, upload_failures.json)
     <collections folder>/trappers.json                              (the people: they belong to no research project)
     <collections folder>/<research project id>/<R0003>/<deployment id>/…      (the images, and what is kept with them: not records)
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_FILE = "research_project.json"
 RECORD_FILES = {
-    "locations": "locations.json", "visits": "visits.json", "unknown_visits": "unknown_visits.json",
+    "locations": "locations.json", "visits": "visits.json", "unknown_visits": "unknown_visits.json", "planned_revisions": "planned_revisions.json",
     "cameras": "cameras.json", "sd_cards": "sd_cards.json", "roles": "roles.json", "upload_failures": "upload_failures.json",
 }
 GLOBAL_FILES = {"trappers": "trappers.json"}   # beside the folders of the research projects, in the collections folder itself

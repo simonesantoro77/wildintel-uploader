@@ -895,6 +895,57 @@ def test_a_revision_that_is_not_finished_is_finished_by_marking_what_is_left_as_
     assert next_one.status_code == 200
 
 
+def _create_revision():
+    return _client().post("/api/visits/create-revision", json={"research_project_id": "DONA"})
+
+
+def test_the_next_revision_is_planned_with_a_visit_to_each_location_that_can_be_visited_and_the_one_before_is_checked(tmp_path: Path):
+    install = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _save(install)                                   # DONA_01 is visited in R0001, DONA_02 is not (DONA_03 is archived: no trip goes there)
+        created = _create_revision()
+        book = _client().post("/api/visits/book", json={"research_project_id": "DONA"}).json()["results"]
+        refused = _save({**VISIT, "actions": ["Revision"], "camera_id": "P800", "num_photos": 10, "sd": "B2", "date": "2024-10-12", "session": "R0002"})
+
+    assert created.status_code == 200
+    assert created.json() == {"session": "R0002", "planned": ["DONA_01", "DONA_02"], "previous": {"session": "R0001", "missing": ["DONA_02"]}}   # and the one before is not finished: it is told
+    planned = sorted((v["location_id"], v["not_done"], v["state"]) for v in book if v["session"] == "R0002")
+    assert planned == [("DONA_01", True, "planned"), ("DONA_02", True, "planned")]                          # a planned visit to each, none to the archived one
+    assert refused.status_code == 422 and "R0001 is not finished" in refused.json()["detail"]               # the rule of the revisions stands: it is for the person to close R0001
+
+
+def test_the_revision_before_is_not_told_when_it_is_finished_and_the_next_is_not_planned_until_the_last_has_a_visit(tmp_path: Path):
+    with _in(tmp_path):
+        _project(archived=(2, 3))
+        _save({**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"})
+        first = _create_revision()
+        again = _create_revision()                       # R0002 has no visit yet
+        visited = _save({**VISIT, "actions": ["Revision"], "camera_id": "P800", "num_photos": 10, "sd": "B2", "date": "2024-10-12", "session": "R0002"})
+        third = _create_revision()
+        sessions = sorted({v["session"] for v in _client().post("/api/visits/book", json={"research_project_id": "DONA"}).json()["results"]})
+
+    assert first.status_code == 200 and first.json() == {"session": "R0002", "planned": ["DONA_01"], "previous": None}
+    assert again.status_code == 409 and "R0002 is planned and has no visit yet" in again.json()["detail"]
+    assert visited.status_code == 200
+    assert third.status_code == 200 and third.json()["session"] == "R0003" and third.json()["previous"] is None
+    assert sessions == ["R0001", "R0002", "R0003"]
+
+
+def test_the_first_revision_can_be_planned_before_any_visit_and_needs_a_location_that_can_be_visited(tmp_path: Path):
+    with _in(tmp_path):
+        _project()
+        first = _create_revision()
+        book = _client().post("/api/visits/book", json={"research_project_id": "DONA"}).json()["results"]
+    with _in(tmp_path / "other"):
+        _project(archived=(1, 2, 3))
+        nothing = _create_revision()
+
+    assert first.status_code == 200 and first.json() == {"session": "R0001", "planned": ["DONA_01", "DONA_02", "DONA_03"], "previous": None}
+    assert sorted(v["location_id"] for v in book if v["session"] == "R0001" and v["not_done"]) == ["DONA_01", "DONA_02", "DONA_03"]
+    assert nothing.status_code == 409 and "No location can be visited" in nothing.json()["detail"]
+
+
 def test_a_visit_is_kept_with_its_state_which_changes_when_a_later_visit_collects_its_card(tmp_path: Path):
     def states():
         shown = _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]
