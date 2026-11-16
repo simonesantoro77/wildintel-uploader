@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, StoredVisit, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, CardCopyEvent, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, LogEntry, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  ClosedVisit, VisitCheckInfo, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, ImportCsvOptions, Report, ReportSummary, RepairCollection, RepairEvent, Timeline, TimeFixTarget, RepairState, StatisticsRow, EpicollectForm, FieldworkVisits, FieldLogsResult, FieldDeployment, BookVisit, BackupProjectInfo, BackupRead, BackupCreateRequest, BackupRestoreRequest, BackupEvent, RestoreEvent } from './types'
+  ClosedVisit, VisitCheckInfo, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, ImportCsvOptions, Report, ReportSummary, RepairCollection, RepairEvent, Timeline, TimeFixTarget, RepairState, RevisionCreated, StatisticsRow, EpicollectForm, FieldworkVisits, FieldLogsResult, FieldDeployment, BookVisit, BackupProjectInfo, BackupRead, BackupCreateRequest, BackupRestoreRequest, BackupEvent, RestoreEvent } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
 async function errorMessage(r: Response): Promise<string> {
@@ -148,6 +148,9 @@ export const api = {
     post<{ deleted: string }>('/api/deployment-import/research-projects/delete', { research_project_id: acronym }),
 
   /** Finishes a revision: the locations with no visit in it are marked as not visited. */
+  /** Plans the next revision: a visit to each location that can be visited. `previous` says what is still to be visited in the revision before, when it is not finished. */
+  createRevision: (researchProjectId: string) =>
+    post<RevisionCreated>('/api/visits/create-revision', { research_project_id: researchProjectId }),
   markNotVisited: (researchProjectId: string, session: string) =>
     post<{ session: string; marked: string[] }>('/api/visits/mark-not-visited', { research_project_id: researchProjectId, session }),
 

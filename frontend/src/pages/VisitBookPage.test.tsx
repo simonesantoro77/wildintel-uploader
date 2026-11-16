@@ -1,11 +1,11 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
 import VisitBookPage from './VisitBookPage'
 import { download } from '../csvFile'
 
-vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), trapperGetConfig: vi.fn(), visitBook: vi.fn(), getSettings: vi.fn(), exportVisitsCsv: vi.fn(), updateVisit: vi.fn(), saveVisit: vi.fn(), listLocalLocations: vi.fn() } }))
+vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), trapperGetConfig: vi.fn(), visitBook: vi.fn(), getSettings: vi.fn(), exportVisitsCsv: vi.fn(), updateVisit: vi.fn(), saveVisit: vi.fn(), listLocalLocations: vi.fn(), createRevision: vi.fn(), markNotVisited: vi.fn() } }))
 vi.mock('../csvFile', () => ({ download: vi.fn() }))
 const mockedApi = vi.mocked(api)
 
@@ -409,10 +409,292 @@ describe('VisitBookPage', () => {
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Revision', 'Location', 'When', 'Actions', 'Status', 'Images', 'What to do'])
   })
 
-  it('shows the visits as a table or as labels — two buttons at the right of Reset', async () => {
+  it('shows the sites on a map — a point for each, coloured by its latest visit — and a point goes to its visit in the table', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null },
+      { location_id: 'TATR_0002', name: 'Stream', latitude: 49.25, longitude: 20.2, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null },
+    ] } as never)
+    await pickProject()
+    await showAll()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    expect(await within(map).findByRole('button', { name: 'TATR_0001: Deployed · R0004. Choose it' })).toBeInTheDocument()   // the latest visit of the site says its colour
+    expect(within(map).getByRole('button', { name: 'TATR_0002: Collected · R0003. Choose it' })).toBeInTheDocument()
+    expect(within(map).getByText('2 sites on the map')).toBeInTheDocument()
+    const legend = within(map).getByRole('list', { name: 'Legend' })
+    expect(within(legend).getByText('Deployed').parentElement).toHaveTextContent('1')
+    expect(within(legend).getByText('Collected').parentElement).toHaveTextContent('1')
+    expect(screen.queryByRole('table', { name: 'Visits' })).not.toBeInTheDocument()                      // the table is not there while the map is
+
+    await userEvent.hover(within(map).getByRole('button', { name: /^TATR_0001/ }))
+    const card = await within(map).findByRole('region', { name: 'Details of TATR_0001' })
+    expect(card).toHaveTextContent('Ridge')
+    expect(card).toHaveTextContent('49.2000, 20.1000')
+    expect(card).toHaveTextContent('2')                                                                  // its visits, in all the revisions
+
+    expect(within(map).queryByText('Table of the points')).not.toBeInTheDocument()                       // no table under the picture
+
+    await userEvent.click(within(map).getByRole('button', { name: /^TATR_0002/ }))                      // choosing it keeps its card
+    const details = await within(map).findByRole('region', { name: 'Details of TATR_0002' })
+    expect(details).toHaveTextContent('Stream')
+    expect(within(map).getByRole('button', { name: /^TATR_0002/ })).toHaveAttribute('aria-pressed', 'true')
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    await userEvent.click(within(details).getByRole('button', { name: 'Show it in the table' }))         // and takes to its visit
+    const table = await screen.findByRole('table', { name: 'Visits' })
+    expect(within(table).getByText('TATR_0002')).toBeInTheDocument()
+    // its row is marked so that it is seen: an arrow before the revision, and it is brought into view
+    const marked = within(table).getByText('TATR_0002').closest('tr')!
+    expect(marked).toHaveAttribute('aria-current', 'true')
+    expect(marked.querySelector('[data-marker]')).not.toBeNull()
+    expect(marked.className).toContain('bg-blue-100')
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    expect(within(table).getAllByRole('row').filter((r) => r.querySelector('[data-marker]'))).toHaveLength(1)   // only that one
+    expect(within(table).queryByText('R0004')).not.toBeInTheDocument()                                   // on its revision
+  })
+
+  it('has the buttons of the row in the card itself, which stays while the pointer goes from the point to it', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null }] } as never)
+    await pickProject()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+
+    await userEvent.hover(await within(map).findByRole('button', { name: /^TATR_0001/ }))              // only pointed at, not chosen
+    const card = await within(map).findByRole('region', { name: 'Details of TATR_0001' })
+    const eye = within(card).getByRole('button', { name: 'View the visit R0004 to TATR_0001' })
+    await userEvent.hover(eye)                                                                           // the pointer goes to the card
+    await new Promise((resolve) => setTimeout(resolve, 450))                                              // longer than it takes the card to go
+    expect(within(map).getByRole('region', { name: 'Details of TATR_0001' })).toBeInTheDocument()
+
+    await userEvent.unhover(eye)                                                                         // and leaves it
+    await waitFor(() => expect(within(map).queryByRole('region', { name: /^Details of/ })).not.toBeInTheDocument())
+  })
+
+  it('keeps the card of a chosen site with the buttons of its row — the eye opens the visit — and closes it', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+      { location_id: 'TATR_0002', name: 'Stream', latitude: 49.25, longitude: 20.2, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+    ] } as never)
+    await pickProject()
+    await showAll()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    expect(within(map).queryByRole('region', { name: /^Details of/ })).not.toBeInTheDocument()            // nothing is chosen at first
+
+    await userEvent.click(await within(map).findByRole('button', { name: /^TATR_0001/ }))
+    const details = within(await within(map).findByRole('region', { name: 'Details of TATR_0001' }))
+    expect(details.getByRole('group', { name: 'Options of the visit R0004 to TATR_0001' })).toBeInTheDocument()   // the buttons of the row
+    expect(details.getByRole('button', { name: 'Edit the visit R0004 to TATR_0001' })).toBeInTheDocument()
+    expect(details.getByRole('button', { name: 'Show the previous visit to TATR_0001 (R0003)' })).toBeInTheDocument()
+
+    await userEvent.click(details.getByRole('button', { name: 'View the visit R0004 to TATR_0001' }))      // the eye
+    expect(await screen.findByRole('dialog', { name: 'Details of the visit R0004 to TATR_0001' })).toBeInTheDocument()
+  })
+
+  it('zooms in on the site that was chosen, so it does not leave the view', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+      { location_id: 'TATR_0002', name: 'Stream', latitude: 49.25, longitude: 20.2, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+    ] } as never)
+    await pickProject()
+    await showAll()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    await userEvent.click(await within(map).findByRole('button', { name: /^TATR_0001/ }))
+    for (let i = 0; i < 4; i += 1) await userEvent.click(within(map).getByRole('button', { name: 'Zoom in' }))
+    expect(within(map).getByRole('button', { name: /^TATR_0001/ })).toBeInTheDocument()                  // the one chosen is still there
+    expect(within(map).queryByRole('button', { name: /^TATR_0002/ })).not.toBeInTheDocument()            // the other is far out of the view
+  })
+
+  it('closes the card of a chosen site with its cross', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null }] } as never)
+    await pickProject()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    await userEvent.click(await within(map).findByRole('button', { name: /^TATR_0001/ }))
+    await within(map).findByRole('region', { name: 'Details of TATR_0001' })
+    await userEvent.click(within(map).getByRole('button', { name: 'Close the details' }))
+    expect(within(map).queryByRole('region', { name: /^Details of/ })).not.toBeInTheDocument()
+  })
+
+  it('zooms the map in and out with the buttons at its corner, shows all the sites again, and moves it by dragging', async () => {
+    window.localStorage.clear()
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+      { location_id: 'TATR_0002', name: 'Stream', latitude: 49.25, longitude: 20.2, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+    ] } as never)
+    await pickProject()
+    await showAll()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    await waitFor(() => expect(document.querySelectorAll('img[data-tile]').length).toBeGreaterThan(0))
+    const zoom = () => Number(/openstreetmap\.org\/(\d+)\//.exec((document.querySelector('img[data-tile]') as HTMLImageElement).src)![1])
+    const ticks = () => within(map).getAllByText(/°$/).map((t) => t.textContent).join(' ')
+    const fitted = zoom(), fittedTicks = ticks()
+    expect(within(map).getByRole('button', { name: 'Show all the sites' })).toBeDisabled()               // already showing them all
+
+    await userEvent.click(within(map).getByRole('button', { name: 'Zoom in' }))
+    expect(zoom()).toBeGreaterThan(fitted)                                                                 // closer: more detailed tiles
+    expect(ticks()).not.toBe(fittedTicks)
+    expect(within(map).getByRole('button', { name: 'Show all the sites' })).toBeEnabled()
+    await userEvent.click(within(map).getByRole('button', { name: 'Zoom out' }))
+    await userEvent.click(within(map).getByRole('button', { name: 'Zoom out' }))
+    expect(zoom()).toBeLessThan(fitted)                                                                    // further: wider tiles
+    await userEvent.click(within(map).getByRole('button', { name: 'Show all the sites' }))
+    expect(zoom()).toBe(fitted)
+    expect(ticks()).toBe(fittedTicks)
+
+    // dragging moves what is looked at
+    const box = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1000, height: 500, top: 0, left: 0, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
+    const surface = map.querySelector('svg[viewBox^="0 0 1000"]')!                                         // the map, not the icon of a button
+    const pointer = (type: string, clientX: number, clientY: number) => fireEvent(surface, new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY }))   // jsdom has no PointerEvent
+    pointer('pointerdown', 500, 200)
+    pointer('pointermove', 700, 260)
+    pointer('pointerup', 700, 260)
+    box.mockRestore()
+    expect(ticks()).not.toBe(fittedTicks)
+    expect(within(map).getByRole('button', { name: 'Show all the sites' })).toBeEnabled()
+  })
+
+  it('draws the map of OpenStreetMap behind the points, with its attribution, and the button of the background turns it off and keeps it off', async () => {
+    window.localStorage.clear()
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+      { location_id: 'TATR_0002', name: 'Stream', latitude: 49.25, longitude: 20.2, timezone: null, coordinate_uncertainty: null, trapper_pk: null },
+    ] } as never)
+    await pickProject()
+    await showAll()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    const tiles = () => [...document.querySelectorAll<HTMLImageElement>('img[data-tile]')]
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0))
+    expect(tiles().every((t) => /^https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png$/.test(t.src))).toBe(true)
+    expect(tiles().length).toBeLessThanOrEqual(36)
+    expect(within(map).getByRole('link', { name: '© OpenStreetMap contributors' })).toHaveAttribute('href', 'https://www.openstreetmap.org/copyright')
+
+    // no connection: every tile fails, and it says so — the points are there all the same
+    tiles().forEach((t) => fireEvent.error(t))
+    expect(await within(map).findByRole('status')).toHaveTextContent('could not be loaded')
+    expect(within(map).getByRole('button', { name: /^TATR_0001/ })).toBeInTheDocument()
+
+    await userEvent.click(within(map).getByRole('button', { name: 'Background map' }))
+    expect(within(map).getByRole('button', { name: 'Background map' })).toHaveAttribute('aria-pressed', 'false')
+    expect(tiles()).toHaveLength(0)
+    expect(window.localStorage.getItem('wildintel.mapBackground')).toBe('off')                           // kept for the next time
+    expect(within(map).queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('says how many sites the map leaves out for having no coordinates, and the filters of the table apply to it', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: null, coordinate_uncertainty: null, trapper_pk: null }] } as never)
+    await pickProject()
+    await showAll()
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+    expect(await within(map).findByText('1 site on the map · 1 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has no place
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Filter the visits' }), 'TATR_0002')
+    expect(await within(await screen.findByRole('group', { name: 'Visits on a map' })).findByText(/None of the 1 sites has coordinates/)).toBeInTheDocument()
+  })
+
+  it('marks a row when it is pressed — and clears it when it is pressed again — without scrolling the page', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    await pickProject()
+    await showAll()
+    const table = await screen.findByRole('table', { name: 'Visits' })
+    const row = (site: string, session: string) => within(table).getAllByRole('row').find((r) => r.textContent?.includes(site) && r.textContent?.includes(session))!
+    expect(table.querySelector('tr[aria-current]')).toBeNull()
+
+    await userEvent.click(within(row('TATR_0002', 'R0003')).getByText('Installation'))                    // a plain part of the row
+    expect(row('TATR_0002', 'R0003')).toHaveAttribute('aria-current', 'true')
+    expect(row('TATR_0002', 'R0003').querySelector('[data-marker]')).not.toBeNull()
+    await userEvent.click(within(row('TATR_0001', 'R0004')).getByText('Revision'))                         // another one: the mark goes to it
+    expect(row('TATR_0001', 'R0004')).toHaveAttribute('aria-current', 'true')
+    expect(row('TATR_0002', 'R0003')).not.toHaveAttribute('aria-current')
+    await userEvent.click(within(row('TATR_0001', 'R0004')).getByText('Revision'))                         // pressed again, it is cleared
+    expect(table.querySelector('tr[aria-current]')).toBeNull()
+
+    await userEvent.click(within(row('TATR_0002', 'R0003')).getByRole('button', { name: 'View the visit R0003 to TATR_0002' }))   // a button of the row only does what it does
+    expect(table.querySelector('tr[aria-current]')).toBeNull()
+    expect(await screen.findByRole('dialog', { name: 'Details of the visit R0003 to TATR_0002' })).toBeInTheDocument()
+    expect(scrollIntoView).not.toHaveBeenCalled()                                                          // pressing never moves the page
+  })
+
+  const planned = (session: string, sites: string[]) => sites.map((site) => visit({ session, location_id: site, date: '', time: '', actions: [], sd: null, camera_id: null, trappers: null, when: null, not_done: true, state: 'planned' }))
+
+  it('plans the next revision with a button — a visit to each location that is ready — and opens the visit book on it', async () => {
+    mockedApi.createRevision.mockResolvedValue({ session: 'R0005', planned: ['TATR_0001', 'TATR_0002'], previous: null })
+    await pickProject()
+    const first = (await mockedApi.visitBook.mock.results[0].value).results
+    mockedApi.visitBook.mockResolvedValue({ results: [...first, ...planned('R0005', ['TATR_0001', 'TATR_0002'])] } as never)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Create the next revision' }))
+    expect(mockedApi.createRevision).toHaveBeenCalledWith('TATR')
+    const notice = (await screen.findByText(/has been created/)).closest('[role="status"]') as HTMLElement
+    expect(notice).toHaveTextContent('R0005 has been created: a visit is planned to each of the 2 locations that can be visited (TATR_0001, TATR_0002)')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()                                          // the revision before is finished: nothing to warn of
+    await waitFor(() => expect(screen.getByRole('button', { name: /^R0005/ })).toHaveAttribute('aria-pressed', 'true'))   // the book is on the new revision
+    const table = await screen.findByRole('table', { name: 'Visits' })
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(2)                                    // a planned visit to each
+    expect(within(table).getAllByText('Planned')).toHaveLength(2)
+
+    await userEvent.click(within(notice).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText(/has been created/)).not.toBeInTheDocument()
+  })
+
+  // R0005 was planned and has no visit; R0004 still has TATR_0002 to be visited: R0005 cannot take a visit until R0004 is finished
+  const base = () => [visit({}), visit({ session: 'R0004', date: '2024-10-12', actions: ['Revision'], deployment_status: 'open' }), visit({ location_id: 'TATR_0002' })]
+  const unfinishedBook = () => ({ results: [...base(), ...planned('R0004', ['TATR_0002']), ...planned('R0005', ['TATR_0001', 'TATR_0002'])] }) as never
+  const finishedBook = () => ({ results: [...base(), visit({ session: 'R0004', location_id: 'TATR_0002', date: '2024-10-12', time: '23:59:00', actions: [], not_visited: true, state: 'not_visited' }), ...planned('R0005', ['TATR_0001', 'TATR_0002'])] }) as never
+
+  it('says whenever a planned revision has no visit and the one before is not finished — with no need to press anything — and offers to finish it by marking what is left as not visited', async () => {
+    mockedApi.visitBook.mockResolvedValue(unfinishedBook())
+    mockedApi.markNotVisited.mockResolvedValue({ session: 'R0004', marked: ['TATR_0002'] })
+    await pickProject()
+
+    const warning = await screen.findByRole('alert')
+    expect(warning).toHaveTextContent('R0005 is planned, but R0004 is not finished: 1 location is still to be visited in it (TATR_0002). No visit can be made in R0005 until it is finished')
+    expect(mockedApi.markNotVisited).not.toHaveBeenCalled()                                             // nothing is marked by itself
+
+    await userEvent.click(within(warning).getByRole('button', { name: 'Mark them as not visited' }))
+    const sure = await screen.findByRole('alert')
+    expect(sure).toHaveTextContent('the visit book of R0004 will be consolidated')                      // asked again, as the form of a visit does
+    await userEvent.click(within(sure).getByRole('button', { name: 'Cancel' }))
+    expect(mockedApi.markNotVisited).not.toHaveBeenCalled()
+
+    mockedApi.visitBook.mockResolvedValue(finishedBook())                                               // the book as it is read again, with the visit that could not be made
+    await userEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: 'Mark them as not visited' }))
+    await userEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: 'Yes, mark them as not visited' }))
+    expect(mockedApi.markNotVisited).toHaveBeenCalledWith('TATR', 'R0004')
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())                    // it is finished now: nothing to say
+  })
+
+  it('says nothing of the revision before when the planned one has a visit, or the one before is finished', async () => {
+    mockedApi.visitBook.mockResolvedValue({ results: [...base(), ...planned('R0004', ['TATR_0002']), visit({ session: 'R0005', date: '2024-11-12', actions: ['Revision'] })] } as never)   // R0005 has a visit
     await pickProject()
     await screen.findByRole('table', { name: 'Visits' })
-    expect(screen.getAllByRole('button', { name: /^Show the visits as/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['Show the visits as a table', 'Show the visits as labels'])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('says why the next revision could not be planned, and still offers to finish the revision before when that is what is in the way', async () => {
+    mockedApi.visitBook.mockResolvedValue(unfinishedBook())
+    mockedApi.createRevision.mockRejectedValue(new Error('R0005 is planned and has no visit yet: register its first visit before planning the next revision.'))
+    await pickProject()
+    await userEvent.click(await screen.findByRole('button', { name: 'Create the next revision' }))
+
+    await waitFor(() => expect(screen.getAllByRole('alert').map((a) => a.textContent).join(' | ')).toContain('R0005 is planned and has no visit yet'))   // what it said
+    expect(screen.getAllByRole('alert').map((a) => a.textContent).join(' | ')).toContain('R0004 is not finished')
+    expect(screen.getByRole('button', { name: 'Mark them as not visited' })).toBeInTheDocument()       // and the way to finish it
+    expect(screen.queryByText(/has been created/)).not.toBeInTheDocument()
+  })
+
+  it('shows the visits as a table, as labels or on a map — three buttons at the right of Reset', async () => {
+    await pickProject()
+    await screen.findByRole('table', { name: 'Visits' })
+    expect(screen.getAllByRole('button', { name: /^Show the visits/ }).map((b) => b.getAttribute('aria-label'))).toEqual(['Show the visits as a table', 'Show the visits as labels', 'Show the visits on a map'])
 
     await userEvent.click(screen.getByRole('button', { name: 'Show the visits as labels' }))
     expect(screen.queryByRole('table', { name: 'Visits' })).not.toBeInTheDocument()
