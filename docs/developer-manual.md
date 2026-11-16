@@ -189,7 +189,7 @@ something to say for each check.
 |---|---|
 | `deployment_import_service` | The wizard's backbone: scan a folder (EXIF dates, camera), the image **validations** and deployment **postvalidations**, the deployment id and revisions, copying, and the import streams. |
 | `preprocessing_service` | Dates, rename, resize and XMP metadata; writes `preprocessing.json`. Drives the import. |
-| `statistics_service` | The statistical postvalidation: sequences, and whether this revision is like the earlier ones of the location. |
+| `statistics_service` | The statistical postvalidation: sequences, and whether this revision is like the earlier ones of the location. Also the statistics of a whole revision (`collection_statistics`, `POST /api/statistics/revision`, the CLI's `statistics`), with each deployment's metrics kept in `statistics.json` beside its `images.json`. |
 | `report_service` | The reports: builds them from a validation's, a postvalidation's or a preprocessing's results, keeps them as JSON in `<data dir>/reports/`, lists, deletes and exports them to CSV. |
 | `seal_service` | Runs the checks over the source images and writes/verifies `seal.json`. |
 | `local_folder_service` | The collections folder: research projects, locations, visits, cameras and SD cards (the *rules* of the records, which are kept through `core/storage`), collections, deployments, `images.json`, the timestamp log. |
