@@ -492,6 +492,10 @@ class ListVisitsRequest(LocalLocationsRequest):
     location_id: Optional[str] = None
 
 
+class CreateRevisionRequest(LocalLocationsRequest):
+    """Plan the next revision: a visit to each location that is ready, planned."""
+
+
 class MarkNotVisitedRequest(LocalLocationsRequest):
     """Finish a revision: the locations with no visit in it are marked as not visited."""
 

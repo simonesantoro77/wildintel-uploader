@@ -853,6 +853,27 @@ def write_unknown(root: Path, research_project_id: str, new: list[dict]) -> int:
     return len(added)
 
 
+def list_planned_revisions(root: Path, research_project_id: str) -> list[str]:
+    """The revisions that were planned before any visit was made to them — "R0003": a revision is a trip to every location, and it exists in the visit book, with a planned
+    visit to each location, from the day it is planned, not only from its first visit. Oldest first."""
+    kept = {str(r.get("session") or "").upper() for r in _store(root).read_records(research_project_id, "planned_revisions") if r.get("session")}
+    return sorted(kept)
+
+
+def plan_revision(root: Path, research_project_id: str, session: str) -> str:
+    """Keeps a revision as planned — `session` is "R0003" —, and says when it was.
+
+    Raises:
+        LocalFolderError: the research project isn't there or cannot be changed."""
+    _require_modifiable(root, research_project_id)
+    require_research_project(root, research_project_id)
+    session = session.upper()
+    if session not in list_planned_revisions(root, research_project_id):
+        records = _store(root).read_records(research_project_id, "planned_revisions")
+        _store(root).write_records(research_project_id, "planned_revisions", [*records, {"session": session, "created_at": audit.now()}])
+    return session
+
+
 def update_visit(root: Path, research_project_id: str, location_id: str, session: str, visit: dict) -> dict:
     """Replaces a visit kept — found by its site (ignoring case) and its revision, which is its key and does not change — with `visit`, given with the day and the
     time of the wall clock of its location; the deployment it closed, when it has one, stays. Returned told.

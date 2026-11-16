@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from wildintel_uploader.core import config
-from wildintel_uploader.core.schemas.requests import FieldLogsRequest, ImportVisitsCsvRequest, LinkVisitRequest, ListVisitsRequest, MarkNotVisitedRequest, SaveVisitRequest, UpdateVisitRequest, VisitRecord, VisitsCsvColumnsRequest
+from wildintel_uploader.core.schemas.requests import CreateRevisionRequest, FieldLogsRequest, ImportVisitsCsvRequest, LinkVisitRequest, ListVisitsRequest, MarkNotVisitedRequest, SaveVisitRequest, UpdateVisitRequest, VisitRecord, VisitsCsvColumnsRequest
 from wildintel_uploader.core.services import epicollect_service, local_folder_service, report_service, trapper_upload_service, visit_deployments, visit_rules, visit_time, visits_csv
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
@@ -216,6 +216,39 @@ def update_visit(req: UpdateVisitRequest) -> dict:
         kept = local_folder_service.update_visit(root, req.research_project_id, req.location_id, req.session, visit)
         _refresh_states(root, req.research_project_id)
         return {**kept, "field_logs": _write_logs(root, req.research_project_id, [kept])}
+    except local_folder_service.LocalFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/create-revision")
+def create_revision(req: CreateRevisionRequest) -> dict:
+    """Plans the next revision: it is kept, and the visit book has a planned visit to each location that can be visited — the ones that are not archived and not only planned
+    in the settings: ready or active. A revision is one trip to every location, so the one before has to be finished for visits to be made in the new one: when it is not,
+    the answer says which locations are still to be visited in it (`previous`), for the person to be told.
+
+    {"session", "planned": [location ids], "previous": {"session", "missing": [location ids]} | None}. A revision that was planned and has no visit yet is the last: the next one
+    is not planned until it has."""
+    root = config.collections_dir()
+    try:
+        local_folder_service.require_active_research_project(root, req.research_project_id)
+        visits = local_folder_service.list_visits(root, req.research_project_id)
+        locations = local_folder_service.list_locations(root, req.research_project_id)
+        unknown = local_folder_service.list_unknown(root, req.research_project_id)
+        planned = local_folder_service.list_planned_revisions(root, req.research_project_id)
+        made = {n for n in (visit_rules._session_number(v.get("session")) for v in visits) if n is not None}
+        known = made | {n for n in (visit_rules._session_number(s) for s in planned) if n is not None} | {n for n in (visit_rules._session_number(u.get("session")) for u in unknown) if n is not None}
+        latest = max(known, default=0)
+        if latest and latest not in made:
+            raise HTTPException(409, f"R{latest:04d} is planned and has no visit yet: register its first visit before planning the next revision.")
+        sites = [str(l["location_id"]) for l in locations if l.get("location_id") and l.get("status") not in ("archived", "planned")]
+        if not sites:
+            raise HTTPException(409, "No location can be visited: none is ready or active. Add one, or make one ready, in the settings.")
+        previous = None
+        if latest:
+            missing = visit_rules.revision_missing(latest, visits, locations, "", unknown)
+            previous = {"session": f"R{latest:04d}", "missing": missing} if missing else None
+        session = local_folder_service.plan_revision(root, req.research_project_id, f"R{latest + 1:04d}")
+        return {"session": session, "planned": sorted(sites, key=str.lower), "previous": previous}
     except local_folder_service.LocalFolderError as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -445,7 +478,8 @@ def visit_book(req: ListVisitsRequest) -> dict:
         visits = local_folder_service.list_visits(root, req.research_project_id, req.location_id)
         locations = local_folder_service.list_locations(root, req.research_project_id) if req.location_id is None else None
         book = visit_deployments.visit_book(visits, config.load_settings().FIELDLOG.keep_seconds, locations,
-                                            [u for u in local_folder_service.list_unknown(root, req.research_project_id) if req.location_id is None or u["location_id"].lower() == req.location_id.lower()])
+                                            [u for u in local_folder_service.list_unknown(root, req.research_project_id) if req.location_id is None or u["location_id"].lower() == req.location_id.lower()],
+                                            local_folder_service.list_planned_revisions(root, req.research_project_id))
         # a visit is told on the wall clock of its location: the timezone of the location goes with it
         zones = {str(l.get("location_id", "")).lower(): l.get("timezone") for l in local_folder_service.list_locations(root, req.research_project_id, include_deleted=True)}
         for visit in book:

@@ -225,12 +225,13 @@ def locked(visits: list[dict], keep_seconds: bool = True) -> set[tuple[str, str]
     return out
 
 
-def visit_book(visits: list[dict], keep_seconds: bool = True, locations: list[dict] | None = None, unknown: list[dict] | None = None) -> list[dict]:
+def visit_book(visits: list[dict], keep_seconds: bool = True, locations: list[dict] | None = None, unknown: list[dict] | None = None, planned: list[str] | None = None) -> list[dict]:
     """The visits as the visit book shows them, each with the deployment it started — `deployment` (its id) and `deployment_status` ("closed" once a later visit collected
     its card, "open" while the camera it left is still out) — and neither for a visit that left no camera.
 
     With the `locations` of the research project, the book also has a row — `not_done` — for each location that has no visit in a session the visits have: a trip is
-    made to every location, so the one that was not visited says so, with no day, no time and no actions. The archived locations are left out."""
+    made to every location, so the one that was not visited says so, with no day, no time and no actions. The archived locations are left out. The `planned` revisions — "R0003",
+    planned before any visit was made to them — are sessions the visits have too: each location has its planned visit in them."""
     started = {id(d["start_visit"]): d for d in deployments(visits, keep_seconds)}
     states = visit_states(visits, keep_seconds)
     fixed = locked(visits, keep_seconds)
@@ -247,7 +248,7 @@ def visit_book(visits: list[dict], keep_seconds: bool = True, locations: list[di
                     "not_done": False, "not_visited": False, "unknown": True, "locked": True, "state": "unknown"})
     if locations:
         visited = {(str(v.get("session") or "").upper(), str(v.get("location_id", "")).lower()) for v in visits} | {(str(u["session"]).upper(), str(u["location_id"]).lower()) for u in unknown or []}
-        sessions = sorted({str(v["session"]).upper() for v in visits if v.get("session")})
+        sessions = sorted({str(v["session"]).upper() for v in visits if v.get("session")} | {str(s).upper() for s in planned or []})
         for session in sessions:
             for location in locations:
                 site = str(location.get("location_id", ""))
