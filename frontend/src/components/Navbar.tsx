@@ -24,7 +24,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
   }, [dark])
 
   return (
-    <nav className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <nav className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:hidden">
       <div className="max-w-screen-2xl mx-auto px-4 h-14 flex items-center">
         <button type="button" className="flex items-center rounded hover:opacity-80 transition-opacity" title="Go to the welcome screen" onClick={onHome}>
           <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">

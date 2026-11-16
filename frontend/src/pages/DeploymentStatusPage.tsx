@@ -24,10 +24,12 @@ interface Props {
   onShowUploads?: (deploymentId: string) => void
   /** Goes to Import deployment, on the visit that left the camera: to create the deployment of a card that was collected. */
   onImportImages?: (target: ClosedVisitTarget) => void
+  /** Goes to the statistics, on a deployment: its revision, with it isolated. */
+  onShowStatistics?: (deployment: FieldDeployment) => void
 }
 
 /** The dashboard of the deployments of the default research project — the statistics: which are closed with their images stored, which still have the camera out, which are not on Trapper yet. */
-export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsOpen, focus, onShowVisit, onUpload, onShowUploads, onImportImages }: Props) {
+export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsOpen, focus, onShowVisit, onUpload, onShowUploads, onImportImages, onShowStatistics }: Props) {
   const { project, defaultAcronym, error: projectError } = useDefaultResearchProject(settingsOpen)
   const [deployments, setDeployments] = useState<FieldDeployment[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -84,7 +86,7 @@ export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsO
         aside={project !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={project} defaultAcronym={defaultAcronym} of="The dashboard" onOpenSettings={onOpenSettings} /> : undefined} />
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {project && (deployments === null ? <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p> : <FieldDeployments researchProjectId={project.acronym} deployments={deployments} loadVisits={loadVisits} sdCards={sdCards} onCreate={onImportImages ? (d) => void create(d) : undefined} helpOpen={helpOpen} onCloseHelp={() => setHelpOpen(false)} onShowSd={onOpenSettings && ((label) => onOpenSettings('sdcards', project.acronym, label))} onShowLocation={onOpenSettings && ((site) => onOpenSettings('locations', project.acronym, site))} onShowUploads={onShowUploads} highlight={focus} onShowVisit={onShowVisit} loadDetails={(id) => readDeployment(project.acronym, id)} onUpload={onUpload && ((d) => onUpload({ researchProjectId: project.acronym, collection: d.collection }))} />)}
+      {project && (deployments === null ? <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p> : <FieldDeployments researchProjectId={project.acronym} deployments={deployments} loadVisits={loadVisits} sdCards={sdCards} onCreate={onImportImages ? (d) => void create(d) : undefined} helpOpen={helpOpen} onCloseHelp={() => setHelpOpen(false)} onShowSd={onOpenSettings && ((label) => onOpenSettings('sdcards', project.acronym, label))} onShowLocation={onOpenSettings && ((site) => onOpenSettings('locations', project.acronym, site))} onShowUploads={onShowUploads} onShowStatistics={onShowStatistics} highlight={focus} onShowVisit={onShowVisit} loadDetails={(id) => readDeployment(project.acronym, id)} onUpload={onUpload && ((d) => onUpload({ researchProjectId: project.acronym, collection: d.collection }))} />)}
 
       <div className="mt-10">
         <button type="button" className={btnOutline} onClick={onBack}><span aria-hidden="true">← </span>Back</button>

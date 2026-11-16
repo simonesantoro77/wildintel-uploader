@@ -260,7 +260,7 @@ export const TABLE = {
 /** The first column of a row: the chevron that opens its details — right when they are closed, down when they are open — and the mark of the selected row. */
 export function ChevronCell({ open, label, onToggle, available = true }: { open: boolean; label: string; onToggle: () => void; available?: boolean }) {
   return (
-    <td className={`w-10 border-l-2 px-2 py-3 text-center ${open ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+    <td className={`w-10 border-l-2 px-2 py-3 text-center print:hidden ${open ? 'border-l-blue-500' : 'border-l-transparent'}`}>
       {available && (
         <button type="button" aria-label={`${open ? 'Hide' : 'Show'} ${label}`} aria-expanded={open} title="Toggle the details" onClick={onToggle}
                 className={`rounded p-1 transition-colors ${open ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400'}`}>

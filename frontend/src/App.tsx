@@ -15,12 +15,13 @@ import UploadDeploymentPage from './pages/UploadDeploymentPage'
 import UtilsPage from './pages/UtilsPage'
 import VisitsHomePage from './pages/VisitsHomePage'
 import DeploymentsHomePage from './pages/DeploymentsHomePage'
+import StatisticsPage from './pages/StatisticsPage'
 import DeploymentStatusPage from './pages/DeploymentStatusPage'
 import type { VisitFocus } from './pages/VisitBookPage'
 import type { DeploymentsView } from './pages/DeploymentsHomePage'
 import WelcomePage from './pages/WelcomePage'
 import { api } from './api'
-import type { ClosedVisitTarget, SessionSummary, Task, UploadTarget } from './types'
+import type { ClosedVisitTarget, FieldDeployment, SessionSummary, Task, UploadTarget } from './types'
 
 export default function App() {
   const [currentVersion, setCurrentVersion] = useState<string | null>(null)
@@ -56,6 +57,8 @@ export default function App() {
   const [deploymentsView, setDeploymentsView] = useState<DeploymentsView | null>(null)
   const [visitFocus, setVisitFocus] = useState<VisitFocus | undefined>(undefined)
   const [deploymentFocus, setDeploymentFocus] = useState<string | undefined>(undefined)
+  // the deployment the statistics start on: its revision, with it isolated
+  const [statisticsFocus, setStatisticsFocus] = useState<{ collection: string; deploymentId: string } | undefined>(undefined)
   // the deployment whose uploads the uploads dashboard starts on
   const [uploadSearch, setUploadSearch] = useState<string | undefined>(undefined)
 
@@ -83,7 +86,7 @@ export default function App() {
   }, [])
 
   function goHome() {
-    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setMenuShown(false); setHome(true)
+    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setMenuShown(false); setHome(true)
   }
 
   function goToImportOfVisit(target: ClosedVisitTarget) {
@@ -96,6 +99,10 @@ export default function App() {
 
   function goToDeploymentStatus(deploymentId: string) {
     setDeploymentFocus(deploymentId); setDeploymentsView('status'); setTask('deployment')
+  }
+
+  function goToStatistics(d: FieldDeployment) {
+    setStatisticsFocus({ collection: d.collection, deploymentId: d.deployment_id }); setDeploymentsView('statistics'); setTask('deployment')
   }
 
   function goToUploadStatus(deploymentId: string) {
@@ -130,8 +137,10 @@ export default function App() {
                                       onBack={() => { setClosedVisitTarget(null); setImportProjectId(null); setResumeSession(null); if (closedVisitTarget || importProjectId || resumeSession) { setDeploymentsView(null); setTask(null) } else setDeploymentsView(null) }} />
               : deploymentsView === 'many'
                 ? <ImportDeploymentsPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={() => setDeploymentsView(null)} />
+              : deploymentsView === 'statistics'
+                ? <StatisticsPage settingsOpen={settingsOpen} onOpenSettings={openSettings} focus={statisticsFocus} onBack={() => { setDeploymentsView(statisticsFocus ? 'status' : null); setStatisticsFocus(undefined) }} />
               : deploymentsView === 'status'
-                ? <DeploymentStatusPage settingsOpen={settingsOpen} onOpenSettings={openSettings} focus={deploymentFocus} onShowVisit={goToVisit} onUpload={goToUpload} onShowUploads={goToUploadStatus} onImportImages={goToImportOfVisit} onBack={() => { setDeploymentsView(null); setDeploymentFocus(undefined) }} />
+                ? <DeploymentStatusPage settingsOpen={settingsOpen} onOpenSettings={openSettings} focus={deploymentFocus} onShowVisit={goToVisit} onUpload={goToUpload} onShowUploads={goToUploadStatus} onImportImages={goToImportOfVisit} onShowStatistics={goToStatistics} onBack={() => { setDeploymentsView(null); setDeploymentFocus(undefined) }} />
                 : <DeploymentsHomePage onChoose={setDeploymentsView} onBack={() => setTask(null)} />
             : task === 'session'
               ? <ImportDeploymentsPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={() => setTask(null)} />

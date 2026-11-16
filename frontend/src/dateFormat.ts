@@ -1,5 +1,13 @@
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+/** "October 2026" from a month (2026-10). */
+export function formatMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${MONTH_NAMES[m - 1]} ${y}`
+}
+
 /** "4 Sep 2024" (or "4 Sep", without the year) from an ISO date or date-time — the same in every locale. */
 export function formatDay(iso: string, year = true): string {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)

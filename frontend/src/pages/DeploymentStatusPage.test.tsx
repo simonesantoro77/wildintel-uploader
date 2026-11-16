@@ -230,6 +230,38 @@ describe('DeploymentStatusPage', () => {
 
   })
 
+  it('says Card full instead of the number of photos when the card was full when it was collected', async () => {
+    mockedApi.fieldDeployments.mockResolvedValue({
+      results: [
+        deployment({ deployment_id: 'R0003-TATR_0002', site: 'TATR_0002', card: 'C7', photos_counted: null, card_full: true, images_stored: false }),
+        deployment({ deployment_id: 'R0003-TATR_0003', site: 'TATR_0003', card: 'C8', photos_counted: null, images_stored: false }),
+      ],
+    } as never)
+    render(<DeploymentStatusPage onBack={vi.fn()} />)
+
+    const region = await screen.findByRole('region', { name: 'Deployments the visits say' })
+    const table = within(region).getByRole('table', { name: 'Deployments' })
+    const full = within(table).getByText('R0003-TATR_0002').closest('tr')!
+    expect(within(full).getByText('SD C7', { exact: false }).closest('td')).toHaveTextContent('SD C7 · Card full')
+    expect(within(full).getByText('Card full')).toHaveClass('bg-red-100', 'text-red-700')              // in red, as a state
+    expect(within(table).getByText('R0003-TATR_0003').closest('tr')!.textContent).not.toMatch(/Card full|photos/)  // no count and not full: nothing is said
+  })
+
+  it('has a button on the row of a created deployment that goes to its statistics', async () => {
+    const onShowStatistics = vi.fn()
+    render(<DeploymentStatusPage onBack={vi.fn()} onShowStatistics={onShowStatistics} />)
+    await showAll()
+
+    const region = await screen.findByRole('region', { name: 'Deployments the visits say' })
+    const table = within(region).getByRole('table', { name: 'Deployments' })
+    const created = within(table).getByText('R0003-TATR_0001').closest('tr')!
+    await userEvent.click(within(created).getByRole('button', { name: 'Show the statistics of the deployment R0003-TATR_0001' }))
+    expect(onShowStatistics).toHaveBeenCalledWith(expect.objectContaining({ deployment_id: 'R0003-TATR_0001', collection: 'R0003' }))
+    // one that is not created has no images to count
+    const planned = within(table).getByText('R0003-TATR_0003').closest('tr')!
+    expect(within(planned).queryByRole('button', { name: /Show the statistics/ })).not.toBeInTheDocument()
+  })
+
   it('lists the deployment of a stolen camera as Not created — nothing to create or upload — and counts it in what was planned', async () => {
     mockedApi.fieldDeployments.mockResolvedValue({
       results: [
