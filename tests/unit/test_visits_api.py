@@ -514,6 +514,20 @@ def _field_visits() -> None:
     ])
 
 
+def test_a_deployment_says_when_the_card_was_full_when_it_was_collected(tmp_path: Path):
+    with _in(tmp_path):
+        _save_all([
+            _visit("2024-09-04", ["Installation"], session="R0003", sd="A13", camera_id="P800"),
+            _visit("2024-10-12", ["Revision"], session="R0004", sd="B2", camera_id="P800", card_status="CardFull"),
+            _visit("2024-09-04", ["Installation"], site="DONA_02", session="R0003", sd="C7", camera_id="P900"),
+            _visit("2024-10-12", ["Revision"], site="DONA_02", session="R0004", sd="D1", camera_id="P900", num_photos=120),
+        ])
+        found = {d["deployment_id"]: d for d in _client().post("/api/visits/deployments", json={"research_project_id": "DONA"}).json()["results"]}
+
+    assert found["R0003-DONA_01"]["card_full"] is True and found["R0003-DONA_01"]["photos_counted"] is None   # its photos were not counted
+    assert found["R0003-DONA_02"]["card_full"] is False and found["R0003-DONA_02"]["photos_counted"] == 120
+
+
 def test_the_deployments_of_the_visits_are_closed_or_open_and_named_by_the_session_that_collects_them(tmp_path: Path):
     with _in(tmp_path):
         _field_visits()
