@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import LanguageButton from './LanguageButton'
 
 interface Props {
@@ -18,6 +19,7 @@ export const REPO_URL = 'https://github.com/wildintelproject/wildintel-uploader'
 const btnOutline = 'px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors'
 
 export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }: Props) {
+  const { t } = useTranslation()
   const [dark, setDark] = useState(true)
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
   return (
     <nav className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:hidden">
       <div className="max-w-screen-2xl mx-auto px-4 h-14 flex items-center">
-        <button type="button" className="flex items-center rounded hover:opacity-80 transition-opacity" title="Go to the welcome screen" onClick={onHome}>
+        <button type="button" className="flex items-center rounded hover:opacity-80 transition-opacity" title={t('navbar.home')} onClick={onHome}>
           <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">
             📤 WildINTEL Uploader
           </span>
@@ -42,21 +44,21 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
           <a
             className={`${btnOutline} no-underline`}
             href={DOCS_URL} target="_blank" rel="noopener noreferrer"
-            title="User and developer documentation"
+            title={t('navbar.helpTitle')}
           >
-            ? Help
+            ? {t('navbar.help')}
           </a>
           <LanguageButton />
           <button
             className={`${btnOutline} ${settingsOpen ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
-            title="Settings" aria-label="Settings" aria-pressed={settingsOpen}
+            title={t('navbar.settings')} aria-label={t('navbar.settings')} aria-pressed={settingsOpen}
             onClick={onOpenSettings}
           >
             ⚙️
           </button>
           <button
             className={btnOutline}
-            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={dark ? t('navbar.toLight') : t('navbar.toDark')}
             onClick={() => setDark(d => !d)}
           >
             {dark ? '☀️' : '🌙'}

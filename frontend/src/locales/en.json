@@ -1,0 +1,12 @@
+{
+  "navbar": {
+    "home": "Go to the welcome screen",
+    "help": "Help",
+    "helpTitle": "User and developer documentation",
+    "settings": "Settings",
+    "toLight": "Switch to light mode",
+    "toDark": "Switch to dark mode",
+    "language": "Language",
+    "languages": "Languages"
+  }
+}
