@@ -1338,6 +1338,83 @@ def test_a_site_given_up_in_a_revision_of_the_file_is_not_marked_as_not_visited_
     assert [(m["location_id"], m["session"]) for m in answer["closed"]] == []      # DONA_02 was given up in R0013: nothing is waited for it in R0014 nor R0015
 
 
+def _read_file(rows: list[str], save: bool = False, close: bool = True) -> dict:
+    text = "location_id,session,date,time,actions,num_photos\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": close, "save": save}).json()
+
+
+def test_a_site_whose_camera_was_stolen_and_given_up_is_out_of_use_in_the_revisions_after_it_in_the_file(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Stolen + Archive,",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _read_file(rows)
+
+    assert answer["problems"] == [] and answer["closed"] == []
+
+
+def test_a_site_given_up_late_in_the_file_is_not_marked_as_not_visited_before_it_either_its_earlier_gap_is_unknown(tmp_path: Path):
+    """The site is out of use *from* the revision that gives it up. Before it the file has no visit of it, but a visit of it comes later, so what the revision before has of it is unknown — not a false
+    "not visited" — as it is without this fix; and after it nothing is waited for."""
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_02,R0014,2026-03-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _read_file(rows)
+
+    assert answer["problems"] == []
+    assert answer["closed"] == []                                                                       # no "not visited" in R0013, R0014 (it gave it up) nor R0015
+    assert any("R0013 is created, but there is no data of its visits to DONA_02" in n for n in answer["notes"])
+
+
+def test_a_site_given_up_in_the_file_does_not_stop_the_revisions_after_it_from_starting_when_the_revision_is_not_closed_by_the_file(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _read_file(rows, close=False)
+
+    assert answer["problems"] == []                        # R0013 is finished — DONA_02 is given up, not waited for — so R0014 can start
+
+
+def test_what_is_kept_of_a_site_given_up_in_the_file_is_the_visits_and_no_false_not_visited_ones(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        saved = _read_file(rows, save=True)
+        kept = _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]
+
+    assert saved["problems"] == []
+    assert not [v for v in kept if v.get("camera_status") == "Not revised"]
+    assert sorted((v["location_id"], v["session"]) for v in kept if v["session"] in ("R0013", "R0014", "R0015")) == [
+        ("DONA_01", "R0013"), ("DONA_01", "R0014"), ("DONA_01", "R0015"), ("DONA_02", "R0013")]
+
+
+def test_the_locations_as_the_visits_of_a_file_leave_them():
+    from wildintel_uploader.core.services.visits_csv import _archived_by
+
+    sites = [{"location_id": "DONA_01", "status": "active"}, {"location_id": "DONA_02", "status": "active"}, {"location_id": "DONA_03", "status": "archived", "status_date": "2026-01-01"},
+             {"location_id": "DONA_04", "status": "archived", "status_date": "2026-05-01"}]
+    visits = [{"location_id": "dona_02", "date": "2026-03-01", "actions": ["Archive"]}, {"location_id": "DONA_02", "date": "2026-02-01", "actions": ["Revision", "Archive"]},
+              {"location_id": "DONA_01", "date": "2026-02-01", "actions": ["Revision"]}, {"location_id": "DONA_03", "date": "2026-06-01", "actions": ["Archive"]},
+              {"location_id": "DONA_04", "date": "2026-03-01", "actions": ["Archive"]}]
+
+    left = {l["location_id"]: l for l in _archived_by(sites, visits)}
+
+    assert left["DONA_01"] is sites[0]                                                         # a visit that does not archive changes nothing
+    assert (left["DONA_02"]["status"], left["DONA_02"]["status_date"]) == ("archived", "2026-02-01")   # the earliest of its visits, whatever the case of the id
+    assert left["DONA_03"] is sites[2]                                                         # archived before: as it was
+    assert left["DONA_04"]["status_date"] == "2026-03-01"                                      # archived later than the file says it was given up: the earlier day is the one
+    assert sites[1]["status"] == "active"                                                      # the locations that were given are not changed
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io
