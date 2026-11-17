@@ -1042,7 +1042,7 @@ describe('VisitsPage from a CSV file', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING_WITHOUT_PHOTOS, {
-      create: { locations: true, cameras: true, sd_cards: false },
+      create: { locations: true, cameras: true, sd_cards: false, trappers: false },
       defaults: { latitude: '40.1', longitude: '-3.2', timezone: 'UTC', daylight_saving: 'yes' },
     }))
   })
@@ -1079,7 +1079,22 @@ describe('VisitsPage from a CSV file', () => {
     await continueFromTheFile()
 
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined,
-      { create: { locations: true, cameras: true, sd_cards: true }, defaults: { timezone: 'Europe/Madrid', daylight_saving: 'yes' } }))
+      { create: { locations: true, cameras: true, sd_cards: true, trappers: false }, defaults: { timezone: 'Europe/Madrid', daylight_saving: 'yes' } }))
+  })
+
+  it('can ask to create the trappers the file says went, sends it, and says which are made', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [],
+      create: { locations: [], cameras: [], sd_cards: [], trappers: [{ username: 'luis.gomez', name: 'Luis Gómez' }] } })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Create the trappers that do not exist' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await continueFromTheFile()
+
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { create: { locations: false, cameras: false, sd_cards: false, trappers: true } }))
+    expect(within(await screen.findByRole('list', { name: 'What is created' })).getByText(/1 trapper: Luis Gómez/)).toBeInTheDocument()
   })
 
   it('takes the coordinates of the location for a row that has none, unless it is turned off — then it sends so', async () => {

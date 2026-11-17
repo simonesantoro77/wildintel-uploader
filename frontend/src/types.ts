@@ -829,7 +829,7 @@ export interface VisitsCsvColumns {
 }
 
 /** What the import of visits can create when a visit names one that does not exist. */
-export type CsvEntity = 'locations' | 'cameras' | 'sd_cards'
+export type CsvEntity = 'locations' | 'cameras' | 'sd_cards' | 'trappers'
 export type CsvCreate = Record<CsvEntity, boolean>
 /** What is asked of the import besides the file: the entities to create, the value of the fields the file has no column for, and whether a row with no coordinates takes those of its location (it does, unless it is turned off). */
 export interface ImportCsvOptions { create?: CsvCreate; defaults?: Record<string, string>; close_revisions?: boolean; coordinates_from_location?: boolean }
@@ -841,7 +841,7 @@ export interface VisitsCsvResult {
   problems: { row: number; message: string; }[]
   skipped: number
   /** What the visits to add create: the locations, cameras and SD cards that do not exist and the file was asked to create. */
-  create?: Record<CsvEntity, Record<string, unknown>[]>
+  create?: Record<CsvEntity, Record<string, unknown>[]>   // `trappers` is missing from an answer of an older server
   /** What became of each row of the file, numbered as in it: kept to add (ok), a problem, already kept, held for a site that is not a location, or ignored. */
   rows?: { row: number; site: string; session?: string; date?: string; time?: string; actions?: string; result: 'ok' | 'problem' | 'already_kept' | 'new_site' | 'ignored'; label?: string; message: string; warnings?: string[]; data?: Record<string, string> }[]
   /** What is worth knowing of the visits, without being wrong (the sites of the trip before not visited on this one…). */

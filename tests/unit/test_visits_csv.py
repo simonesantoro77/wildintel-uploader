@@ -113,7 +113,7 @@ def test_locations_cameras_and_sd_cards_that_do_not_exist_are_created_when_asked
     # what exists is not created again, and what is not asked for is not created
     again = _parse(text, [{"location_id": "WICP_0001", "timezone": "UTC"}], [], mapping,
                                     {"create": {"cameras": True, "sd_cards": True}, "cameras": [{"camera_id": "CAM9", "label": "A"}], "cards": [{"label": "s9"}, {"label": "s10"}]})
-    assert again["create"] == {"locations": [], "cameras": [], "sd_cards": []}
+    assert again["create"] == {"locations": [], "cameras": [], "sd_cards": [], "trappers": []}
 
 
 def test_the_id_of_a_camera_and_of_an_sd_card_is_what_the_cell_says_stripped_and_what_exists_is_found_ignoring_the_case():
@@ -139,7 +139,7 @@ def test_a_row_that_would_create_something_without_what_it_needs_is_a_problem_an
     text = ("site,what,day,hour,lat,lon,cam,sd,model,brand,tz,llat,llon\n"
             "WICP_0003,Installation,2026-09-14,13:40,40.1,-3.2,CAM7,S7,Browning,SanDisk,,40.0,-3.0\n")  # no timezone
     result = _parse(text, [], [], mapping, {"create": {"locations": True, "cameras": True, "sd_cards": True}, "defaults": {"daylight_saving": "yes"}})
-    assert result["visits"] == [] and result["create"] == {"locations": [], "cameras": [], "sd_cards": []}
+    assert result["visits"] == [] and result["create"] == {"locations": [], "cameras": [], "sd_cards": [], "trappers": []}
     assert [(r["row"], r["label"]) for r in result["rows"]] == [(2, "Data to create it is missing")]
     assert "timezone" in result["rows"][0]["message"]
     # neither the model of a camera nor the brand of an SD card is needed: only their ids
@@ -443,3 +443,55 @@ def test_a_row_with_no_coordinates_is_refused_when_the_import_is_asked_not_to_ta
     assert off["visits"] == [] and [p["message"] for p in off["problems"]] == ["The row needs the coordinates of the visit: a latitude and a longitude."]
     assert len(on["visits"]) == 1 and on["problems"] == []
 
+
+
+# ── trappers that do not exist are created when asked ─────────────────────────────────────────────────────
+
+def _trappers_case(who_cells, create, known=("Ana Pérez",), usernames=("ana.perez",)):
+    from wildintel_uploader.core.services import visits_csv
+    rows = [f"WICP_000{i + 1},2026-09-14,1{i}:40,Installation,C{i},{i},\"{who}\"" for i, who in enumerate(who_cells)]
+    text = "site,day,hour,what,cam,sd,who\n" + "\n".join(rows) + "\n"
+    mapping = {"location_id": "site", "date": "day", "time": "hour", "actions": "what", "camera_id": "cam", "sd": "sd", "trappers": "who"}
+    locations = [{"location_id": f"WICP_000{i}", "latitude": 40.0, "longitude": -3.0, "timezone": "UTC"} for i in range(1, 5)]
+    options = {"trappers": list(known), "trapper_usernames": list(usernames), "create": create}
+    return visits_csv.parse_visits(text, locations, [], mapping, options)
+
+
+def test_a_trapper_that_is_not_registered_refuses_the_row_unless_the_import_creates_the_trappers():
+    refused = _trappers_case(["Luis Gómez"], {})
+    created = _trappers_case(["Luis Gómez"], {"trappers": True})
+
+    assert refused["visits"] == [] and [p["message"] for p in refused["problems"]] == ["Luis Gómez is not one of the trappers."]
+    assert created["problems"] == [] and len(created["visits"]) == 1
+    assert created["create"]["trappers"] == [{"username": "luis.gomez", "name": "Luis Gómez", "status": "active"}]
+    assert any("Luis Gómez is created as the visits say it" in n and "luis.gomez" in n for n in created["notes"])
+    assert "creates the trapper Luis Gómez" in created["rows"][0]["message"]
+
+
+def test_each_trapper_is_created_once_by_the_name_the_visits_say_and_the_ones_that_exist_are_not():
+    result = _trappers_case(["Ana Pérez, Luis Gómez", "luis gómez", "Marta Ruiz, Luis Gómez"], {"trappers": True})
+
+    assert [t["name"] for t in result["create"]["trappers"]] == ["Luis Gómez", "Marta Ruiz"]           # Ana exists; Luis once, whatever the case; Marta
+    assert [t["username"] for t in result["create"]["trappers"]] == ["luis.gomez", "marta.ruiz"]
+
+
+def test_the_username_of_a_trapper_is_the_name_without_accents_with_dots_and_another_number_when_it_is_taken():
+    from wildintel_uploader.core.services.visits_csv import _username_of
+
+    assert _username_of("Ana Pérez", set()) == "ana.perez"
+    assert _username_of("  José  María Ñandú ", set()) == "jose.maria.nandu"
+    assert _username_of("Ana Pérez", {"ana.perez"}) == "ana.perez2"
+    assert _username_of("Ana Pérez", {"ana.perez", "ana.perez2"}) == "ana.perez3"
+    assert _username_of("???", set()) == "trapper"
+
+
+def test_a_trapper_of_a_row_that_is_refused_for_another_reason_is_not_created():
+    result = _trappers_case(["Luis Gómez"], {"trappers": True}, known=("Ana Pérez",))
+    # the same row with a wrong action: nothing is created for it
+    from wildintel_uploader.core.services import visits_csv
+    text = "site,day,hour,what,cam,sd,who\nWICP_0001,2026-09-14,10:40,Dance,C1,1,Marta Ruiz\n"
+    mapping = {"location_id": "site", "date": "day", "time": "hour", "actions": "what", "camera_id": "cam", "sd": "sd", "trappers": "who"}
+    bad = visits_csv.parse_visits(text, [{"location_id": "WICP_0001", "latitude": 40.0, "longitude": -3.0, "timezone": "UTC"}], [], mapping, {"trappers": ["Ana Pérez"], "create": {"trappers": True}})
+
+    assert [t["name"] for t in result["create"]["trappers"]] == ["Luis Gómez"]
+    assert bad["visits"] == [] and bad["create"]["trappers"] == []
