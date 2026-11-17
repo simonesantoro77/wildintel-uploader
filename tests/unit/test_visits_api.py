@@ -1518,7 +1518,7 @@ def test_the_words_site_start_are_an_action_of_a_file():
     assert [visits_csv.ACTIONS[w] for w in ("site start", "sitestart", "site_start", "site setup")] == ["SiteStart"] * 4
 
 
-def test_a_site_that_starts_is_ready_and_active_when_it_puts_a_camera_up_and_a_planned_site_is_made_ready_by_its_start(tmp_path: Path):
+def test_a_planned_site_cannot_be_used_not_even_to_start_it_and_a_ready_one_that_starts_stays_ready_or_is_active_with_a_camera(tmp_path: Path):
     def site(n: int, status: str) -> None:
         _client().post("/api/deployment-import/locations/save", json={"research_project_id": "DONA", "location": {"location_id": f"DONA_0{n}", "name": f"Site {n}", "timezone": "UTC", "ignore_dst": False, "latitude": 37.0 + n / 100, "longitude": -6.5, "status": status}})
 
@@ -1526,21 +1526,20 @@ def test_a_site_that_starts_is_ready_and_active_when_it_puts_a_camera_up_and_a_p
         found = _client().post("/api/deployment-import/locations/list", json={"research_project_id": "DONA"}).json()["results"]
         return next(l["status"] for l in found if l["location_id"] == f"DONA_0{n}")
 
-    def visit_to(n: int, actions: list[str], **over):
-        return _save({**VISIT, "location_id": f"DONA_0{n}", "session": "R0001", "date": "2026-01-10", "actions": actions, "num_photos": None, "sd": f"S{n}", "camera_id": f"C{n}", **over})
+    def visit_to(n: int, actions: list[str]):
+        return _save({**VISIT, "location_id": f"DONA_0{n}", "session": "R0001", "date": "2026-01-10", "actions": actions, "num_photos": None, "sd": f"S{n}", "camera_id": f"C{n}"})
 
     with _in(tmp_path):
         _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
-        site(4, "planned"); site(5, "planned"); site(6, "ready")
-        refused = visit_to(4, ["Installation"])                          # a planned site is only in Settings
-        only = visit_to(5, ["SiteStart"])                                # its start makes it ready — nothing is put up
-        installed = visit_to(4, ["SiteStart", "Installation"])           # and a start with an Installation makes it active
-        ready_one = visit_to(6, ["SiteStart"])                           # a ready site stays so
+        site(4, "planned"); site(5, "ready"); site(6, "ready")
+        planned = visit_to(4, ["SiteStart", "Installation"])             # a planned site is only in Settings: it cannot be used, and a start is a use
+        only = visit_to(5, ["SiteStart"])                                # a ready site stays ready — nothing is put up
+        installed = visit_to(6, ["SiteStart", "Installation"])           # and one that starts with an Installation is active
         result = {n: status_of(n) for n in (4, 5, 6)}
 
-    assert refused.status_code == 422 and "is planned" in refused.json()["detail"]
-    assert only.status_code == 200 and installed.status_code == 200 and ready_one.status_code == 200
-    assert result == {4: "active", 5: "ready", 6: "ready"}
+    assert planned.status_code == 422 and "is planned" in planned.json()["detail"]
+    assert only.status_code == 200 and installed.status_code == 200
+    assert result == {4: "planned", 5: "ready", 6: "active"}
 
 
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():

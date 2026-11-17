@@ -315,7 +315,7 @@ def availability_errors(kept: list[dict], visit: dict, cards: list[dict] | None 
 
 def entity_changes(visit: dict, before: list[dict]) -> list[dict]:
     """What a visit does to the cameras, the SD cards and the site, given the visits kept before it: {"kind": "cameras" | "sd_cards" | "locations", "name", "status": "active" | "ready" | "archived", "reason"}.
-    A camera or a card put in the field is active, and so is the site that has a camera; a site that starts is ready, a planned one included; the one taken away — the camera that was at the site, the card that was in it — is ready again; a camera found stolen is archived
+    A camera or a card put in the field is active, and so is the site that has a camera; a site that starts is ready; the one taken away — the camera that was at the site, the card that was in it — is ready again; a camera found stolen is archived
     (stolen), and its card with it. A visit that could not be made changes nothing."""
     if is_not_revised(visit):
         return []
@@ -572,8 +572,8 @@ def archive_errors(visit: dict, kept: list[dict], location: dict | None, unknown
     and a visit that archives it leaves no camera there — it takes the one that is out away, or finds it stolen — and does not put one up."""
     errors: list[str] = []
     site = str(visit["location_id"]).strip()
-    if location and location.get("status") == "planned" and SITE_START not in (visit.get("actions") or []):   # the start of a planned site is what makes it ready
-        errors.append(_reason("site_planned", f"{site} is planned: it is only in Settings, and no visit is kept for it until it starts or is ready."))
+    if location and location.get("status") == "planned":
+        errors.append(_reason("site_planned", f"{site} is planned: it is only in Settings, and no visit is kept for it until it is ready."))
     if location and location.get("status") == "archived" and (not location.get("status_date") or str(visit.get("date")) > str(location["status_date"])):
         errors.append(_reason("site_archived", f"{site} is archived{' since ' + str(location['status_date']) if location.get('status_date') else ''}: no visit is kept for it after that."))
     actions = visit.get("actions") or []
