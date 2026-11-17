@@ -581,6 +581,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvDefaults, setCsvDefaults] = useState<Record<string, string>>({})
   // The revision before the ones of the file is closed when it has locations still planned: they are marked as not visited, as when a visit by hand asks for it.
   const [csvClose, setCsvClose] = useState(false)
+  const [closeAndRead, setCloseAndRead] = useState(false)   // the revision before is to be closed and the file read again, once the option is on
   // A location that is created starts as UTC, following summer time, unless the file or the defaults say otherwise.
   useEffect(() => {
     if (csvCreate.locations) setCsvDefaults((d) => ({ timezone: 'UTC', daylight_saving: 'yes', ...Object.fromEntries(Object.entries(d).filter(([, v]) => v !== '')) }))
@@ -805,6 +806,19 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     }
   }
   const missingLocations = (csvResult?.new_sites.length ?? 0) > 0
+  // The rows of a revision that cannot start because the one before it is not finished: what is still to be visited there, and the way to finish it.
+  const unfinishedBefore = (() => {
+    if (csvClose) return null
+    const found = (csvResult?.problems ?? []).map((p) => /^(R\d{4}) cannot start: (R\d{4}) is not finished, \d+ location\(s\) still to be visited in it: (.*)\.$/.exec(p.message)).filter((m): m is RegExpExecArray => m !== null)
+    if (found.length === 0) return null
+    const revisions = [...new Set(found.map((m) => m[2]))]
+    return { starts: [...new Set(found.map((m) => m[1]))], revisions, sites: [...new Set(found.flatMap((m) => m[3].split(', ')))] }
+  })()
+  function closeBeforeAndRead() {
+    setCsvClose(true)
+    if (source !== 'wildintel-new') setCloseAndRead(true)   // the file of the new form is read again by itself when the option changes
+  }
+  useEffect(() => { if (closeAndRead) { setCloseAndRead(false); void recheckCsv() } }, [closeAndRead]) // eslint-disable-line react-hooks/exhaustive-deps
   // What is odd in the visits is told in the rows it is about; the notice keeps what no row has.
   const noticeWarnings = (csvResult?.rows?.length ?? 0) > 0 ? (csvResult?.loose_warnings ?? []) : (csvResult?.warnings ?? [])
   // The rows of the file are told by the row-by-row results; when there are none, the problems are listed.
@@ -1655,6 +1669,12 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                   {csvResult.skipped > 0 && <> · {csvResult.skipped} already kept</>}
                   {csvResult.problems.length > 0 && <> · <span className="text-red-600 dark:text-red-400">{csvResult.problems.length} {csvResult.problems.length === 1 ? 'row' : 'rows'} with a problem</span></>}
                 </p>
+                {unfinishedBefore && (
+                  <Notice kind="warning" role="alert" className="mt-4 !items-start" action={<button type="button" className={btnPrimary} disabled={rechecking} onClick={closeBeforeAndRead}>Mark them as not visited and read again</button>}>
+                    <strong>{unfinishedBefore.revisions.join(', ')}</strong> {unfinishedBefore.revisions.length === 1 ? 'is' : 'are'} not finished, so the rows of {unfinishedBefore.starts.join(', ')} are not added: {unfinishedBefore.sites.length} {unfinishedBefore.sites.length === 1 ? 'location is' : 'locations are'} still to be visited there ({unfinishedBefore.sites.join(', ')}).
+                    {' '}Marking {unfinishedBefore.sites.length === 1 ? 'it' : 'them'} as not visited closes {unfinishedBefore.revisions.length === 1 ? 'that revision' : 'those revisions'}, which cannot be changed afterwards. Or correct the file and read it again.
+                  </Notice>
+                )}
                 {listedProblems.length > 0 && (
                   <ul className="mt-4 mb-5 space-y-2 text-base text-red-600 dark:text-red-400 list-disc pl-6" aria-label="Rows with a problem">
                     {listedProblems.map((p) => <li key={p.row}>Row {p.row}: {p.message}</li>)}

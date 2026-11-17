@@ -1071,6 +1071,29 @@ describe('VisitsPage from a CSV file', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('says which revision is not finished when the rows of the next are refused, and closes it — marking the locations as not visited — and reads the file again with one button', async () => {
+    const refused = 'R0002 cannot start: R0001 is not finished, 2 location(s) still to be visited in it: TATR_0002, TATR_0003.'
+    mockedApi.importVisitsCsv
+      .mockResolvedValueOnce({ visits: [], problems: [{ row: 2, message: refused }, { row: 3, message: refused }], skipped: 0, saved: null, new_sites: [], warnings: [] })
+      .mockResolvedValueOnce({ visits: [visit(), visit({ session: 'R0002', date: '2026-11-05' })], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [], closed: [{ location_id: 'TATR_0002', session: 'R0001' }, { location_id: 'TATR_0003', session: 'R0001' }] })
+    await start()
+    await userEvent.selectOptions(await screen.findByLabelText('Photos on the card collected'), 'Fotos')
+    await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
+
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent('R0001 is not finished, so the rows of R0002 are not added')
+    expect(notice).toHaveTextContent('2 locations are still to be visited there (TATR_0002, TATR_0003)')
+    expect(notice).toHaveTextContent('closes that revision, which cannot be changed afterwards')
+    expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(1)
+
+    await userEvent.click(within(notice).getByRole('button', { name: 'Mark them as not visited and read again' }))
+
+    expect(await screen.findByRole('button', { name: 'Add 2 visits' })).toBeInTheDocument()
+    expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(2)
+    expect(mockedApi.importVisitsCsv).toHaveBeenLastCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING, expect.objectContaining({ close_revisions: true }))
+    expect(screen.queryByText(/is not finished, so the rows/)).not.toBeInTheDocument()
+  })
+
   it('waits while the visits are saved: the button says so and cannot be pressed again', async () => {
     let finish: (value: unknown) => void = () => {}
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit(), visit({ session: 'R0002', date: '2026-11-05' })], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
