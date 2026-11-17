@@ -774,7 +774,9 @@ def history_notes(new: list[dict], kept: list[dict]) -> list[str]:
     everything = [*kept, *new]
     for session in sorted({n for n in (_session_number(v.get("session")) for v in new) if n is not None}):
         here = {str(v["location_id"]).lower() for v in everything if _session_number(v.get("session")) == session}
-        before = {str(v["location_id"]) for v in everything if _session_number(v.get("session")) == session - 1}
+        # a site that was archived, or whose camera was taken away or stolen, in the trip before has nothing left out in the field: it is not waited for
+        before = {str(v["location_id"]) for v in everything if _session_number(v.get("session")) == session - 1
+                  and not ({"Archive"} & set(v.get("actions") or []) or _takes_away(v))}
         missing = sorted(s for s in before if s.lower() not in here)
         if missing:
             plural = len(missing) > 1
