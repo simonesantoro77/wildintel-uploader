@@ -3366,7 +3366,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
-            <WizardStep n={1} title="Preprocessing steps" status={destDir ? 'locked' : prepStarted ? 'done' : 'open'} canEdit={!preprocessing} onEdit={handleEditPreprocessSteps}
+            <WizardStep n={1} title="Processing steps" status={destDir ? 'locked' : prepStarted ? 'done' : 'open'} canEdit={!preprocessing} onEdit={handleEditPreprocessSteps}
                         summary={`${activeRows.length} ${activeRows.length === 1 ? 'step' : 'steps'} chosen`}
                         description={destDir ? 'Locked: the deployment is saved and sealed.' : "Choose what to do to the images. They're copied, renamed, resized and tagged into the deployment's folder. Your originals are never touched, and nothing is final until you save."}>
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
@@ -3438,7 +3438,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               </div>
             </WizardStep>
 
-            <WizardStep n={2} title="Preprocessing results" status={destDir ? 'locked' : preprocessing ? 'running' : preprocessError ? 'error' : doneRun ? 'done' : 'locked'} canEdit={resultsDone && !importing && !destDir} onEdit={() => setResultsDone(false)} expanded={doneRun && !resultsDone} badge={preprocessing ? 'Preparing…' : undefined}
+            <WizardStep n={2} title="Processing results" status={destDir ? 'locked' : preprocessing ? 'running' : preprocessError ? 'error' : doneRun ? 'done' : 'locked'} canEdit={resultsDone && !importing && !destDir} onEdit={() => setResultsDone(false)} expanded={doneRun && !resultsDone} badge={preprocessing ? 'Preparing…' : undefined}
                         action={!preprocessing && !destDir && !resultsDone && (doneRun || preprocessError) ? <button type="button" className={btnOutline} disabled={importing} onClick={handlePreprocess}>Prepare again</button> : undefined}
                         summary={preprocessed?.type === 'done' ? `${(preprocessed.processed ?? 0).toLocaleString('en-US')} ${preprocessed.processed === 1 ? 'image' : 'images'} prepared${preprocessed.skipped ? `, ${preprocessed.skipped} skipped` : ''}` : undefined}
                         description={destDir ? 'Locked: the deployment is saved and sealed.' : 'How each step went, and which images, if any, had to be skipped.'}>

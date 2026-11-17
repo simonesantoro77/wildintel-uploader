@@ -666,9 +666,9 @@ failed it (*Out of range*, *Other camera*) as thumbnails. The [report](#reports)
 
 ### Stage 5 — Prepare and save
 
-![Stage 5 — Preprocessing steps](img/screenshots/step-preprocessing.png)
+![Stage 5 — Processing steps](img/screenshots/step-preprocessing.png)
 
-**1. Preprocessing steps.** Choose what to do to the images; the table says what each step does. Press **Start preparing**.
+**1. Processing steps.** Choose what to do to the images; the table says what each step does. Press **Start preparing**.
 
 1. **Copy into the collection** — always. Anything that isn't an image is copied as it is.
 2. **Read the capture dates** — always. From each image's EXIF, as the camera's local time in the
@@ -689,7 +689,7 @@ Each optional step can be switched off for this run (its checkbox). Its values c
 originals are never touched. Nothing is final yet: you can go back, change something and **Prepare again** — the folder is
 simply redone.
 
-**2. Preprocessing results.** The images processed and skipped, a status for each step and, opened from it, the skipped
+**2. Processing results.** The images processed and skipped, a status for each step and, opened from it, the skipped
 images as thumbnails. The [report](#reports) says what was done to each image. **Continue to save** goes on.
 
 **3. Save to your collection.**
