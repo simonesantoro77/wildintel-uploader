@@ -1043,7 +1043,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING_WITHOUT_PHOTOS, {
       create: { locations: true, cameras: true, sd_cards: false, trappers: false },
-      defaults: { latitude: '40.1', longitude: '-3.2', timezone: 'UTC', daylight_saving: 'yes' },
+      defaults: { latitude: '40.1', longitude: '-3.2', timezone: 'UTC', daylight_saving: 'no' },
     }))
   })
 
@@ -1073,6 +1073,13 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(screen.getByRole('switch', { name: 'Create the cameras that do not exist' }))
     await userEvent.click(screen.getByRole('switch', { name: 'Create the SD cards that do not exist' }))
     expect(screen.getByLabelText('Timezone of the new locations')).toHaveValue('UTC')
+    // they come right under the switch of the locations, and with UTC summer time does not apply
+    const locationsSwitch = screen.getByRole('switch', { name: 'Create the locations that do not exist' })
+    const timezone = screen.getByLabelText('Timezone of the new locations')
+    expect(locationsSwitch.compareDocumentPosition(timezone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(timezone.compareDocumentPosition(screen.getByRole('switch', { name: 'Create the cameras that do not exist' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText(/Does not apply: UTC has no summer time/)).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Their cameras follow summer time' })).not.toBeInTheDocument()
     await userEvent.clear(screen.getByLabelText('Timezone of the new locations'))
     await userEvent.type(screen.getByLabelText('Timezone of the new locations'), 'Europe/Madrid')
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
@@ -1094,7 +1101,42 @@ describe('VisitsPage from a CSV file', () => {
     await continueFromTheFile()
 
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { create: { locations: false, cameras: false, sd_cards: false, trappers: true } }))
-    expect(within(await screen.findByRole('list', { name: 'What is created' })).getByText(/1 trapper: Luis Gómez/)).toBeInTheDocument()
+    expect(await screen.findByText(/to add/)).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'What is created' })).not.toBeInTheDocument() // it is said in what is going to be saved
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
+    const plan = await screen.findByRole('region', { name: 'What is going to be saved' })
+    expect(plan).toHaveTextContent('Visits to add1')
+    expect(plan).toHaveTextContent('Trappers to createLuis Gómez')
+  })
+
+  it('shows nothing of the file while it is checked, and the visits are added from a step that says what is going to be done', async () => {
+    const answer = { visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [], create: { locations: [], cameras: [{ camera_id: 'C9' }], sd_cards: [], trappers: [] } }
+    mockedApi.importVisitsCsv.mockResolvedValueOnce({ ...answer, visits: [], problems: [{ row: 2, message: 'Simone is not one of the trappers.' }] })
+    let finish: (value: unknown) => void = () => {}
+    mockedApi.importVisitsCsv.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /^wildintel epicollect csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), file)
+    await continueFromTheFile()
+    expect(await screen.findByText(/to add/)).toHaveTextContent('0 visits to add')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Check again' }))
+    expect(await screen.findByText(/Checking the file/)).toBeInTheDocument()
+    expect(screen.queryByText(/to add/)).not.toBeInTheDocument() // nothing of the reading before, while the file is checked
+    expect(screen.queryByText(/Simone is not one of the trappers/)).not.toBeInTheDocument()
+
+    finish(answer)
+    expect(await screen.findByText(/to add/)).toHaveTextContent('1 visit to add')
+    expect(screen.queryByText(/Checking the file/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Adding the visits also creates/)).not.toBeInTheDocument()
+
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
+    const plan = await screen.findByRole('region', { name: 'What is going to be saved' })
+    expect(plan).toHaveTextContent('Visits to add1')
+    expect(plan).toHaveTextContent('Cameras to createC9')
+    expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(2) // nothing is saved until the button is pressed
   })
 
   it('can say that the photos were not counted, and sends it with the file — off by default', async () => {
@@ -1152,10 +1194,13 @@ describe('VisitsPage from a CSV file', () => {
     expect(await screen.findByText(/to add/)).toHaveTextContent('2 visits to add · 1 already kept · 1 row with a problem')
     expect(screen.getByRole('list', { name: 'Rows with a problem' })).toHaveTextContent("Row 4: 'many' is not a whole number.")
 
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
+
     await userEvent.click(screen.getByRole('button', { name: 'Add 2 visits' }))
     expect(mockedApi.importVisitsCsv).toHaveBeenLastCalledWith('TATR', expect.any(String), true, 'mapped', MAPPING)
     // what was done, as a summary: the success, a table of what was kept and then the buttons
     expect(await screen.findByText('Visits saved')).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: 'What was saved' }))
     const summary = await screen.findByRole('table', { name: 'Summary' })
     expect(summary).toHaveTextContent('Visits added2')
     expect(summary).toHaveTextContent('RevisionsR0001')
@@ -1188,7 +1233,8 @@ describe('VisitsPage from a CSV file', () => {
 
     await userEvent.click(within(notice).getByRole('button', { name: 'Mark them as not visited and read again' }))
 
-    expect(await screen.findByRole('button', { name: 'Add 2 visits' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Continue to the review/ })).toBeEnabled()
+    expect(await screen.findByText(/to add/)).toHaveTextContent('2 visits to add')
     expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(2)
     expect(mockedApi.importVisitsCsv).toHaveBeenLastCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING, expect.objectContaining({ close_revisions: true }))
     expect(screen.queryByText(/is not finished, so the rows/)).not.toBeInTheDocument()
@@ -1201,6 +1247,7 @@ describe('VisitsPage from a CSV file', () => {
     await start()
     await userEvent.selectOptions(await screen.findByLabelText('Photos on the card collected'), 'Fotos')
     await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add 2 visits' }))
 
     const saving = await screen.findByRole('button', { name: /Saving 2 visits… this can take some minutes/ })
@@ -1212,6 +1259,9 @@ describe('VisitsPage from a CSV file', () => {
     expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(2)   // the read and one save, not two
     finish({ visits: [visit()], problems: [], skipped: 0, saved: 2, new_sites: [], warnings: [] })
     expect(await screen.findByText('Visits saved')).toBeInTheDocument()
+    // the steps before are done and sealed: a padlock in the place of the pencil, since the visits cannot be changed
+    expect(screen.getAllByRole('img', { name: 'Locked' }).length).toBeGreaterThanOrEqual(3)
+    expect(screen.queryByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
   })
 
   it('does not read the visits until the site, the actions and when are mapped', async () => {
@@ -1292,8 +1342,14 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
     await continueFromTheFile()
 
-    expect(await screen.findByRole('list', { name: 'Notes on the visits' })).toHaveTextContent('their cameras still out: TATR_0002')
+    const notes = await screen.findByRole('button', { name: /Worth knowing/ })
+    expect(notes).toHaveAttribute('aria-expanded', 'false') // collapsed: they can be long
+    expect(screen.queryByRole('list', { name: 'Notes on the visits' })).not.toBeInTheDocument()
+    await userEvent.click(notes)
+    expect(screen.getByRole('list', { name: 'Notes on the visits' })).toHaveTextContent('their cameras still out: TATR_0002')
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Add 1 visit' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'What was saved' }))
     expect(await screen.findByRole('link', { name: 'Download report' })).toHaveAttribute('href', '/api/reports/20241012-090000_visits_TATR/download?format=csv')
   })
 
@@ -1361,9 +1417,11 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
     await continueFromTheFile()
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
 
     await waitFor(() => expect(screen.getByRole('region', { name: 'Deployments' })).toHaveTextContent('As a result of this new visit, 1 other visit is now closed'))
+    await userEvent.click(await screen.findByRole('button', { name: 'What was saved' }))
     expect(screen.getByRole('table', { name: 'Summary' })).toHaveTextContent('Visits closed — their deployment can be created1')
     expect(screen.queryByRole('button', { name: /Create the deployment of the visit/ })).not.toBeInTheDocument()
   })
@@ -1379,6 +1437,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
     await continueFromTheFile()
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
 
     await userEvent.click(await screen.findByRole('button', { name: 'Create deployment' }))
