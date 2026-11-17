@@ -212,6 +212,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A license set by hand in `settings.toml` is kept and shown as *Other*.
 
 ### Fixed
+- **Register visits › Add the visits**: while the visits are being saved the button says *Saving N visits… this can take some minutes* and cannot be pressed again; before, it showed nothing for minutes, so it was pressed again and several saves ran together.
 - **Forms in steps**: when a step opens, the focus goes to its first control, not to the button at the end of the page (it was lost when the button that was pressed went with its step).
 - A location with the timezone `UTC` (or any other) is accepted on Windows: the app ships the `tzdata` timezone database, which Windows lacks for
   Python's `zoneinfo`, and the executables bundle it.
