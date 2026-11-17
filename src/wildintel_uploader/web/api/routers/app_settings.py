@@ -161,6 +161,23 @@ def save_settings(new: config.Settings) -> dict:
     return _shown(new)
 
 
+class DefaultResearchProjectRequest(BaseModel):
+    acronym: str
+
+
+@router.put("/default-research-project")
+def set_default_research_project(req: DefaultResearchProjectRequest) -> dict:
+    """Changes only the research project that comes filled in everywhere — what the selector of the header does. It must be one of the collections folder."""
+    settings = config.load_settings()
+    wanted = req.acronym.strip().lower()
+    found = next((p["acronym"] for p in local_folder_service.list_research_projects(_root(settings)) if p["acronym"].lower() == wanted), None)
+    if found is None:
+        raise HTTPException(404, f"There is no research project called {req.acronym!r} in the collections folder.")
+    settings.GENERAL.default_research_project = found
+    config.save_settings(settings)
+    return {"default_research_project": found}
+
+
 @router.get("/log")
 def download_log() -> FileResponse:
     """The current log file — to attach to a bug report."""
