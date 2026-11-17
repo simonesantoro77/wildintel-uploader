@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import ActiveProjectCard from '../components/ActiveProjectCard'
 import TaskCard, { ArrowIcon, MENU_ICONS, PageHeader, UTIL_ICONS } from '../components/TaskCard'
 import BackupPage from './BackupPage'
 import RepairPage from './RepairPage'
@@ -38,7 +37,7 @@ export default function UtilsPage({ onBack, onOpenSettings, settingsOpen }: Prop
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <PageHeader icon={MENU_ICONS.utils} title="Utilities" description="Maintenance of the local collections." parent="Menu" onParent={onBack}
-        aside={<ActiveProjectCard of="The utilities" onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />} />
+        withProject />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {UTILS.map((u) => <TaskCard key={u.value} icon={u.icon} title={u.title} description={u.description} onClick={() => setUtil(u.value)} />)}
       </div>

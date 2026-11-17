@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -36,9 +37,9 @@ beforeEach(() => {
 describe('BackupPage', () => {
   it('has the header of the other pages and first asks whether to make a backup or to restore one', async () => {
     const onBack = vi.fn()
-    render(<BackupPage onBack={onBack} />)
+    renderWithHeader(<BackupPage onBack={onBack} />)
 
-    expect(screen.getByRole('navigation', { name: 'You are here' })).toHaveTextContent('Utilities›Backup and restore')
+    expect(screen.getByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Utilities›Backup and restore')
     expect(screen.getByRole('radio', { name: 'Make a backup' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Restore a backup' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Utilities' }))

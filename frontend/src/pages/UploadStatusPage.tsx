@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Icon, StateCard } from '../components/Dashboard'
 import { ActiveFilters, ChevronCell, DashboardHeader, DetailsRow, HELP_ICONS, HelpButton, HelpCard, HelpDrawer, MetricsSection, ProgressCard, RevisionSelection, RowOptions, TABLE, TableCard, TableFooter, TableToolbar } from '../components/DashboardParts'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import DeploymentDetails from '../components/DeploymentDetails'
 import LocationDetails from '../components/LocationDetails'
 import VisitDetails from '../components/VisitDetails'
@@ -10,7 +10,7 @@ import IconButton, { ICON_PATHS } from '../components/IconButton'
 import LinkButton from '../components/LinkButton'
 import UploadList from '../components/UploadList'
 import { Glyph, ViewSwitch, type View } from '../components/ViewSwitch'
-import { Breadcrumb, MENU_ICONS } from '../components/TaskCard'
+import { MENU_ICONS } from '../components/TaskCard'
 import { formatDeploymentPeriod, formatInstant } from '../dateFormat'
 import { readDeployment } from '../deploymentDetails'
 import type { DeploymentFields, DeploymentUploadState, FieldDeployment, LocalLocation, StoredVisit, UploadStateName, UploadTarget } from '../types'
@@ -53,7 +53,7 @@ const STATE_BADGE: Record<UploadStateName, string> = {
 /** The dashboard of the uploads of the default research project: each deployment is to be uploaded to every uploader in use — that is an upload, planned from the start —, and
  * it ends done or failed; a failed one is tried again. A deployment that will not be made (the camera was stolen) has none. */
 export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen, onShowVisit, onShowDeployment, onUpload, search }: Props) {
-  const { project, defaultAcronym, error: projectError } = useDefaultResearchProject(settingsOpen)
+  const { project, error: projectError } = useDefaultResearchProject(settingsOpen)
   const [deployments, setDeployments] = useState<FieldDeployment[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [revision, setRevision] = useState('')
@@ -172,10 +172,9 @@ export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen,
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <Breadcrumb parent="Manage uploads" onParent={onBack} current="Uploads dashboard" />
-      <DashboardHeader icon={MENU_ICONS.upload} title="Uploads dashboard" description="The uploads of the deployments to each uploader in use, and their current status."
+      <DashboardHeader parent="Manage uploads" onParent={onBack} icon={MENU_ICONS.upload} title="Uploads dashboard" description="The uploads of the deployments to each uploader in use, and their current status."
         actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />}
-        aside={project !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={project} defaultAcronym={defaultAcronym} of="The dashboard" onOpenSettings={onOpenSettings} /> : undefined} />
+        withProject />
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
       {project && deployments === null && <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p>}

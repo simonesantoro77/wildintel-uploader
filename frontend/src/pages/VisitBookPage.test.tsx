@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
+import Navbar from '../components/Navbar'
+import { TrailProvider } from '../components/Trail'
 import VisitBookPage from './VisitBookPage'
 import { download } from '../csvFile'
 
@@ -29,7 +31,7 @@ beforeEach(() => {
 // The book is of the default research project: nothing to pick.
 async function pickProject() {
   render(<VisitBookPage onBack={vi.fn()} onImportImages={vi.fn()} />)
-  await screen.findByText('Tatra', { exact: false })
+  await screen.findByRole('table', { name: 'Visits' })
 }
 
 const showAll = async () => { await userEvent.click(await screen.findByRole('button', { name: /^All revisions/ })) }  // the dashboard opens on the latest revision
@@ -67,21 +69,18 @@ describe('VisitBookPage', () => {
     expect(mockedApi.visitBook).toHaveBeenCalledWith('TATR')
   })
 
-  it('is of the default research project, says so, and links to the settings where it is changed', async () => {
-    const onOpenSettings = vi.fn()
-    render(<VisitBookPage onBack={vi.fn()} onOpenSettings={onOpenSettings} />)
+  it('is of the default research project, which the page says and lets change', async () => {
+    render(<VisitBookPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
 
-    expect(await screen.findByText(/Tatra/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Research project')).not.toBeInTheDocument() // no picker: the book is of the default one
-    await userEvent.click(screen.getByRole('button', { name: 'Change it in the settings' }))
-    expect(onOpenSettings).toHaveBeenCalledWith('general')
+    await screen.findByRole('table', { name: 'Visits' })
+    expect(await screen.findByRole('button', { name: 'Default research project' })).toHaveTextContent('TATR — Tatra')
     expect(mockedApi.visitBook).toHaveBeenCalledWith('TATR')
   })
 
   it('says when there is no default research project, or it is not in the collections folder', async () => {
     mockedApi.getSettings.mockResolvedValue({ GENERAL: { default_research_project: null } } as never)
     const { unmount } = render(<VisitBookPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
-    expect(await screen.findByText('No default research project is set.')).toBeInTheDocument()
+    expect(await screen.findByText(/No default research project is set\./)).toBeInTheDocument()
     expect(mockedApi.visitBook).not.toHaveBeenCalled()
     unmount()
 
@@ -115,7 +114,7 @@ describe('VisitBookPage', () => {
     ] })
     const onCreateVisit = vi.fn()
     render(<VisitBookPage onBack={vi.fn()} onImportImages={vi.fn()} onCreateVisit={onCreateVisit} />)
-    await screen.findByText('Tatra', { exact: false })
+    await screen.findByRole('table', { name: 'Visits' })
 
     const table = await screen.findByRole('table', { name: 'Visits' })
     const [done, notDone] = within(table).getAllByRole('row').slice(1)
@@ -160,7 +159,7 @@ describe('VisitBookPage', () => {
     mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null }] } as never)
     const onOpenSettings = vi.fn()
     render(<VisitBookPage onBack={vi.fn()} onOpenSettings={onOpenSettings} />)
-    await screen.findByText('Tatra', { exact: false })
+    await screen.findByRole('table', { name: 'Visits' })
     const table = await screen.findByRole('table', { name: 'Visits' })
 
     await userEvent.click(within(table).getByRole('button', { name: 'TATR_0001' }))
@@ -386,12 +385,16 @@ describe('VisitBookPage', () => {
 
   it('says where it hangs from, Manage visits, and goes back there', async () => {
     const onBack = vi.fn()
-    render(<VisitBookPage onBack={onBack} onOpenSettings={vi.fn()} />)
+    const onMenu = vi.fn()
+    // The path is said in the header of the application.
+    render(<TrailProvider onMenu={onMenu}><Navbar version={null} onHome={vi.fn()} onOpenSettings={vi.fn()} settingsOpen={false} /><VisitBookPage onBack={onBack} onOpenSettings={vi.fn()} /></TrailProvider>)
 
     const here = await screen.findByRole('navigation', { name: 'You are here' })
-    expect(here).toHaveTextContent('Manage visits›Visit dashboard')
+    expect(here).toHaveTextContent('Menu›Manage visits›Visit dashboard')
     await userEvent.click(within(here).getByRole('button', { name: 'Manage visits' }))
     expect(onBack).toHaveBeenCalled()
+    await userEvent.click(within(here).getByRole('button', { name: 'Menu' }))
+    expect(onMenu).toHaveBeenCalled()
   })
 
   it('opens on the visit a link of the deployments dashboard goes to: its revision picked and its row the current one', async () => {
@@ -689,6 +692,23 @@ describe('VisitBookPage', () => {
     expect(screen.getAllByRole('alert').map((a) => a.textContent).join(' | ')).toContain('R0004 is not finished')
     expect(screen.getByRole('button', { name: 'Mark them as not visited' })).toBeInTheDocument()       // and the way to finish it
     expect(screen.queryByText(/has been created/)).not.toBeInTheDocument()
+  })
+
+  it('offers to close a planned revision that has no visit by marking all its locations as not visited, and then plans the next one', async () => {
+    mockedApi.createRevision
+      .mockRejectedValueOnce(new Error('R0004 is planned and has no visit yet: register its first visit before planning the next revision.'))
+      .mockResolvedValueOnce({ session: 'R0005', planned: ['TATR_0001'], previous: null })
+    mockedApi.markNotVisited.mockResolvedValue({ session: 'R0004', marked: ['TATR_0001'] })
+    await pickProject()
+    await userEvent.click(await screen.findByRole('button', { name: 'Create the next revision' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark R0004 as not visited' }))
+    expect(mockedApi.markNotVisited).not.toHaveBeenCalled()                          // it asks first: it cannot be undone
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, mark them and plan the next revision' }))
+
+    await waitFor(() => expect(mockedApi.markNotVisited).toHaveBeenCalledWith('TATR', 'R0004'))
+    await waitFor(() => expect(mockedApi.createRevision).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText(/has been created/)).toBeInTheDocument()
   })
 
   it('shows the visits as a table, as labels or on a map — three buttons at the right of Reset', async () => {

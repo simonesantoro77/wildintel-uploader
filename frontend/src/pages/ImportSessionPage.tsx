@@ -17,7 +17,7 @@ import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from 
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
 import RevisionSquares from '../components/RevisionSquares'
 import { MENU_ICONS, PageHeader } from '../components/TaskCard'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
 import type { ClosedVisitTarget } from '../types'
 import type {
@@ -933,7 +933,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       <PageHeader icon={MENU_ICONS.deployment} title={title}
         description="Imports a folder of deployments — one subfolder each — into their revision. The revision, the checks and the preprocessing are the same for all of them; the location, the dates and the camera are asked for each."
         parent="Manage deployments" onParent={onBack}
-        aside={defaultProject !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={defaultProject} defaultAcronym={defaultAcronym} of="The import" onOpenSettings={onOpenSettings} /> : undefined} />
+        withProject />
 
       {/* Step indicator */}
       <div className="flex items-start mb-10">

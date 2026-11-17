@@ -421,6 +421,14 @@ export const api = {
   epicollectTestConnection: (values: { project_slug: string; client_id: string; client_secret: string }) =>
     post<{ ok: boolean; project: string; slug: string; forms: number; inputs: number }>('/api/epicollect/test-connection', values),
 
+  /** Changes only the default research project — what the selector of the header does. */
+  setDefaultResearchProject: (acronym: string) =>
+    req<{ default_research_project: string }>('/api/settings/default-research-project', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acronym }),
+    }),
+
   saveSettings: (settings: AppSettingsUpdate) =>
     req<AppSettings>('/api/settings', {
       method: 'PUT',

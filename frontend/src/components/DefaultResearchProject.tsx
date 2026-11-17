@@ -4,10 +4,19 @@ import { defaultResearchProject } from '../defaultResearchProject'
 import type { LocalResearchProject } from '../types'
 
 /** The research project the general settings say is the default — the active one — read again when the settings are closed, as it may have been changed. */
+/** Said on the window when the header changes the default research project: the pages read it again. */
+export const DEFAULT_PROJECT_CHANGED = 'wildintel:default-research-project'
+
 export function useDefaultResearchProject(settingsOpen?: boolean): { project: LocalResearchProject | undefined; defaultAcronym: string | null; error: string | null } {
   const [project, setProject] = useState<LocalResearchProject | undefined>(undefined)
   const [defaultAcronym, setDefaultAcronym] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [changes, setChanges] = useState(0)
+  useEffect(() => {
+    const again = () => setChanges(n => n + 1)
+    window.addEventListener(DEFAULT_PROJECT_CHANGED, again)
+    return () => window.removeEventListener(DEFAULT_PROJECT_CHANGED, again)
+  }, [])
   useEffect(() => {
     if (settingsOpen) return
     let cancelled = false
@@ -23,7 +32,7 @@ export function useDefaultResearchProject(settingsOpen?: boolean): { project: Lo
       }
     })()
     return () => { cancelled = true }
-  }, [settingsOpen])
+  }, [settingsOpen, changes])
   return { project, defaultAcronym, error }
 }
 

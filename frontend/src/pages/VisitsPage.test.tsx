@@ -74,10 +74,12 @@ async function pickAction(name: string) {
   }
 }
 
-// A trapper is picked from the list of the settings, as a research project is.
+// A trapper is searched in the compact table of the trappers of the settings and picked from its list.
 async function pickTrapper(name: string) {
-  await userEvent.click(await screen.findByLabelText('Trappers'))
-  await userEvent.click(await screen.findByRole('option', { name }))
+  const search = await screen.findByLabelText('Filter the trappers')
+  await userEvent.clear(search)
+  await userEvent.type(search, name)
+  await userEvent.click(await screen.findByRole('option', { name: new RegExp(name) }))
 }
 
 // The cards of the details are closed until opened.
@@ -158,7 +160,7 @@ describe('VisitsPage', () => {
     expect(screen.getByText('Where was the visit?')).toBeInTheDocument()
     expect(screen.getByLabelText('Research project')).toBeInTheDocument()
     expect(screen.getAllByRole('img', { name: 'Locked' }).length).toBeGreaterThan(0)
-    expect(screen.queryByLabelText('Trappers')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter the trappers')).not.toBeInTheDocument()
   })
 
   it('asks for the location of the research project picked, and opens the form with it as the site and its coordinates', async () => {
@@ -170,7 +172,7 @@ describe('VisitsPage', () => {
     expect(screen.getByText(/TATR · TATR_0001, Ridge/)).toBeInTheDocument()
     expect(screen.getByText('Who went, and when?')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Actions' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Trappers')).toBeInTheDocument()
+    expect(screen.getByLabelText('Filter the trappers')).toBeInTheDocument()
     await pickWhen()
     await pickAction('Revision')
     await openSection('SD card'); await openSection('Camera'); await openSection('Site'); await openSection('Grouping and notes')
@@ -335,7 +337,7 @@ describe('VisitsPage', () => {
     render(<VisitsPage onBack={vi.fn()} start={{ researchProjectId: 'TATR', site: 'TATR_0001' }} />)
 
     expect(await screen.findByText(/TATR · TATR_0001, Ridge/)).toBeInTheDocument()
-    expect(await screen.findByLabelText('Trappers')).toBeInTheDocument()   // the next step is open: nothing is asked again
+    expect(await screen.findByLabelText('Filter the trappers')).toBeInTheDocument()   // the next step is open: nothing is asked again
   })
 
   it('warns that a revision cannot start while the one before is not finished, and offers to mark the locations still to be visited as not visited', async () => {
@@ -352,7 +354,7 @@ describe('VisitsPage', () => {
     const warning = await screen.findByRole('alert')
     expect(warning).toHaveTextContent('R0002 cannot start: R0001 is not finished')
     expect(warning).toHaveTextContent('Do you want to mark as not visited the locations of R0001 that still are not visited: TATR_0002?')
-    expect(screen.queryByLabelText('Trappers')).not.toBeInTheDocument()   // the visit cannot go on: the next step stays locked
+    expect(screen.queryByLabelText('Filter the trappers')).not.toBeInTheDocument()   // the visit cannot go on: the next step stays locked
     await userEvent.click(screen.getByRole('button', { name: 'Mark them as not visited' }))
 
     // it is asked again, saying the revision will be consolidated: nothing is marked yet
@@ -364,7 +366,7 @@ describe('VisitsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Yes, mark them as not visited' }))
 
     expect(mockedApi.markNotVisited).toHaveBeenCalledWith('TATR', 'R0001')
-    expect(await screen.findByLabelText('Trappers')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Filter the trappers')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -390,7 +392,7 @@ describe('VisitsPage', () => {
     }))
     // the steps stay as they were kept: locked, each with its summary, and with no form to change them
     expect(screen.queryByRole('button', { name: 'Edit Where was the visit?' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Trappers')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter the trappers')).not.toBeInTheDocument()
     expect(screen.getAllByRole('img', { name: 'Locked' }).length).toBeGreaterThanOrEqual(5)
     expect(screen.getByText(/TATR · TATR_0001/)).toBeInTheDocument()
     expect(screen.getByText(/Ana Pérez · 2 Oct 2026, 08:14/)).toBeInTheDocument()
@@ -657,14 +659,16 @@ describe('VisitsPage', () => {
     const who = within(screen.getByRole('list', { name: 'Who went' }))
     expect(who.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Ana Pérez×', 'Luis×'])
 
-    // the ones on the visit are no longer offered
-    await userEvent.click(screen.getByLabelText('Trappers'))
-    expect(screen.queryByRole('option', { name: 'Luis' })).not.toBeInTheDocument()
+    // the ones on the visit are marked in the list
+    await userEvent.clear(screen.getByLabelText('Filter the trappers'))
+    await userEvent.type(screen.getByLabelText('Filter the trappers'), 'Luis')
+    expect(await screen.findByRole('option', { name: /Luis/ })).toHaveAttribute('aria-selected', 'true')
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Ana Pérez' }))
     expect(who.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Luis×'])
-    await userEvent.click(screen.getByLabelText('Trappers'))
-    expect(await screen.findByRole('option', { name: 'Ana Pérez' })).toBeInTheDocument()
+    await userEvent.clear(screen.getByLabelText('Filter the trappers'))
+    await userEvent.type(screen.getByLabelText('Filter the trappers'), 'Ana')
+    expect(await screen.findByRole('option', { name: /Ana Pérez/ })).toHaveAttribute('aria-selected', 'false')
   })
 
   it('does not ask who set the camera up again: it is who went, which was asked first', async () => {
@@ -755,8 +759,8 @@ describe('VisitsPage', () => {
     mockedApi.getSettings.mockResolvedValue({ ...APP_SETTINGS, FIELDWORK: { ...APP_SETTINGS.FIELDWORK, trappers: [{ username: 'marta', name: 'Marta', affiliation: null }] } })
     view.rerender(<VisitsPage onBack={vi.fn()} onOpenSettings={vi.fn()} settingsOpen={false} />)
 
-    await userEvent.click(await screen.findByLabelText('Trappers'))
-    expect(await screen.findByRole('option', { name: 'Marta' })).toBeInTheDocument()
+    await userEvent.type(await screen.findByLabelText('Filter the trappers'), 'Mar')
+    expect(await screen.findByRole('option', { name: /Marta/ })).toBeInTheDocument()
   })
 
   it('goes back to the menu', async () => {

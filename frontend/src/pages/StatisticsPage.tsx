@@ -1,12 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
-import { Breadcrumb } from '../components/TaskCard'
 import { Icon, StateCard } from '../components/Dashboard'
 import {
   ActiveFilters, ChevronCell, DashboardHeader, DetailsRow, HELP_ICONS, HelpButton, HelpCard, HelpDrawer, MetricsSection, RevisionSelection, TABLE, TableCard, TableFooter, TableToolbar,
 } from '../components/DashboardParts'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import { Columns, ImagesPerDay, SequencesOfDeployment } from '../components/StatisticsCharts'
 import StatisticsComparator, { TREND_TONE } from '../components/StatisticsComparator'
 import type { Column } from '../components/StatisticsCharts'
@@ -161,7 +160,7 @@ function MonthNav({ months, month, onChange, name }: { months: string[]; month: 
 
 /** The statistics of a revision of the default research project: the figures of its deployments — days, images, images per day, sequences, the longest sequence —, how those are
  * distributed, and each deployment against the previous revisions of its location. A deployment can be isolated, to see the figures of that one alone. */
-export default function StatisticsPage({ onBack, onOpenSettings, settingsOpen, focus }: Props) {
+export default function StatisticsPage({ onBack, settingsOpen, focus }: Props) {
   const { project, defaultAcronym, error: projectError } = useDefaultResearchProject(settingsOpen)
   const [collections, setCollections] = useState<RepairCollection[]>([])
   const [collectionName, setCollectionName] = useState('')
@@ -297,13 +296,12 @@ export default function StatisticsPage({ onBack, onOpenSettings, settingsOpen, f
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8 print:max-w-none print:px-0 print:py-0">
-      <div className="print:hidden"><Breadcrumb parent="Manage deployments" onParent={onBack} current="Statistics" /></div>
-      {/* what the paper starts with: the report's own head */}
+            {/* what the paper starts with: the report's own head */}
       <div className="mb-5 hidden border-b border-zinc-300 pb-3 print:block">
         <p className="text-xl font-semibold">Statistics report — {project?.acronym ?? defaultAcronym}{collectionName ? ` · Revision ${collectionName}` : ''}</p>
         <p className="text-xs text-zinc-600">{isolated ? `Figures of ${isolated} alone` : `Figures of the ${all.length} deployments of the revision`} · {formatInstant(new Date().toISOString())} · WildINTEL Uploader</p>
       </div>
-      <div className="print:hidden"><DashboardHeader icon={<path d="M3 3v18h18M7 15l4-4 3 3 5-6" />} title="Statistics" description="Each deployment of a revision against the previous revisions of its location."
+      <div className="print:hidden"><DashboardHeader parent="Manage deployments" onParent={onBack} icon={<path d="M3 3v18h18M7 15l4-4 3 3 5-6" />} title="Statistics" description="Each deployment of a revision against the previous revisions of its location."
         actions={<>
           <HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />
           <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} disabled={!rows || rows.length === 0 || printing} title="Print the report of the revision, or save it as a PDF" onClick={() => setPrinting(true)}>
@@ -311,7 +309,7 @@ export default function StatisticsPage({ onBack, onOpenSettings, settingsOpen, f
             Print the report
           </button>
         </>}
-        aside={project !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={project} defaultAcronym={defaultAcronym} of="The statistics" onOpenSettings={onOpenSettings} /> : undefined} /></div>
+        withProject /></div>
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 

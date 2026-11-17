@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { DashboardBar } from './PageBar'
 
 export const taskCard = 'rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 transition-colors hover:border-blue-500 dark:hover:border-blue-500 cursor-pointer'
 
@@ -28,42 +29,14 @@ export const UTIL_ICONS = {
   sync: <><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 15.5 6.2L21 16" /><path d="M16 16h5v5" /></>,
 }
 
-/** Where a page hangs from: the section before it, to go back to, and the page itself. */
-export function Breadcrumb({ parent, onParent, current }: { parent: string; onParent?: () => void; current: string }) {
-  return (
-    <nav aria-label="You are here" className="mb-3 flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-      {onParent ? <button type="button" className="hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline" onClick={onParent}>{parent}</button> : <span>{parent}</span>}
-      <span aria-hidden="true">›</span>
-      <span aria-current="page" className="font-medium text-zinc-900 dark:text-zinc-100">{current}</span>
-    </nav>
-  )
-}
-
-/** The title of a page: the way back to the section it hangs from, the icon, the title and what it is for. */
-export function PageHeader({ icon, title, description, parent, onParent, aside, actions }: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; aside?: ReactNode; actions?: ReactNode }) {
-  return (
-    <>
-      <Breadcrumb parent={parent} onParent={onParent} current={title} />
-      <header className="mb-6 flex flex-col gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 px-5 py-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <div className="flex items-center gap-4">
-            <span className="w-12 h-12 flex items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 shrink-0"><LineIcon size={22}>{icon}</LineIcon></span>
-            <div>
-              <h1 className="text-2xl font-bold">{title}</h1>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm">{description}</p>
-            </div>
-          </div>
-          {actions && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Page actions">{actions}</div>}
-        </div>
-        {aside && <div className="shrink-0">{aside}</div>}
-      </header>
-    </>
-  )
+/** The title of a page: the path to it, the title and what it is for. */
+export function PageHeader(props: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; withProject?: boolean; actions?: ReactNode }) {
+  return <DashboardBar {...props} label="Page actions" />
 }
 
 /** The title of the page of a task, which hangs from the menu. */
-export const SectionHeader = (props: { icon: ReactNode; title: string; description: string; onMenu: () => void }) =>
-  <PageHeader icon={props.icon} title={props.title} description={props.description} parent="Menu" onParent={props.onMenu} />
+export const SectionHeader = (props: { icon: ReactNode; title: string; description: string; onMenu: () => void; withProject?: boolean }) =>
+  <PageHeader icon={props.icon} title={props.title} description={props.description} parent="Menu" onParent={props.onMenu} withProject={props.withProject} />
 
 /** A task to choose, in a card of its own: its icon and an arrow on top, then its title and what it does. */
 export default function TaskCard({ icon, title, description, onClick, selected = false }: { icon: ReactNode; title: string; description: string; onClick: () => void; selected?: boolean }) {

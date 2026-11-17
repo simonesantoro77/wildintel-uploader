@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import TaskCard, { MENU_ICONS, SectionHeader } from '../components/TaskCard'
+import TaskCard, { MENU_ICONS } from '../components/TaskCard'
+import { DashboardBar } from '../components/DashboardParts'
 import type { ClosedVisitTarget } from '../types'
 import { btnOutline } from './ImportDeploymentPage'
 import VisitBookPage from './VisitBookPage'
@@ -33,8 +34,8 @@ export default function VisitsHomePage({ onBack, onOpenSettings, settingsOpen, o
   if (view === 'book') return <VisitBookPage onBack={() => setView(null)} onImportImages={onImportImages} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onShowDeployment={onShowDeployment} focus={focusVisit} onCreateVisit={(target) => { setStart(target); setView('register') }} />
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <SectionHeader icon={MENU_ICONS.visits} title="Manage visits" description="The visits to the camera traps, from which the deployments are worked out." onMenu={onBack} />
+    <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-3">
+      <DashboardBar icon={MENU_ICONS.visits} title="Manage visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Menu" onParent={onBack} withProject />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TaskCard icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard"
                   description="The visits kept to a research project: which were made, which have the camera out or the card collected, and which are still to do." onClick={() => setView('book')} />

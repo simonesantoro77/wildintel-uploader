@@ -32,7 +32,7 @@ beforeEach(() => {
 })
 
 const getStarted = async () => userEvent.click(await screen.findByRole('button', { name: /get started/i }))
-const title = () => screen.findByRole('button', { name: /WildINTEL Uploader\s*v0\.1\.0/ })
+const title = () => screen.findByRole('button', { name: 'Go to the welcome screen' })
 
 describe('App', () => {
   it('goes back to the welcome screen when the title is pressed, from wherever you are', async () => {

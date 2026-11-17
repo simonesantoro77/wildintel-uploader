@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import { defaultResearchProject } from '../defaultResearchProject'
 import Combobox from '../components/Combobox'
-import ActiveProjectCard from '../components/ActiveProjectCard'
 import BackButton from '../components/BackButton'
 import WizardStep from '../components/WizardStep'
 import { PageHeader, UTIL_ICONS } from '../components/TaskCard'
@@ -82,7 +81,7 @@ function TimeChart({ timeline }: { timeline: Timeline }) {
 /** Checking and fixing the dates and times of the images in a folder: where the clock went wrong, a run of images shifted
  * by an offset (or to match an image whose real time is known), images with no time to trust removed — every fix written
  * down. */
-export default function TimeFixPage({ initial, onBack, onOpenSettings, settingsOpen, parent = 'Utilities' }: {
+export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
   /** Opened from where the dates were found wrong: the folder, and the research project and visit its dates are checked against. */
   initial?: { folder: string; researchProjectId?: string; visit?: StoredVisit }
   onBack?: () => void
@@ -197,7 +196,7 @@ export default function TimeFixPage({ initial, onBack, onOpenSettings, settingsO
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-8 space-y-6">
-      <PageHeader icon={UTIL_ICONS.timefix} title="Check and fix dates and times" parent={parent} onParent={onBack} aside={<ActiveProjectCard of="The dates" onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
+      <PageHeader icon={UTIL_ICONS.timefix} title="Check and fix dates and times" parent={parent} onParent={onBack} withProject
         description="For the images of a card copied to a folder whose camera clock went wrong: see where the time jumps, shift the dates and remove the images that can’t be trusted."
         actions={<HelpButton label="Help" expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 

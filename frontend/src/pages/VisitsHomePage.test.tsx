@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -39,13 +40,13 @@ describe('VisitsHomePage', () => {
 
   it('says where each page hangs from, and goes back there from the breadcrumb', async () => {
     const onBack = vi.fn()
-    render(<VisitsHomePage onBack={onBack} />)
+    renderWithHeader(<VisitsHomePage onBack={onBack} />)
     expect(screen.getByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Manage visits')
     await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
     expect(onBack).toHaveBeenCalledTimes(1)
 
     await userEvent.click(screen.getByRole('button', { name: /register visits/i }))
-    expect(await screen.findByRole('navigation', { name: 'You are here' })).toHaveTextContent('Manage visits›Register visits')
+    expect(await screen.findByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Manage visits›Register visits')
     await userEvent.click(screen.getByRole('button', { name: 'Manage visits' }))
     expect(screen.getByRole('heading', { name: 'Manage visits' })).toBeInTheDocument()
   })

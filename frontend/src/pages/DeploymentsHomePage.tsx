@@ -12,7 +12,7 @@ interface Props {
 export default function DeploymentsHomePage({ onBack, onChoose }: Props) {
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <SectionHeader icon={MENU_ICONS.deployment} title="Manage deployments" description="Import the images of a deployment, see how far the deployments are, or compare them with the previous revisions." onMenu={onBack} />
+      <SectionHeader icon={MENU_ICONS.deployment} title="Manage deployments" description="Import the images of a deployment, see how far the deployments are, or compare them with the previous revisions." onMenu={onBack} withProject />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TaskCard icon={<><path d="M18 20V10M12 20V4M6 20v-6" /></>} title="Deployments dashboard"
                   description="The deployments the visits say and their statistics: which are created (their images stored), which are not yet, and which are uploaded to Trapper." onClick={() => onChoose('status')} />

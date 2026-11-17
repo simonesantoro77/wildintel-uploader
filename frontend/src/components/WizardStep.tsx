@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 /** One step of the page: open (its content), done (a tick, a summary and a
  * pencil button to edit it), locked (greyed, until the steps before it are done)
@@ -25,6 +25,20 @@ export default function WizardStep({ n, title, description, status, summary, can
   children?: ReactNode
 }) {
   const locked = status === 'locked'
+  // When a step opens — the one before it was finished, or it was reopened with its pencil — the focus goes to its first control, unless the user
+  // is somewhere else: the button that was pressed has gone with its step, and the focus would otherwise fall to the end of the page.
+  const section = useRef<HTMLElement>(null)
+  const before = useRef(status)
+  useEffect(() => {
+    const was = before.current
+    before.current = status
+    if (status !== 'open' || was === 'open') return
+    const active = document.activeElement
+    // the focus is where the user is working — a control of a step that is open, or of anything but a step —, or it is lost: on the page, or on the content of a step that has closed
+    const lost = !active || active === document.body || !document.contains(active) || active.closest('[data-wizard-step]')?.getAttribute('data-wizard-step') === 'closed'
+    if (!lost) return
+    section.current?.querySelector<HTMLElement>('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]')?.focus()
+  }, [status])
   const shown = status === 'open' || status === 'running' || status === 'error' || expanded
   const circle = {
     done: 'bg-emerald-700 text-white',
@@ -36,7 +50,7 @@ export default function WizardStep({ n, title, description, status, summary, can
   }[status]
   const pill = 'text-xs font-medium px-2 py-0.5 rounded-full'
   return (
-    <section className="py-5 border-t first:border-t-0 [header+&]:border-t-0 border-zinc-200 dark:border-zinc-700">
+    <section ref={section} data-wizard-step={status === 'open' || status === 'running' || status === 'error' ? 'open' : 'closed'} className="py-5 border-t first:border-t-0 [header+&]:border-t-0 border-zinc-200 dark:border-zinc-700">
       <div className="flex items-start gap-3">
         <span className={`w-8 h-8 rounded-full text-sm flex items-center justify-center font-bold flex-shrink-0 ${circle}`}>
           {status === 'done'
