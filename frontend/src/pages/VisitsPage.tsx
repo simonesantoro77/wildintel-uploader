@@ -1710,7 +1710,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 )}
                 {csvSaved === null && (
                   <div className="mt-4 flex justify-end">
-                    <button type="button" className={btnPrimary} disabled={csvResult.visits.length === 0 || csvSaving} aria-busy={csvSaving} onClick={() => void addCsvVisits()}>
+                    <button type="button" className={`${btnPrimary} inline-flex items-center gap-2`} disabled={csvResult.visits.length === 0 || csvSaving} aria-busy={csvSaving} onClick={() => void addCsvVisits()}>
+                      {csvSaving && <span aria-hidden="true" className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none" />}
                       {csvSaving
                         ? `Saving ${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'}… this can take some minutes`
                         : `Add ${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'}`}
@@ -1835,7 +1836,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       {/* once the visits are kept the step of the end has its own way back: "Or go back to" */}
       {!justAdded && csvSaved === null && (
         <div className="mt-6">
-          <BackButton onClick={onBack} />
+          <BackButton onClick={onBack} disabled={csvSaving} />
         </div>
       )}
     </div>

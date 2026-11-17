@@ -1082,6 +1082,9 @@ describe('VisitsPage from a CSV file', () => {
 
     const saving = await screen.findByRole('button', { name: /Saving 2 visits… this can take some minutes/ })
     expect(saving).toBeDisabled()
+    expect(saving).toHaveAttribute('aria-busy', 'true')
+    expect(saving.querySelector('.animate-spin')).not.toBeNull()          // something moves: it is working
+    expect(screen.getAllByRole('button', { name: 'Back' }).at(-1)).toBeDisabled()   // and the page cannot be left half way
     await userEvent.click(saving)
     expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(2)   // the read and one save, not two
     finish({ visits: [visit()], problems: [], skipped: 0, saved: 2, new_sites: [], warnings: [] })

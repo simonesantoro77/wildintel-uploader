@@ -1413,6 +1413,8 @@ def test_the_locations_as_the_visits_of_a_file_leave_them():
     assert left["DONA_03"] is sites[2]                                                         # archived before: as it was
     assert left["DONA_04"]["status_date"] == "2026-03-01"                                      # archived later than the file says it was given up: the earlier day is the one
     assert sites[1]["status"] == "active"                                                      # the locations that were given are not changed
+
+
 def test_only_one_save_of_visits_runs_at_a_time_for_a_research_project(tmp_path: Path):
     """Pressing Add again while the visits are being saved does not start a second save that would keep them twice: it is refused, and reading is not."""
     from wildintel_uploader.web.api.routers import visits as router
