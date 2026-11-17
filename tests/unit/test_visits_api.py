@@ -1438,6 +1438,43 @@ def test_only_one_save_of_visits_runs_at_a_time_for_a_research_project(tmp_path:
     assert saved.status_code == 200 and saved.json()["saved"]
 
 
+def test_the_save_lock_is_let_go_when_a_save_fails_and_each_research_project_has_its_own(tmp_path: Path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from wildintel_uploader.web.api.routers import visits as router
+    from wildintel_uploader.web.main import app
+    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0013,2026-02-01,08:00,Revision,5\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": True, "save": True}
+    real = router._import_visits_csv
+
+    def broken(req):
+        raise RuntimeError("the disk is full")
+
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        monkeypatch.setattr(router, "_import_visits_csv", broken)
+        failed = TestClient(app, raise_server_exceptions=False).post("/api/visits/import-csv", json=body)
+        monkeypatch.setattr(router, "_import_visits_csv", real)
+        again = _client().post("/api/visits/import-csv", json=body)
+        # a save of one research project does not hold the others, and its name is the same whatever its case
+        lock = router._save_lock("DONA")
+        free = lock.acquire(blocking=False)          # a save that failed left it free (a test that waits here forever would be the lock kept)
+        try:
+            other = router._save_lock("OTHER").acquire(blocking=False)
+            same = router._save_lock("dona").acquire(blocking=False)
+        finally:
+            if free:
+                lock.release()
+            if other:
+                router._save_lock("OTHER").release()
+
+    assert failed.status_code == 500
+    assert free and again.status_code == 200 and again.json()["saved"]    # the failed save did not keep the next ones out
+    assert other is True and same is False
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io
