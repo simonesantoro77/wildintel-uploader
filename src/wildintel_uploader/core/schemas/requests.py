@@ -551,6 +551,8 @@ class ImportVisitsCsvRequest(LocalLocationsRequest):
     create: Optional[dict[str, bool]] = None
     # The revision before the ones the file starts is closed when it has locations still planned: each is marked as not visited (an unknown one is not).
     close_revisions: bool = False
+    # A row with no coordinates of the visit takes those of its location — unless this is off: then it is refused.
+    coordinates_from_location: bool = True
     # The value of a field that the file has no column for, or whose cell is empty: {field: value}.
     defaults: Optional[dict[str, str]] = None
 

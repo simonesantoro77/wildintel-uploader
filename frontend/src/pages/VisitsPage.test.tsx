@@ -1082,6 +1082,22 @@ describe('VisitsPage from a CSV file', () => {
       { create: { locations: true, cameras: true, sd_cards: true }, defaults: { timezone: 'Europe/Madrid', daylight_saving: 'yes' } }))
   })
 
+  it('takes the coordinates of the location for a row that has none, unless it is turned off — then it sends so', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    const toggle = screen.getByRole('switch', { name: 'Use the coordinates of the location when a row has none' })
+    expect(toggle).toBeChecked()                                    // on by default: nothing is sent for it
+    await userEvent.click(toggle)
+    expect(toggle).not.toBeChecked()
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await continueFromTheFile()
+
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { coordinates_from_location: false }))
+  })
+
   it('can ask to close the revision before the ones of the file, and sends it with the file', async () => {
     mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
     render(<VisitsPage onBack={vi.fn()} />)

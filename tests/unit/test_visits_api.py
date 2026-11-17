@@ -34,7 +34,8 @@ def entities_unchecked(request, monkeypatch):
 
     def parse(*a, **k):
         options = dict(a[4] if len(a) > 4 and a[4] else {})
-        options["defaults"] = {"latitude": "37.0", "longitude": "-6.4", **(options.get("defaults") or {})}
+        if not request.node.get_closest_marker("no_default_coordinates"):
+            options["defaults"] = {"latitude": "37.0", "longitude": "-6.4", **(options.get("defaults") or {})}
         if not entities:
             options["check_entities"] = False
         return real(*a[:4], options)
@@ -298,7 +299,7 @@ def test_the_columns_of_a_csv_are_offered_with_the_fields_and_the_column_that_mo
 
     assert body["columns"] == ["Site", "Date", "Time", "Action", "Sd", "Whatever"] and body["sample"] == [["A", "2026-10-02", "08:00", "Revision", "B2", "1"]]
     assert body["mapping"] == {"location_id": "Site", "date": "Date", "time": "Time", "actions": "Action", "sd": "Sd"}
-    assert [f["field"] for f in body["fields"] if f["required"]] == ["location_id", "actions", "latitude", "longitude"]
+    assert [f["field"] for f in body["fields"] if f["required"]] == ["location_id", "actions"]
     assert empty.status_code == 400
 
 
@@ -1597,6 +1598,22 @@ def test_a_file_with_knocked_down_or_damaged_says_the_status_is_not_one_of_the_o
 
     assert answer["visits"] == [] and [p["row"] for p in answer["problems"]] == [2, 3]
     assert all("is not OK, Altered, Stolen, Not revised, New site or Inactive site" in p["message"] for p in answer["problems"])
+
+
+@pytest.mark.no_default_coordinates
+def test_a_row_with_no_coordinates_takes_those_of_its_location_unless_the_import_says_not_to(tmp_path: Path):
+    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0013,2026-02-01,08:00,Revision,5\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        taken = _client().post("/api/visits/import-csv", json=body).json()
+        refused = _client().post("/api/visits/import-csv", json={**body, "coordinates_from_location": False}).json()
+
+    assert taken["problems"] == [] and (taken["visits"][0]["latitude"], taken["visits"][0]["longitude"]) == (37.01, -6.5)       # DONA_01 is where its location is
+    assert any("no coordinates of the visit" in n for n in taken["notes"])
+    assert refused["visits"] == [] and "needs the coordinates of the visit" in refused["problems"][0]["message"]
 
 
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():

@@ -831,8 +831,8 @@ export interface VisitsCsvColumns {
 /** What the import of visits can create when a visit names one that does not exist. */
 export type CsvEntity = 'locations' | 'cameras' | 'sd_cards'
 export type CsvCreate = Record<CsvEntity, boolean>
-/** What is asked of the import besides the file: the entities to create, and the value of the fields the file has no column for. */
-export interface ImportCsvOptions { create?: CsvCreate; defaults?: Record<string, string>; close_revisions?: boolean }
+/** What is asked of the import besides the file: the entities to create, the value of the fields the file has no column for, and whether a row with no coordinates takes those of its location (it does, unless it is turned off). */
+export interface ImportCsvOptions { create?: CsvCreate; defaults?: Record<string, string>; close_revisions?: boolean; coordinates_from_location?: boolean }
 
 /** What reading a CSV file of visits gave: the visits that can be kept, the rows that cannot (numbered as in the file, the header being 1),
  * those already kept, and how many were kept when asked to. */
