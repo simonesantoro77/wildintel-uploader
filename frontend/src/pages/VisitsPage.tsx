@@ -576,7 +576,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvColumns, setCsvColumns] = useState<VisitsCsvColumns | null>(null)
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({})
   // What to create when the file names a location, a camera or an SD card that does not exist, and the value of a field the file has no column for.
-  const [csvCreate, setCsvCreate] = useState<CsvCreate>({ locations: false, cameras: false, sd_cards: false })
+  const [csvCreate, setCsvCreate] = useState<CsvCreate>({ locations: false, cameras: false, sd_cards: false, trappers: false })
   const [csvDefaults, setCsvDefaults] = useState<Record<string, string>>({})
   // The revision before the ones of the file is closed when it has locations still planned: they are marked as not visited, as when a visit by hand asks for it.
   const [csvClose, setCsvClose] = useState(false)
@@ -741,7 +741,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   // Another way to read the visits starts again from the file.
-  useEffect(() => { forgetCsv(); setCsvName(null); setCsvCreate({ locations: false, cameras: false, sd_cards: false }); setCsvDefaults({}); setCsvClose(false); setCsvLocationCoordinates(true) }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { forgetCsv(); setCsvName(null); setCsvCreate({ locations: false, cameras: false, sd_cards: false, trappers: false }); setCsvDefaults({}); setCsvClose(false); setCsvLocationCoordinates(true) }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
   const defaultsGiven = Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
@@ -756,7 +756,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     csvReading.current++ // what an older file is still being answered is left out
     setCsvResult(null); setCsvError(null); setCsvSaved(null); setCsvColumns(null); setCsvMapping({}); setFileConfirmed(false)
     // what to create and the defaults go with the columns they are for, and the columns are those of a custom CSV
-    if (source !== 'csv') { setCsvCreate({ locations: false, cameras: false, sd_cards: false }); setCsvDefaults({}) }
+    if (source !== 'csv') { setCsvCreate({ locations: false, cameras: false, sd_cards: false, trappers: false }); setCsvDefaults({}) }
   }
 
   async function readCsv(file: File | undefined) {
@@ -877,6 +877,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         ['locations', 'Create the locations that do not exist', 'Needs its coordinates (latitude and longitude) and its timezone; its name is optional.'],
         ['cameras', 'Create the cameras that do not exist', 'Needs the camera id and its model.'],
         ['sd_cards', 'Create the SD cards that do not exist', 'Needs the SD card id and its brand; its capacity is optional.'],
+        ['trappers', 'Create the trappers that do not exist', 'Each person a row says went, who is not a trapper yet, is made as the row calls them: their username is worked out from the name, and the rest is completed in Settings › Trappers.'],
       ] as const).map(([entity, label, hint]) => (
         <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={(on) => setCsvCreate((c) => ({ ...c, [entity]: on }))} />
       ))}
@@ -1701,7 +1702,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     {listedProblems.map((p) => <li key={p.row}>Row {p.row}: {p.message}</li>)}
                   </ul>
                 )}
-                {csvResult.create && (csvResult.create.locations.length + csvResult.create.cameras.length + csvResult.create.sd_cards.length) > 0 && (
+                {csvResult.create && (csvResult.create.locations.length + csvResult.create.cameras.length + csvResult.create.sd_cards.length + (csvResult.create.trappers?.length ?? 0)) > 0 && (
                   <Notice kind="info" className="mt-3 !items-start" role="status">
                     <div>
                       <strong className="font-semibold">Adding the visits also creates</strong>
@@ -1709,6 +1710,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                         {csvResult.create.locations.length > 0 && <li>{csvResult.create.locations.length === 1 ? '1 location' : `${csvResult.create.locations.length} locations`}: {csvResult.create.locations.map((l) => String(l.location_id)).join(', ')}</li>}
                         {csvResult.create.cameras.length > 0 && <li>{csvResult.create.cameras.length === 1 ? '1 camera' : `${csvResult.create.cameras.length} cameras`}: {csvResult.create.cameras.map((c) => String(c.camera_id)).join(', ')}</li>}
                         {csvResult.create.sd_cards.length > 0 && <li>{csvResult.create.sd_cards.length === 1 ? '1 SD card' : `${csvResult.create.sd_cards.length} SD cards`}: {csvResult.create.sd_cards.map((c) => String(c.label)).join(', ')}</li>}
+                        {(csvResult.create.trappers?.length ?? 0) > 0 && <li>{csvResult.create.trappers.length === 1 ? '1 trapper' : `${csvResult.create.trappers.length} trappers`}: {csvResult.create.trappers.map((t) => String(t.name)).join(', ')}</li>}
                       </ul>
                     </div>
                   </Notice>
@@ -1768,7 +1770,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             const sessions = [...new Set(added.map((v) => v.session))].sort()
             const sites = [...new Set(added.map((v) => v.location_id))]
             const made = csvResult.create
-            const madeLine = (kind: 'locations' | 'cameras' | 'sd_cards', key: string) => (made?.[kind] ?? []).map((e) => String(e[key])).join(', ')
+            const madeLine = (kind: 'locations' | 'cameras' | 'sd_cards' | 'trappers', key: string) => (made?.[kind] ?? []).map((e) => String(e[key])).join(', ')
             const lines: [string, ReactNode][] = [
               ['Visits added', csvSaved],
               ['Revisions', sessions.join(', ') || '—'],
@@ -1779,6 +1781,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
               ...((made?.locations.length ?? 0) > 0 ? [['Locations created', madeLine('locations', 'location_id')] as [string, ReactNode]] : []),
               ...((made?.cameras.length ?? 0) > 0 ? [['Cameras created', madeLine('cameras', 'camera_id')] as [string, ReactNode]] : []),
               ...((made?.sd_cards.length ?? 0) > 0 ? [['SD cards created', madeLine('sd_cards', 'label')] as [string, ReactNode]] : []),
+              ...((made?.trappers?.length ?? 0) > 0 ? [['Trappers created', madeLine('trappers', 'name')] as [string, ReactNode]] : []),
               ...(justClosed.length > 0 ? [['Visits closed — their deployment can be created', justClosed.length] as [string, ReactNode]] : []),
             ]
             const shownVisits = added.slice(0, 10)

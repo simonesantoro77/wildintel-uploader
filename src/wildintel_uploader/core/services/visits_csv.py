@@ -7,6 +7,7 @@ import csv
 import datetime as dt
 import io
 import re
+import unicodedata
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -108,6 +109,8 @@ CREATABLE: dict[str, dict] = {
     "locations": {"required": ["location_latitude", "location_longitude", "timezone", "daylight_saving"], "extra": ["location_name", "coordinate_uncertainty"]},
     "cameras": {"required": ["camera_id"], "extra": ["camera_model"]},
     "sd_cards": {"required": ["sd"], "extra": ["sd_brand", "sd_capacity"]},
+    # the people who went are what the visits say they are called (who went, who set up): nothing else is asked of them — their username is worked out from the name
+    "trappers": {"required": [], "extra": []},
 }
 # The fields that are not a visit's but an entity's.
 ENTITY_ONLY = {f: entity for entity, spec in CREATABLE.items() for f in [*spec["required"], *spec["extra"]] if f in ("location_name", "location_latitude", "location_longitude", "timezone", "daylight_saving", "coordinate_uncertainty", "sd_brand", "sd_capacity")}
@@ -673,7 +676,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             reasons.append(visit_rules._reason("camera_unknown", f"The camera {visit['camera_id']} is not one of the cameras of the research project."))
         if check and card and options.get("cards") is not None and card not in cards_known and not create.get("sd_cards"):
             reasons.append(visit_rules._reason("card_unknown", f"The SD card {visit['sd']} is not one of the SD cards of the research project."))
-        if check and options.get("trappers") is not None:
+        if check and options.get("trappers") is not None and not create.get("trappers"):
             known_trappers = {str(t).lower() for t in options["trappers"]}
             reasons += [visit_rules._reason("trapper_unknown", f"{t} is not one of the trappers.") for t in (x.strip() for x in str(visit.get("trappers") or "").split(",")) if t and t.lower() not in known_trappers]
         if reasons:
@@ -725,7 +728,23 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     # what is created is what the visits that are kept need: a location, a camera or an SD card that only a refused visit named is not
     kept_rows = {row_of[id(v)] for v in visits}
     sites = {v["location_id"].lower() for v in visits}
-    create_out: dict[str, list[dict]] = {"locations": [l for site, l in new_locations.items() if site in sites], "cameras": [], "sd_cards": []}
+    create_out: dict[str, list[dict]] = {"locations": [l for site, l in new_locations.items() if site in sites], "cameras": [], "sd_cards": [], "trappers": []}
+    # the people the visits that are kept say went, who are not trappers yet: made as they are called, when the import is asked to
+    trapper_rows: dict[int, list[str]] = {}
+    if create.get("trappers") and options.get("trappers") is not None:
+        have = {str(t).lower() for t in options["trappers"]}
+        taken = {str(u).lower() for u in options.get("trapper_usernames") or []}
+        for visit in visits:
+            for who in (x.strip() for x in str(visit.get("trappers") or "").split(",")):
+                if who and who.lower() not in have:
+                    username = _username_of(who, taken)
+                    taken.add(username.lower()); have.add(who.lower())
+                    create_out["trappers"].append({"username": username, "name": who, "status": "active"})
+                if who and who.lower() in {t["name"].lower() for t in create_out["trappers"]}:
+                    trapper_rows.setdefault(row_of[id(visit)], []).append(who)
+        if create_out["trappers"]:
+            notes.append(f"The trappers {', '.join(t['name'] for t in create_out['trappers'])} {'is' if len(create_out['trappers']) == 1 else 'are'} created as the visits say {'it' if len(create_out['trappers']) == 1 else 'them'}: "
+                         f"their username is worked out from the name ({', '.join(t['username'] for t in create_out['trappers'])}); complete them in Settings › Trappers.")
     for n in sorted(kept_rows):
         for kind in ("cameras", "sd_cards"):
             for entity in made_by_row.get(n, {}).get(kind, []):
@@ -746,6 +765,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         names = [f"the location {l['location_id']}" for l in made_by_row.get(n, {}).get("locations", [])]
         names += [f"the camera {c['camera_id']}" for c in made_by_row.get(n, {}).get("cameras", [])]
         names += [f"the SD card {c['label']}" for c in made_by_row.get(n, {}).get("sd_cards", [])]
+        names += [f"the trapper {w}" for w in dict.fromkeys(trapper_rows.get(n, []))]
         if names and n in report and report[n]["result"] == "ok":
             report[n]["message"] = f"The visit is added, and creates {', '.join(names)}."
     return {"visits": visits, "problems": problems, "rows": [report[n] for n in sorted(report)], "skipped": skipped, "new_sites": new_sites,
@@ -785,6 +805,18 @@ def create_out_locations(new_locations: dict[str, dict], visits: list[dict]) -> 
     """The locations a file makes that a visit kept needs."""
     sites = {v["location_id"].lower() for v in visits}
     return [l for site, l in new_locations.items() if site in sites]
+
+
+def _username_of(name: str, taken: set[str]) -> str:
+    """The username of a trapper made from the name a visit says: the name without accents, in lower case, with a dot between its words (`Ana Pérez` is `ana.perez`) — another number
+    when it is taken (`ana.perez2`). It is what the trapper is called in the app: it can be changed in the settings."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    base = re.sub(r"[^a-z0-9]+", ".", ascii_name.lower()).strip(".") or "trapper"
+    username, n = base, 1
+    while username.lower() in taken:
+        n += 1
+        username = f"{base}{n}"
+    return username
 
 
 def _new_location(site: str, row: dict[str, str]) -> dict:

@@ -1616,6 +1616,29 @@ def test_a_row_with_no_coordinates_takes_those_of_its_location_unless_the_import
     assert refused["visits"] == [] and "needs the coordinates of the visit" in refused["problems"][0]["message"]
 
 
+@pytest.mark.entities
+def test_the_trappers_a_file_says_are_created_when_asked_and_the_visits_are_kept_with_them(tmp_path: Path):
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    text = "location_id,session,date,time,actions,num_photos,who\nDONA_01,R0013,2026-02-01,08:00,Revision,5,\"Luis Gómez, Ana Pérez\"\n"
+    mapping = {"location_id": "location_id", "session": "session", "date": "date", "time": "time", "actions": "actions", "num_photos": "num_photos", "trappers": "who"}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        lfs.write_trappers(tmp_path, [{"username": "ana", "name": "Ana", "status": "active"}, {"username": "luis", "name": "Luis", "status": "active"}, {"username": "ana.perez", "name": "Ana Pérez", "status": "active"}])
+        lfs.write_field_items(tmp_path, "DONA", "cameras", [{"label": "12"}, {"label": "C2"}])
+        lfs.write_field_items(tmp_path, "DONA", "sd_cards", [{"label": "S1"}, {"label": "S2"}])
+        _installed((1, 2))
+        refused = _client().post("/api/visits/import-csv", json=body).json()
+        saved = _client().post("/api/visits/import-csv", json={**body, "create": {"trappers": True}, "save": True}).json()
+        people = {t["username"]: t["name"] for t in lfs.list_trappers(tmp_path)}
+        kept = [v["trappers"] for v in _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"] if v["session"] == "R0013"]
+
+    assert refused["visits"] == [] and "Luis Gómez is not one of the trappers" in refused["problems"][0]["message"]
+    assert saved["problems"] == [] and saved["saved"] == 1
+    assert people == {"ana": "Ana", "luis": "Luis", "ana.perez": "Ana Pérez", "luis.gomez": "Luis Gómez"}                      # only the one that did not exist is made
+    assert kept == ["Luis Gómez, Ana Pérez"]
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io
