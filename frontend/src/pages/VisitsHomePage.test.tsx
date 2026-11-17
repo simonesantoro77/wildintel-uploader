@@ -20,6 +20,12 @@ beforeEach(() => {
 })
 
 describe('VisitsHomePage', () => {
+  it('opens on Register visits when the initial setup leads there', async () => {
+    render(<VisitsHomePage onBack={vi.fn()} startRegister />)
+
+    expect(await screen.findByText('Where do the visits come from?')).toBeInTheDocument()
+  })
+
   it('offers to register visits or to show the visit book, and comes back from each', async () => {
     const onBack = vi.fn()
     render(<VisitsHomePage onBack={onBack} />)

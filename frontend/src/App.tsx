@@ -63,6 +63,10 @@ export default function App() {
   const [statisticsFocus, setStatisticsFocus] = useState<{ collection: string; deploymentId: string } | undefined>(undefined)
   // the deployment whose uploads the uploads dashboard starts on
   const [uploadSearch, setUploadSearch] = useState<string | undefined>(undefined)
+  // the utility Utilities opens on: the initial setup, when Get started finds no research project
+  const [utilStart, setUtilStart] = useState<'setup' | undefined>(undefined)
+  // Manage visits opens on Register visits, when the initial setup leads there
+  const [registerFirst, setRegisterFirst] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -88,11 +92,20 @@ export default function App() {
   }, [])
 
   function goHome() {
-    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setMenuShown(false); setHome(true)
+    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setUtilStart(undefined); setRegisterFirst(false); setMenuShown(false); setHome(true)
   }
 
   function goMenu() {
-    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setHome(false); setMenuShown(true)
+    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setUtilStart(undefined); setRegisterFirst(false); setHome(false); setMenuShown(true)
+  }
+
+  /** Get started: with no research project there is nothing to work on, so the initial setup comes first; otherwise the menu, or the runs that were left unfinished. */
+  async function start() {
+    let none = false
+    try { none = (await api.listResearchProjects()).results.length === 0 } catch { /* it cannot be told: the menu */ }
+    setHome(false)
+    if (none) { setUtilStart('setup'); setMenuShown(true); setTask('utils'); return }
+    if (!unfinishedSessions?.length) setMenuShown(true)
   }
 
   function goToImportOfVisit(target: ClosedVisitTarget) {
@@ -158,13 +171,13 @@ export default function App() {
                   ? <UploadStatusPage settingsOpen={settingsOpen} onOpenSettings={openSettings} onShowVisit={goToVisit} onShowDeployment={goToDeploymentStatus} onUpload={goToUpload} search={uploadSearch} onBack={() => { setUploadsView(null); setUploadSearch(undefined) }} />
                   : <UploadsHomePage onChoose={setUploadsView} onBack={() => setTask(null)} />
               : task === 'utils'
-              ? <UtilsPage onBack={() => setTask(null)} onOpenSettings={openSettings} settingsOpen={settingsOpen} />
+              ? <UtilsPage start={utilStart} onMainMenu={goMenu} onRegisterVisit={() => { setUtilStart(undefined); setRegisterFirst(true); setTask('visits') }} onBack={() => { setTask(null); setUtilStart(undefined) }} onOpenSettings={openSettings} settingsOpen={settingsOpen} />
               : task === 'sync'
               ? <SyncCollectionsPage onBack={() => setTask(null)} />
               : task === 'repair'
               ? <RepairPage onBack={() => setTask(null)} />
               : task === 'visits'
-              ? <VisitsHomePage settingsOpen={settingsOpen} onOpenSettings={openSettings} onImportImages={goToImportOfVisit} onImportImagesOf={goToImportOfProject} onShowDeployment={goToDeploymentStatus} focusVisit={visitFocus} onBack={() => { setTask(null); setVisitFocus(undefined) }} />
+              ? <VisitsHomePage settingsOpen={settingsOpen} onOpenSettings={openSettings} onImportImages={goToImportOfVisit} onImportImagesOf={goToImportOfProject} onShowDeployment={goToDeploymentStatus} focusVisit={visitFocus} startRegister={registerFirst} onBack={() => { setTask(null); setVisitFocus(undefined); setRegisterFirst(false) }} />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage
@@ -176,7 +189,7 @@ export default function App() {
                 )
                 : menuShown
                   ? <MenuPage onChoose={(t) => { setClosedVisitTarget(null); setUploadTarget(null); setUploadsView(null); setDeploymentsView(null); setDeploymentFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setTask(t) }} />
-                  : <WelcomePage onStart={() => { setHome(false); if (!unfinishedSessions?.length) setMenuShown(true) }} />}
+                  : <WelcomePage onStart={() => void start()} />}
         </div>
       </main>
       <Footer />
