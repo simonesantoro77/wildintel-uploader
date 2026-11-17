@@ -390,7 +390,11 @@ What the form only **questions** — a Revision with no photos, a camera or a ca
 A visit is a form with these parts:
 
 1. **Actions** — one or several of *Installation* (a camera is put up and a card left), *Revision* (the card is collected and another left),
-   *Desinstallation* (the camera is taken away with its card) and *Stolen*. The rest of the form depends on what is chosen: what the actions do not
+   *Desinstallation* (the camera is taken away with its card), *Stolen*, *Archive* (the site is given up) and *Site start* (the site begins here: said once, with its first
+   visit, as *Archive* says it ends). In the form that asks questions, the first visit ever to a site in a revision after the first asks whether it is **where the site
+   starts** — off by default, as the site may have been there before with its earlier visits not in the app; in the first revision it is where it starts, and nothing is asked.
+   A site with a *Site start* is not waited for in the revisions before it: they do not need a visit to it, nor an *unknown* one. A site with none keeps what it had: what
+   came before it is *unknown*. The first visit of an existing site can be edited to add it. The rest of the form depends on what is chosen: what the actions do not
    ask is left out. When the camera was already visited, **the Camera, Site and Grouping sections come filled in from the last visit** (not its notes).
 2. **Camera** — the camera (picked from the active ones of the project, or added from here) and how it is placed and set: height or depth, tilt,
    heading, delay, detection distance, its status, whether the batteries and the clock were right. **It comes before the SD card**.
@@ -419,7 +423,7 @@ Any spreadsheet with a row per visit. Press **Register visits › Custom CSV**; 
 
 When the visits are kept, the end says how many were added and, if they **closed other visits** — a visit closes the one that left the camera whose card it collects —, how many: **pick their revision and import their images** is a link to [Import deployment](#import-a-deployment) on the research project. A **report** of the import is written with the other reports.
 
-The rows are read as their fields take them: *a date that is not a date*, *actions that are not Installation, Revision, Desinstallation, Stolen or Archive*, a card code that is not OK, Card full, No batteries or Card full and no batteries, or photos that are not a whole number, are rows with a problem, and none of them is kept. The visits are then checked with [the rules of a visit](#the-rules-of-a-visit), in the order of their instants, each against the ones kept and the ones of the file before it. The visits of a file that fill unknown revisions of the visits kept are checked together, with the ones after them that they touch.
+The rows are read as their fields take them: *a date that is not a date*, *actions that are not Site start, Installation, Revision, Desinstallation, Stolen or Archive* (*New site* as the status of the camera of the Epicollect form, with a location that did not exist, is a Site start), a card code that is not OK, Card full, No batteries or Card full and no batteries, or photos that are not a whole number, are rows with a problem, and none of them is kept. The visits are then checked with [the rules of a visit](#the-rules-of-a-visit), in the order of their instants, each against the ones kept and the ones of the file before it. The visits of a file that fill unknown revisions of the visits kept are checked together, with the ones after them that they touch.
 
 There are example files of every case — all correct, three revisions, a revision that starts before the one before is finished, unknown sites, rows that cannot be read, a card that is left where it cannot be, a theft and a site given up, columns to match by hand — in [`examples/visits_example`](https://github.com/wildintelproject/wildintel-uploader/tree/main/examples/visits_example), in folders by the option they are for — `custom_csv/wicp_02` and `wildintel_csv/wicp_02` —, made for the entities of the research project `WICP_02`.
 

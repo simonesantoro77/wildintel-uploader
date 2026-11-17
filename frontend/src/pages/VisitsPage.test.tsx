@@ -826,6 +826,48 @@ describe('the visit filled in from the last one', () => {
     expect(screen.queryByRole('button', { name: /Fill in from/ })).not.toBeInTheDocument()
   })
 
+  describe('where a site starts', () => {
+    const earlier = (session: string, date: string) => toStored({ ...BLANK, session, when: `${date}T09:00:00`, site: 'TATR_0001', actions: ['Installation'], sd: 'A13' })
+    const withVisitsToAnotherSite = (sessions: [string, string][]) => {
+      const kept = sessions.map(([session, date]) => earlier(session, date))
+      mockedApi.listVisits.mockImplementation(async (_project, site) => ({ results: kept.filter((v) => !site || v.location_id === site) }))
+      mockedApi.listLocalLocations.mockResolvedValue({ results: [location('TATR_0001'), location('TATR_0002')] })
+    }
+    const checkbox = () => screen.queryByRole('checkbox', { name: /This is where TATR_0002 starts/ })
+
+    it('asks whether it is where the site starts, for the first visit ever to a site in a revision after the first', async () => {
+      withVisitsToAnotherSite([['R0001', '2026-06-10'], ['R0002', '2026-08-05']])
+      await chooseByHand()
+      await pickWhere('TATR_0002')
+      await pickWhen()
+
+      const box = await screen.findByRole('checkbox', { name: /This is where TATR_0002 starts/ })
+      expect(box).not.toBeChecked()                                    // off: the site may have been there before, with its earlier visits not here
+      await userEvent.click(box)
+      expect(box).toBeChecked()
+    })
+
+    it('does not ask for the first visit of the first revision — nothing came before', async () => {
+      mockedApi.listLocalLocations.mockResolvedValue({ results: [location('TATR_0001'), location('TATR_0002')] })
+      await chooseByHand()
+      await pickWhere('TATR_0002')
+      await pickWhen()
+
+      expect(await screen.findByText(/This is the first visit to TATR_0002/)).toBeInTheDocument()
+      expect(checkbox()).not.toBeInTheDocument()
+    })
+
+    it('does not ask for a site that has visits already', async () => {
+      mockedApi.listVisits.mockResolvedValue({ results: [earlier('R0001', '2026-06-10')] })
+      await chooseByHand()
+      await pickWhere('TATR_0001')
+      await pickWhen()
+
+      expect(await screen.findByText(/This is not the first visit to/)).toBeInTheDocument()
+      expect(screen.queryByRole('checkbox', { name: /starts/ })).not.toBeInTheDocument()
+    })
+  })
+
   it('fills in the Camera, Site and Grouping sections, not the notes nor the card, and keeps only what the actions then ask', async () => {
     await start()
     await userEvent.click(screen.getByRole('button', { name: 'Fill in from R0001' }))
@@ -1323,6 +1365,16 @@ describe('visitErrors', () => {
     expect(visitErrors(ok, true)).toEqual({ actions: 'The first visit to a site can only be an Installation.' })
     expect(visitErrors({ ...ok, actions: ['Installation', 'Revision'] }, true).actions).toBeDefined()
     expect(visitErrors({ ...ok, actions: ['Installation'], sd: 'A13' }, true)).toEqual({})
+  })
+
+  it('lets the first visit to a site be its start — alone or with an Installation — and not a start with a Revision', () => {
+    expect(visitErrors({ ...ok, actions: ['SiteStart'] }, true).actions).toBeUndefined()
+    expect(visitErrors({ ...ok, actions: ['SiteStart', 'Installation'], sd: 'A13' }, true)).toEqual({})
+    expect(visitErrors({ ...ok, actions: ['SiteStart', 'Revision'] }, true).actions).toBeDefined()
+  })
+
+  it('says Site start where the visit does', () => {
+    expect(visitSummary({ ...BLANK, site: 'TATR_0002', when: '2026-10-02T08:14:05', actions: ['SiteStart', 'Installation'], trappers: 'Ana Pérez' } as never, 'R0004', 'UTC').overview.find((r) => r.label === 'Action performed')?.value).toBe('Site start + Installation')
   })
 
   it('does not require the number of photos when the card was full: it is not counted', () => {

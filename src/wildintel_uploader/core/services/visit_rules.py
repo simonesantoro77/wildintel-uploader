@@ -14,10 +14,14 @@ from __future__ import annotations
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 
-ACTIONS = ("Installation", "Revision", "Desinstallation", "Stolen", "Archive")
+ACTIONS = ("SiteStart", "Installation", "Revision", "Desinstallation", "Stolen", "Archive")
+#: The action that says a site starts — said once, in its first visit, as Archive says it ends. What was before is not expected: the revisions before it do not wait for a visit to the
+#: site, and nothing of them is unknown. A site with no such visit has a start nobody knows: what came before it is unknown.
+SITE_START = "SiteStart"
 # What each action asks: the camera, the card left, the photos collected, and how the camera was found — "required" or "optional". Only an Installation says which camera: the
 # others — a Revision, a Desinstallation, a Stolen camera — are of the one that was there, which the visit before says.
 _ASKED = {
+    "SiteStart": {},  # the site begins here: nothing else is asked (the camera is put up by an Installation, which it can come with)
     "Installation": {"camera": "required", "sd": "required"},
     "Revision": {"sd": "optional", "photos": "required", "camera_status": "optional"},
     "Desinstallation": {"photos": "required", "camera_status": "optional"},
@@ -77,6 +81,23 @@ def card_status_code(value) -> str | None:
     """The status of the SD card as it is written — OK or CardFull, found ignoring case and spaces (and "CarFull", "tarjeta llena" as CardFull) — or None when it is neither."""
     word = "".join(str(value).split()).lower().replace("_", "").replace("-", "")
     return {"ok": "OK", "cardfull": "CardFull", "fullcard": "CardFull", "carfull": "CardFull", "full": "CardFull", "tarjetallena": "CardFull"}.get(word)
+
+
+def site_start_number(site: str, visits: list[dict]) -> int | None:
+    """The revision in which a site starts — that of its visit that says SiteStart — or None when no visit says it: its start is not known."""
+    numbers = [n for v in visits if _same(v.get("location_id"), site) and SITE_START in (v.get("actions") or []) for n in [_session_number(v.get("session"))] if n is not None]
+    return min(numbers) if numbers else None
+
+
+def site_starts(visits: list[dict]) -> dict[str, int]:
+    """The revision in which each site starts (the site, lower case), for the sites whose start is known."""
+    out: dict[str, int] = {}
+    for v in visits:
+        n = _session_number(v.get("session"))
+        if SITE_START in (v.get("actions") or []) and n is not None:
+            site = str(v.get("location_id") or "").lower()
+            out[site] = min(n, out.get(site, n))
+    return out
 
 
 def _stamp(v: dict) -> str:
@@ -448,14 +469,28 @@ def refusals(visit: dict, kept: list[dict], locations: list[dict], cards: list[d
     reasons += order_errors(visit, kept)
     # The first visit to a site puts the camera up: nothing else can be done where no camera is known to be.
     unknown_before = first_may_be_any and (_session_number(visit.get("session")) or 1) > 1
-    if not unknown_before and not is_not_revised(visit) and not any(_same(v["location_id"], visit["location_id"]) and _stamp(v) < _stamp(visit) for v in kept) and list(visit.get("actions") or []) != ["Installation"]:
+    if not unknown_before and not is_not_revised(visit) and not any(_same(v["location_id"], visit["location_id"]) and _stamp(v) < _stamp(visit) for v in kept) and not (visit.get("actions") and set(visit["actions"]) <= {"Installation", SITE_START}):
         reasons.append(_reason("first_visit_not_installation", f"The first visit to {visit['location_id']} can only be an Installation."))
+    reasons += site_start_errors(visit, kept)
     reasons += required_errors(visit).values()
     reasons += availability_errors(kept, visit, cards, unknown).values()
     reasons += archive_errors(visit, kept, next((l for l in locations if _same(l.get("location_id"), visit["location_id"])), None), unknown)
     if gate:
         reasons += [why for _, why in revision_gate([visit], kept, locations, unknown)]
     return reasons
+
+
+def site_start_errors(visit: dict, kept: list[dict]) -> list[str]:
+    """What stops a visit that says a site starts: a site starts once, and with its first visit — one that comes after others to its site is not its start."""
+    if SITE_START not in (visit.get("actions") or []):
+        return []
+    site = str(visit["location_id"]).strip()
+    before = [v for v in kept if _same(v.get("location_id"), site) and _stamp(v) < _stamp(visit)]
+    if any(SITE_START in (v.get("actions") or []) for v in kept if _same(v.get("location_id"), site)):
+        return [_reason("site_start_repeated", f"{site} has started already: a site starts once.")]
+    if before:
+        return [_reason("site_start_not_first", f"The start of {site} has to be its first visit: it has visits before ({before[0].get('session')} on {before[0]['date']}).")]
+    return []
 
 
 def order_errors(visit: dict, kept: list[dict]) -> list[str]:
@@ -486,6 +521,12 @@ def _replay(visit: dict, others: list[dict], locations: list[dict], cards: list[
     if number is not None and any(_same(v["location_id"], visit["location_id"]) and _session_number(v.get("session")) == number for v in others):
         found.append((None, _reason("visit_repeated", f"{visit['location_id']} already has a visit in R{number:04d}: a revision is one visit to each site.")))
     found += [(None, why) for why in refusals(visit, [v for v in others if _stamp(v) < stamp], locations, cards, unknown)]
+    # a site starts once, with its first visit: the visits after this one say it, or this one is before the visit that says it
+    site_later = [v for v in others if _same(v["location_id"], visit["location_id"]) and _stamp(v) > stamp]
+    if SITE_START in (visit.get("actions") or []) and any(SITE_START in (v.get("actions") or []) for v in others if _same(v["location_id"], visit["location_id"])):
+        found.append((None, _reason("site_start_repeated", f"{visit['location_id']} has started already: a site starts once.")))
+    elif SITE_START not in (visit.get("actions") or []) and any(SITE_START in (v.get("actions") or []) for v in site_later):
+        found.append((None, _reason("visit_before_site_start", f"{visit['location_id']} starts after this visit: a visit before the start of its site cannot be kept.")))
     # a revision is after the one before it and before the one after it, whichever the site: a visit cannot go past the visits of another revision
     if number is not None:
         for other in others:
@@ -554,9 +595,10 @@ def not_visited_records(previous: int, visits: list[dict], locations: list[dict]
     # a site that is unknown in the revision is not marked: nothing is known of it, and it counts as visited
     visited = {str(v["location_id"]).lower() for v in of} | {site for n, site in _unknown_keys(unknown) if n == previous}
     records = []
+    starts = site_starts(visits)
     for l in locations:
         site = str(l.get("location_id") or "")
-        if not site or site.lower() in visited or l.get("status") == "planned" or (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start)):
+        if not site or site.lower() in visited or l.get("status") == "planned" or starts.get(site.lower(), 0) > previous or (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start)):
             continue
         camera = camera_at_site(visits, site, f"{last}T23:59:59")
         records.append({"location_id": site, "session": f"R{previous:04d}", "date": last, "time": "23:59:00", "actions": [], "camera_status": "Not revised",
@@ -574,11 +616,13 @@ def unknown_records(new: list[dict], kept: list[dict], unknown: list[dict] | Non
     {"location_id", "session"}. A real visit that comes later takes the place of its unknown one."""
     have = {(_session_number(v.get("session")), str(v["location_id"]).lower()) for v in [*kept, *new]} | _unknown_keys(unknown)
     made: dict[tuple[int, str], dict] = {}
+    starts = site_starts([*kept, *new])
     for v in new:
         number = _session_number(v.get("session"))
         if number is None:
             continue
-        for before in range(1, number):
+        # a site that starts in a revision was not there before it: nothing is unknown of the revisions before its start
+        for before in range(starts.get(str(v["location_id"]).lower(), 1), number):
             key = (before, str(v["location_id"]).lower())
             if key not in have and key not in made:
                 made[key] = {"location_id": str(v["location_id"]), "session": f"R{before:04d}"}
@@ -622,13 +666,16 @@ def unknown_installation_warnings(new: list[dict], kept: list[dict], unknown: li
     return list(dict.fromkeys(said))
 
 
-def revision_missing(number: int, visits: list[dict], locations: list[dict], day: str = "", unknown: list[dict] | None = None) -> list[str]:
+def revision_missing(number: int, visits: list[dict], locations: list[dict], day: str = "", unknown: list[dict] | None = None, starting: list[dict] | None = None) -> list[str]:
     """The locations still to be visited in revision `number`: those that are not archived when it starts (the day of its first visit, or `day` if it has none)
-    and have no visit in it. Empty when the revision is complete — closed."""
+    and have no visit in it, and whose site has started by then. Empty when the revision is complete — closed. `starting` are visits that are not kept yet — the ones being added —
+    that say where a site starts."""
     of = [v for v in visits if _session_number(v.get("session")) == number]
     start = min((str(v["date"]) for v in of), default=day)
+    starts = site_starts([*visits, *(starting or [])])
     expected = [str(l["location_id"]) for l in locations
-                if l.get("location_id") and l.get("status") != "planned" and not (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start))]
+                if l.get("location_id") and l.get("status") != "planned" and not (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start))
+                and starts.get(str(l["location_id"]).lower(), 0) <= number]   # a site that starts after this revision is not waited for in it
     visited = {str(v["location_id"]).lower() for v in of} | {site for n, site in _unknown_keys(unknown) if n == number}
     return sorted(s for s in expected if s.lower() not in visited)
 
@@ -639,13 +686,13 @@ def is_closed_revision(session: str | None, visits: list[dict], locations: list[
     return number is not None and any(_session_number(v.get("session")) == number for v in visits) and not revision_missing(number, visits, locations)
 
 
-def unfinished_revision(number: int, visits: list[dict], locations: list[dict], floor: int, day: str = "", unknown: list[dict] | None = None) -> str | None:
+def unfinished_revision(number: int, visits: list[dict], locations: list[dict], floor: int, day: str = "", unknown: list[dict] | None = None, starting: list[dict] | None = None) -> str | None:
     """Why revision `number` cannot be started: the one before it is not finished. A revision is one visit to each of the locations that are not archived
     when it starts (the day of its first visit; an archived location with no date is archived for good); the first revision of the visits (`floor`) has none before it."""
     previous = number - 1
     if previous < floor:
         return None
-    missing = revision_missing(previous, visits, locations, day, unknown)
+    missing = revision_missing(previous, visits, locations, day, unknown, starting)
     if not missing:
         return None
     return _reason("revision_not_finished", f"R{number:04d} cannot start: R{previous:04d} is not finished, {len(missing)} location(s) still to be visited in it: {', '.join(missing)}.")
@@ -660,7 +707,7 @@ def revision_gate(new: list[dict], kept: list[dict], locations: list[dict], unkn
     floor, accepted, refused = min(numbers), list(kept), []
     for number in sorted({n for n in (_session_number(v.get("session")) for v in new) if n is not None}):
         group = [v for v in new if _session_number(v.get("session")) == number]
-        reason = unfinished_revision(number, accepted, locations, floor, min(str(v["date"]) for v in group), unknown)
+        reason = unfinished_revision(number, accepted, locations, floor, min(str(v["date"]) for v in group), unknown, new)
         if reason:
             refused += [(v, reason) for v in group]
         else:

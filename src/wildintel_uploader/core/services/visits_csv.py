@@ -111,7 +111,9 @@ CREATABLE: dict[str, dict] = {
 }
 # The fields that are not a visit's but an entity's.
 ENTITY_ONLY = {f: entity for entity, spec in CREATABLE.items() for f in [*spec["required"], *spec["extra"]] if f in ("location_name", "location_latitude", "location_longitude", "timezone", "daylight_saving", "coordinate_uncertainty", "sd_brand", "sd_capacity")}
-ACTIONS = {a.lower(): a for a in ("Installation", "Revision", "Desinstallation", "Stolen", "Archive")} | {
+ACTIONS = {a.lower(): a for a in ("SiteStart", "Installation", "Revision", "Desinstallation", "Stolen", "Archive")} | {
+    # the start of a site, as it is told
+    "site start": "SiteStart", "site_start": "SiteStart", "start of site": "SiteStart", "site setup": "SiteStart",
     # as the datasheets of the field work write them
     "i": "Installation", "r": "Revision", "d": "Desinstallation", "robada": "Stolen", "uninstallation": "Desinstallation", "removal": "Desinstallation",
 }
@@ -148,6 +150,9 @@ ERROR_LABELS: dict[str, str] = {
     "site_not_a_location": "Site is not a location",
     "visit_at_the_same_time": "Visit already there at that time",
     "first_visit_not_installation": "First visit is not an Installation",
+    "site_start_repeated": "Site started twice",
+    "site_start_not_first": "Site start is not the first visit",
+    "visit_before_site_start": "Visit before the site started",
     "required_field": "Something its actions ask is missing",
     "camera_not_at_the_site": "Not the camera at the site",
     "camera_installed_here": "Camera already installed here",
@@ -522,6 +527,9 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             if cells.latitude is None or cells.longitude is None:
                 raise RowError("coordinates_missing", "The row needs the coordinates of the visit: a latitude and a longitude.")
             actions = cells.actions
+            # a visit that says New site and makes its site is where the site starts — the form has no action for it, so it is said here
+            if says_new_site and made["locations"] and "SiteStart" not in actions:
+                actions = ["SiteStart", *actions]
             report[n]["actions"] = " + ".join(actions)  # as the dashboard of visits says them
             # a camera and an SD card are what their cell says, stripped; the ones that exist are found ignoring the case
             if create.get("cameras") and cells.camera_id and cells.camera_id.lower() not in cameras_known:
@@ -625,14 +633,14 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             in_use = _archived_by(all_locations, accepted)
             if options.get("close_revisions"):
                 # the revision before is closed as the form does when asked: its locations still planned are marked as not visited (the unknown ones are not: nothing is known of them)
-                marks = visit_rules.not_visited_records(number - 1, accepted, in_use, [*unknown_kept, *unknown])
+                marks = visit_rules.not_visited_records(number - 1, [*accepted, *(v for v in visits if visit_rules.SITE_START in (v.get('actions') or []))], in_use, [*unknown_kept, *unknown])
                 for mark in marks:
                     location = next((l for l in all_locations if str(l.get("location_id", "")).lower() == mark["location_id"].lower()), None)
                     mark["when"] = visit_time.to_when(mark["date"], mark["time"], location)
                     mark["comments"] = "Marked as not visited when the revision after it was added from a file."
                 accepted.extend(marks)
                 closing.extend(marks)
-            gate[number] = visit_rules.unfinished_revision(number, accepted, in_use, floor, day, [*unknown_kept, *unknown])
+            gate[number] = visit_rules.unfinished_revision(number, accepted, in_use, floor, day, [*unknown_kept, *unknown], visits)
         n = row_of[id(visit)]
         reasons = [gate[number]] if number is not None and not fills and gate.get(number) else []
         # a visit that takes the place of an unknown one is put where its instant says, among the visits kept (as in the form)

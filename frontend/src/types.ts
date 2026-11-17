@@ -770,7 +770,7 @@ export interface StoredVisit extends Omit<DeploymentFields, 'deployment_id' | 'l
   /** Where the visit is in its life — kept by the backend when the visit is added, and changed when a later visit collects its card. */
   state?: VisitState | null
   /** What was done at the visit — one or more. */
-  actions: ('Installation' | 'Revision' | 'Desinstallation' | 'Stolen' | 'Archive')[]
+  actions: ('SiteStart' | 'Installation' | 'Revision' | 'Desinstallation' | 'Stolen' | 'Archive')[]
   /** Who went on the visit. */
   trappers: string | null
   /** The status of the camera when the visit found it (Working, Not revised…). */

@@ -375,7 +375,7 @@ class VisitRecord(BaseModel):
     when: Optional[str] = None
     # A visit may do several things: a camera revised and another put up, a card changed and the camera taken away…
     # Empty only for a visit that could not be made (its status says it was not revised): nothing was done at it.
-    actions: list[Literal["Installation", "Revision", "Desinstallation", "Stolen", "Archive"]] = Field(default_factory=list)
+    actions: list[Literal["SiteStart", "Installation", "Revision", "Desinstallation", "Stolen", "Archive"]] = Field(default_factory=list)
     trappers: Optional[str] = None
     # The status of the camera when the visit found it (e.g. Working, Not revised).
     camera_status: Optional[str] = None

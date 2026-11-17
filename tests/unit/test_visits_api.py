@@ -1491,6 +1491,33 @@ def test_saving_the_same_file_again_keeps_nothing_twice_not_even_the_not_visited
         ("DONA_01", "R0012", None), ("DONA_01", "R0013", None), ("DONA_02", "R0012", "Not revised")]
 
 
+def _read_with_gear(rows: list[str], save: bool = False) -> dict:
+    text = "location_id,session,date,time,actions,num_photos,camera_id,sd\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "camera_id", "sd")}
+    return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": False, "save": save}).json()
+
+
+def test_a_site_that_says_site_start_has_nothing_unknown_before_it_and_one_that_does_not_say_it_has(tmp_path: Path):
+    started = ["DONA_01,R0013,2026-02-01,08:00,Revision,5,,", "DONA_02,R0013,2026-02-01,09:00,Revision,5,,",
+               "DONA_01,R0014,2026-03-01,08:00,Revision,5,,", "DONA_02,R0014,2026-03-01,09:00,Revision,5,,", "DONA_03,R0014,2026-03-01,10:00,Site start + Installation,,C9,S9"]
+    plain = [*started[:4], "DONA_03,R0014,2026-03-01,10:00,Installation,,C9,S9"]
+    with _in(tmp_path):
+        _project()
+        _installed((1, 2))
+        _client().post("/api/deployment-import/sd-cards/save", json={"research_project_id": "DONA", "card": {"label": "S9"}})
+        with_start = _read_with_gear(started)
+        without = _read_with_gear(plain)
+
+    assert with_start["problems"] == [] and not any("DONA_03" in n and "unknown" in n for n in with_start["notes"])
+    assert without["problems"] == [] and any("DONA_03" in n and "unknown" in n for n in without["notes"])
+
+
+def test_the_words_site_start_are_an_action_of_a_file():
+    from wildintel_uploader.core.services import visits_csv
+
+    assert [visits_csv.ACTIONS[w] for w in ("site start", "sitestart", "site_start", "site setup")] == ["SiteStart"] * 4
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io
@@ -1533,8 +1560,13 @@ def test_the_examples_of_the_new_form_for_wicp_02_are_imported_in_order_with_no_
             text = (examples / "visits_example" / "wildintel_csv" / "wicp_02" / f"{name}.csv").read_text(encoding="utf-8")
             extra = {"create": {"locations": True, "cameras": True, "sd_cards": True}, "defaults": {"timezone": "UTC", "daylight_saving": "no"}} if name == order[-1] else {}
             answers.append(_client().post("/api/visits/import-csv", json={"research_project_id": "WICP_02", "csv": text, "format": "epicollect-csv", "save": True, **extra}).json())
+        kept = _client().post("/api/visits/list", json={"research_project_id": "WICP_02"}).json()["results"]
+        book = _client().post("/api/visits/book", json={"research_project_id": "WICP_02"}).json()["results"]
 
     assert [(a["problems"], a["saved"]) for a in answers] == [([], 4)] * 6
+    # the visit that says New site is where its site starts (the form has no action for it), so the revisions before it have nothing of it: neither visits nor unknown ones
+    assert [v["actions"] for v in kept if v["location_id"] == "WICP_02_005"][0][0] == "SiteStart"
+    assert [v["session"] for v in book if v["location_id"] == "WICP_02_005"] == ["R0006"]
     made = answers[-1]["create"]
     assert [l["location_id"] for l in made["locations"]] == ["WICP_02_005"] and [c["camera_id"] for c in made["cameras"]] == ["GP1122334455"] and [c["label"] for c in made["sd_cards"]] == ["9"]
 

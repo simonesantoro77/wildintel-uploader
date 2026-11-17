@@ -712,6 +712,14 @@ describe('VisitBookPage', () => {
     expect(await screen.findByText(/has been created/)).toBeInTheDocument()
   })
 
+  it('says Site start for the visit that starts a site', async () => {
+    mockedApi.visitBook.mockResolvedValue({ results: [visit({ session: 'R0004', actions: ['SiteStart', 'Installation'], deployment: 'R0004-TATR_0001', deployment_status: 'open' })] })
+    await pickProject()
+
+    const table = await screen.findByRole('table', { name: 'Visits' })
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('Site start + Installation')
+  })
+
   it('shows the visits as a table, as labels or on a map — three buttons at the right of Reset', async () => {
     await pickProject()
     await screen.findByRole('table', { name: 'Visits' })
