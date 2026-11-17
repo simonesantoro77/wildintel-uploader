@@ -159,16 +159,15 @@ def test_a_location_is_created_with_its_own_coordinates_and_not_with_those_of_th
     assert not plain["problems"] and len(plain["visits"]) == 1
 
 
-def test_the_coordinates_of_a_visit_are_required_in_every_row_and_are_not_taken_from_its_location():
-    import pytest
+def test_the_coordinates_of_a_visit_are_a_column_a_default_or_those_of_its_location_in_that_order():
     from wildintel_uploader.core.services import visits_csv
     locations = [{"location_id": "WICP_0001", "timezone": "UTC", "latitude": 40.0, "longitude": -3.0}]
-    no_column = "site,what,day,hour\nWICP_0001,Installation,2026-09-14,11:40\n"
-    with pytest.raises(visits_csv.VisitsCsvError, match="latitude, longitude"):
-        visits_csv.parse_visits(no_column, locations, [], {k: v for k, v in _MAP.items() if k in ("location_id", "actions", "date", "time")})
+    no_column = "site,what,day,hour,cam,sd\nWICP_0001,Installation,2026-09-14,11:40,C1,1\n"
+    # no column, no default: the location's coordinates are the visit's
+    plain = visits_csv.parse_visits(no_column, locations, [], {k: v for k, v in _MAP.items() if k in ("location_id", "actions", "date", "time", "camera_id", "sd")})
+    assert plain["problems"] == [] and [(v["latitude"], v["longitude"]) for v in plain["visits"]] == [(40.0, -3.0)]
     empty = "site,what,day,hour,lat,lon,cam,sd\nWICP_0001,Installation,2026-09-14,11:40,,,C1,1\n"
-    result = visits_csv.parse_visits(empty, locations, [], _MAP)
-    assert result["visits"] == [] and [(r["row"], r["label"]) for r in result["rows"]] == [(2, "Coordinates of the visit missing")]
+    assert [(v["latitude"], v["longitude"]) for v in visits_csv.parse_visits(empty, locations, [], _MAP)["visits"]] == [(40.0, -3.0)]   # empty cells too
     # a default is a value: it counts as the column, and the visit is where the file says, whatever the location's coordinates
     again = visits_csv.parse_visits(empty, locations, [], _MAP, {"defaults": {"latitude": "40.5", "longitude": "-3.5"}})
     assert [(v["latitude"], v["longitude"]) for v in again["visits"]] == [(40.5, -3.5)]
@@ -393,3 +392,54 @@ def test_an_sd_card_the_import_creates_is_made_as_the_cell_says_it_and_not_twice
     result = _parse(text, locations, [], mapping, {"create": {"sd_cards": True, "cameras": True}, "cards": [{"label": "1"}], "cameras": []})
 
     assert [c["label"] for c in result["create"]["sd_cards"]] == ["7"]      # 7 is new; 1 is the card it has already
+
+
+# ── the coordinates of a visit: required, taken from the location when the file has none ──────────────────────
+
+def _coordinates_case(rows, mapping_extra=None, locations=None, options=None):
+    from wildintel_uploader.core.services import visits_csv
+    text = "site,day,hour,what,cam,sd,lat,lon\n" + "\n".join(rows) + "\n"
+    mapping = {"location_id": "site", "date": "day", "time": "hour", "actions": "what", "camera_id": "cam", "sd": "sd", **(mapping_extra or {})}
+    locations = locations if locations is not None else [{"location_id": "WICP_0001", "latitude": 40.0, "longitude": -3.0, "timezone": "UTC"},
+                                                         {"location_id": "WICP_0002", "latitude": 41.5, "longitude": -3.5, "timezone": "UTC"}]
+    return visits_csv.parse_visits(text, locations, [], mapping, options)
+
+
+def test_a_row_with_no_coordinates_takes_those_of_its_location_and_says_so_once():
+    result = _coordinates_case(["WICP_0001,2026-09-14,11:40,Installation,C1,3,,", "WICP_0002,2026-09-14,12:40,Installation,C2,4,41.6,-3.6"], {"latitude": "lat", "longitude": "lon"})
+
+    got = {v["location_id"]: (v["latitude"], v["longitude"]) for v in result["visits"]}
+    assert result["problems"] == [] and len(result["visits"]) == 2
+    assert got == {"WICP_0001": (40.0, -3.0), "WICP_0002": (41.6, -3.6)}                  # the location's for the row that has none; the row's own for the row that has them
+    assert [n for n in result["notes"] if "no coordinates" in n] == ["1 row has no coordinates of the visit (row 2): the coordinates of their location are used."]
+
+
+def test_a_file_with_no_column_of_coordinates_is_read_with_those_of_the_locations():
+    result = _coordinates_case(["WICP_0001,2026-09-14,11:40,Installation,C1,3,,", "WICP_0002,2026-09-14,12:40,Installation,C2,4,,"])
+
+    assert result["problems"] == []
+    assert [(v["location_id"], v["latitude"], v["longitude"]) for v in result["visits"]] == [("WICP_0001", 40.0, -3.0), ("WICP_0002", 41.5, -3.5)]
+    assert [n for n in result["notes"] if "no coordinates" in n] == ["2 rows have no coordinates of the visit (row 2, 3): the coordinates of their location are used."]
+
+
+def test_a_row_with_only_one_coordinate_or_a_location_with_none_to_take_is_refused_and_says_why():
+    only_one = _coordinates_case(["WICP_0001,2026-09-14,11:40,Installation,C1,3,41.0,"], {"latitude": "lat", "longitude": "lon"})
+    none_there = _coordinates_case(["WICP_0001,2026-09-14,11:40,Installation,C1,3,,"], locations=[{"location_id": "WICP_0001", "latitude": None, "longitude": None, "timezone": "UTC"}])
+
+    assert [p["message"] for p in only_one["problems"]] == ["The row has only one of the coordinates of the visit: it needs a latitude and a longitude, or none (then those of its location are used)."]
+    assert [p["message"] for p in none_there["problems"]] == ["The row has no coordinates of the visit (a latitude and a longitude), and its location has none to take instead."]
+    assert only_one["visits"] == [] and none_there["visits"] == []
+
+
+def test_the_coordinates_of_a_visit_are_not_required_to_be_mapped():
+    from wildintel_uploader.core.services import visits_csv
+
+    assert "latitude" not in visits_csv.REQUIRED and "longitude" not in visits_csv.REQUIRED
+
+
+def test_a_row_with_no_coordinates_is_refused_when_the_import_is_asked_not_to_take_those_of_the_location():
+    off = _coordinates_case(["WICP_0001,2026-09-14,11:40,Installation,C1,3,,"], options={"coordinates_from_location": False})
+    on = _coordinates_case(["WICP_0001,2026-09-14,11:40,Installation,C1,3,,"], options={"coordinates_from_location": True})
+    assert off["visits"] == [] and [p["message"] for p in off["problems"]] == ["The row needs the coordinates of the visit: a latitude and a longitude."]
+    assert len(on["visits"]) == 1 and on["problems"] == []
+

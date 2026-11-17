@@ -57,5 +57,6 @@ wildintel-trapper-sdk = { path = "../wildintel-trapper-sdk", editable = true }
 testpaths = ["tests/unit"]
 markers = [
     "entities: the test keeps the check that the camera, the SD card and the trappers of a visit exist (it is off in the tests of visits)",
+    "no_default_coordinates: the test reads files with no coordinates as they are: the fixture does not give the rows a default (it does, for the others, so that their samples are complete).",
     "gps: the test keeps the check of the distance between the coordinates of a visit and those of its location (it is off in the tests of visits)",
 ]

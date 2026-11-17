@@ -75,8 +75,8 @@ FIELDS: tuple[tuple[str, str, bool], ...] = (
     ("camera_model", "Camera model", False),
     ("comments", "Notes", False),
     ("setup_by", "Set up by", False),
-    ("latitude", "Latitude of the visit (where the trapper was when it was noted)", True),
-    ("longitude", "Longitude of the visit (where the trapper was when it was noted)", True),
+    ("latitude", "Latitude of the visit (where the trapper was when it was noted; the location's when the file has none)", False),
+    ("longitude", "Longitude of the visit (where the trapper was when it was noted; the location's when the file has none)", False),
     ("camera_interval", "Camera delay (s)", False),
     ("camera_height", "Camera height (m)", False),
     ("camera_depth", "Camera depth (m)", False),
@@ -103,7 +103,7 @@ FIELDS: tuple[tuple[str, str, bool], ...] = (
 REQUIRED = tuple(f for f, _, required in FIELDS if required)
 # What the import can create when a visit names a location, a camera or an SD card that does not exist: each one's fields that a row must give — by a column or
 # by a default — and the ones that are only asked for when it is created. The fields of the visit that appear here (camera_id, camera_model, sd) become required
-# when it is; the coordinates of the location are its own (location_latitude, location_longitude), apart from those of the visit, which every row gives.
+# when it is; the coordinates of the location are its own (location_latitude, location_longitude), apart from those of the visit, which a row gives or, when it has none, are those of its location.
 CREATABLE: dict[str, dict] = {
     "locations": {"required": ["location_latitude", "location_longitude", "timezone", "daylight_saving"], "extra": ["location_name", "coordinate_uncertainty"]},
     "cameras": {"required": ["camera_id"], "extra": ["camera_model"]},
@@ -486,6 +486,8 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     skipped = 0
     held: dict[str, list[dict]] = {}  # the visits to sites that are not locations of the research project, by site
     row_warnings: list[tuple[int, str]] = []  # what is odd in a row by itself: its row, and what
+    took_location_coordinates: list[int] = []  # the rows that have no coordinates of the visit: they take those of their location
+    from_location = options.get("coordinates_from_location", True)   # a row with none takes its location's — unless the import is asked not to
     # A revision is one visit to each site: the session and the site of a visit already kept are taken, whatever its camera or its actions
     in_file: dict[tuple[str, str], int] = {}
     same_visit = {(str(v.get("session") or "").upper(), str(v.get("location_id", "")).lower()) for v in kept if v.get("session")}
@@ -524,8 +526,16 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             report[n] |= {"date": date, "time": time[:5]}
             # what the cells say of the visit — each one read as its field takes it, or refused with the code of what is wrong
             cells = CsvVisit.model_validate(row)
-            if cells.latitude is None or cells.longitude is None:
-                raise RowError("coordinates_missing", "The row needs the coordinates of the visit: a latitude and a longitude.")
+            # the coordinates of a visit are required, but a file need not have them: a row that has none takes those of its location (said once, in a note) unless the import is asked not to. One of the two is not enough.
+            if cells.latitude is None and cells.longitude is None:
+                if not from_location:
+                    raise RowError("coordinates_missing", "The row needs the coordinates of the visit: a latitude and a longitude.")
+                if location.get("latitude") is None or location.get("longitude") is None:
+                    raise RowError("coordinates_missing", "The row has no coordinates of the visit (a latitude and a longitude), and its location has none to take instead.")
+                cells.latitude, cells.longitude = float(location["latitude"]), float(location["longitude"])
+                took_location_coordinates.append(n)
+            elif cells.latitude is None or cells.longitude is None:
+                raise RowError("coordinates_missing", "The row has only one of the coordinates of the visit: it needs a latitude and a longitude" + (", or none (then those of its location are used)." if from_location else "."))
             actions = cells.actions
             # a visit that says New site and makes its site is where the site starts — the form has no action for it, so it is said here
             if says_new_site and made["locations"] and "SiteStart" not in actions:
@@ -681,6 +691,10 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         said.append((message, sorted({row_of[id(v)] for v in about if id(v) in row_of})))
     warnings = list(dict.fromkeys(message for message, _ in said))
     notes = visit_rules.history_notes(visits, kept)
+    took = sorted(n for n in took_location_coordinates if n in row_of.values() and any(row_of.get(id(v)) == n for v in visits))
+    if took:
+        shown = ", ".join(str(n) for n in took[:8]) + (f" and {len(took) - 8} more" if len(took) > 8 else "")
+        notes.append(f"{len(took)} {'row has' if len(took) == 1 else 'rows have'} no coordinates of the visit (row {shown}): the coordinates of their location are used.")
     made_here = {l["location_id"].lower() for l in create_out_locations(new_locations, visits)}
     for location in by_new_site:
         if location["location_id"].lower() in made_here:
