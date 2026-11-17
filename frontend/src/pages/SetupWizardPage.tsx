@@ -19,7 +19,7 @@ const ROLES: { value: TrapperRoleName; label: string }[] = [
 
 const ZONES: string[] = typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl ? (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone') : ['UTC']
 
-interface Field { name: string; label: string; required?: boolean; type?: 'text' | 'number' | 'select' | 'zone'; options?: { value: string; label: string }[]; hint?: string; initial?: string }
+interface Field { name: string; label: string; required?: boolean; type?: 'text' | 'number' | 'select' | 'zone' | 'check'; /** When it does not apply, given what is entered: it is off and cannot be changed. */ off?: (values: Record<string, string>) => string | null; options?: { value: string; label: string }[]; hint?: string; initial?: string }
 
 /** A step that collects things one by one: a small form — or a CSV file — and the list of what was entered, each with its way to take it out. Nothing is kept until the review. */
 function AddList({ noun, fields, onAdd, added, onRemove, onContinue, continueLabel = 'Continue', onSkip }: {
@@ -38,7 +38,7 @@ function AddList({ noun, fields, onAdd, added, onRemove, onContinue, continueLab
     e.target.value = ''
     if (!chosen) return
     setError(null); setReport([])
-    const { items, problems } = readItems<Record<string, string | null>>(await chosen.text(), fields.map((f) => ({ key: f.name, label: f.label, strict: f.required, kind: f.type === 'select' ? 'select' : undefined, options: f.options })), empty(), noun)
+    const { items, problems } = readItems<Record<string, string | null>>(await chosen.text(), fields.map((f) => ({ key: f.name, label: f.label, strict: f.required, kind: f.type === 'select' ? 'select' : f.type === 'check' ? 'bool' : undefined, options: f.options })), empty(), noun)
     const lines = [...problems]
     let entered = 0
     for (const [i, item] of items.entries()) {
@@ -69,8 +69,15 @@ function AddList({ noun, fields, onAdd, added, onRemove, onContinue, continueLab
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label={`Add a ${noun}`}>
         {fields.map((f) => (
           <div key={f.name}>
-            <label className={labelClass} htmlFor={`setup-${noun}-${f.name}`}>{f.label}{f.required ? ' *' : ''}</label>
-            {f.type === 'select' ? (
+            {f.type === 'check' ? (
+              <label className="flex items-start gap-2 pt-7 text-sm text-zinc-700 dark:text-zinc-300">
+                <input type="checkbox" className="mt-0.5" checked={!f.off?.(values) && values[f.name] === 'yes'} disabled={!!f.off?.(values)} onChange={(e) => setValues({ ...values, [f.name]: e.target.checked ? 'yes' : '' })} />
+                <span>{f.label}{f.off?.(values) && <span className="block text-xs text-zinc-500 dark:text-zinc-400">{f.off(values)}</span>}</span>
+              </label>
+            ) : (
+              <label className={labelClass} htmlFor={`setup-${noun}-${f.name}`}>{f.label}{f.required ? ' *' : ''}</label>
+            )}
+            {f.type === 'check' ? null : f.type === 'select' ? (
               <select id={`setup-${noun}-${f.name}`} className={inputClass} value={values[f.name]} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}>
                 {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -121,13 +128,16 @@ const CARD = 'rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50
 const HEAD = 'flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100'
 const BIG = `${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`
 
+/** UTC has no summer time: what a site says of it does not apply there. */
+const isUtc = (zone: string) => /^(utc|etc\/utc|gmt|etc\/gmt|z)$/i.test(zone.trim())
+
 const none = (): Outcome => ({ added: [], skipped: [], problems: [] })
 const roleName = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
 interface TrapperIn { username: string; name: string; affiliation: string; email: string }
 interface RoleIn { trapper: string; role: string }
-interface SiteIn { id: string; name: string; latitude: number; longitude: number; timezone: string }
+interface SiteIn { id: string; name: string; latitude: number; longitude: number; timezone: string; ignoreDst: boolean }
 interface ItemIn { label: string; a: string; b: string }   // a camera: its serial number and its model; an SD card: its brand and its capacity
 
 /** The initial setup: a guide that asks, step by step, for the research project, its trappers and their roles, its sites, its cameras and its SD cards; then says what it is going to do, does it, and says what was done. */
@@ -195,7 +205,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     }
     for (const site of sites) {
       try {
-        await api.saveLocalLocation(code, { location_id: site.id, name: site.name || null, timezone: site.timezone, ignore_dst: false, latitude: site.latitude, longitude: site.longitude, coordinate_uncertainty: null, trapper_pk: null, status: 'ready' })
+        await api.saveLocalLocation(code, { location_id: site.id, name: site.name || null, timezone: site.timezone, ignore_dst: site.ignoreDst, latitude: site.latitude, longitude: site.longitude, coordinate_uncertainty: null, trapper_pk: null, status: 'ready' })
         r.sites.added.push(site.id)
       } catch (e) { r.sites.problems.push(`${site.id}: ${message(e, 'it could not be kept.')}`) }
     }
@@ -277,12 +287,12 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       <WizardStep n={4} title="The sites" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="Where the cameras are put up: an id, where it is and its timezone.">
         {step === 4 && (
           <AddList noun="site" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'id', label: 'Site id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }]}
+            fields={[{ name: 'id', label: 'Site id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time.', off: (v) => (isUtc(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
             onAdd={(v) => {
               const latitude = Number(v.latitude), longitude = Number(v.longitude)
               if (!(latitude >= -90 && latitude <= 90) || !(longitude >= -180 && longitude <= 180)) throw new Error('The coordinates must lie within −90 to 90 and −180 to 180.')
               if (sites.some((x) => lower(x.id) === lower(v.id))) throw new Error(`There is a site ${v.id.trim()} already.`)
-              setSites((l) => [...l, { id: v.id.trim(), name: v.name.trim(), latitude, longitude, timezone: v.timezone.trim() }])
+              setSites((l) => [...l, { id: v.id.trim(), name: v.name.trim(), latitude, longitude, timezone: v.timezone.trim(), ignoreDst: v.ignore_dst === 'yes' && !isUtc(v.timezone) }])
             }} />
         )}
       </WizardStep>

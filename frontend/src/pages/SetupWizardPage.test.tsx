@@ -159,4 +159,26 @@ describe('SetupWizardPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('There is a site dona_01 already.')
   })
+
+  it('asks whether the cameras of a site ignore summer time — not when the timezone is UTC, which has none', async () => {
+    render(<SetupWizardPage onBack={vi.fn()} />)
+    await project(); await skip(); await next()
+    const ignore = await screen.findByLabelText(/The cameras here ignore summer time/)
+    expect(ignore).toBeDisabled()                                   // UTC, the default
+    expect(screen.getByText('Summer time is not applied in UTC.')).toBeInTheDocument()
+
+    await userEvent.clear(screen.getByLabelText('Timezone *'))
+    await userEvent.type(screen.getByLabelText('Timezone *'), 'Europe/Madrid')
+    expect(ignore).toBeEnabled()
+    await userEvent.click(ignore)
+    await userEvent.type(screen.getByLabelText('Site id *'), 'DONA_01')
+    await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
+    await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
+    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await next(); await skip(); await skip()
+    await userEvent.click(await screen.findByRole('button', { name: 'Create it' }))
+
+    await screen.findByText('The initial setup is done')
+    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', timezone: 'Europe/Madrid', ignore_dst: true }))
+  })
 })
