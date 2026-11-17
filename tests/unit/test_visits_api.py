@@ -1413,6 +1413,27 @@ def test_the_locations_as_the_visits_of_a_file_leave_them():
     assert left["DONA_03"] is sites[2]                                                         # archived before: as it was
     assert left["DONA_04"]["status_date"] == "2026-03-01"                                      # archived later than the file says it was given up: the earlier day is the one
     assert sites[1]["status"] == "active"                                                      # the locations that were given are not changed
+def test_only_one_save_of_visits_runs_at_a_time_for_a_research_project(tmp_path: Path):
+    """Pressing Add again while the visits are being saved does not start a second save that would keep them twice: it is refused, and reading is not."""
+    from wildintel_uploader.web.api.routers import visits as router
+    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0013,2026-02-01,08:00,Revision,5\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": True}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        lock = router._save_lock("DONA")
+        lock.acquire()                                       # a save of DONA is running
+        try:
+            busy = _client().post("/api/visits/import-csv", json={**body, "save": True})
+            read = _client().post("/api/visits/import-csv", json=body)
+        finally:
+            lock.release()
+        saved = _client().post("/api/visits/import-csv", json={**body, "save": True})
+
+    assert busy.status_code == 409 and "already being saved" in busy.json()["detail"]
+    assert read.status_code == 200
+    assert saved.status_code == 200 and saved.json()["saved"]
 
 
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():

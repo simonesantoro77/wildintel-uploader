@@ -2,6 +2,7 @@
 (see local_folder_service.list_visits and write_visit)."""
 from __future__ import annotations
 
+import threading
 
 from fastapi import APIRouter, HTTPException
 
@@ -285,8 +286,31 @@ def _save_report(research_project_id: str, result: dict, saved: int) -> str | No
         return None
 
 
+# One save of visits at a time for a research project: two saves of the same file, run together, would each keep what the other is keeping.
+_saving: dict[str, threading.Lock] = {}
+_saving_guard = threading.Lock()
+
+
+def _save_lock(research_project_id: str) -> threading.Lock:
+    with _saving_guard:
+        return _saving.setdefault(research_project_id.lower(), threading.Lock())
+
+
 @router.post("/import-csv")
 def import_visits_csv(req: ImportVisitsCsvRequest) -> dict:
+    """Reads the visits of a CSV file and, when `save` is set, keeps them — only one save at a time for a research project: another one is refused (409) while it runs."""
+    if not req.save:
+        return _import_visits_csv(req)
+    lock = _save_lock(req.research_project_id)
+    if not lock.acquire(blocking=False):
+        raise HTTPException(409, f"The visits of {req.research_project_id} are already being saved: wait until that save finishes.")
+    try:
+        return _import_visits_csv(req)
+    finally:
+        lock.release()
+
+
+def _import_visits_csv(req: ImportVisitsCsvRequest) -> dict:
     """Reads the visits of a CSV file for a research project: what can be kept and what is wrong with the rest — kept when `save` is set.
 
     When the visits are kept, the folders of the collections they change get their FileTimestampLog and FieldworkLog."""
