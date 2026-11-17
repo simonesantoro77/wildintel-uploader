@@ -571,6 +571,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [rechecking, setRechecking] = useState(false)
   const [csvResult, setCsvResult] = useState<VisitsCsvResult | null>(null)
   const [csvError, setCsvError] = useState<string | null>(null)
+  const [csvSaving, setCsvSaving] = useState(false) // a save is running: the button waits, so that it is not pressed again
   const [csvSaved, setCsvSaved] = useState<number | null>(null)
   // From a CSV file: its columns, and the one that gives each field of a visit.
   const [csvColumns, setCsvColumns] = useState<VisitsCsvColumns | null>(null)
@@ -827,14 +828,17 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   async function addCsvVisits() {
-    if (!project) return
+    if (!project || csvSaving) return
     setCsvError(null)
+    setCsvSaving(true)
     try {
       const done = await api.importVisitsCsv(project.acronym, csvText, true, csvFormat, source === 'csv' ? csvMapping : undefined, ...readTail)
       setCsvResult(done); setCsvSaved(done.saved)
       void findClosed(done.visits)
     } catch (e) {
       setCsvError(e instanceof Error ? e.message : 'Could not save the visits.')
+    } finally {
+      setCsvSaving(false)
     }
   }
 
@@ -1706,8 +1710,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 )}
                 {csvSaved === null && (
                   <div className="mt-4 flex justify-end">
-                    <button type="button" className={btnPrimary} disabled={csvResult.visits.length === 0} onClick={() => void addCsvVisits()}>
-                      Add {csvResult.visits.length} {csvResult.visits.length === 1 ? 'visit' : 'visits'}
+                    <button type="button" className={btnPrimary} disabled={csvResult.visits.length === 0 || csvSaving} aria-busy={csvSaving} onClick={() => void addCsvVisits()}>
+                      {csvSaving
+                        ? `Saving ${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'}… this can take some minutes`
+                        : `Add ${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'}`}
                     </button>
                   </div>
                 )}
