@@ -1568,6 +1568,37 @@ def test_a_pending_site_starts_with_its_first_camera_and_is_ready_or_active_by_w
     assert result == {4: "active", 5: "ready"}
 
 
+def test_knocked_down_and_damaged_are_not_accepted_as_the_status_of_a_camera_but_what_was_kept_with_them_is_still_read(tmp_path: Path):
+    old = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2026-01-10", "session": "R0001"}
+    with _in(tmp_path):
+        _project(archived=(2, 3))
+        _save(old)
+        refused = [_save({**VISIT, "actions": ["Revision"], "camera_id": "P800", "num_photos": 10, "sd": "B2", "date": "2026-02-10", "session": "R0002", "camera_status": s}) for s in ("Knocked down", "Damaged")]
+        accepted = _save({**VISIT, "actions": ["Revision"], "camera_id": "P800", "num_photos": 10, "sd": "B2", "date": "2026-02-10", "session": "R0002", "camera_status": "Altered"})
+        # a visit kept before, with a status that is no longer accepted, is read as it was kept
+        from wildintel_uploader.core.services import local_folder_service as lfs
+        raw = lfs._raw_visits(tmp_path, "DONA")
+        raw[-1]["camera_status"] = "Damaged"
+        lfs._write_raw_visits(tmp_path, "DONA", raw)
+        book = _client().post("/api/visits/book", json={"research_project_id": "DONA"}).json()["results"]
+
+    assert [r.status_code for r in refused] == [422, 422] and all("OK, Altered, Stolen, Not revised, New site or Inactive site" in str(r.json()["detail"]) for r in refused)
+    assert accepted.status_code == 200
+    assert [v["camera_status"] for v in book if v["session"] == "R0002"] == ["Damaged"]
+
+
+def test_a_file_with_knocked_down_or_damaged_says_the_status_is_not_one_of_the_ones_accepted(tmp_path: Path):
+    text = "location_id,session,date,time,actions,num_photos,camera_status\nDONA_01,R0013,2026-02-01,08:00,Revision,5,Damaged\nDONA_02,R0013,2026-02-01,09:00,Revision,5,Knocked down\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "camera_status")}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}).json()
+
+    assert answer["visits"] == [] and [p["row"] for p in answer["problems"]] == [2, 3]
+    assert all("is not OK, Altered, Stolen, Not revised, New site or Inactive site" in p["message"] for p in answer["problems"])
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io

@@ -71,15 +71,12 @@ const CAMERA_PATHS = {
   ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
   ok: <><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></>,
   altered: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></>,
-  down: <><path d="M12 4v14M6 12l6 6 6-6" /></>,
 }
 
 /** The states a camera that is there is found in, asked by By hand before what is done with it. */
 const FOUND_STATES: { value: string; description: string; icon: ReactNode }[] = [
   { value: 'OK', description: 'All is well', icon: CAMERA_PATHS.ok },
   { value: 'Altered', description: 'Moved or changed', icon: CAMERA_PATHS.altered },
-  { value: 'Knocked down', description: 'Fallen or tilted', icon: CAMERA_PATHS.down },
-  { value: 'Damaged', description: 'Broken or harmed', icon: CAMERA_PATHS.alert },
 ]
 
 /** What was done at the visit — the values the field records read. */
@@ -176,7 +173,7 @@ export function actionsHint(actions: string[]): string {
 }
 
 /** The states a camera is found in. */
-const CAMERA_STATUSES = ['OK', 'Altered', 'Knocked down', 'Damaged']
+const CAMERA_STATUSES = ['OK', 'Altered']
 
 export type CardState = '' | 'OK' | 'Full'
 export type BatteriesState = '' | 'OK' | 'Missing'

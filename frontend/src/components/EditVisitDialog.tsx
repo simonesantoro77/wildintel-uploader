@@ -6,7 +6,7 @@ import { FEATURE_TYPE_OPTIONS, btnOutline, btnPrimary, inputClass } from '../pag
 import Combobox from './Combobox'
 
 const ACTIONS = ['SiteStart', 'Installation', 'Revision', 'Desinstallation', 'Stolen', 'Archive'] as const
-const CAMERA_STATUSES = ['', 'OK', 'Altered', 'Knocked down', 'Damaged', 'Stolen', 'Not revised', 'New site', 'Inactive site'] as const
+const CAMERA_STATUSES = ['', 'OK', 'Altered', 'Stolen', 'Not revised', 'New site', 'Inactive site'] as const
 const BATTERY_CODES = ['', 'OK', 'NoBatteries'] as const
 const CARD_CODES = ['', 'OK', 'CardFull'] as const
 
@@ -146,7 +146,9 @@ export default function EditVisitDialog({ projectId, visit, onClose, onSaved }: 
           {field('ev-photos', 'Photos on the card collected', 'photos', 'number', { min: 0, disabled: form.card === 'CardFull', placeholder: form.card === 'CardFull' ? 'Not counted: the card is full' : undefined })}
           {choice('ev-battery', 'Batteries', 'battery', BATTERY_CODES.map((c) => ({ value: c, label: c || 'Not said' })))}
           {choice('ev-card', 'SD card', 'card', CARD_CODES.map((c) => ({ value: c, label: c || 'Not said' })))}
-          {choice('ev-status', 'Status of the camera', 'status', CAMERA_STATUSES.map((c) => ({ value: c, label: c || 'Not said' })))}
+          {choice('ev-status', 'Status of the camera', 'status', [...CAMERA_STATUSES.map((c) => ({ value: c, label: c || 'Not said' })),
+            // a visit kept with a status that is no longer accepted (Knocked down, Damaged) shows it, so that it can be changed: it cannot be kept as it is
+            ...(form.status && !(CAMERA_STATUSES as readonly string[]).includes(form.status) ? [{ value: form.status, label: `${form.status} (no longer accepted)` }] : [])])}
           {field('ev-dtok', 'Camera date and time OK', 'dateTimeOk')}
           {choice('ev-calibration', 'Camera calibrated', 'calibration', yesNoOptions)}
           {field('ev-latitude', 'Latitude', 'latitude', 'number', { step: 'any' })}
