@@ -6,7 +6,8 @@ import App from './App'
 import type { SessionSummary } from './types'
 
 vi.mock('./api', () => ({ api: { checkHealth: vi.fn(), checkVersion: vi.fn(), listSessions: vi.fn(), listResearchProjects: vi.fn(), getSettings: vi.fn() } }))
-vi.mock('./pages/SetupWizardPage', () => ({ default: () => <p>the initial setup</p> }))
+vi.mock('./pages/SetupWizardPage', () => ({ default: ({ onRegisterVisit }: { onRegisterVisit?: () => void }) => <><p>the initial setup</p><button type="button" onClick={onRegisterVisit}>register the first visit</button></> }))
+vi.mock('./pages/VisitsHomePage', () => ({ default: ({ startRegister }: { startRegister?: boolean }) => <p>visits — {startRegister ? 'register' : 'menu'}</p> }))
 
 // The pages are stand-ins: what is looked at is how the app moves between them.
 vi.mock('./pages/ImportDeploymentPage', async (importOriginal) => ({
@@ -45,6 +46,9 @@ describe('App', () => {
 
     expect(await screen.findByText('the initial setup')).toBeInTheDocument()
     expect(screen.queryByText('What do you want to do?')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'register the first visit' }))   // the setup leads to Register visits
+    expect(await screen.findByText('visits — register')).toBeInTheDocument()
   })
 
   it('goes to the menu when there are research projects, or when they cannot be told', async () => {

@@ -24,16 +24,20 @@ interface Props {
   settingsOpen?: boolean
   /** The utility it opens on. */
   start?: Util
+  /** Goes to the main menu. */
+  onMainMenu?: () => void
+  /** Goes to Register visits: what comes after the initial setup. */
+  onRegisterVisit?: () => void
 }
 
 /** The maintenance tasks besides importing and uploading — each shown in place of the list once chosen. */
-export default function UtilsPage({ onBack, onOpenSettings, settingsOpen, start }: Props) {
+export default function UtilsPage({ onBack, onOpenSettings, settingsOpen, start, onMainMenu, onRegisterVisit }: Props) {
   const [util, setUtil] = useState<Util | null>(start ?? null)
 
   if (util) {
     return (
       <div>
-        {util === 'setup' ? <SetupWizardPage onBack={() => setUtil(null)} /> : util === 'timefix' ? <TimeFixPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'backup' ? <BackupPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : <SyncCollectionsPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
+        {util === 'setup' ? <SetupWizardPage onBack={() => setUtil(null)} onMainMenu={onMainMenu} onRegisterVisit={onRegisterVisit} /> : util === 'timefix' ? <TimeFixPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'backup' ? <BackupPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : <SyncCollectionsPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
       </div>
     )
   }

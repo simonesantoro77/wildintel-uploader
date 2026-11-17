@@ -1,122 +1,162 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
 import SetupWizardPage from './SetupWizardPage'
 
-vi.mock('../api', () => ({ api: { getSettings: vi.fn(), saveResearchProject: vi.fn(), setupTrappers: vi.fn(), setupRoles: vi.fn(), saveLocalLocation: vi.fn(), setupFieldItems: vi.fn() } }))
+vi.mock('../api', () => ({ api: { getSettings: vi.fn(), listResearchProjects: vi.fn(), saveResearchProject: vi.fn(), setupTrappers: vi.fn(), setupRoles: vi.fn(), saveLocalLocation: vi.fn(), setupFieldItems: vi.fn(), setDefaultResearchProject: vi.fn() } }))
 const mocked = vi.mocked(api)
 
 beforeEach(() => {
   vi.clearAllMocks()
   mocked.getSettings.mockResolvedValue({ FIELDWORK: { trappers: [] } } as never)
+  mocked.listResearchProjects.mockResolvedValue({ results: [] } as never)
   mocked.saveResearchProject.mockResolvedValue({} as never)
   mocked.setupTrappers.mockResolvedValue({ added: ['ana'], skipped: [] })
-  mocked.setupRoles.mockResolvedValue({ added: [] })
+  mocked.setupRoles.mockResolvedValue({ added: [['Ana Pérez', 'contributor']] })
   mocked.saveLocalLocation.mockResolvedValue({} as never)
-  mocked.setupFieldItems.mockResolvedValue({ added: ['x'], skipped: [] })
+  mocked.setupFieldItems.mockResolvedValue({ added: ['CAM-001'], skipped: [] })
+  mocked.setDefaultResearchProject.mockResolvedValue({ default_research_project: 'DONA' })
 })
 
-const form = (name: string) => within(screen.getByRole('form', { name }))
+const next = () => userEvent.click(screen.getByRole('button', { name: /^Continue|^Review/ }))
+const skip = async () => userEvent.click(await screen.findByRole('button', { name: 'Skip, I will do it later' }))
+
+async function project() {
+  await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
+  await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
+  await next()
+}
 
 describe('SetupWizardPage', () => {
   it('asks for the research project first and will not go on while its acronym is not valid', async () => {
     render(<SetupWizardPage onBack={vi.fn()} />)
-    const keep = screen.getByRole('button', { name: /Keep it and continue/ })
-    expect(keep).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^Continue/ })).toBeDisabled()
 
     await userEvent.type(screen.getByLabelText('Acronym *'), 'a b')
     await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
-    expect(keep).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^Continue/ })).toBeDisabled()
     expect(screen.getByText(/Only letters, digits/)).toBeInTheDocument()
   })
 
-  it('goes through the steps, keeping each thing as it is added, and says what was set up', async () => {
-    const onBack = vi.fn()
-    render(<SetupWizardPage onBack={onBack} />)
-
-    await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
-    await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
-    await userEvent.click(screen.getByRole('button', { name: /Keep it and continue/ }))
-    expect(mocked.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({ acronym: 'DONA', name: 'Doñana' }))
+  it('collects everything without keeping anything, says what is going to be done, does it and says what was done', async () => {
+    const onRegisterVisit = vi.fn(), onBack = vi.fn(), onMainMenu = vi.fn()
+    render(<SetupWizardPage onBack={onBack} onMainMenu={onMainMenu} onRegisterVisit={onRegisterVisit} />)
+    await project()
 
     await userEvent.type(await screen.findByLabelText('Username *'), 'ana')
     await userEvent.type(screen.getByLabelText('Full name *'), 'Ana Pérez')
     await userEvent.click(screen.getByRole('button', { name: 'Add the trapper' }))
-    expect(mocked.setupTrappers).toHaveBeenCalledWith([{ username: 'ana', name: 'Ana Pérez', affiliation: undefined, email: undefined }])
-    expect(await screen.findByRole('list', { name: 'The trappers added' })).toHaveTextContent('Ana Pérez')
-    await userEvent.click(screen.getByRole('button', { name: /^Continue/ }))
+    expect(screen.getByRole('list', { name: 'The trappers entered' })).toHaveTextContent('Ana Pérez')
+    await next()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Add the role' }))
-    expect(mocked.setupRoles).toHaveBeenCalledWith('DONA', [{ trapper: 'Ana Pérez', role: 'contributor' }])
-    await userEvent.click(screen.getByRole('button', { name: /^Continue/ }))
+    await next()
 
     await userEvent.type(await screen.findByLabelText('Site id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
-    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', latitude: 37.1, longitude: -6.5, timezone: 'UTC' }))
-    await userEvent.click(screen.getByRole('button', { name: /^Continue/ }))
+    await next()
 
     await userEvent.type(await screen.findByLabelText('Label *'), 'CAM-001')
     await userEvent.click(screen.getByRole('button', { name: 'Add the camera' }))
-    expect(mocked.setupFieldItems).toHaveBeenCalledWith('DONA', 'cameras', [{ label: 'CAM-001', camera_id: undefined, camera_model: undefined }])
-    await userEvent.click(screen.getByRole('button', { name: /^Continue/ }))
+    await next()
+    await skip()   // the SD cards
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Skip, I will do it later' }))
-    expect(await screen.findByText(/is set up: 1 trappers, 1 roles, 1 sites, 1 cameras and 0 SD cards/)).toBeInTheDocument()
+    // the review: nothing was kept yet
+    const plan = await screen.findByRole('table', { name: 'Plan' })
+    expect(plan).toHaveTextContent('DONA — Doñana')
+    expect(plan).toHaveTextContent('Ana Pérez · Contributor')
+    expect(plan).toHaveTextContent('DONA_01')
+    expect(mocked.saveResearchProject).not.toHaveBeenCalled()
+    expect(mocked.setupTrappers).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create it' }))
+
+    expect(await screen.findByText('The initial setup is done')).toBeInTheDocument()
+    expect(mocked.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({ acronym: 'DONA', name: 'Doñana' }))
+    expect(mocked.setupTrappers).toHaveBeenCalledWith([{ username: 'ana', name: 'Ana Pérez', affiliation: undefined, email: undefined }])
+    expect(mocked.setupRoles).toHaveBeenCalledWith('DONA', [{ trapper: 'Ana Pérez', role: 'contributor' }])
+    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', latitude: 37.1, longitude: -6.5, timezone: 'UTC' }))
+    expect(mocked.setupFieldItems).toHaveBeenCalledWith('DONA', 'cameras', [{ label: 'CAM-001', camera_id: undefined, camera_model: undefined }])
+    expect(mocked.setDefaultResearchProject).toHaveBeenCalledWith('DONA')
+    const summary = screen.getByRole('table', { name: 'Summary' })
+    expect(summary).toHaveTextContent('DONA created')
+    expect(summary).toHaveTextContent('Trappers addedAna Pérez')
+    expect(summary).toHaveTextContent('Sites addedDONA_01')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Register the first visit' }))
+    expect(onRegisterVisit).toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Back to Utilities' }))
-    expect(onBack).toHaveBeenCalled()
-    void form
+    await userEvent.click(screen.getByRole('button', { name: 'Back to the main menu' }))
+    expect(onBack).toHaveBeenCalled(); expect(onMainMenu).toHaveBeenCalled()
   })
 
-  it('says why a site is not kept when the coordinates are out of range', async () => {
+  it('leaves as it is a research project that is kept already, and says the things that could not be kept', async () => {
+    mocked.listResearchProjects.mockResolvedValue({ results: [{ acronym: 'dona', name: 'Old' }] } as never)
+    mocked.saveLocalLocation.mockRejectedValue(new Error('The location DONA_01 is kept already.'))
     render(<SetupWizardPage onBack={vi.fn()} />)
-    await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
-    await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
-    await userEvent.click(screen.getByRole('button', { name: /Keep it and continue/ }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Skip, I will do it later' }))   // trappers
-    await userEvent.click(await screen.findByRole('button', { name: /^Continue/ }))                    // no one to give a role to
+    await project()
+    await skip(); await next()   // trappers; and there is no one for the roles
+    await userEvent.type(await screen.findByLabelText('Site id *'), 'DONA_01')
+    await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
+    await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
+    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await next(); await skip(); await skip()
+    await userEvent.click(await screen.findByRole('button', { name: 'Create it' }))
 
+    expect(await screen.findByText('The initial setup is done, with some problems')).toBeInTheDocument()
+    expect(mocked.saveResearchProject).not.toHaveBeenCalled()
+    expect(screen.getByRole('table', { name: 'Summary' })).toHaveTextContent('DONA was kept already — left as it is')
+    expect(screen.getByRole('list', { name: 'Problems' })).toHaveTextContent('DONA_01: The location DONA_01 is kept already.')
+  })
+
+  it('stops when the research project cannot be kept: nothing hangs from it', async () => {
+    mocked.saveResearchProject.mockRejectedValue(new Error('The collections folder cannot be written.'))
+    render(<SetupWizardPage onBack={vi.fn()} />)
+    await project()
+    await userEvent.type(await screen.findByLabelText('Username *'), 'ana')
+    await userEvent.type(screen.getByLabelText('Full name *'), 'Ana')
+    await userEvent.click(screen.getByRole('button', { name: 'Add the trapper' }))
+    await next(); await next(); await skip(); await skip(); await skip()
+    await userEvent.click(await screen.findByRole('button', { name: 'Create it' }))
+
+    expect(await screen.findByText('The research project could not be kept')).toBeInTheDocument()
+    expect(mocked.setupTrappers).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Back to the review' }))
+    expect(await screen.findByRole('button', { name: 'Create it' })).toBeInTheDocument()
+  })
+
+  it('imports the trappers from a CSV file and lets one that was entered be taken out', async () => {
+    render(<SetupWizardPage onBack={vi.fn()} />)
+    await project()
+    const csv = new File(['username,full name,affiliation\nana,Ana Pérez,UHU\nluis,Luis,\n,Nobody,\n'], 'trappers.csv', { type: 'text/csv' })
+    await userEvent.upload(await screen.findByLabelText('CSV file of trappers'), csv)
+
+    expect(await screen.findByText('2 trappers entered from trappers.csv.')).toBeInTheDocument()
+    expect(screen.getByText(/Row 4: no username/)).toBeInTheDocument()
+    expect(mocked.setupTrappers).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Luis' }))
+    expect(screen.getByRole('list', { name: 'The trappers entered' })).not.toHaveTextContent('Luis')
+  })
+
+  it('refuses a site with coordinates out of range, and one entered twice', async () => {
+    render(<SetupWizardPage onBack={vi.fn()} />)
+    await project(); await skip(); await next()
     await userEvent.type(await screen.findByLabelText('Site id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '95')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
-
     expect(await screen.findByRole('alert')).toHaveTextContent('The coordinates must lie within')
-    expect(mocked.saveLocalLocation).not.toHaveBeenCalled()
-  })
 
-  async function toTrappers() {
-    render(<SetupWizardPage onBack={vi.fn()} />)
-    await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
-    await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
-    await userEvent.click(screen.getByRole('button', { name: /Keep it and continue/ }))
-    await screen.findByLabelText('Username *')
-  }
-
-  it('imports the trappers from a CSV file, adding each row as the form does and saying the ones that are left out', async () => {
-    await toTrappers()
-    const csv = new File(['username,full name,affiliation\nana,Ana Pérez,UHU\nluis,Luis,\n,Nobody,\n'], 'trappers.csv', { type: 'text/csv' })
-    await userEvent.upload(screen.getByLabelText('CSV file of trappers'), csv)
-
-    expect(await screen.findByText('2 trappers added from trappers.csv.')).toBeInTheDocument()
-    expect(mocked.setupTrappers).toHaveBeenCalledTimes(2)
-    expect(mocked.setupTrappers).toHaveBeenCalledWith([{ username: 'ana', name: 'Ana Pérez', affiliation: 'UHU', email: undefined }])
-    expect(screen.getByRole('list', { name: 'The trappers added' })).toHaveTextContent('Luis')
-    expect(screen.getByText(/Row 4: no username/)).toBeInTheDocument()
-  })
-
-  it('imports the sites from a CSV file and says the rows that could not be kept', async () => {
-    mocked.saveLocalLocation.mockResolvedValueOnce({} as never).mockRejectedValueOnce(new Error('The location DONA_02 is kept already.'))
-    await toTrappers()
-    await userEvent.click(screen.getByRole('button', { name: 'Skip, I will do it later' }))
-    await userEvent.click(await screen.findByRole('button', { name: /^Continue/ }))
-    const csv = new File(['site id,name,latitude,longitude,timezone\nDONA_01,One,37.1,-6.5,Europe/Madrid\nDONA_02,Two,37.2,-6.4,UTC\n'], 'sites.csv', { type: 'text/csv' })
-    await userEvent.upload(await screen.findByLabelText('CSV file of sites'), csv)
-
-    expect(await screen.findByText('1 site added from sites.csv.')).toBeInTheDocument()
-    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', timezone: 'Europe/Madrid', latitude: 37.1 }))
-    expect(screen.getByText('Row 3: The location DONA_02 is kept already.')).toBeInTheDocument()
+    await userEvent.clear(screen.getByLabelText('Latitude *'))
+    await userEvent.type(screen.getByLabelText('Latitude *'), '37')
+    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await userEvent.type(screen.getByLabelText('Site id *'), 'dona_01')
+    await userEvent.type(screen.getByLabelText('Latitude *'), '37')
+    await userEvent.type(screen.getByLabelText('Longitude *'), '-6')
+    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('There is a site dona_01 already.')
   })
 })
