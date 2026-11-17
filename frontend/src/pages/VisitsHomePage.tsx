@@ -22,11 +22,13 @@ interface Props {
   onShowDeployment?: (deploymentId: string) => void
   /** The visit the dashboard opens on, when a link of the deployments dashboard sent the user here. */
   focusVisit?: VisitFocus
+  /** Opens on Register visits — what the initial setup leads to. */
+  startRegister?: boolean
 }
 
 /** Manage the visits: register new ones, or look at the visit book. */
-export default function VisitsHomePage({ onBack, onOpenSettings, settingsOpen, onImportImages, onImportImagesOf, onShowDeployment, focusVisit }: Props) {
-  const [view, setView] = useState<View | null>(focusVisit ? 'book' : null)
+export default function VisitsHomePage({ onBack, onOpenSettings, settingsOpen, onImportImages, onImportImagesOf, onShowDeployment, focusVisit, startRegister }: Props) {
+  const [view, setView] = useState<View | null>(focusVisit ? 'book' : startRegister ? 'register' : null)
   // The visit that was planned and is to be created: the register opens on it.
   const [start, setStart] = useState<{ researchProjectId: string; site: string } | undefined>(undefined)
 

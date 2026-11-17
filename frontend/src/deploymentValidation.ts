@@ -9,6 +9,9 @@ import type { DeploymentFields } from './types'
 /** ISO 8601 with a timezone designator — YYYY-MM-DDThh:mm:ssZ or ±hh:mm. */
 export const ISO_8601_WITH_TIMEZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$/
 
+/** UTC has no summer time: what a location says of it does not apply there. */
+export const isUtcZone = (zone: string) => /^(utc|etc\/utc|etc\/uct|uct|gmt|etc\/gmt|zulu|etc\/zulu|universal|etc\/universal|z)$/i.test(zone.trim())
+
 export function isValidTimezone(name: string): boolean {
   if (!name) return false
   try {
@@ -23,7 +26,9 @@ export function isValidTimezone(name: string): boolean {
 export function knownTimezones(): string[] {
   const intl = Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
   try {
-    return intl.supportedValuesOf?.('timeZone') ?? []
+    const zones = intl.supportedValuesOf?.('timeZone') ?? []
+    // the list of the browser has no UTC, which is the zone of the cameras that are not set to a local time
+    return zones.length > 0 && !zones.includes('UTC') ? ['UTC', ...zones] : zones
   } catch {
     return []
   }

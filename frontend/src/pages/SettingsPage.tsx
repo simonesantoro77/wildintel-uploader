@@ -15,7 +15,7 @@ import Notice from '../components/Notice'
 import { UPLOAD_DESTINATIONS, type UploadDestinationId } from '../uploadDestinations'
 import { VISIT_SOURCES, type VisitSourceId } from '../visitSources'
 import ReportsList from '../components/ReportsList'
-import { isValidTimezone } from '../deploymentValidation'
+import { isUtcZone, isValidTimezone } from '../deploymentValidation'
 import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { Location, LocationStatus, ResearchProject, ResearchProjectStatus } from '../types'
 import type { AppSettings, AppSettingsUpdate, ConfigInfo, DeploymentCheck, ImageCheck, Camera, LocalLocation, LocalResearchProject, LogLevel, SdCard, SimilarityMethod, StoredVisit, Trapper, TrapperRole, TrapperRoleName, UpdateCheck } from '../types'
@@ -928,6 +928,10 @@ interface ItemField<T> {
   section?: string; sectionHint?: string
   /** In a styled form: it shares its line with the next one that also is half. */
   half?: boolean
+  /** When it does not apply to the item as it is — what is said, if it does not —: it is off, and cannot be turned on. */
+  off?: (item: T) => string | null
+  /** What else changes when this one gets a value — summer time is none in UTC. */
+  alsoSets?: (value: string) => Partial<T>
   /** It is set when the item is created and cannot be changed afterwards: its box is shown, but disabled, when the item is edited. */
   fixed?: boolean
   /** In a styled form: what its number is measured in, said at the end of the box. */
@@ -1035,7 +1039,7 @@ function ItemForm<T extends object>({ same, noun, backLabel, fields, item, other
           ))}
         </dl>
       ) : styled ? (() => {
-        const change = (f: ItemField<T>, i: number) => (v: string) => onChange({ [f.key]: i === 0 ? v : (v || null) } as Partial<T>)
+        const change = (f: ItemField<T>, i: number) => (v: string) => onChange({ [f.key]: i === 0 ? v : (v || null), ...f.alsoSets?.(v) } as Partial<T>)
         const choice = fields.findIndex((f) => f.kind === 'select' && f.key === 'status')
         const stateOf = choice >= 0 ? textOf(item, fields[choice].key) || fields[choice].options?.[0]?.value || '' : ''
         // The day and the reason of a status are asked once it is not the active one.
@@ -1046,12 +1050,14 @@ function ItemForm<T extends object>({ same, noun, backLabel, fields, item, other
             <LabelledField key={f.key} label={f.label} required={i === 0 || f.required} hint={f.hint} error={fieldError(f, i)} htmlFor={`item-${f.key}`}>{child}</LabelledField>
           )
           if (f.kind === 'bool') {
+            const notApplied = f.off?.(item) ?? null   // it does not apply: it is off, and cannot be turned on
+            const on = value !== '' && !notApplied
             return (
               <div key={f.key} className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3">
-                <div><p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{f.label}</p>{f.hint && <p className={hintClass}>{f.hint}</p>}</div>
-                <button type="button" role="switch" aria-checked={value !== ''} aria-label={f.label} disabled={Boolean(f.fixed) && !isNew} onClick={() => change(f, i)(value ? '' : 'yes')}
-                        className={`relative w-11 h-6 shrink-0 rounded-full transition-colors disabled:opacity-50 ${value ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} />
+                <div><p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{f.label}</p>{notApplied ? <p className={hintClass}>{notApplied}</p> : f.hint && <p className={hintClass}>{f.hint}</p>}</div>
+                <button type="button" role="switch" aria-checked={on} aria-label={f.label} disabled={(Boolean(f.fixed) && !isNew) || Boolean(notApplied)} onClick={() => change(f, i)(value ? '' : 'yes')}
+                        className={`relative w-11 h-6 shrink-0 rounded-full transition-colors disabled:opacity-50 ${on ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${on ? 'translate-x-5' : ''}`} />
                 </button>
               </div>
             )
@@ -1134,10 +1140,10 @@ function ItemForm<T extends object>({ same, noun, backLabel, fields, item, other
       })() : fields.map((f, i) => (
         <div key={f.key}>
           {(() => {
-            const change = (v: string) => onChange({ [f.key]: i === 0 ? v : (v || null) } as Partial<T>)
+            const change = (v: string) => onChange({ [f.key]: i === 0 ? v : (v || null), ...f.alsoSets?.(v) } as Partial<T>)
             return f.kind === 'bool' ? (
                 <label className="flex items-center gap-3 px-1 py-2 text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer">
-                  <input type="checkbox" checked={textOf(item, f.key) !== ''} disabled={Boolean(f.fixed) && !isNew} onChange={(e) => change(e.target.checked ? 'yes' : '')} />
+                  <input type="checkbox" checked={textOf(item, f.key) !== '' && !f.off?.(item)} disabled={(Boolean(f.fixed) && !isNew) || Boolean(f.off?.(item))} onChange={(e) => change(e.target.checked ? 'yes' : '')} />
                   {f.label}
                 </label>
               )
@@ -1305,8 +1311,8 @@ const LOCATION_FIELDS: ItemField<LocationDraft>[] = [
   { key: 'latitude', label: 'Latitude', required: true, placeholder: 'e.g. 37.0123', section: 'Where is it?', sectionIcon: <CompassIcon />, sectionAside: (l, change) => <LocationMap latitude={l.latitude} longitude={l.longitude} onChange={(latitude, longitude) => change({ latitude, longitude })} />, sectionHint: 'Decimal degrees (WGS84), like 37.0123 and -6.4412. Both are required.', validate: requiredNumberRange(-90, 90) },
   { key: 'longitude', label: 'Longitude', required: true, placeholder: 'e.g. -6.4412', validate: requiredNumberRange(-180, 180) },
   { key: 'coordinate_uncertainty', label: 'Coordinate uncertainty', placeholder: 'e.g. 100', unit: 'metres', hint: 'How far off the position could be.', validate: (v) => (v === '' || (/^\d+$/.test(v) && Number(v) >= 1) ? null : 'A whole number, 1 or more.') },
-  { key: 'timezone', label: 'Time zone', required: true, placeholder: 'e.g. Europe/Madrid', section: 'Time', sectionIcon: <ClockIcon />, sectionHint: 'The time zone the location is in, and whether its cameras follow summer time. Every visit and deployment here is read with them.', kind: 'timezone', fixed: true, hint: "The location's own time zone, required. Every visit and deployment here is read in it, so it cannot be changed once the location is created.", validate: (v) => (!v ? 'Required.' : isValidTimezone(v) ? null : 'Not a known IANA time zone (e.g. Europe/Madrid).') },
-  { key: 'ignore_dst', label: 'The cameras here ignore summer time', kind: 'bool', fixed: true, hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time. Like the time zone, it cannot be changed once the location is created.' },
+  { key: 'timezone', label: 'Time zone', required: true, placeholder: 'e.g. Europe/Madrid', section: 'Time', sectionIcon: <ClockIcon />, sectionHint: 'The time zone the location is in, and whether its cameras follow summer time. Every visit and deployment here is read with them.', kind: 'timezone', fixed: true, alsoSets: (v) => (isUtcZone(v) ? { ignore_dst: null } : {}), hint: "The location's own time zone, required. Every visit and deployment here is read in it, so it cannot be changed once the location is created.", validate: (v) => (!v ? 'Required.' : isValidTimezone(v) ? null : 'Not a known IANA time zone (e.g. Europe/Madrid).') },
+  { key: 'ignore_dst', label: 'The cameras here ignore summer time', kind: 'bool', fixed: true, off: (l) => (isUtcZone(l.timezone ?? '') ? 'Summer time is not applied in UTC.' : null), hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time. Like the time zone, it cannot be changed once the location is created.' },
   ...statusFields<LocationDraft>(['planned', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in the app yet.', ready: 'Ready to have a camera.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active']),
 ]
 
@@ -1353,7 +1359,7 @@ const locationChanges = ({ timezone, ignore_dst, ...rest }: ReturnType<typeof lo
 /** The fields of a location as they are kept — the numbers as numbers. */
 const locationFields = (d: LocationDraft) => ({
   name: d.name, latitude: numberOrNull(d.latitude), longitude: numberOrNull(d.longitude), coordinate_uncertainty: numberOrNull(d.coordinate_uncertainty),
-  timezone: d.timezone, ignore_dst: d.ignore_dst === 'yes', in_service: d.in_service,
+  timezone: d.timezone, ignore_dst: d.ignore_dst === 'yes' && !isUtcZone(d.timezone ?? ''), in_service: d.in_service,
   status: (d.status ?? 'active') as LocationStatus, status_date: d.status_date, status_note: d.status_note,
 })
 

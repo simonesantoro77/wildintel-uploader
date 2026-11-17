@@ -10,6 +10,15 @@ DEFAULT_TIMEZONE = "UTC"
 _UTC = dt.timezone.utc
 
 
+#: The names UTC goes by: it has no summer time, so what a location says of it does not apply there.
+_UTC_ZONES = frozenset({"utc", "etc/utc", "etc/uct", "uct", "gmt", "etc/gmt", "zulu", "etc/zulu", "universal", "etc/universal", "z"})
+
+
+def is_utc(zone: str | None) -> bool:
+    """Whether a timezone is UTC — which has no summer time."""
+    return (zone or "").strip().lower() in _UTC_ZONES
+
+
 def _zone(location: dict | None) -> tuple[ZoneInfo, bool]:
     name = (location or {}).get("timezone") or DEFAULT_TIMEZONE
     try:

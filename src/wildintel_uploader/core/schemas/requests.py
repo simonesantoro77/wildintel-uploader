@@ -8,6 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from wildintel_uploader.core.services.visit_time import is_utc
 from wildintel_uploader.core.services.visit_rules import CAMERA_STATUSES, battery_status_code, camera_status_code, card_status_code, split_card_batteries
 
 
@@ -338,6 +339,13 @@ class LocationRecord(BaseModel):
             raise ValueError("is not a known IANA timezone") from exc
         return value
 
+    @model_validator(mode="after")
+    def _no_summer_time_in_utc(self) -> "LocationRecord":
+        # UTC has no summer time: whether the cameras ignore it does not apply there, so it is never said to.
+        if is_utc(self.timezone):
+            self.ignore_dst = False
+        return self
+
 
 class LocalLocationsRequest(BaseModel):
     research_project_id: str = Field(min_length=1)
@@ -579,6 +587,12 @@ class UpdateLocationRequest(LocalLocationsRequest):
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError("is not a known IANA timezone") from exc
         return value
+
+    @model_validator(mode="after")
+    def _no_summer_time_in_utc(self) -> "UpdateLocationRequest":
+        if is_utc(self.timezone) and self.ignore_dst is not None:
+            self.ignore_dst = False
+        return self
 
 
 class FieldworkVisits(BaseModel):
