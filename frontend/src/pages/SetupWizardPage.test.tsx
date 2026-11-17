@@ -78,7 +78,7 @@ describe('SetupWizardPage', () => {
     expect(mocked.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({ acronym: 'DONA', name: 'Doñana' }))
     expect(mocked.setupTrappers).toHaveBeenCalledWith([{ username: 'ana', name: 'Ana Pérez', affiliation: undefined, email: undefined }])
     expect(mocked.setupRoles).toHaveBeenCalledWith('DONA', [{ trapper: 'Ana Pérez', role: 'contributor' }])
-    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', latitude: 37.1, longitude: -6.5, timezone: 'UTC' }))
+    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', latitude: 37.1, longitude: -6.5, timezone: 'UTC', status: 'pending' }))
     expect(mocked.setupFieldItems).toHaveBeenCalledWith('DONA', 'cameras', [{ label: 'CAM-001', camera_id: undefined, camera_model: undefined }])
     expect(mocked.setDefaultResearchProject).toHaveBeenCalledWith('DONA')
     const summary = screen.getByRole('table', { name: 'Summary' })

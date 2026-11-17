@@ -1491,6 +1491,83 @@ def test_saving_the_same_file_again_keeps_nothing_twice_not_even_the_not_visited
         ("DONA_01", "R0012", None), ("DONA_01", "R0013", None), ("DONA_02", "R0012", "Not revised")]
 
 
+def _read_with_gear(rows: list[str], save: bool = False) -> dict:
+    text = "location_id,session,date,time,actions,num_photos,camera_id,sd\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "camera_id", "sd")}
+    return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": False, "save": save}).json()
+
+
+def test_a_site_that_says_site_start_has_nothing_unknown_before_it_and_one_that_does_not_say_it_has(tmp_path: Path):
+    started = ["DONA_01,R0013,2026-02-01,08:00,Revision,5,,", "DONA_02,R0013,2026-02-01,09:00,Revision,5,,",
+               "DONA_01,R0014,2026-03-01,08:00,Revision,5,,", "DONA_02,R0014,2026-03-01,09:00,Revision,5,,", "DONA_03,R0014,2026-03-01,10:00,Site start + Installation,,C9,S9"]
+    plain = [*started[:4], "DONA_03,R0014,2026-03-01,10:00,Installation,,C9,S9"]
+    with _in(tmp_path):
+        _project()
+        _installed((1, 2))
+        _client().post("/api/deployment-import/sd-cards/save", json={"research_project_id": "DONA", "card": {"label": "S9"}})
+        with_start = _read_with_gear(started)
+        without = _read_with_gear(plain)
+
+    assert with_start["problems"] == [] and not any("DONA_03" in n and "unknown" in n for n in with_start["notes"])
+    assert without["problems"] == [] and any("DONA_03" in n and "unknown" in n for n in without["notes"])
+
+
+def test_the_words_site_start_are_an_action_of_a_file():
+    from wildintel_uploader.core.services import visits_csv
+
+    assert [visits_csv.ACTIONS[w] for w in ("site start", "sitestart", "site_start", "site setup")] == ["SiteStart"] * 4
+
+
+def test_a_planned_site_cannot_be_used_not_even_to_start_it_and_a_ready_one_that_starts_stays_ready_or_is_active_with_a_camera(tmp_path: Path):
+    def site(n: int, status: str) -> None:
+        _client().post("/api/deployment-import/locations/save", json={"research_project_id": "DONA", "location": {"location_id": f"DONA_0{n}", "name": f"Site {n}", "timezone": "UTC", "ignore_dst": False, "latitude": 37.0 + n / 100, "longitude": -6.5, "status": status}})
+
+    def status_of(n: int) -> str:
+        found = _client().post("/api/deployment-import/locations/list", json={"research_project_id": "DONA"}).json()["results"]
+        return next(l["status"] for l in found if l["location_id"] == f"DONA_0{n}")
+
+    def visit_to(n: int, actions: list[str]):
+        return _save({**VISIT, "location_id": f"DONA_0{n}", "session": "R0001", "date": "2026-01-10", "actions": actions, "num_photos": None, "sd": f"S{n}", "camera_id": f"C{n}"})
+
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        site(4, "planned"); site(5, "ready"); site(6, "ready")
+        planned = visit_to(4, ["SiteStart", "Installation"])             # a planned site is only in Settings: it cannot be used, and a start is a use
+        only = visit_to(5, ["SiteStart"])                                # a ready site stays ready — nothing is put up
+        installed = visit_to(6, ["SiteStart", "Installation"])           # and one that starts with an Installation is active
+        result = {n: status_of(n) for n in (4, 5, 6)}
+
+    assert planned.status_code == 422 and "is planned" in planned.json()["detail"]
+    assert only.status_code == 200 and installed.status_code == 200
+    assert result == {4: "planned", 5: "ready", 6: "active"}
+
+
+def test_a_pending_site_starts_with_its_first_camera_and_is_ready_or_active_by_what_its_start_does(tmp_path: Path):
+    def site(n: int) -> None:
+        _client().post("/api/deployment-import/locations/save", json={"research_project_id": "DONA", "location": {"location_id": f"DONA_0{n}", "name": f"Site {n}", "timezone": "UTC", "ignore_dst": False, "latitude": 37.0 + n / 100, "longitude": -6.5, "status": "pending"}})
+
+    def status_of(n: int) -> str:
+        found = _client().post("/api/deployment-import/locations/list", json={"research_project_id": "DONA"}).json()["results"]
+        return next(l["status"] for l in found if l["location_id"] == f"DONA_0{n}")
+
+    def visit_to(n: int, actions: list[str], session: str = "R0001", day: str = "2026-01-10"):
+        return _save({**VISIT, "location_id": f"DONA_0{n}", "session": session, "date": day, "actions": actions, "num_photos": None, "sd": f"S{n}", "camera_id": f"C{n}"})
+
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        site(4); site(5)
+        before = status_of(4)
+        first = visit_to(4, ["Installation"])                       # the first camera at a pending site: it says where the site starts
+        only = visit_to(5, ["SiteStart"])                           # a start alone makes it ready
+        kept = _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]
+        result = {n: status_of(n) for n in (4, 5)}
+
+    assert before == "pending"
+    assert first.status_code == 200 and only.status_code == 200
+    assert [v["actions"] for v in kept if v["location_id"] == "DONA_04"] == [["SiteStart", "Installation"]]
+    assert result == {4: "active", 5: "ready"}
+
+
 def test_knocked_down_and_damaged_are_not_accepted_as_the_status_of_a_camera_but_what_was_kept_with_them_is_still_read(tmp_path: Path):
     old = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2026-01-10", "session": "R0001"}
     with _in(tmp_path):
@@ -1564,8 +1641,13 @@ def test_the_examples_of_the_new_form_for_wicp_02_are_imported_in_order_with_no_
             text = (examples / "visits_example" / "wildintel_csv" / "wicp_02" / f"{name}.csv").read_text(encoding="utf-8")
             extra = {"create": {"locations": True, "cameras": True, "sd_cards": True}, "defaults": {"timezone": "UTC", "daylight_saving": "no"}} if name == order[-1] else {}
             answers.append(_client().post("/api/visits/import-csv", json={"research_project_id": "WICP_02", "csv": text, "format": "epicollect-csv", "save": True, **extra}).json())
+        kept = _client().post("/api/visits/list", json={"research_project_id": "WICP_02"}).json()["results"]
+        book = _client().post("/api/visits/book", json={"research_project_id": "WICP_02"}).json()["results"]
 
     assert [(a["problems"], a["saved"]) for a in answers] == [([], 4)] * 6
+    # the visit that says New site is where its site starts (the form has no action for it), so the revisions before it have nothing of it: neither visits nor unknown ones
+    assert [v["actions"] for v in kept if v["location_id"] == "WICP_02_005"][0][0] == "SiteStart"
+    assert [v["session"] for v in book if v["location_id"] == "WICP_02_005"] == ["R0006"]
     made = answers[-1]["create"]
     assert [l["location_id"] for l in made["locations"]] == ["WICP_02_005"] and [c["camera_id"] for c in made["cameras"]] == ["GP1122334455"] and [c["label"] for c in made["sd_cards"]] == ["9"]
 

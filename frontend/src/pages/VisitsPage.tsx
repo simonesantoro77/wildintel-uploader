@@ -1,6 +1,7 @@
 import { inTheApp } from '../researchProjects'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { Glyph } from '../components/ViewSwitch'
+import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import BackButton from '../components/BackButton'
@@ -79,7 +80,7 @@ const FOUND_STATES: { value: string; description: string; icon: ReactNode }[] = 
 ]
 
 /** What was done at the visit — the values the field records read. */
-const ACTIONS = ['Installation', 'Revision', 'Desinstallation', 'Stolen', 'Archive']
+const ACTIONS = ['SiteStart', 'Installation', 'Revision', 'Desinstallation', 'Stolen', 'Archive']
 /** How a field is asked at a visit: it must be filled, it may be, or it does not apply (and is turned off). */
 export type Ask = 'required' | 'optional' | 'off'
 
@@ -155,6 +156,7 @@ function AskTag({ ask }: { ask: Ask }) {
 
 /** What each action is, in a few words. */
 const ACTION_HINTS: Record<string, string> = {
+  SiteStart: 'The site begins here: the revisions before this one do not wait for a visit to it. A site starts once, with its first visit.',
   Installation: 'A camera is put up: nothing is collected, a card is left.',
   Revision: 'The card is collected and another is left; the camera stays.',
   Desinstallation: 'The camera is taken away, with its card.',
@@ -268,7 +270,7 @@ export function visitErrors(v: Visit, first = false): Partial<Record<ErrorKey, s
   if (!v.site.trim()) errors.site = 'Required.'
   if (isNotVisited(v.status)) { /* nothing was done at it: it has no action */ }
   else if (v.actions.length === 0) errors.actions = 'Choose at least one.'
-  else if (first && !isNotVisited(v.status) && (v.actions.length !== 1 || v.actions[0] !== 'Installation')) errors.actions = 'The first visit to a site can only be an Installation.'
+  else if (first && !isNotVisited(v.status) && !v.actions.every((a) => a === 'Installation' || a === 'SiteStart')) errors.actions = 'The first visit to a site can only be an Installation.'
   const asked = askedOf(v)
   if (asked.photos !== 'off') {
     if (!v.numPhotos.trim()) { if (asked.photos === 'required') errors.numPhotos = 'Required.' }
@@ -377,7 +379,7 @@ export function visitSummary(v: Visit, session: string, timezone?: string | null
       ['Revision code', session, 'code'],
       ['When', v.when ? formatLocal(v.when, timezone) : ''],
       ['Who went', namesOf(v.trappers).join(', ')],
-      ['Action performed', notVisitedVisit ? 'Not visited' : v.actions.join(' + ')],
+      ['Action performed', notVisitedVisit ? 'Not visited' : actionsLabel(v.actions)],
     ]),
     gps: v.latitude && v.longitude ? `${v.latitude}, ${v.longitude}` : '',
     sections: [
@@ -432,7 +434,7 @@ export function removeName(text: string, name: string): string {
 
 /** The actions of a visit, as text. */
 function actionsText(actions: string[]): string {
-  return actions.join(' + ')
+  return actionsLabel(actions)
 }
 
 /** The latest of the visits kept, by the day and time of the visit. */
@@ -601,12 +603,19 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // Where no camera is known — a first visit, or after one was taken away or stolen — the visit can only install one, and nothing is asked.
   const noCamera = Boolean(allVisits) && !siteCamera
   const guided = byHand
+  // The first visit ever to a site, in a revision after the first, may be where the site starts — or the site was there before and its earlier visits are not in the app. In the first
+  // revision it is where it starts: nothing came before. Nothing is asked of it then; the first visit of a site is the one that says it.
+  const firstEver = Boolean(allVisits) && visit.site.trim() !== '' && !(allVisits ?? []).some((v) => v.location_id.toLowerCase() === visit.site.trim().toLowerCase())
+  const inRevision = revisionNumber(visit.session || nextSession)
+  const [siteStarts, setSiteStarts] = useState(false)
+  const pendingSite = projectLocations.find((l) => l.location_id.toLowerCase() === visit.site.trim().toLowerCase())?.status === 'pending'   // in the app, not started: its first visit starts it
+  const startsSite = guided && noCamera && firstEver && (pendingSite || inRevision === 1 || siteStarts)
   // A camera taken away with no other put up, or stolen with none put up, gives the location up: it is archived — for good — with the reason.
   const archiving = guided && !noCamera && ((seeCamera === 'yes' && afterRevision === 'remove') || (seeCamera === 'stolen' && afterTheft === 'archive'))
   const notVisited = guided && seeCamera === 'cannot'
   const guidedActions = !guided ? null
     : notVisited ? [] // the visit that could not be made: nothing was done at it, so it has no action (its status says it was not revised)
-    : noCamera ? ['Installation']
+    : noCamera ? (startsSite ? ['SiteStart', 'Installation'] : ['Installation'])
     : seeCamera === 'yes' ? (!visit.status ? [] : afterRevision === 'replace' ? ['Revision', 'Desinstallation', 'Installation'] : afterRevision === 'take' ? ['Revision', 'Desinstallation'] : afterRevision === 'remove' ? ['Revision', 'Desinstallation', 'Archive'] : ['Revision'])
     : seeCamera === 'stolen' ? (afterTheft === 'replace' ? ['Stolen', 'Installation'] : afterTheft === 'archive' ? ['Stolen', 'Archive'] : ['Stolen'])
     : []
@@ -1261,7 +1270,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                             type="checkbox" checked={visit.actions.includes(a)}
                             onChange={(e) => setVisit((v) => withoutWhatIsNotAsked({ ...v, actions: ACTIONS.filter((x) => (x === a ? e.target.checked : v.actions.includes(x))) }))}
                           />
-                          {a}
+                          {actionLabel(a)}
                         </label>
                       ))}
                     </div>
@@ -1276,6 +1285,18 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                   <p role="status" className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
                     This is the first visit to {visit.site}: it can only be an Installation, as no camera is known to be there yet.
                   </p>
+                )}
+                {guided && noCamera && firstEver && pendingSite && !notVisited && (
+                  <p role="status" className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{visit.site} is pending: its first visit starts it, so the revisions before it do not wait for a visit to it.</p>
+                )}
+                {guided && noCamera && firstEver && !pendingSite && inRevision !== null && inRevision > 1 && !notVisited && (
+                  <label className="mt-3 flex items-start gap-3 text-sm text-zinc-700 dark:text-zinc-300">
+                    <input type="checkbox" className="mt-1" checked={siteStarts} onChange={(e) => setSiteStarts(e.target.checked)} />
+                    <span>
+                      <strong className="font-semibold">This is where {visit.site || 'the site'} starts</strong>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">The site did not exist before this revision, so the revisions before it do not wait for a visit to it. Leave it off if the site was there before and its earlier visits are not here.</span>
+                    </span>
+                  </label>
                 )}
               </FormCard>
 

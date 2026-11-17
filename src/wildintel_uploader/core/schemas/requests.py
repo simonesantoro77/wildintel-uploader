@@ -323,7 +323,7 @@ class LocationRecord(BaseModel):
     in_service: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     trapper_pk: Optional[int] = None
     # Whether it is in use; an archived or a planned one is not offered for a visit. When it changed (YYYY-MM-DD) and why are free to leave out.
-    status: Literal["planned", "ready", "active", "archived"] = "ready"
+    status: Literal["planned", "pending", "ready", "active", "archived"] = "ready"
     status_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     status_note: Optional[str] = None
 
@@ -375,7 +375,7 @@ class VisitRecord(BaseModel):
     when: Optional[str] = None
     # A visit may do several things: a camera revised and another put up, a card changed and the camera taken away…
     # Empty only for a visit that could not be made (its status says it was not revised): nothing was done at it.
-    actions: list[Literal["Installation", "Revision", "Desinstallation", "Stolen", "Archive"]] = Field(default_factory=list)
+    actions: list[Literal["SiteStart", "Installation", "Revision", "Desinstallation", "Stolen", "Archive"]] = Field(default_factory=list)
     trappers: Optional[str] = None
     # The status of the camera when the visit found it (e.g. Working, Not revised).
     camera_status: Optional[str] = None
@@ -573,7 +573,7 @@ class UpdateLocationRequest(LocalLocationsRequest):
     timezone: Optional[str] = None
     ignore_dst: Optional[bool] = None
     in_service: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    status: Optional[Literal["planned", "ready", "active", "archived"]] = None
+    status: Optional[Literal["planned", "pending", "ready", "active", "archived"]] = None
     status_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     status_note: Optional[str] = None
 

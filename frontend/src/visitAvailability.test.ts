@@ -95,6 +95,18 @@ describe('when a revision can start', () => {
     expect(unfinishedRevision(2, [...first, stored({ location_id: 'wicp_0002' })], sites)).toBeNull()
   })
 
+  it('does not wait for a pending site until a visit to it is known, nor for one that starts after the revision', () => {
+    const withPending = [{ location_id: 'WICP_0001', status: 'active' }, { location_id: 'WICP_0002', status: 'pending' }]
+    expect(unfinishedRevision(2, first, withPending)).toBeNull()                                           // pending: not started, not waited for
+
+    const known = [...first, stored({ location_id: 'WICP_0002', session: 'R0001' })]
+    expect(unfinishedRevision(3, [...known, stored({ location_id: 'WICP_0001', session: 'R0002' })], withPending)?.missing).toEqual(['WICP_0002'])   // a visit to it is known: it is waited for
+
+    const starting = [...first, stored({ location_id: 'WICP_0002', session: 'R0003', actions: ['SiteStart', 'Installation'] })]
+    const active = [{ location_id: 'WICP_0001', status: 'active' }, { location_id: 'WICP_0002', status: 'active' }]
+    expect(unfinishedRevision(2, starting, active)).toBeNull()                                              // it starts in R0003: R0001 does not wait for it
+  })
+
   it('is when it is the first revision there is, or a location was archived before the one before it started', () => {
     expect(unfinishedRevision(1, [], sites)).toBeNull()
     expect(unfinishedRevision(13, [stored({ session: 'R0013' })], sites)).toBeNull()

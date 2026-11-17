@@ -626,7 +626,7 @@ export type SdCardStatus = 'planned' | 'ready' | 'active' | 'archived'
 export type VisitState = 'planned' | 'deployed' | 'collected' | 'stolen' | 'not_visited' | 'no_camera' | 'unknown'
 export type ArchiveReason = 'lost' | 'stolen' | 'broken' | 'other'
 export type TrapperStatus = 'active' | 'inactive' | 'archived'
-export type LocationStatus = 'planned' | 'ready' | 'active' | 'archived'
+export type LocationStatus = 'planned' | 'pending' | 'ready' | 'active' | 'archived'
 export type ResearchProjectStatus = 'planned' | 'active' | 'finished' | 'archived'
 
 /** One of the SD cards: what it is called (its number, or the label on it), who makes it, what it holds and the day it was put into production. */
@@ -770,7 +770,7 @@ export interface StoredVisit extends Omit<DeploymentFields, 'deployment_id' | 'l
   /** Where the visit is in its life — kept by the backend when the visit is added, and changed when a later visit collects its card. */
   state?: VisitState | null
   /** What was done at the visit — one or more. */
-  actions: ('Installation' | 'Revision' | 'Desinstallation' | 'Stolen' | 'Archive')[]
+  actions: ('SiteStart' | 'Installation' | 'Revision' | 'Desinstallation' | 'Stolen' | 'Archive')[]
   /** Who went on the visit. */
   trappers: string | null
   /** The status of the camera when the visit found it (Working, Not revised…). */

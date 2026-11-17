@@ -1280,10 +1280,10 @@ function ItemsEditor<T extends object>({ same, heading, noun, items, onChange, b
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  ready: 'Ready', active: 'Active', inactive: 'Inactive', archived: 'Archived', stolen: 'Stolen', lost: 'Lost', broken: 'Broken', planned: 'Planned', finished: 'Finished',
+  pending: 'Pending', ready: 'Ready', active: 'Active', inactive: 'Inactive', archived: 'Archived', stolen: 'Stolen', lost: 'Lost', broken: 'Broken', planned: 'Planned', finished: 'Finished',
 }
 const STATUS_HINTS: Record<string, string> = {
-  ready: 'Available.', active: 'In use.', inactive: 'Not going to the field.', archived: 'No longer used.', stolen: 'Taken away.', lost: 'Can not be found.', broken: 'Does not work.', planned: 'Not started yet.', finished: 'No more fieldwork.',
+  pending: 'In the app, not started yet.', ready: 'Available.', active: 'In use.', inactive: 'Not going to the field.', archived: 'No longer used.', stolen: 'Taken away.', lost: 'Can not be found.', broken: 'Does not work.', planned: 'Not started yet.', finished: 'No more fieldwork.',
 }
 const statusOptions = (...values: string[]) => values.map((value) => ({ value, label: STATUS_LABELS[value], hint: STATUS_HINTS[value] }))
 /** The status of an item, then — for what can stop being used — the day it did and why. */
@@ -1313,7 +1313,7 @@ const LOCATION_FIELDS: ItemField<LocationDraft>[] = [
   { key: 'coordinate_uncertainty', label: 'Coordinate uncertainty', placeholder: 'e.g. 100', unit: 'metres', hint: 'How far off the position could be.', validate: (v) => (v === '' || (/^\d+$/.test(v) && Number(v) >= 1) ? null : 'A whole number, 1 or more.') },
   { key: 'timezone', label: 'Time zone', required: true, placeholder: 'e.g. Europe/Madrid', section: 'Time', sectionIcon: <ClockIcon />, sectionHint: 'The time zone the location is in, and whether its cameras follow summer time. Every visit and deployment here is read with them.', kind: 'timezone', fixed: true, alsoSets: (v) => (isUtcZone(v) ? { ignore_dst: null } : {}), hint: "The location's own time zone, required. Every visit and deployment here is read in it, so it cannot be changed once the location is created.", validate: (v) => (!v ? 'Required.' : isValidTimezone(v) ? null : 'Not a known IANA time zone (e.g. Europe/Madrid).') },
   { key: 'ignore_dst', label: 'The cameras here ignore summer time', kind: 'bool', fixed: true, off: (l) => (isUtcZone(l.timezone ?? '') ? 'Summer time is not applied in UTC.' : null), hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time. Like the time zone, it cannot be changed once the location is created.' },
-  ...statusFields<LocationDraft>(['planned', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in the app yet.', ready: 'Ready to have a camera.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active']),
+  ...statusFields<LocationDraft>(['planned', 'pending', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in the app yet.', pending: 'In the app, waiting to start: its first visit starts it. It is not waited for in the revisions before.', ready: 'It has started and has no camera yet: a visit that says Site start makes it so.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active']),
 ]
 
 /** What a research project is when it is added by hand, or read from a CSV file: its acronym and name, and the fields free text. */
@@ -1352,7 +1352,7 @@ const locationDraft = (l: LocalLocation): LocationDraft => ({
   coordinate_uncertainty: text(l.coordinate_uncertainty), timezone: l.timezone, ignore_dst: l.ignore_dst ? 'yes' : null, in_service: l.in_service ?? null,
   status: l.status ?? 'active', status_date: l.status_date ?? null, status_note: l.status_note ?? null,
 })
-const BLANK_LOCATION: LocationDraft = { location_id: '', name: null, latitude: null, longitude: null, coordinate_uncertainty: null, timezone: 'UTC', ignore_dst: null, in_service: null, status: 'ready', status_date: null, status_note: null }
+const BLANK_LOCATION: LocationDraft = { location_id: '', name: null, latitude: null, longitude: null, coordinate_uncertainty: null, timezone: 'UTC', ignore_dst: null, in_service: null, status: 'pending', status_date: null, status_note: null }
 const numberOrNull = (t: string | null) => (t === null ? null : Number(t))
 /** What can change of a location kept: its time zone and its summer-time setting are fixed when it is created, so they are not sent. */
 const locationChanges = ({ timezone, ignore_dst, ...rest }: ReturnType<typeof locationFields>) => { void timezone; void ignore_dst; return rest }

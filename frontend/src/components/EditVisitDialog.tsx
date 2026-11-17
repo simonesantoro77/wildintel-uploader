@@ -1,10 +1,11 @@
+import { actionLabel } from '../visitActions'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { BookVisit, Camera, SdCard, StoredVisit } from '../types'
 import { FEATURE_TYPE_OPTIONS, btnOutline, btnPrimary, inputClass } from '../pages/ImportDeploymentPage'
 import Combobox from './Combobox'
 
-const ACTIONS = ['Installation', 'Revision', 'Desinstallation', 'Stolen', 'Archive'] as const
+const ACTIONS = ['SiteStart', 'Installation', 'Revision', 'Desinstallation', 'Stolen', 'Archive'] as const
 const CAMERA_STATUSES = ['', 'OK', 'Altered', 'Stolen', 'Not revised', 'New site', 'Inactive site'] as const
 const BATTERY_CODES = ['', 'OK', 'NoBatteries'] as const
 const CARD_CODES = ['', 'OK', 'CardFull'] as const
@@ -117,7 +118,7 @@ export default function EditVisitDialog({ projectId, visit, onClose, onSaved }: 
           <div className="flex flex-wrap gap-2">
             {ACTIONS.map((a) => (
               <button key={a} type="button" aria-pressed={form.actions.includes(a)} onClick={() => toggle(a)} disabled={a === 'Archive' && !filling}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors disabled:opacity-50 ${form.actions.includes(a) ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700'}`}>{a}</button>
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors disabled:opacity-50 ${form.actions.includes(a) ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700'}`}>{actionLabel(a)}</button>
             ))}
           </div>
         </fieldset>

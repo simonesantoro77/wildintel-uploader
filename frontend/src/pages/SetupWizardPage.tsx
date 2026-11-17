@@ -203,7 +203,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     }
     for (const site of sites) {
       try {
-        await api.saveLocalLocation(code, { location_id: site.id, name: site.name || null, timezone: site.timezone, ignore_dst: site.ignoreDst, latitude: site.latitude, longitude: site.longitude, coordinate_uncertainty: null, trapper_pk: null, status: 'ready' })
+        await api.saveLocalLocation(code, { location_id: site.id, name: site.name || null, timezone: site.timezone, ignore_dst: site.ignoreDst, latitude: site.latitude, longitude: site.longitude, coordinate_uncertainty: null, trapper_pk: null, status: 'pending' })
         r.sites.added.push(site.id)
       } catch (e) { r.sites.problems.push(`${site.id}: ${message(e, 'it could not be kept.')}`) }
     }

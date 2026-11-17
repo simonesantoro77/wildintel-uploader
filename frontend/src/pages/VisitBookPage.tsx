@@ -1,3 +1,4 @@
+import { actionsLabel } from '../visitActions'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { PHASE_BADGE, PHASE_DOT, PHASE_FILL, PHASE_LABEL } from '../visitPhases'
 import { api } from '../api'
@@ -47,7 +48,7 @@ function sortValue(v: BookVisit, key: SortKey): string | number {
     case 'where': return v.location_id.toLowerCase()
     case 'when': return `${v.date}T${v.time}`
     case 'status': { const i = PHASES.indexOf(phaseOf(v) as Phase); return i < 0 ? PHASES.length : i } // a visit that left no camera goes last
-    case 'actions': return v.actions.join(' + ').toLowerCase()
+    case 'actions': return actionsLabel(v.actions).toLowerCase()
     case 'stored': return v.deployment_id ? 0 : v.deployment_status === 'closed' ? 1 : 2 // stored, to create, not stored
   }
 }
@@ -308,7 +309,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   const needle = filter.trim().toLowerCase()
   const shown = rows
     .filter((v) => matches(v, statusFilter))
-    .filter((v) => !needle || `${v.location_id} ${v.session} ${v.camera_id ?? ''} ${v.sd ?? ''} ${v.trappers ?? ''} ${v.actions.join(' ')} ${v.deployment_id ?? ''} ${phaseOf(v) ? PHASE_LABEL[phaseOf(v)!] : ''}`.toLowerCase().includes(needle))
+    .filter((v) => !needle || `${v.location_id} ${v.session} ${v.camera_id ?? ''} ${v.sd ?? ''} ${v.trappers ?? ''} ${actionsLabel(v.actions, ' ')} ${v.deployment_id ?? ''} ${phaseOf(v) ? PHASE_LABEL[phaseOf(v)!] : ''}`.toLowerCase().includes(needle))
     // by the column chosen — the rows not made last —, else the latest revision first, within it the visits made newest first and then the ones not made, by site
     .sort((a, b) => {
       if (!sort) return byDefault(a, b)
@@ -547,7 +548,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                                 : v.location_id}
                             </td>
                             <td className="px-4 py-3 font-mono text-[11px] whitespace-nowrap text-zinc-600 dark:text-zinc-300">{v.not_done || v.unknown || phaseOf(v) === 'not_visited' ? <span className="font-sans text-zinc-400">—</span> : formatVisitWhen(v)}</td>
-                            <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{v.actions.length === 0 && !v.not_done ? '—' : v.actions.join(' + ')}</td>
+                            <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{v.actions.length === 0 && !v.not_done ? '—' : actionsLabel(v.actions)}</td>
                             <td className="px-4 py-3">{phaseOf2(v)}</td>
                             <td className="px-4 py-3">{imagesOf(v)}</td>
                             <td className="px-4 py-3 whitespace-nowrap">{optionsOf(v)}</td>
@@ -576,7 +577,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                           : <span className="font-mono text-base font-bold">{v.location_id}</span>}
                         <span>{phaseOf2(v)}</span>
                       </div>
-                      <p className="mt-1 font-mono text-sm text-zinc-500 dark:text-zinc-400">{v.session}{v.actions.length > 0 ? ` · ${v.actions.join(' + ')}` : ''}</p>
+                      <p className="mt-1 font-mono text-sm text-zinc-500 dark:text-zinc-400">{v.session}{v.actions.length > 0 ? ` · ${actionsLabel(v.actions)}` : ''}</p>
                       <div className="my-3 border-t border-zinc-200 dark:border-zinc-700/70" />
                       <div className="flex items-center justify-between gap-3 text-xs">
                         <span className="font-mono text-zinc-600 dark:text-zinc-300">{v.not_done || v.unknown || phaseOf(v) === 'not_visited' ? '—' : formatVisitWhen(v)}</span>
