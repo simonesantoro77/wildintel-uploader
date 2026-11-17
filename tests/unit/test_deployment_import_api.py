@@ -597,6 +597,18 @@ def _keep_location(root: Path, **fields) -> None:
     (project / "locations.json").write_text(json.dumps([{"location_id": "DONA_01", **fields}]), encoding="utf-8")
 
 
+def _visits_of_r0003(tmp_path: Path, visits: bool = True) -> None:
+    """The research project, and the visits that make R0003-DONA_01 a deployment: the one that left the camera and the one that collected its card."""
+    from wildintel_uploader.core.services import local_folder_service
+    local_folder_service.write_research_project(tmp_path / "collections", {"name": "Doñana", "acronym": "DONA"})
+    if not visits:
+        return
+    local_folder_service.write_visits(tmp_path / "collections", "DONA", [
+        {"location_id": "DONA_01", "session": "R0003", "date": "2024-07-01", "time": "09:00:00", "when": "2024-07-01T07:00:00Z", "actions": ["Installation"], "sd": "A13"},
+        {"location_id": "DONA_01", "session": "R0004", "date": "2024-07-31", "time": "09:00:00", "when": "2024-07-31T07:00:00Z", "actions": ["Revision"], "num_photos": 1},
+    ])
+
+
 def _import_local_payload(tmp_path: Path, location_time: dict | None = None, **preprocessing) -> dict:
     """location_time is what the kept location DONA_01 holds — the images are read in its timezone, the request has none."""
     _keep_location(tmp_path / "collections", **({"timezone": "Europe/Madrid"} if location_time is None else location_time))
@@ -966,8 +978,10 @@ def test_import_local_refuses_a_deployment_synced_from_trapper(tmp_path: Path):
 
 
 def test_the_seal_endpoint_says_whether_a_kept_deployment_is_still_what_was_sealed(tmp_path: Path):
+    payload = _import_local_payload(tmp_path)
+    _visits_of_r0003(tmp_path)
     with _in(tmp_path / "collections"):
-        _client().post("/api/deployment-import/import-local", json=_import_local_payload(tmp_path))
+        _client().post("/api/deployment-import/import-local", json=payload)
         ask = lambda: _client().post("/api/deployment-import/seal", json={"research_project_id": "DONA", "deployment_id": "R0003-DONA_01"})
         assert ask().json()["status"] == "valid"
         (tmp_path / "collections" / "DONA" / "R0003" / "R0003-DONA_01" / "deployment.json").write_text("{}", encoding="utf-8")
@@ -1132,3 +1146,31 @@ def test_a_location_in_utc_never_ignores_summer_time_since_utc_has_none(tmp_path
 
     assert saved.status_code == 200 and listed[0]["ignore_dst"] is False
     assert asked.status_code == 200 and asked.json()["ignore_dst"] is False
+
+
+def test_a_deployment_that_is_of_no_visit_is_refused_before_a_file_is_touched(tmp_path: Path):
+    payload = _import_local_payload(tmp_path)   # the research project has no visits
+    _visits_of_r0003(tmp_path, visits=False)
+    with _in(tmp_path / "collections"):
+        for path in ("preprocess", "import-local"):
+            response = _client().post(f"/api/deployment-import/{path}", json=payload)
+            assert response.status_code == 400
+            assert "always linked to a visit" in response.json()["detail"]
+    assert not (tmp_path / "collections" / "DONA" / "R0003").exists()
+
+
+def test_a_deployment_the_visits_say_is_accepted(tmp_path: Path):
+    payload = _import_local_payload(tmp_path)
+    _visits_of_r0003(tmp_path)
+    with _in(tmp_path / "collections"):
+        response = _client().post("/api/deployment-import/preprocess", json=payload)
+    assert response.status_code == 200
+
+
+def test_a_deployment_with_another_id_than_the_visits_say_is_refused(tmp_path: Path):
+    payload = _import_local_payload(tmp_path)
+    _visits_of_r0003(tmp_path)
+    payload["deployment"]["deployment_id"] = "R0009-DONA_01"
+    with _in(tmp_path / "collections"):
+        response = _client().post("/api/deployment-import/preprocess", json=payload)
+    assert response.status_code == 400

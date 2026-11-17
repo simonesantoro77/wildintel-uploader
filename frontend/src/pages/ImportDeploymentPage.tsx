@@ -2,7 +2,6 @@ import { inTheApp, listWorking } from '../researchProjects'
 import { TABLE, TableCard } from '../components/DashboardParts'
 import CheckResultsTable from '../components/CheckResultsTable'
 import ValidationDashboard, { formatRun } from '../components/ValidationDashboard'
-import TimezoneCombobox from '../components/TimezoneCombobox'
 import WizardStep from '../components/WizardStep'
 import { formatDay, formatLocal, formatVisitWhen } from '../dateFormat'
 import TrapperAccountNotice, { trapperAccountReady } from '../components/TrapperAccountNotice'
@@ -34,10 +33,10 @@ import Notice, { BadgeIcon, Mark, mark, StatusIcon } from '../components/Notice'
 import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
-import { isValidTimezone, knownTimezones, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
+import { shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import type {
   Report, AppSettings, CameraGroup, CollectionPath, PreprocessingOptions, SimilarityMethod, StatisticCheck, StatisticsParams, ExifField, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
-  FeatureType, GuessedDetails, ImageCheck, ImportEvent, Location, LocalLocation, LocalResearchProject, PreviousDeployment, ResearchProject, ScanResult,
+  FeatureType, GuessedDetails, ImageCheck, ImportEvent, LocalLocation, LocalResearchProject, PreviousDeployment, ResearchProject, ScanResult,
   SessionSummary, UploadTarget, ValidationResult,
 } from '../types'
 
@@ -1489,12 +1488,14 @@ interface Props {
   /** Once a deployment is saved: back to the menu of the deployments, and back to the main menu. */
   onDeploymentsMenu?: () => void
   onMainMenu?: () => void
+  /** Goes to Register visits on a research project: what is done when there is no visit to link the deployment to. */
+  onRegisterVisits?: (researchProjectId: string) => void
 }
 
 // Blank credentials: the backend uses the ones saved in the settings.
 export const NO_CREDENTIALS: TrapperCredentials = {}
 
-export default function ImportDeploymentPage({ resumeSession, closedVisit, researchProject, onUpload, onOpenSettings, settingsOpen = false, onBack, onDeploymentsMenu, onMainMenu }: Props) {
+export default function ImportDeploymentPage({ resumeSession, closedVisit, researchProject, onUpload, onOpenSettings, settingsOpen = false, onBack, onDeploymentsMenu, onMainMenu, onRegisterVisits }: Props) {
   const [step, setStep] = useState(0)
 
   // The Trapper account is the one saved in the settings: nothing is asked for here, and the backend
@@ -1560,14 +1561,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [linkedVisit, setLinkedVisit] = useState<ClosedVisit | null>(null)
   // Fix dates and times, opened over the wizard from the results of the checks — the wizard stays as it is under it.
   const [fixingDates, setFixingDates] = useState(false)
-  const [addingLocation, setAddingLocation] = useState(false)
-  const [locationSource, setLocationSource] = useState<OriginSource | null>(null)
-  const [locationDraft, setLocationDraft] = useState(EMPTY_LOCATION_DRAFT)
-  const [trapperLocationProjectPk, setTrapperLocationProjectPk] = useState('')
-  const [trapperLocations, setTrapperLocations] = useState<Location[]>([])
-  const [trapperLocationPks, setTrapperLocationPks] = useState<string[]>([])
-  const [loadingTrapperLocations, setLoadingTrapperLocations] = useState(false)
-  const [savingLocation, setSavingLocation] = useState(false)
   const [originError, setOriginError] = useState<string | null>(null)
 
   // Step "checks"/"import": where the deployment's collection is kept locally by
@@ -1882,19 +1875,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
   // The deployment needs coordinates (Camtrap DP requires them) — they come with the location.
   const locationLacksCoordinates = Boolean(selectedLocation) && (selectedLocation!.latitude == null || selectedLocation!.longitude == null)
-  const originReady = Boolean(selectedProjectId && origin.locationId.trim()) && !locationLacksCoordinates && !addingProject && !addingLocation
-  const locationErrors = {
-    location_id: locationDraft.location_id.trim() ? undefined : 'Required',
-    timezone: !locationDraft.timezone.trim() ? 'Required' : !isValidTimezone(locationDraft.timezone) ? 'Not a known IANA timezone (e.g. Europe/Madrid).' : undefined,
-    ignore_dst: locationDraft.ignore_dst ? undefined : 'Required',
-    latitude: rangeError(locationDraft.latitude, -90, 90, true),
-    longitude: rangeError(locationDraft.longitude, -180, 180, true),
-    coordinate_uncertainty: locationDraft.coordinate_uncertainty.trim() === ''
-      ? undefined
-      : (Number.isInteger(Number(locationDraft.coordinate_uncertainty)) && Number(locationDraft.coordinate_uncertainty) >= 1 ? undefined : 'Must be a whole number, 1 or more.'),
-  }
+  const originReady = Boolean(selectedProjectId && origin.locationId.trim()) && !locationLacksCoordinates && !addingProject
   const canSaveProject = projectSource !== null && Object.keys(projectErrors).length === 0 && !savingProject
-  const canSaveLocation = locationSource === 'manual' && Object.values(locationErrors).every((e) => !e) && !savingLocation
   const accountReady = trapperAccountReady(account)
 
   async function handleTestConnection() {
@@ -1909,8 +1891,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     }
   }
 
-  // Adding a research project or a location from Trapper connects, with the account of the settings, as soon as it is asked for.
-  const wantsTrapper = (addingProject && projectSource === 'trapper') || (addingLocation && locationSource === 'trapper')
+  // Adding a research project from Trapper connects, with the account of the settings, as soon as it is asked for.
+  const wantsTrapper = addingProject && projectSource === 'trapper'
   useEffect(() => {
     if (wantsTrapper && accountReady && conn.status === 'idle') void handleTestConnection()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1920,10 +1902,9 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     setOrigin({ researchProject: '', locationId: '', locationName: '', timezone: '' })
     setSelectedProjectId(''); setAddingProject(false); setProjectSource(null); setProjectDraft(EMPTY_RESEARCH_PROJECT)
     setTrapperProjectPks([])
-    setLocalLocations([]); setSelectedLocationId(''); setAddingLocation(false); setLocationSource(null)
+    setLocalLocations([]); setSelectedLocationId('')
     setClosedVisits(null); setLinkedVisit(null)
-    setLocationDraft(EMPTY_LOCATION_DRAFT)
-    setTrapperLocationProjectPk(''); setTrapperLocations([]); setTrapperLocationPks([]); setOriginError(null)
+    setOriginError(null)
     setDeployment((d) => ({ ...d, location_id: '', location_name: null }))
   }
 
@@ -1958,7 +1939,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
   function selectProject(project: LocalResearchProject | undefined) {
     setSelectedProjectId(project?.acronym ?? '')
-    setSelectedLocationId(''); setAddingLocation(false); setOriginError(null); setLinkedVisit(null); setSdCard('')
+    setSelectedLocationId(''); setOriginError(null); setLinkedVisit(null); setSdCard('')
     setOrigin({ researchProject: project ? `${project.acronym} — ${project.name}` : '', locationId: '', locationName: '', timezone: '' })
     applyOriginLocation(undefined)
   }
@@ -2080,89 +2061,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     fillFromVisits(closed)
     const revision = revisionOfVisit(closed)
     if (revision) { revisionTouched.current = true; setRevisionHint(null); applyRevision(String(revision)) }
-  }
-
-  function startAddingLocation() {
-    setAddingLocation(true); setLocationSource(null); setLocationDraft(EMPTY_LOCATION_DRAFT)
-    setTrapperLocationProjectPk(''); setTrapperLocations([]); setTrapperLocationPks([]); setOriginError(null)
-  }
-
-  function handleLocationSourceChange(source: OriginSource) {
-    setLocationSource(source); setLocationDraft(EMPTY_LOCATION_DRAFT)
-    setTrapperLocationPks([])
-  }
-
-  /** From Trapper: the locations of the chosen Trapper research project. */
-  async function handleTrapperLocationProjectChange(pk: string) {
-    setTrapperLocationProjectPk(pk)
-    setTrapperLocations([]); setTrapperLocationPks([]); setOriginError(null)
-    if (!pk) return
-    setLoadingTrapperLocations(true)
-    try {
-      const { results } = await api.trapperLocations(NO_CREDENTIALS, Number(pk))
-      setTrapperLocations(results)
-    } catch (e) {
-      setOriginError(e instanceof Error ? e.message : "Could not load the research project's locations.")
-    } finally {
-      setLoadingTrapperLocations(false)
-    }
-  }
-
-  /** Keeps a location in the research project's folder and picks it. */
-  async function addLocation(location: LocalLocation) {
-    setSavingLocation(true); setOriginError(null)
-    try {
-      const saved = await api.saveLocalLocation(selectedProjectId, location)
-      setLocalLocations((list) => [...list, saved])
-      setAddingLocation(false)
-      selectLocation(saved)
-    } catch (e) {
-      setOriginError(e instanceof Error ? e.message : 'Could not save the location.')
-    } finally {
-      setSavingLocation(false)
-    }
-  }
-
-  function handleSaveLocation() {
-    return addLocation({
-      location_id: locationDraft.location_id.trim(), name: locationDraft.name.trim() || null,
-      timezone: locationDraft.timezone.trim(), ignore_dst: locationDraft.ignore_dst === 'yes', trapper_pk: null,
-      latitude: Number(locationDraft.latitude), longitude: Number(locationDraft.longitude),
-      coordinate_uncertainty: locationDraft.coordinate_uncertainty.trim() ? Number(locationDraft.coordinate_uncertainty) : null,
-    })
-  }
-
-  /** From Trapper: the locations ticked there are simply added — no form, as many as are ticked. One
-   * already kept here is just picked. The first is the one marked by default afterwards. */
-  async function handleAddTrapperLocations() {
-    setSavingLocation(true); setOriginError(null)
-    const problems: string[] = []
-    const chosen: LocalLocation[] = []
-    const added: LocalLocation[] = []
-    for (const pk of trapperLocationPks) {
-      const loc = trapperLocations.find((l) => String(l.pk) === pk)
-      if (!loc) continue
-      const already = localLocations.find((l) => l.location_id.toLowerCase() === loc.location_id.toLowerCase())
-      if (already) { chosen.push(already); continue }
-      if (loc.latitude == null || loc.longitude == null) {
-        problems.push(`“${loc.location_id}” has no coordinates in Trapper, and a deployment needs them. Add it by hand instead.`)
-        continue
-      }
-      try {
-        const saved = await api.saveLocalLocation(selectedProjectId, {
-          location_id: loc.location_id, name: loc.name || null,
-          timezone: loc.timezone && isValidTimezone(loc.timezone) ? loc.timezone : null, ignore_dst: loc.ignore_dst ?? null, trapper_pk: loc.pk,
-          latitude: loc.latitude, longitude: loc.longitude, coordinate_uncertainty: null,
-        })
-        added.push(saved); chosen.push(saved)
-      } catch (e) {
-        problems.push(`“${loc.location_id}”: ${e instanceof Error ? e.message : 'could not be saved.'}`)
-      }
-    }
-    if (added.length) setLocalLocations((list) => [...list, ...added])
-    setSavingLocation(false)
-    if (chosen.length) { setAddingLocation(false); selectLocation(chosen[0]) }
-    if (problems.length) setOriginError(problems.join(' '))
   }
 
   /** Sets the timezone and re-stamps both dates with the designator it
@@ -2415,13 +2313,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
       .catch(() => { if (!cancelled) setClosedVisits([]) })
     return () => { cancelled = true }
   }, [selectedProjectId])
-
-  // Adding a location from Trapper: start from the Trapper research project this one was filled in from.
-  useEffect(() => {
-    if (locationSource !== 'trapper' || conn.status !== 'ok' || trapperLocationProjectPk || !selectedProject?.trapper_pk) return
-    void handleTrapperLocationProjectChange(String(selectedProject.trapper_pk))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationSource, conn.status, trapperLocationProjectPk, selectedProject])
 
   const canImport = Boolean(plannedCollection) && Boolean(researchProjectId) && deploymentConforms
 
@@ -2955,105 +2846,11 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           )}
 
           {selectedProjectId && !addingProject && closedVisits !== null && closedVisits.length === 0 && (
-            <FormCard title="Location" description={`Locations of ${selectedProjectId}, found in the collections folder.`}>
-              {!addingLocation ? (
-                <>
-                  <label className={labelClass} htmlFor="origin-location">Location</label>
-                  <Combobox
-                    id="origin-location" options={localLocations.map((l) => ({ value: l.location_id, label: `${l.location_id}${l.name ? ` — ${l.name}` : ''}` }))}
-                    value={selectedLocationId} onChange={(id) => selectLocation(localLocations.find((l) => l.location_id === id))}
-                    placeholder={localLocations.length === 0 ? 'No locations yet' : 'Select a location…'}
-                    clearLabel="Clear location"
-                  />
-                  {localLocations.length === 0 && <p className={hintClass}>{selectedProjectId} has no locations yet — add the first one.</p>}
-                  {locationLacksCoordinates && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{selectedLocationId} has no coordinates, and a deployment needs them — pick another location.</p>
-                  )}
-                  <div className="mt-3">
-                    <button type="button" className={btnOutline} onClick={startAddingLocation}>➕ Add a new location</button>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-1">New location</p>
-                  <p className={`${hintClass} mb-3`}>Create a new location linked to the research project {selectedProjectId}.</p>
-                  <OptionCards options={ORIGIN_SOURCE_OPTIONS} selected={locationSource} onChoose={handleLocationSourceChange} />
-
-                  {locationSource === 'trapper' && (
-                    <div className="mt-4">
-                      {conn.status !== 'ok' ? connectionForm : (
-                        <>
-                          <div className="mb-4">
-                            <label className={labelClass} htmlFor="trapper-location-project">Trapper research project</label>
-                            <Combobox
-                              id="trapper-location-project" options={researchProjects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
-                              value={trapperLocationProjectPk} onChange={handleTrapperLocationProjectChange}
-                              placeholder={researchProjects.length === 0 ? 'No research projects found' : 'Select a research project…'}
-                              clearLabel="Clear Trapper research project"
-                            />
-                          </div>
-                          {trapperLocationProjectPk && (
-                            <div>
-                              <p className={labelClass}>Trapper locations</p>
-                              <CheckboxList
-                                filterLabel="Filter Trapper locations" emptyText={loadingTrapperLocations ? 'Loading locations…' : 'No locations found.'}
-                                disabled={loadingTrapperLocations || savingLocation}
-                                options={trapperLocations.map((l) => ({ value: String(l.pk), label: `${l.location_id}${l.name ? ` — ${l.name}` : ''}` }))}
-                                selected={trapperLocationPks} onChange={setTrapperLocationPks}
-                              />
-                              <p className={hintClass}>Tick one or more — they are added to {selectedProjectId} as they are, and the first one is picked.</p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {locationSource === 'manual' && (
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <Field label="Location id" required placeholder="e.g. DONA_01" hint={DESCRIPTIONS.locationID} value={locationDraft.location_id}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, location_id: v }))} />
-                      <Field label="Location name" placeholder="e.g. Doñana site 1" hint={DESCRIPTIONS.locationName} value={locationDraft.name}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, name: v }))} />
-                      <Field label="Latitude" type="number" required min={-90} max={90} step="any" placeholder="e.g. 52.70442"
-                             hint={DESCRIPTIONS.latitude} error={locationDraft.latitude ? locationErrors.latitude : undefined} value={locationDraft.latitude}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, latitude: v }))} />
-                      <Field label="Longitude" type="number" required min={-180} max={180} step="any" placeholder="e.g. 23.84995"
-                             hint={DESCRIPTIONS.longitude} error={locationDraft.longitude ? locationErrors.longitude : undefined} value={locationDraft.longitude}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, longitude: v }))} />
-                      <Field label="Coordinate uncertainty (m)" type="number" min={1} step={1} placeholder="e.g. 100"
-                             hint={DESCRIPTIONS.coordinateUncertainty} error={locationErrors.coordinate_uncertainty} value={locationDraft.coordinate_uncertainty}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, coordinate_uncertainty: v }))} />
-                      <div>
-                        <FieldLabel id="location-timezone" label="Timezone (IANA)" required />
-                        <TimezoneCombobox id="location-timezone" value={locationDraft.timezone} invalid={!locationDraft.timezone} onChange={(v) => setLocationDraft((d) => ({ ...d, timezone: v }))} />
-                        <p className={hintClass}>The location's own — every deployment there is read in it.</p>
-                      </div>
-                      <DstSelect value={locationDraft.ignore_dst} error={locationDraft.ignore_dst ? undefined : locationErrors.ignore_dst} onChange={(v) => setLocationDraft((d) => ({ ...d, ignore_dst: v }))} />
-                      <datalist id="timezone-options">
-                        {knownTimezones().map((tz) => <option key={tz} value={tz} />)}
-                      </datalist>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 mt-4">
-                    {locationSource === 'manual' && (
-                      <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!canSaveLocation} onClick={handleSaveLocation}>
-                        {savingLocation && <SmallSpinner />}
-                        Save location
-                      </button>
-                    )}
-                    {locationSource === 'trapper' && conn.status === 'ok' && (
-                      <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={trapperLocationPks.length === 0 || savingLocation} onClick={handleAddTrapperLocations}>
-                        {savingLocation && <SmallSpinner />}
-                        {`Add ${trapperLocationPks.length} location${trapperLocationPks.length === 1 ? '' : 's'}`}
-                      </button>
-                    )}
-                    <button type="button" className={btnOutline} onClick={() => { setAddingLocation(false); setOriginError(null) }}>Cancel</button>
-                  </div>
-                </div>
-              )}
-            </FormCard>
+            <Notice kind="warning" role="status" className="!items-start"
+                    action={onRegisterVisits && <button type="button" className={btnPrimary} onClick={() => onRegisterVisits(selectedProjectId)}>Register the visits</button>}>
+              <strong>There is no closed visit without a deployment in {selectedProjectId}.</strong> A deployment is always linked to a visit — the one that left the camera, closed by the one that collected its
+              card —: its dates, its SD card and the photos counted on it are the visit's. Register the visits first, by hand or from a file with their history.
+            </Notice>
           )}
 
           {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
