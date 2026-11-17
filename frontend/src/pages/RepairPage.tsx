@@ -6,7 +6,6 @@ import PickTable, { LabelFrame, PickedTick } from '../components/PickTable'
 import { Mark, mark } from '../components/Notice'
 import BackButton from '../components/BackButton'
 import ReportPanel from '../components/ReportPanel'
-import ActiveProjectCard from '../components/ActiveProjectCard'
 import { PageHeader, UTIL_ICONS } from '../components/TaskCard'
 import WizardStep from '../components/WizardStep'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
@@ -51,7 +50,7 @@ function StateBadge({ state, repairing }: { state: RepairState | undefined; repa
  * are not: their metadata files (deployment.json, images.json, preprocessing.json, seal.json) are written again from what the folder
  * holds, taking the period from the collection's timestamp log when it has the deployment. Three steps: what to check, what the check
  * found, and the repairs. */
-export default function RepairPage({ onBack, onOpenSettings, settingsOpen }: { onBack?: () => void; onOpenSettings?: (section?: 'general') => void; settingsOpen?: boolean } = {}) {
+export default function RepairPage({ onBack }: { onBack?: () => void; onOpenSettings?: (section?: 'general') => void; settingsOpen?: boolean } = {}) {
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<RepairCollection[]>([])
@@ -163,7 +162,7 @@ export default function RepairPage({ onBack, onOpenSettings, settingsOpen }: { o
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <PageHeader icon={UTIL_ICONS.repair} title="Repair local deployments" parent="Utilities" onParent={onBack} aside={<ActiveProjectCard of="The repair" onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
+      <PageHeader icon={UTIL_ICONS.repair} title="Repair local deployments" parent="Utilities" onParent={onBack} withProject
         description="Checks the deployments of a revision and repairs the ones that are not valid." />
 
       <WizardStep n={1} title="Choose what to check" status={chosen ? 'done' : 'open'} canEdit={!busy} onEdit={startOver}

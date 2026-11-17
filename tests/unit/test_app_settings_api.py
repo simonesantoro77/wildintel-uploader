@@ -698,3 +698,19 @@ def test_the_status_of_an_sd_card_by_hand_follows_what_the_visits_say(tmp_path):
     assert free[0] == "planned" and free[1] == "ready" and "a visit leaves it there" in free[2]
     assert all("is in the camera at DONA_01" in o for o in inside)
     assert back == ("planned", "ready", "archived")
+
+
+def test_the_default_research_project_is_changed_alone_to_one_of_the_collections_folder():
+    _put(TRAPPER={"enabled": False, "base_url": "https://trapper.example", "user_name": "ana@example.org", "user_password": "", "max_zip_mb": 100})
+
+    response = _client().put("/api/settings/default-research-project", json={"acronym": " tatr "})
+
+    assert response.status_code == 200 and response.json() == {"default_research_project": "TATR"}
+    saved = config.load_settings()
+    assert saved.GENERAL.default_research_project == "TATR"
+    assert saved.TRAPPER.base_url == "https://trapper.example"   # nothing else is touched
+
+
+def test_a_default_research_project_that_is_not_in_the_collections_folder_is_refused():
+    assert _client().put("/api/settings/default-research-project", json={"acronym": "GONE"}).status_code == 404
+    assert config.load_settings().GENERAL.default_research_project is None

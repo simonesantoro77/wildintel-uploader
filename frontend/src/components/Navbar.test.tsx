@@ -8,8 +8,10 @@ describe('Navbar', () => {
     const onHome = vi.fn()
     render(<Navbar version="0.1.0" onHome={onHome} onOpenSettings={() => {}} settingsOpen={false} />)
 
-    const title = screen.getByRole('button', { name: /WildINTEL Uploader\s*v0\.1\.0/ })
+    const title = screen.getByRole('button', { name: 'Go to the welcome screen' })
     expect(title).toHaveAttribute('title', 'Go to the welcome screen')
+    expect(screen.getByText('WildINTEL Uploader')).toBeInTheDocument()
+    expect(screen.getByText('v0.1.0')).toBeInTheDocument()
     await userEvent.click(title)
 
     expect(onHome).toHaveBeenCalledTimes(1)
@@ -19,7 +21,7 @@ describe('Navbar', () => {
     const onHome = vi.fn()
     render(<Navbar version={null} onHome={onHome} onOpenSettings={() => {}} settingsOpen={false} />)
 
-    await userEvent.click(screen.getByRole('button', { name: /WildINTEL Uploader/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Go to the welcome screen' }))
     expect(onHome).toHaveBeenCalled()
   })
 })

@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -142,9 +143,9 @@ describe('RepairPage', () => {
 
   it('has the header of the other pages: the way back to Utilities, the icon and the title', async () => {
     const onBack = vi.fn()
-    render(<RepairPage onBack={onBack} />)
+    renderWithHeader(<RepairPage onBack={onBack} />)
 
-    expect(screen.getByRole('navigation', { name: 'You are here' })).toHaveTextContent('Utilities›Repair local deployments')
+    expect(screen.getByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Utilities›Repair local deployments')
     expect(screen.getByRole('heading', { name: 'Repair local deployments' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Utilities' }))
     expect(onBack).toHaveBeenCalled()

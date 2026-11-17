@@ -18,8 +18,8 @@ describe('WelcomePage', () => {
     const onStart = vi.fn()
     render(<WelcomePage onStart={onStart} />)
 
-    expect(screen.getByText(/organize a folder of images on this computer, one deployment or several at once/i)).toBeInTheDocument()
-    expect(screen.getByText('Upload to Trapper')).toBeInTheDocument()
+    for (const title of ['Manage visits', 'Manage deployments', 'Manage uploads']) expect(screen.getByText(title)).toBeInTheDocument()
+    expect(screen.getByText(/see how far the uploads are/i)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /get started/i }))
     expect(onStart).toHaveBeenCalled()

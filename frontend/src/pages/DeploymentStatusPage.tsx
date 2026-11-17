@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { Breadcrumb } from '../components/TaskCard'
 import { DashboardHeader, HelpButton } from '../components/DashboardParts'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import FieldDeployments from '../components/FieldDeployments'
 import { readDeployment } from '../deploymentDetails'
 import type { ClosedVisitTarget, FieldDeployment, SdCard, UploadTarget } from '../types'
@@ -30,7 +29,7 @@ interface Props {
 
 /** The dashboard of the deployments of the default research project — the statistics: which are closed with their images stored, which still have the camera out, which are not on Trapper yet. */
 export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsOpen, focus, onShowVisit, onUpload, onShowUploads, onImportImages, onShowStatistics }: Props) {
-  const { project, defaultAcronym, error: projectError } = useDefaultResearchProject(settingsOpen)
+  const { project, error: projectError } = useDefaultResearchProject(settingsOpen)
   const [deployments, setDeployments] = useState<FieldDeployment[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -80,10 +79,9 @@ export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsO
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <Breadcrumb parent="Manage deployments" onParent={onBack} current="Deployments dashboard" />
-      <DashboardHeader icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
+      <DashboardHeader parent="Manage deployments" onParent={onBack} icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
         actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />}
-        aside={project !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={project} defaultAcronym={defaultAcronym} of="The dashboard" onOpenSettings={onOpenSettings} /> : undefined} />
+        withProject />
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
       {project && (deployments === null ? <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p> : <FieldDeployments researchProjectId={project.acronym} deployments={deployments} loadVisits={loadVisits} sdCards={sdCards} onCreate={onImportImages ? (d) => void create(d) : undefined} helpOpen={helpOpen} onCloseHelp={() => setHelpOpen(false)} onShowSd={onOpenSettings && ((label) => onOpenSettings('sdcards', project.acronym, label))} onShowLocation={onOpenSettings && ((site) => onOpenSettings('locations', project.acronym, site))} onShowUploads={onShowUploads} onShowStatistics={onShowStatistics} highlight={focus} onShowVisit={onShowVisit} loadDetails={(id) => readDeployment(project.acronym, id)} onUpload={onUpload && ((d) => onUpload({ researchProjectId: project.acronym, collection: d.collection }))} />)}

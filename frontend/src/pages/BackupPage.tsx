@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
-import ActiveProjectCard from '../components/ActiveProjectCard'
 import ChoiceCards from '../components/ChoiceCards'
 import Combobox from '../components/Combobox'
 import PickTable, { LabelFrame, PickedTick } from '../components/PickTable'
@@ -68,7 +67,7 @@ function ManifestList({ manifest }: { manifest: BackupManifest }) {
 
 /** Backups and their restoration: the global settings and the data of a research project — its locations, cameras, SD cards, visits and the deployments chosen, with or
  * without their images — in a .zip that says what it holds; and the restoration of what is picked from one. */
-export default function BackupPage({ onBack, onOpenSettings, settingsOpen }: Props) {
+export default function BackupPage({ onBack, settingsOpen }: Props) {
   const [mode, setMode] = useState<Mode | null>(null)
 
   // ── making a backup ──
@@ -218,7 +217,7 @@ export default function BackupPage({ onBack, onOpenSettings, settingsOpen }: Pro
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <PageHeader icon={UTIL_ICONS.backup} title="Backup and restore" parent="Utilities" onParent={onBack}
         description="Keep the settings and the data of a research project — its visits and the deployments you choose, with or without their images — in a file, and restore them from it."
-        aside={<ActiveProjectCard of="The backup" onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />} />
+        withProject />
 
       <WizardStep n={1} title="What do you want to do?" status={mode ? 'done' : 'open'} canEdit={!running} onEdit={startOver}
                   summary={mode === 'backup' ? 'Make a backup' : mode === 'restore' ? 'Restore a backup' : undefined} description="Make a copy of what you have, or put back what a copy holds.">

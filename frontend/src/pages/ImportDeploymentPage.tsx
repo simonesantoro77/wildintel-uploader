@@ -18,7 +18,7 @@ import SdCardsTable from '../components/SdCardsTable'
 import { Glyph } from '../components/ViewSwitch'
 import { ICON_PATHS } from '../components/IconButton'
 import { MENU_ICONS, PageHeader } from '../components/TaskCard'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import type { TrapperCredentials } from '../api'
 import CheckboxList from '../components/CheckboxList'
 import ChoiceCards from '../components/ChoiceCards'
@@ -1542,7 +1542,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [origin, setOrigin] = useState({ researchProject: '', locationId: '', locationName: '', timezone: '' })
   const [localProjects, setLocalProjects] = useState<LocalResearchProject[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState('')
-  const { project: defaultProject, defaultAcronym } = useDefaultResearchProject(settingsOpen)
+  const { project: defaultProject } = useDefaultResearchProject(settingsOpen)
   const [revisionPick, setRevisionPick] = useState<number | null>(null)
   // What the collection's FileTimestampLog and FieldworkLog say of this deployment, once its id is known.
   const [logEntry, setLogEntry] = useState<LogEntry | null>(null)
@@ -2585,7 +2585,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     <div className={fixingDates ? 'hidden' : 'mx-auto max-w-[1100px] px-4 py-8'}>
       <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
         parent="Manage deployments" onParent={onBack}
-        aside={defaultProject !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={defaultProject} defaultAcronym={defaultAcronym} of="This deployment" onOpenSettings={onOpenSettings} /> : undefined} />
+        withProject />
 
       {/* Step indicator */}
       <div className="flex items-start mb-10">

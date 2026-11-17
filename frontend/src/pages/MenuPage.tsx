@@ -1,10 +1,12 @@
+import ResearchProjectSelect from '../components/ResearchProjectSelect'
+import { useTrail } from '../components/Trail'
 import TaskCard, { ArrowIcon, LineIcon, MENU_ICONS as ICONS, taskCard } from '../components/TaskCard'
 import type { Task } from '../types'
 
 const TASKS: { value: Task; icon: string; title: string; description: string }[] = [
   { value: 'visits', icon: 'visits', title: 'Manage visits', description: 'Register the visits to the camera traps — who went, when, to which site and what was done — or look at the visit book. The deployments are worked out from the visits.' },
   { value: 'deployment', icon: 'deployment', title: 'Manage deployments', description: 'Import a folder of camera-trap images as a deployment, or see the status of the deployments: which are closed, which still have the camera out and which are on Trapper.' },
-  { value: 'upload', icon: 'upload', title: 'Manage uploads', description: 'Send a deployment kept on this computer to Trapper, or see the status of the uploads: which deployments and revisions are on Trapper and which are still to be uploaded.' },
+  { value: 'upload', icon: 'upload', title: 'Manage uploads', description: 'Send a deployment kept on this computer to a repository, or see the status of the uploads: which deployments and revisions are in a repository and which are still to be uploaded.' },
 ]
 
 interface Props {
@@ -12,10 +14,16 @@ interface Props {
 }
 
 export default function MenuPage({ onChoose }: Props) {
+  useTrail([{ label: 'Menu', icon: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> }])
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
-      <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">Choose one of the following.</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Choose one of the following.</p>
+        </div>
+        <ResearchProjectSelect />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {TASKS.map((t) => <TaskCard key={t.value} icon={ICONS[t.icon]} title={t.title} description={t.description} onClick={() => onChoose(t.value)} />)}
       </div>

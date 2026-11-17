@@ -4,12 +4,13 @@ import { Glyph } from '../components/ViewSwitch'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import BackButton from '../components/BackButton'
+import PickTable, { LabelFrame, PickedTick } from '../components/PickTable'
 import Combobox from '../components/Combobox'
 import LocationPicker from '../components/LocationPicker'
 import type { ReactNode } from 'react'
 import TaskCard, { MENU_ICONS, PageHeader } from '../components/TaskCard'
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import ChoiceCards from '../components/ChoiceCards'
 import FileRowResults from '../components/FileRowResults'
 import Notice from '../components/Notice'
@@ -20,7 +21,7 @@ import { CamtrapDpContext, CamtrapDpTag, DateTimeField, FormCard, MoreDetailsFor
 import { shownErrors, validateDeployment } from '../deploymentValidation'
 import { availabilityErrors, cameraAtSite, cardBlock, nextRevision, unfinishedRevision } from '../visitAvailability'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
-import type { Camera, DeploymentFields, LocalLocation, LocalResearchProject, SdCard, StoredVisit, ClosedVisit, ClosedVisitTarget, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, CsvCreate, ImportCsvOptions } from '../types'
+import type { Camera, DeploymentFields, LocalLocation, LocalResearchProject, SdCard, StoredVisit, Trapper, ClosedVisit, ClosedVisitTarget, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, CsvCreate, ImportCsvOptions } from '../types'
 
 export type VisitSource = 'manual' | 'wildintel-new' | 'csv'
 
@@ -506,7 +507,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // Where the visit was: a research project of the collections folder and one of its locations (the site of the visit).
   const [project, setProject] = useState<LocalResearchProject | undefined>(undefined)
   // The visits are of the default research project of the settings — it is not picked here, as in Import deployment.
-  const { project: defaultProject, defaultAcronym } = useDefaultResearchProject(settingsOpen)
+  const { project: defaultProject } = useDefaultResearchProject(settingsOpen)
   useEffect(() => { if (defaultProject && project?.acronym !== defaultProject.acronym) setProject(defaultProject) }, [defaultProject, project])
   const [location, setLocation] = useState<LocalLocation | undefined>(undefined)
   // A planned visit is created from the book: it opens by hand, on its research project and its location.
@@ -544,7 +545,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [zones, setZones] = useState<Record<string, string | null | undefined>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
   // The trappers kept in the settings, offered as who went.
-  const [trappers, setTrappers] = useState<string[]>([])
+  const [trappers, setTrappers] = useState<Trapper[]>([])
   // The SD cards kept in the settings, to pick the one of the visit from.
   const [allSdCards, setSdCards] = useState<SdCard[]>([])
   // And the cameras, to pick the one of the visit from.
@@ -681,7 +682,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     api.getSettings()
       .then((settings) => {
         if (cancelled) return
-        setTrappers((settings.FIELDWORK?.trappers ?? []).filter((t) => !t.status || t.status === 'active').map((t) => t.name))
+        setTrappers((settings.FIELDWORK?.trappers ?? []).filter((t) => !t.status || t.status === 'active'))
         setSdCards(settings.FIELDWORK?.sd_cards ?? [])
         setCameras(settings.FIELDWORK?.cameras ?? [])
         setSourcesUsed({ wildintelNew: settings.EPICOLLECTCSV?.enabled ?? true, epicollect: settings.EPICOLLECT5?.enabled ?? false })
@@ -1010,7 +1011,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Manage visits" onParent={onBack}
-        aside={defaultProject !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={defaultProject} defaultAcronym={defaultAcronym} of="The visits" onOpenSettings={onOpenSettings && ((section) => onOpenSettings(section ?? 'general'))} /> : undefined} />
+        withProject />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} canEdit={!justAdded} onEdit={() => setSource(null)} lockedSummary
         description="Enter them by hand, or read them from a file."
@@ -1080,16 +1081,36 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             <FormCard title="Who" tag={<CamtrapDpTag />} description="The trappers kept in the settings.">
               {(() => {
                 const chosen = namesOf(visit.trappers)
-                const left = trappers.filter((t) => !chosen.some((n) => n.toLowerCase() === t.toLowerCase()))
+                const picked = new Set(trappers.filter((t) => chosen.some((n) => n.toLowerCase() === t.name.toLowerCase())).map((t) => t.name))
+                // what the list picks replaces the names of the list that are on the visit; a name that is not in it — typed in a file — is left as it is
+                const pick = (next: Set<string>) => {
+                  const listed = new Set(trappers.map((t) => t.name.toLowerCase()))
+                  const outside = chosen.filter((n) => !listed.has(n.toLowerCase()))
+                  set('trappers', [...outside, ...trappers.filter((t) => next.has(t.name)).map((t) => t.name)].join(', '))
+                }
                 return (
                   <>
-                    <label className="sr-only" htmlFor="visit-trappers">Trappers</label>
-                    <Combobox
-                      id="visit-trappers" options={left.map((t) => ({ value: t, label: t }))} value=""
-                      onChange={(name) => name && set('trappers', addName(visit.trappers, name))}
-                      placeholder={trappers.length === 0 ? 'No trappers yet' : left.length === 0 ? 'Every trapper is on the visit' : 'Select a trapper…'}
-                      clearLabel="Clear trapper" disabled={left.length === 0}
-                    />
+                    {trappers.length > 0 && (
+                      <PickTable
+                        items={trappers} keyOf={(t) => t.name} defaultView="search" perPage={5}
+                        many={{ selected: picked, onChange: pick, noun: 'trappers' }}
+                        columns={[
+                          { label: 'Name', className: 'px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-200', cell: (t) => t.name },
+                          { label: 'Username', className: 'px-4 py-3 font-mono', cell: (t) => t.username },
+                          { label: 'Affiliation', cell: (t) => t.affiliation ?? '—' },
+                        ]}
+                        searchText={(t) => [t.name, t.username, t.affiliation].filter(Boolean).join(' ')}
+                        renderLabel={(t, isPicked, press) => (
+                          <LabelFrame picked={isPicked} name={t.name} onPress={press}>
+                            <span className="flex items-center justify-between gap-3"><strong className="text-zinc-900 dark:text-white">{t.name}</strong>{isPicked && <PickedTick />}</span>
+                            <span className="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">{[t.username, t.affiliation].filter(Boolean).join(' · ')}</span>
+                          </LabelFrame>
+                        )}
+                        names={{ table: 'Trappers', search: 'Filter the trappers', items: 'trappers', pick: (t) => t.name, pickPlaceholder: 'Select a trapper…' }}
+                        optionLabel={(t) => [t.name, t.affiliation].filter(Boolean).join(' — ')}
+                        searchPlaceholder="Search by name, username, affiliation…" empty="No trapper matches."
+                      />
+                    )}
                     {trappers.length === 0 && <p className={hintClass}>The settings have no trappers yet.</p>}
                     {onOpenSettings && (
                       <p className={`${hintClass} mt-3`}>

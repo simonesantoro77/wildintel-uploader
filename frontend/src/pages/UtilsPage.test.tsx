@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,7 +36,7 @@ describe('UtilsPage', () => {
 
   it('has the header of the other pages: the way back to the menu, the icon, the title and the active research project', async () => {
     const onBack = vi.fn()
-    render(<UtilsPage onBack={onBack} />)
+    renderWithHeader(<UtilsPage onBack={onBack} />)
 
     expect(screen.getByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Utilities')
     expect(screen.getByRole('heading', { name: 'Utilities' })).toBeInTheDocument()

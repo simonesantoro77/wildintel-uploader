@@ -543,13 +543,14 @@ def archive_errors(visit: dict, kept: list[dict], location: dict | None, unknown
     return errors
 
 
-def not_visited_records(previous: int, visits: list[dict], locations: list[dict], unknown: list[dict] | None = None) -> list[dict]:
+def not_visited_records(previous: int, visits: list[dict], locations: list[dict], unknown: list[dict] | None = None, on: str | None = None) -> list[dict]:
     """The visits that finish revision `previous` as not visited: one for each location that is not archived when it starts and has no visit in it —
-    status "Not revised", on the last day of the revision, with the camera that is at the site (none is asked of them)."""
+    status "Not revised", on the last day of the revision, with the camera that is at the site (none is asked of them). A revision with no visit at all — a planned
+    one — is marked on the day `on`, when it is given."""
     of = [v for v in visits if _session_number(v.get("session")) == previous]
-    if not of:
+    if not of and not on:
         return []
-    start, last = min(str(v["date"]) for v in of), max(str(v["date"]) for v in of)
+    start, last = (min(str(v["date"]) for v in of), max(str(v["date"]) for v in of)) if of else (str(on), str(on))
     # a site that is unknown in the revision is not marked: nothing is known of it, and it counts as visited
     visited = {str(v["location_id"]).lower() for v in of} | {site for n, site in _unknown_keys(unknown) if n == previous}
     records = []

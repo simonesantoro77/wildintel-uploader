@@ -12,7 +12,7 @@ interface Props {
 export default function UploadsHomePage({ onBack, onChoose }: Props) {
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <SectionHeader icon={MENU_ICONS.upload} title="Manage uploads" description="Send a deployment to Trapper, or see how far the uploads are." onMenu={onBack} />
+      <SectionHeader icon={MENU_ICONS.upload} title="Manage uploads" description="Send a deployment to a repository, or see how far the uploads are." onMenu={onBack} withProject />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TaskCard icon={<><path d="M18 20V10M12 20V4M6 20v-6" /></>} title="Uploads dashboard"
                   description="Which deployments and revisions are uploaded, and which are created and still to be uploaded." onClick={() => onChoose('status')} />

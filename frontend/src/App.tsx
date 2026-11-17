@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import Navbar from './components/Navbar'
+import { DEFAULT_PROJECT_CHANGED } from './components/DefaultResearchProject'
+import { TrailProvider } from './components/Trail'
 import Footer from './components/Footer'
 import ImportDeploymentPage from './pages/ImportDeploymentPage'
 import ImportDeploymentsPage from './pages/ImportDeploymentsPage'
@@ -89,6 +91,10 @@ export default function App() {
     setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setMenuShown(false); setHome(true)
   }
 
+  function goMenu() {
+    setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setHome(false); setMenuShown(true)
+  }
+
   function goToImportOfVisit(target: ClosedVisitTarget) {
     setClosedVisitTarget(target); setDeploymentsView('import'); setTask('deployment')
   }
@@ -119,6 +125,7 @@ export default function App() {
   const showResumeScreen = !task && !menuShown && !home && unfinishedSessions !== null && unfinishedSessions.length > 0
 
   return (
+    <TrailProvider onMenu={goMenu}>
     <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <Navbar version={currentVersion} onHome={goHome} settingsOpen={settingsOpen} onOpenSettings={() => openSettings()} />
       {backendDown && (
@@ -127,7 +134,7 @@ export default function App() {
         </div>
       )}
       <main className="flex-1">
-        {settingsOpen && <SettingsPage initialSection={settingsSection} initialProject={settingsProject} initialItem={settingsItem} onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <SettingsPage initialSection={settingsSection} initialProject={settingsProject} initialItem={settingsItem} onClose={() => { setSettingsOpen(false); window.dispatchEvent(new Event(DEFAULT_PROJECT_CHANGED)) }} />}
         <div className={settingsOpen ? 'hidden' : ''}>
           {task === 'deployment'
             ? (resumeSession || closedVisitTarget || deploymentsView === 'import')
@@ -174,5 +181,6 @@ export default function App() {
       </main>
       <Footer />
     </div>
+    </TrailProvider>
   )
 }

@@ -27,14 +27,11 @@ beforeEach(() => {
 const showAll = async () => { await userEvent.click(await screen.findByRole('button', { name: /^All revisions/ })) }  // the dashboard opens on the latest revision
 
 describe('DeploymentStatusPage', () => {
-  it('is of the default research project, with the link to the settings where it is changed', async () => {
-    const onOpenSettings = vi.fn()
-    render(<DeploymentStatusPage onBack={vi.fn()} onOpenSettings={onOpenSettings} />)
+  it('is of the default research project, which the page says and lets change', async () => {
+    render(<DeploymentStatusPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
 
-    expect(await screen.findByText(/Tatra/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Change it in the settings' }))
-    expect(onOpenSettings).toHaveBeenCalledWith('general')
-    expect(mockedApi.fieldDeployments).toHaveBeenCalledWith('TATR')
+    expect(await screen.findByRole('button', { name: 'Default research project' })).toHaveTextContent('TATR')
+    await waitFor(() => expect(mockedApi.fieldDeployments).toHaveBeenCalledWith('TATR'))
   })
 
   it('opens the data of the SD card of a deployment in a panel at the right, with a way on to its state in the settings', async () => {

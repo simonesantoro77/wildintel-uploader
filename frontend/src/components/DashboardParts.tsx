@@ -2,6 +2,7 @@ import { useEffect, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } f
 import { btnOutline, btnPrimary } from '../pages/ImportDeploymentPage'
 import { pageNumbers } from './CheckFailures'
 import { Icon } from './Dashboard'
+import { DashboardBar } from './PageBar'
 import RevisionSquares, { type RevisionSquare } from './RevisionSquares'
 
 /** The pieces the dashboards of the visits, of the deployments and of the uploads share: the same header, the same help panel, the same cards and the same table. */
@@ -16,25 +17,10 @@ export function FoldButton({ open, onToggle, name }: { open: boolean; onToggle: 
   )
 }
 
-/** The head of a dashboard: its icon, its title and what it is, a line of buttons under them, and a card at the right — the research project. */
-export function DashboardHeader({ icon, title, description, actions, aside }: { icon: ReactNode; title: string; description: ReactNode; actions?: ReactNode; aside?: ReactNode }) {
-  return (
-    <header className="mb-8 flex flex-col gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/80 px-5 py-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-            <Icon path={icon} className="h-6 w-6" />
-          </span>
-          <div>
-            <h4 className="text-xl font-semibold leading-tight">{title}</h4>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm">{description}</p>
-          </div>
-        </div>
-        {actions && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Dashboard actions">{actions}</div>}
-      </div>
-      {aside && <div className="shrink-0">{aside}</div>}
-    </header>
-  )
+/** The head of a dashboard: its title, the path to it and the line of buttons. */
+export { DashboardBar }
+export function DashboardHeader(props: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; actions?: ReactNode; withProject?: boolean }) {
+  return <DashboardBar {...props} />
 }
 
 /** The button of the header that opens the legend and the help. */

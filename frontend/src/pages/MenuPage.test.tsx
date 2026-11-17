@@ -24,13 +24,13 @@ describe('MenuPage', () => {
     expect(onChoose).toHaveBeenCalledWith('visits')
   })
 
-  it('offers to upload a deployment to Trapper', async () => {
+  it('offers to upload a deployment to a repository', async () => {
     const onChoose = vi.fn()
     render(<MenuPage onChoose={onChoose} />)
 
     const uploadButton = screen.getByRole('button', { name: /manage uploads/i })
     expect(uploadButton).toBeEnabled()
-    expect(screen.getByText(/which deployments and revisions are on trapper/i)).toBeInTheDocument()
+    expect(screen.getByText(/which deployments and revisions are in a repository/i)).toBeInTheDocument()
 
     await userEvent.click(uploadButton)
     expect(onChoose).toHaveBeenCalledWith('upload')

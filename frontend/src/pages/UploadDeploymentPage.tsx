@@ -12,7 +12,6 @@ import type { UploadItem } from '../components/UploadToTrapper'
 import Notice, { Mark } from '../components/Notice'
 import WizardStep from '../components/WizardStep'
 import { MENU_ICONS, PageHeader } from '../components/TaskCard'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import { formatLocal } from '../dateFormat'
 import DeploymentDetails from '../components/DeploymentDetails'
 import PickTable from '../components/PickTable'
@@ -94,7 +93,6 @@ interface Props {
 
 export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }: Props = {}) {
   // the research project is the default one — the card at the top right —, changed in the settings, not in a step
-  const { project: defaultProject, defaultAcronym } = useDefaultResearchProject()
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [projectId, setProjectId] = useState('')
   const [collections, setCollections] = useState<UploadCollection[]>([])
@@ -364,7 +362,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <PageHeader icon={MENU_ICONS.upload} title="Upload deployment to Trapper" description="Sends the deployments of a revision to Trapper. Anything missing there is created, then the images are sent for Trapper to process."
         parent="Manage uploads" onParent={onBack}
-        aside={defaultProject !== undefined || defaultAcronym !== null ? <DefaultResearchProject compact project={defaultProject} defaultAcronym={defaultAcronym} of="The upload" onOpenSettings={onOpenSettings ? () => onOpenSettings() : undefined} /> : undefined} />
+        withProject />
 
       {trapper === null ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Reading the settings…</p>

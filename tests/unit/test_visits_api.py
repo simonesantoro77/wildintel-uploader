@@ -1623,3 +1623,20 @@ def test_no_card_is_left_where_the_camera_is_taken_away_unless_another_is_put_up
 
     assert leaves.status_code == 422 and "taken away" in str(leaves.json()["detail"])
     assert away.status_code == 200
+
+
+def test_a_planned_revision_with_no_visit_is_closed_by_marking_every_location_as_not_visited_and_the_next_can_be_planned(tmp_path: Path):
+    with _in(tmp_path):
+        _project(archived=(2, 3))
+        _save({**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"})
+        _create_revision()                                                                        # R0002: planned, no visit
+        refused = _create_revision()
+        marked = _client().post("/api/visits/mark-not-visited", json={"research_project_id": "DONA", "session": "R0002"})
+        next_one = _create_revision()
+        book = _client().post("/api/visits/book", json={"research_project_id": "DONA"}).json()["results"]
+
+    assert refused.status_code == 409
+    assert marked.status_code == 200 and marked.json() == {"session": "R0002", "marked": ["DONA_01"]}
+    assert next_one.status_code == 200 and next_one.json()["session"] == "R0003"
+    second = [v for v in book if v["session"] == "R0002"]
+    assert [(v["location_id"], v["not_visited"], v["not_done"]) for v in second] == [("DONA_01", True, False)]

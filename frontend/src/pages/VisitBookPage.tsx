@@ -4,8 +4,8 @@ import { api } from '../api'
 import { formatVisitWhen } from '../dateFormat'
 import { Icon, StateCard } from '../components/Dashboard'
 import Notice from '../components/Notice'
-import { ActiveFilters, DashboardHeader, DownloadButton, HELP_ICONS, HelpButton, HelpCard, HelpDrawer, MetricsSection, ProgressCard, RevisionSelection, RowOptions, TABLE, TableCard, TableFooter, TableToolbar } from '../components/DashboardParts'
-import { Breadcrumb, MENU_ICONS } from '../components/TaskCard'
+import { ActiveFilters, DashboardBar, DownloadButton, HELP_ICONS, HelpButton, HelpCard, HelpDrawer, MetricsSection, ProgressCard, RevisionSelection, RowOptions, TABLE, TableCard, TableFooter, TableToolbar } from '../components/DashboardParts'
+import { MENU_ICONS } from '../components/TaskCard'
 import IconButton, { ICON_PATHS } from '../components/IconButton'
 import LinkButton from '../components/LinkButton'
 import EditVisitDialog from '../components/EditVisitDialog'
@@ -13,7 +13,7 @@ import LocationDetails from '../components/LocationDetails'
 import VisitDetails from '../components/VisitDetails'
 import CoordinatesMap, { type MapLegend, type MapPoint } from '../components/CoordinatesMap'
 import { ViewSwitch, type View } from '../components/ViewSwitch'
-import DefaultResearchProject, { useDefaultResearchProject } from '../components/DefaultResearchProject'
+import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import type { BookVisit, ClosedVisitTarget, LocalLocation, RevisionCreated, VisitState } from '../types'
 import { btnOutline, btnPrimary } from './ImportDeploymentPage'
 import { download } from '../csvFile'
@@ -132,14 +132,17 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   const [createError, setCreateError] = useState<string | null>(null)
   const [confirmingClose, setConfirmingClose] = useState(false)
   const [closing, setClosing] = useState(false)
+  // the planned revision that has no visit, which asked to be closed before the next one is planned
+  const [confirmingEmpty, setConfirmingEmpty] = useState(false)
   const pendingRevision = useRef<string | null>(null)   // the revision to open on when the visits are read again
   const [exportError, setExportError] = useState<string | null>(null)
   const error = projectError ?? loadError ?? exportError
+  const emptyRevision = createError?.match(/^(R\d{4}) is planned and has no visit yet/)?.[1] ?? null
 
   /** Plans the next revision — a visit to each location that is ready — and opens the visit book on it; if the revision before is not finished, it is said. */
   async function createRevision() {
     if (!project) return
-    setCreating(true); setCreateError(null); setCreated(null); setConfirmingClose(false)
+    setCreating(true); setCreateError(null); setCreated(null); setConfirmingClose(false); setConfirmingEmpty(false)
     try {
       const result = await api.createRevision(project.acronym)
       pendingRevision.current = result.session
@@ -165,6 +168,21 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
     } finally {
       setClosing(false)
     }
+  }
+
+  /** A revision that was planned and has no visit is closed: every location is marked as not visited — the visits that could not be made —, and the next revision is planned. */
+  async function closeEmptyAndCreate() {
+    if (!project || !emptyRevision) return
+    setClosing(true); setConfirmingEmpty(false)
+    try {
+      await api.markNotVisited(project.acronym, emptyRevision)
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'The locations could not be marked as not visited.')
+      setClosing(false)
+      return
+    }
+    setClosing(false)
+    await createRevision()
   }
 
   /** The visits of the research project as a CSV file that Register visits › CSV reads back. */
@@ -399,9 +417,8 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <Breadcrumb parent="Manage visits" onParent={onBack} current="Visit dashboard" />
-      <DashboardHeader icon={<><path d="M4 5.5A2.5 2.5 0 016.5 3H19v16H6.5A2.5 2.5 0 004 21.5z" /><path d="M4 18.5A2.5 2.5 0 016.5 16H19" /></>} title="Visit dashboard" description="The visits kept to a research project."
+    <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-3">
+      <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Manage visits" onParent={onBack} withProject
         actions={<>
           {project && visits !== null && visits.length > 0 && (
             <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>
@@ -414,14 +431,33 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
             </button>
           )}
           <HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />
-        </>}
-        aside={<DefaultResearchProject compact project={project} defaultAcronym={defaultAcronym} of="The book" onOpenSettings={onOpenSettings} />} />
+        </>} />
 
+      {!project && defaultAcronym !== null && !projectError && (
+        <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-400">
+          {defaultAcronym ? <>The default research project, <span className="font-mono">{defaultAcronym}</span>, is not in the collections folder.</> : 'No default research project is set.'} Choose one in the header.
+        </p>
+      )}
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {project && (
         <>
-          {createError && <Notice kind="error" role="alert" className="mb-4">{createError}</Notice>}
+          {createError && !confirmingEmpty && (
+            <Notice kind="error" role="alert" className="mb-4"
+                    action={emptyRevision ? <button type="button" className={btnOutline} disabled={closing} onClick={() => setConfirmingEmpty(true)}>Mark {emptyRevision} as not visited</button> : undefined}>
+              {createError}
+            </Notice>
+          )}
+          {createError && emptyRevision && confirmingEmpty && (
+            <Notice kind="warning" role="alert" className="mb-4" action={(
+              <span className="flex gap-2">
+                <button type="button" className={btnOutline} disabled={closing} onClick={() => setConfirmingEmpty(false)}>Cancel</button>
+                <button type="button" className={btnPrimary} disabled={closing} onClick={() => void closeEmptyAndCreate()}>Yes, mark them and plan the next revision</button>
+              </span>
+            )}>
+              Every location of <strong>{emptyRevision}</strong> will be marked as not visited, the revision will be finished and it cannot be modified. Then the next revision is planned. Do you want to do it?
+            </Notice>
+          )}
           {unfinished && !confirmingClose && (
             <Notice kind="warning" role="alert" className="mb-4" action={<button type="button" className={btnOutline} disabled={closing} onClick={() => setConfirmingClose(true)}>Mark them as not visited</button>}>
               <strong>{unfinished.session}</strong> is planned, but <strong>{unfinished.previous}</strong> is not finished: {unfinished.missing.length} {unfinished.missing.length === 1 ? 'location is' : 'locations are'} still to be visited in it ({unfinished.missing.join(', ')}). No visit can be made in {unfinished.session} until it is finished: make those visits, or mark them as not visited.

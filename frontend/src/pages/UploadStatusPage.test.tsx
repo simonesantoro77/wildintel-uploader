@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -219,7 +220,7 @@ describe('UploadStatusPage', () => {
 
   it('comes back from the breadcrumb', async () => {
     const onBack = vi.fn()
-    render(<UploadStatusPage onBack={onBack} />)
+    renderWithHeader(<UploadStatusPage onBack={onBack} />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Manage uploads' }))
     expect(onBack).toHaveBeenCalled()

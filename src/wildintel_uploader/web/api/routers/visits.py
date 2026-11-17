@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from wildintel_uploader.core import config
 from wildintel_uploader.core.schemas.requests import CreateRevisionRequest, FieldLogsRequest, ImportVisitsCsvRequest, LinkVisitRequest, ListVisitsRequest, MarkNotVisitedRequest, SaveVisitRequest, UpdateVisitRequest, VisitRecord, VisitsCsvColumnsRequest
-from wildintel_uploader.core.services import epicollect_service, local_folder_service, report_service, trapper_upload_service, visit_deployments, visit_rules, visit_time, visits_csv
+from wildintel_uploader.core.services import epicollect_service, audit, local_folder_service, report_service, trapper_upload_service, visit_deployments, visit_rules, visit_time, visits_csv
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
 
@@ -262,7 +262,11 @@ def mark_not_visited(req: MarkNotVisitedRequest) -> dict:
         local_folder_service.require_research_project(root, req.research_project_id)
         locations = local_folder_service.list_locations(root, req.research_project_id)
         kept = local_folder_service.list_visits(root, req.research_project_id)
-        records = visit_rules.not_visited_records(int(req.session[1:]), kept, locations)
+        number = int(req.session[1:])
+        planned = {n for n in (visit_rules._session_number(x) for x in local_folder_service.list_planned_revisions(root, req.research_project_id)) if n is not None}
+        # a revision that was planned and has no visit yet is marked as not visited on today's day: it has no day of its own
+        today = audit.now()[:10] if number in planned else None
+        records = visit_rules.not_visited_records(number, kept, locations, on=today)
         for record in records:
             location = next((l for l in locations if str(l.get("location_id", "")).lower() == record["location_id"].lower()), None)
             record["when"] = visit_time.to_when(record["date"], record["time"], location)
