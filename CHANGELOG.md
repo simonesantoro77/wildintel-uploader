@@ -212,6 +212,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A license set by hand in `settings.toml` is kept and shown as *Other*.
 
 ### Fixed
+- **Import of visits**: only one save of visits runs at a time for a research project; another one, started while it runs (pressing *Add* again), is refused with a 409 instead of keeping the same visits twice. On Windows, five saves of the Doñana history started together kept 3254 visits instead of 2052, the *not visited* ones twice.
 - **Forms in steps**: when a step opens, the focus goes to its first control, not to the button at the end of the page (it was lost when the button that was pressed went with its step).
 - A location with the timezone `UTC` (or any other) is accepted on Windows: the app ships the `tzdata` timezone database, which Windows lacks for
   Python's `zoneinfo`, and the executables bundle it.
