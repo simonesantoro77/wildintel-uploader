@@ -86,4 +86,37 @@ describe('SetupWizardPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('The coordinates must lie within')
     expect(mocked.saveLocalLocation).not.toHaveBeenCalled()
   })
+
+  async function toTrappers() {
+    render(<SetupWizardPage onBack={vi.fn()} />)
+    await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
+    await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
+    await userEvent.click(screen.getByRole('button', { name: /Keep it and continue/ }))
+    await screen.findByLabelText('Username *')
+  }
+
+  it('imports the trappers from a CSV file, adding each row as the form does and saying the ones that are left out', async () => {
+    await toTrappers()
+    const csv = new File(['username,full name,affiliation\nana,Ana Pérez,UHU\nluis,Luis,\n,Nobody,\n'], 'trappers.csv', { type: 'text/csv' })
+    await userEvent.upload(screen.getByLabelText('CSV file of trappers'), csv)
+
+    expect(await screen.findByText('2 trappers added from trappers.csv.')).toBeInTheDocument()
+    expect(mocked.setupTrappers).toHaveBeenCalledTimes(2)
+    expect(mocked.setupTrappers).toHaveBeenCalledWith([{ username: 'ana', name: 'Ana Pérez', affiliation: 'UHU', email: undefined }])
+    expect(screen.getByRole('list', { name: 'The trappers added' })).toHaveTextContent('Luis')
+    expect(screen.getByText(/Row 4: no username/)).toBeInTheDocument()
+  })
+
+  it('imports the sites from a CSV file and says the rows that could not be kept', async () => {
+    mocked.saveLocalLocation.mockResolvedValueOnce({} as never).mockRejectedValueOnce(new Error('The location DONA_02 is kept already.'))
+    await toTrappers()
+    await userEvent.click(screen.getByRole('button', { name: 'Skip, I will do it later' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Continue/ }))
+    const csv = new File(['site id,name,latitude,longitude,timezone\nDONA_01,One,37.1,-6.5,Europe/Madrid\nDONA_02,Two,37.2,-6.4,UTC\n'], 'sites.csv', { type: 'text/csv' })
+    await userEvent.upload(await screen.findByLabelText('CSV file of sites'), csv)
+
+    expect(await screen.findByText('1 site added from sites.csv.')).toBeInTheDocument()
+    expect(mocked.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_01', timezone: 'Europe/Madrid', latitude: 37.1 }))
+    expect(screen.getByText('Row 3: The location DONA_02 is kept already.')).toBeInTheDocument()
+  })
 })

@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { api } from '../api'
+import { download, readItems, toCsv } from '../csvFile'
 import Notice from '../components/Notice'
 import { PageHeader, UTIL_ICONS } from '../components/TaskCard'
 import WizardStep from '../components/WizardStep'
@@ -31,6 +32,29 @@ function AddList({ noun, fields, onAdd, added, onContinue, continueLabel = 'Cont
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ready = fields.every((f) => !f.required || values[f.name].trim() !== '')
+  const file = useRef<HTMLInputElement>(null)
+  const [report, setReport] = useState<string[]>([])
+
+  /** The rows of a CSV file are added one by one, as the form adds them: the columns are found by the name or the label of the fields; what is wrong is said and left out. */
+  async function importCsv(e: ChangeEvent<HTMLInputElement>) {
+    const chosen = e.target.files?.[0]
+    e.target.value = ''
+    if (!chosen || busy) return
+    setBusy(true); setError(null); setReport([])
+    const { items, problems } = readItems<Record<string, string | null>>(await chosen.text(), fields.map((f) => ({ key: f.name, label: f.label, strict: f.required, kind: f.type === 'select' ? 'select' : undefined, options: f.options })), empty(), noun)
+    const lines = [...problems]
+    let added = 0
+    for (const [i, item] of items.entries()) {
+      try {
+        await onAdd(Object.fromEntries(fields.map((f) => [f.name, item[f.name] ?? f.initial ?? ''])) as Record<string, string>)
+        added += 1
+      } catch (err) {
+        lines.push(`Row ${i + 2}: ${err instanceof Error ? err.message : `the ${noun} could not be added.`}`)
+      }
+    }
+    setReport([`${added} ${noun}${added === 1 ? '' : 's'} added from ${chosen.name}.`, ...lines])
+    setBusy(false)
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -65,8 +89,18 @@ function AddList({ noun, fields, onAdd, added, onContinue, continueLabel = 'Cont
         ))}
         <div className="sm:col-span-2">
           <button type="submit" className={btnOutline} disabled={!ready || busy}>{busy ? 'Adding…' : `Add the ${noun}`}</button>
+          <span className="mx-3 text-sm text-zinc-500 dark:text-zinc-400">or</span>
+          <input ref={file} type="file" accept=".csv,text/csv" className="sr-only" aria-label={`CSV file of ${noun}s`} tabIndex={-1} onChange={(e) => void importCsv(e)} />
+          <button type="button" className={btnOutline} disabled={busy} onClick={() => file.current?.click()}>Import from CSV</button>
+          <button type="button" className="ml-3 text-sm text-blue-600 dark:text-blue-400 hover:underline" onClick={() => download(`${noun.replace(' ', '_')}s_template.csv`, toCsv([fields.map((f) => f.name)]))}>Download a template</button>
         </div>
       </form>
+      {report.length > 0 && (
+        <div role="status" className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
+          <p>{report[0]}</p>
+          {report.length > 1 && <ul className="mt-1 list-disc pl-5 text-amber-700 dark:text-amber-400">{report.slice(1).map((r) => <li key={r}>{r}</li>)}</ul>}
+        </div>
+      )}
       {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
       {added.length > 0 && (
         <ul aria-label={`The ${noun}s added`} className="mt-4 flex flex-wrap gap-2">

@@ -5,7 +5,8 @@ import { api } from './api'
 import App from './App'
 import type { SessionSummary } from './types'
 
-vi.mock('./api', () => ({ api: { checkHealth: vi.fn(), checkVersion: vi.fn(), listSessions: vi.fn() } }))
+vi.mock('./api', () => ({ api: { checkHealth: vi.fn(), checkVersion: vi.fn(), listSessions: vi.fn(), listResearchProjects: vi.fn(), getSettings: vi.fn() } }))
+vi.mock('./pages/SetupWizardPage', () => ({ default: () => <p>the initial setup</p> }))
 
 // The pages are stand-ins: what is looked at is how the app moves between them.
 vi.mock('./pages/ImportDeploymentPage', async (importOriginal) => ({
@@ -29,12 +30,34 @@ beforeEach(() => {
   mockedApi.checkHealth.mockResolvedValue(true)
   mockedApi.checkVersion.mockResolvedValue({ current: '0.1.0' } as Awaited<ReturnType<typeof api.checkVersion>>)
   mockedApi.listSessions.mockResolvedValue([])
+  mockedApi.listResearchProjects.mockResolvedValue({ results: [{ acronym: 'DONA', name: 'Doñana' }] } as never)
+  mockedApi.getSettings.mockResolvedValue({ GENERAL: {} } as never)
 })
 
 const getStarted = async () => userEvent.click(await screen.findByRole('button', { name: /get started/i }))
 const title = () => screen.findByRole('button', { name: 'Go to the welcome screen' })
 
 describe('App', () => {
+  it('starts with the initial setup when there is no research project', async () => {
+    mockedApi.listResearchProjects.mockResolvedValue({ results: [] } as never)
+    render(<App />)
+    await getStarted()
+
+    expect(await screen.findByText('the initial setup')).toBeInTheDocument()
+    expect(screen.queryByText('What do you want to do?')).not.toBeInTheDocument()
+  })
+
+  it('goes to the menu when there are research projects, or when they cannot be told', async () => {
+    render(<App />)
+    await getStarted()
+    expect(await screen.findByText('What do you want to do?')).toBeInTheDocument()
+
+    await userEvent.click(await title())
+    mockedApi.listResearchProjects.mockRejectedValue(new Error('down'))
+    await getStarted()
+    expect(await screen.findByText('What do you want to do?')).toBeInTheDocument()
+  })
+
   it('goes back to the welcome screen when the title is pressed, from wherever you are', async () => {
     render(<App />)
     await getStarted()

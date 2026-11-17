@@ -22,11 +22,13 @@ interface Props {
   /** Opens the settings, where the active research project is changed. */
   onOpenSettings?: (section?: 'general') => void
   settingsOpen?: boolean
+  /** The utility it opens on. */
+  start?: Util
 }
 
 /** The maintenance tasks besides importing and uploading — each shown in place of the list once chosen. */
-export default function UtilsPage({ onBack, onOpenSettings, settingsOpen }: Props) {
-  const [util, setUtil] = useState<Util | null>(null)
+export default function UtilsPage({ onBack, onOpenSettings, settingsOpen, start }: Props) {
+  const [util, setUtil] = useState<Util | null>(start ?? null)
 
   if (util) {
     return (
