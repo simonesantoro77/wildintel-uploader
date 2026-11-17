@@ -21,7 +21,7 @@ from wildintel_uploader.core.schemas.requests import (
     DeleteLocationRequest, ExistingDeploymentsRequest, LocalLocationsRequest, PreviousDeploymentsRequest, ResearchProjectRecord, SaveLocationRequest, ScanFolderRequest, TimestampLogRequest,
     NextRevisionRequest, UpdateLocationRequest, UpdateResearchProjectRequest, ValidateDeploymentRequest, ValidateImagesRequest,
 )
-from wildintel_uploader.core.services import camera_info, card_copy_service, deployment_import_service, deployment_photos, file_manager, folder_picker, local_folder_service, preprocessing_service, report_service, seal_service, statistics_service
+from wildintel_uploader.core.services import camera_info, card_copy_service, deployment_import_service, deployment_photos, file_manager, folder_picker, local_folder_service, preprocessing_service, report_service, seal_service, statistics_service, visit_deployments
 from wildintel_uploader.web.api.routers.trapper import http_exc, resolve
 
 router = APIRouter(prefix="/api/deployment-import", tags=["deployment-import"])
@@ -411,7 +411,30 @@ def import_local(req: ImportLocalRequest) -> StreamingResponse:
     return _import_local(req, consolidate=True)
 
 
+def _require_visit(req: ImportLocalRequest) -> None:
+    """A deployment is always of a visit: the one that left the camera and the one that collected its card. A collection of a research project kept in the
+    collections folder takes only the deployments its visits say — or one already linked to a visit —; the one that is not is refused before any image is touched."""
+    folder = Path(req.collection_dir).expanduser().resolve().parent
+    root = config.collections_dir().expanduser().resolve()
+    if folder.parent != root:
+        return  # not a research project's collection: there are no visits to ask
+    deployment_id = req.deployment.deployment_id
+    try:
+        visits = local_folder_service.list_visits(root, folder.name)
+    except local_folder_service.LocalFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if any(v.get("deployment_id") == deployment_id for v in visits):
+        return
+    if any(d["deployment_id"] == deployment_id for d in visit_deployments.deployments(visits)):
+        return
+    raise HTTPException(
+        400,
+        f"The deployment {deployment_id or '(none)'} is not of any visit of {folder.name}: a deployment is always linked to a visit. Register the visits first, by hand or from a file with their history.",
+    )
+
+
 def _import_local(req: ImportLocalRequest, consolidate: bool) -> StreamingResponse:
+    _require_visit(req)
     try:
         if req.preprocessing is not None:
             # The collection sits in its research project's folder, <research project>/<collection>: the images are read

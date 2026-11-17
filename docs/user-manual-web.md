@@ -507,12 +507,7 @@ Where the images were taken, which tells the app what the deployment is **of**. 
 
 If you start from a visit — from [Register visits](#5-manage-visits), or with **Create the deployment** of the [Deployments dashboard](#deployments-dashboard) — the project and the visit are already chosen.
 
-**When the project has no closed visit** the step is **Where was it taken?**, and you pick the **location** yourself — one of those of the project, kept in the collections folder — and everything else is asked by hand. A new location can be added:
-
-- **By hand** — a location's id, name, latitude, longitude, coordinate uncertainty, **timezone** and whether its cameras ignore summer
-  time. A new location is **UTC, following summer time**, unless you say otherwise: the cameras' clocks are taken as UTC, and
-  the time of a field visit is read in the timezone of its location.
-- **From Trapper** — pick the project, or its locations, from your Trapper account and they are copied here, with their coordinates and timezone.
+**When the project has no closed visit** there is nothing to import yet: **a deployment is always linked to a visit** — the one that left the camera and the one that collected its card — so the step says there is no closed visit without a deployment in the project and offers **Register the visits**, by hand or from a file with their history. Once they are registered the visits are offered here. The app also refuses, before touching any image, a deployment that is not of a visit of its research project.
 
 ### Stage 2 — Images
 
