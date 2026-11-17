@@ -1111,3 +1111,24 @@ def test_a_archived_location_never_goes_back_to_active_or_planned(tmp_path: Path
     assert archived.status_code == 200
     assert back.status_code == planned.status_code == 409 and "archived for good" in back.json()["detail"]
     assert renamed.status_code == 200 and renamed.json()["status_note"] == "Stolen twice"  # what says why may be said better; the status stays
+
+
+def test_a_location_in_utc_never_ignores_summer_time_since_utc_has_none(tmp_path: Path):
+    from wildintel_uploader.core.schemas.requests import LocationRecord
+
+    def made(zone: str) -> LocationRecord:
+        return LocationRecord(location_id="X_1", timezone=zone, ignore_dst=True, latitude=1, longitude=1)
+
+    assert [made(z).ignore_dst for z in ("UTC", "Etc/UTC", "GMT", "Europe/Madrid")] == [False, False, False, True]
+
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        saved = _client().post("/api/deployment-import/locations/save", json={
+            "research_project_id": "DONA", "location": {"location_id": "DONA_01", "timezone": "UTC", "ignore_dst": True, "latitude": 37.0, "longitude": -6.5},
+        })
+        listed = _client().post("/api/deployment-import/locations/list", json={"research_project_id": "DONA"}).json()["results"]
+        # asking for it afterwards is not changing what the location says: UTC has no summer time
+        asked = _client().post("/api/deployment-import/locations/update", json={"research_project_id": "DONA", "location_id": "DONA_01", "timezone": "UTC", "ignore_dst": True, "name": "Site"})
+
+    assert saved.status_code == 200 and listed[0]["ignore_dst"] is False
+    assert asked.status_code == 200 and asked.json()["ignore_dst"] is False

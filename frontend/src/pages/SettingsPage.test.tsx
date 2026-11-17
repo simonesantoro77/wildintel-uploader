@@ -1553,6 +1553,33 @@ describe('SettingsPage — Entities', () => {
       }))
     })
 
+    it('does not ask about summer time while the timezone is UTC, which has none, and turns it off when UTC is picked', async () => {
+      mockedApi.saveLocalLocation.mockImplementation(async (_rp, l) => l)
+      await openLocations([])
+
+      await userEvent.click(screen.getByRole('button', { name: 'Add location' }))
+      const dialog = within(screen.getByRole('region', { name: 'Location' }))
+      await userEvent.type(dialog.getByLabelText('Location id'), 'DONA_02')
+      await userEvent.type(dialog.getByLabelText('Latitude'), '37.01')
+      await userEvent.type(dialog.getByLabelText('Longitude'), '-6.44')
+      expect(dialog.getByRole('combobox')).toHaveValue('UTC')
+      expect(dialog.getByLabelText('The cameras here ignore summer time')).toBeDisabled()
+      expect(dialog.getByText('Summer time is not applied in UTC.')).toBeInTheDocument()
+
+      await userEvent.clear(dialog.getByRole('combobox'))
+      await userEvent.type(dialog.getByRole('combobox'), 'Europe/Madrid')
+      await userEvent.click(dialog.getByRole('option', { name: 'Europe/Madrid' }))
+      await userEvent.click(dialog.getByLabelText('The cameras here ignore summer time'))
+      expect(dialog.getByLabelText('The cameras here ignore summer time')).toBeChecked()
+
+      await userEvent.clear(dialog.getByRole('combobox'))
+      await userEvent.type(dialog.getByRole('combobox'), 'UTC')
+      await userEvent.click(dialog.getByRole('option', { name: 'UTC' }))
+      expect(dialog.getByLabelText('The cameras here ignore summer time')).not.toBeChecked()
+      await userEvent.click(dialog.getByRole('button', { name: 'Add' }))
+      await waitFor(() => expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ timezone: 'UTC', ignore_dst: false })))
+    })
+
     it('shows the QR code of a location in its page', async () => {
       await openLocations()
 

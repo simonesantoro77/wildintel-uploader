@@ -6,6 +6,7 @@ import WizardStep from '../components/WizardStep'
 import { DEFAULT_PROJECT_CHANGED } from '../components/DefaultResearchProject'
 import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { TrapperRoleName } from '../types'
+import { isUtcZone } from '../deploymentValidation'
 import { validateResearchProject } from '../researchProjectValidation'
 import { btnOutline, btnPrimary, hintClass, inputClass, labelClass } from './ImportDeploymentPage'
 
@@ -127,9 +128,6 @@ interface Result { project: Outcome; trappers: Outcome; roles: Outcome; sites: O
 const CARD = 'rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5'
 const HEAD = 'flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100'
 const BIG = `${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`
-
-/** UTC has no summer time: what a site says of it does not apply there. */
-const isUtc = (zone: string) => /^(utc|etc\/utc|gmt|etc\/gmt|z)$/i.test(zone.trim())
 
 const none = (): Outcome => ({ added: [], skipped: [], problems: [] })
 const roleName = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r
@@ -287,12 +285,12 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       <WizardStep n={4} title="The sites" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="Where the cameras are put up: an id, where it is and its timezone.">
         {step === 4 && (
           <AddList noun="site" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'id', label: 'Site id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time.', off: (v) => (isUtc(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
+            fields={[{ name: 'id', label: 'Site id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
             onAdd={(v) => {
               const latitude = Number(v.latitude), longitude = Number(v.longitude)
               if (!(latitude >= -90 && latitude <= 90) || !(longitude >= -180 && longitude <= 180)) throw new Error('The coordinates must lie within −90 to 90 and −180 to 180.')
               if (sites.some((x) => lower(x.id) === lower(v.id))) throw new Error(`There is a site ${v.id.trim()} already.`)
-              setSites((l) => [...l, { id: v.id.trim(), name: v.name.trim(), latitude, longitude, timezone: v.timezone.trim(), ignoreDst: v.ignore_dst === 'yes' && !isUtc(v.timezone) }])
+              setSites((l) => [...l, { id: v.id.trim(), name: v.name.trim(), latitude, longitude, timezone: v.timezone.trim(), ignoreDst: v.ignore_dst === 'yes' && !isUtcZone(v.timezone) }])
             }} />
         )}
       </WizardStep>

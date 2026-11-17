@@ -347,7 +347,9 @@ def update_location(root: Path, research_project_id: str, location_id: str, chan
         why = _site_status_refusal(root, research_project_id, locations, locations[index], wanted)
         if why:
             raise LocalFolderError(why)
-    now = {"timezone": locations[index].get("timezone") or visit_time.DEFAULT_TIMEZONE, "ignore_dst": bool(locations[index].get("ignore_dst"))}
+    zone = locations[index].get("timezone") or visit_time.DEFAULT_TIMEZONE
+    # UTC has no summer time: what a location kept in it says of it does not count
+    now = {"timezone": zone, "ignore_dst": bool(locations[index].get("ignore_dst")) and not visit_time.is_utc(zone)}
     for key, label in (("timezone", "timezone"), ("ignore_dst", "summer-time setting")):
         if key in changes:
             wanted = (changes[key] or visit_time.DEFAULT_TIMEZONE) if key == "timezone" else bool(changes[key])
