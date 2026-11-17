@@ -424,6 +424,22 @@ def _when(row: dict[str, str], location: dict, time_source: str = "created_at") 
     return _real(date, row["time"] if row["time"].count(":") == 2 else f"{row['time']}:00")
 
 
+def _archived_by(locations: list[dict], visits: list[dict]) -> list[dict]:
+    """The locations as the visits leave them: one that a visit archives (its actions have Archive) is archived on the day of that visit, unless it already was before."""
+    archived_on: dict[str, str] = {}
+    for v in visits:
+        if "Archive" in (v.get("actions") or []):
+            site, day = str(v.get("location_id") or "").lower(), str(v.get("date") or "")
+            if site and day and (site not in archived_on or day < archived_on[site]):
+                archived_on[site] = day
+    out = []
+    for l in locations:
+        day = archived_on.get(str(l.get("location_id") or "").lower())
+        already = l.get("status") == "archived" and (not l.get("status_date") or (day and str(l["status_date"]) <= day))
+        out.append({**l, "status": "archived", "status_date": day} if day and not already else l)
+    return out
+
+
 def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: dict[str, str] | None = None, options: dict | None = None) -> dict:
     """The visits in the CSV `text` that can be kept, and what is wrong with the rest.
 
@@ -605,16 +621,18 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         if number is not None and number not in gate and not fills:
             # a revision starts when the one before it is finished — said once for the revision, with the visits that were kept before it
             day = min(str(v["date"]) for v in visits if visit_rules._session_number(v.get("session")) == number)
+            # a site given up by a visit taken so far (an Archive) is out of use from then on, as if the revisions had come in one file each: archiving is only kept when saving
+            in_use = _archived_by(all_locations, accepted)
             if options.get("close_revisions"):
                 # the revision before is closed as the form does when asked: its locations still planned are marked as not visited (the unknown ones are not: nothing is known of them)
-                marks = visit_rules.not_visited_records(number - 1, accepted, all_locations, [*unknown_kept, *unknown])
+                marks = visit_rules.not_visited_records(number - 1, accepted, in_use, [*unknown_kept, *unknown])
                 for mark in marks:
                     location = next((l for l in all_locations if str(l.get("location_id", "")).lower() == mark["location_id"].lower()), None)
                     mark["when"] = visit_time.to_when(mark["date"], mark["time"], location)
                     mark["comments"] = "Marked as not visited when the revision after it was added from a file."
                 accepted.extend(marks)
                 closing.extend(marks)
-            gate[number] = visit_rules.unfinished_revision(number, accepted, all_locations, floor, day, [*unknown_kept, *unknown])
+            gate[number] = visit_rules.unfinished_revision(number, accepted, in_use, floor, day, [*unknown_kept, *unknown])
         n = row_of[id(visit)]
         reasons = [gate[number]] if number is not None and not fills and gate.get(number) else []
         # a visit that takes the place of an unknown one is put where its instant says, among the visits kept (as in the form)

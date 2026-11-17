@@ -1322,6 +1322,22 @@ def test_a_file_can_close_the_revision_before_its_own_marking_the_locations_stil
     assert [(v["location_id"], v["session"]) for v in marked] == [("DONA_02", "R0012")]
 
 
+def test_a_site_given_up_in_a_revision_of_the_file_is_not_marked_as_not_visited_in_the_revisions_after_it(tmp_path: Path):
+    """A file with several revisions, closing each one before the next: the site archived in one of them is out of use in the revisions after it,
+    as it would be if the revisions came in one file each."""
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    text = "location_id,session,date,time,actions,num_photos\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": True}).json()
+
+    assert answer["problems"] == []
+    assert [(m["location_id"], m["session"]) for m in answer["closed"]] == []      # DONA_02 was given up in R0013: nothing is waited for it in R0014 nor R0015
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io
