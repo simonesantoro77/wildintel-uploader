@@ -102,7 +102,9 @@ def _apply_to_entities(root, research_project_id: str, new: list[dict], before: 
         history.append(visit)
     for visit, change in [(v, c) for v, c in changes if c["kind"] == "locations"]:
         site = next((l for l in local_folder_service.list_locations(root, research_project_id) if str(l.get("location_id", "")).lower() == change["name"].lower()), None)
-        if site is not None and site.get("status") in ("ready", "active") and site["status"] != change["status"]:
+        starts = visit_rules.SITE_START in (visit.get("actions") or [])
+        # a planned site is only in Settings: the visit that says it starts makes it ready — and active, when it puts a camera up
+        if site is not None and (site.get("status") in ("ready", "active") or (site.get("status") == "planned" and starts)) and site["status"] != change["status"]:
             try:
                 local_folder_service.update_location(root, research_project_id, site["location_id"], {"status": change["status"]}, by_visit=True)
             except local_folder_service.LocalFolderError:
