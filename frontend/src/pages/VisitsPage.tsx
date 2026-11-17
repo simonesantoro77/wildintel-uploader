@@ -168,9 +168,7 @@ const ACTION_HINTS: Record<string, string> = {
 }
 
 /** What a visit is, when it does several things at once — what the camera does, said as one: the parts of it taken together are not what each of them is alone. */
-export function actionsHint(all: string[]): string {
-  // the start of a site is said by the form on its own, where it is asked: what the camera does is what is told here
-  const actions = all.length > 1 ? all.filter((a) => a !== 'SiteStart') : all
+export function actionsHint(actions: string[]): string {
   const has = (a: string) => actions.includes(a)
   if (has('Revision') && has('Desinstallation') && has('Installation')) return 'The camera is looked at and taken away, with its card, and another is put up with a card of its own: it is replaced.'
   if (has('Revision') && has('Desinstallation')) return `The camera is looked at and taken away, with its card: nothing is left.${has('Archive') ? ' ' + ACTION_HINTS.Archive : ''}`
@@ -1261,7 +1259,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                         </div>
                       )}
                       <p id="visit-actions-hint" className="mt-5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/60 px-4 py-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
-                        {notVisited ? <>The visit is kept as <strong>not visited</strong>: nothing was done at it, so it has no action, and no camera, card or photos are asked.</> : visit.actions.length === 0 ? 'Answer the question: the rest of the form depends on it.' : <>The visit is kept as <strong>{actionsText(visit.actions.filter((a) => a !== 'SiteStart'))}</strong>. {actionsHint(visit.actions)}</>}
+                        {notVisited ? <>The visit is kept as <strong>not visited</strong>: nothing was done at it, so it has no action, and no camera, card or photos are asked.</> : visit.actions.length === 0 ? 'Answer the question: the rest of the form depends on it.' : <>The visit is kept as <strong>{actionsText(visit.actions)}</strong>. {actionsHint(visit.actions)}</>}
                       </p>
                       {shown('actions') && <p className="text-xs text-red-600 dark:text-red-400 mt-1">Say whether you see the camera.</p>}
                     </fieldset>

@@ -855,6 +855,7 @@ describe('the visit filled in from the last one', () => {
       await pickWhen()
 
       expect(await screen.findByText(/TATR_0002 is pending: its first visit starts it/)).toBeInTheDocument()
+      expect(screen.getByText('Site start + Installation', { selector: 'strong' })).toBeInTheDocument()   // the start comes first, before the Installation
       expect(checkbox()).not.toBeInTheDocument()
     })
 
@@ -1473,7 +1474,7 @@ describe('By hand: do you see the camera?', () => {
     expect(within(question).getAllByRole('radio')).toHaveLength(2)
     expect(within(question).getByRole('radio', { name: /Of course not, I am going to install it/ })).toBeChecked()
     expect(within(question).getByRole('radio', { name: /No, I cannot make the visit/ })).not.toBeChecked()
-    expect(screen.getByText('Installation', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByText('Site start + Installation', { selector: 'strong' })).toBeInTheDocument()   // the first camera at a site: the site starts, and it is said before the Installation
     expect(screen.queryByRole('checkbox', { name: 'Revision' })).not.toBeInTheDocument() // the actions are not asked as boxes
   })
 
