@@ -413,6 +413,25 @@ describe('VisitBookPage', () => {
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Revision', 'Location', 'When', 'Actions', 'Status', 'Images', 'What to do'])
   })
 
+  it('keeps the marked visit when the view changes to the map: its site is the chosen point, with its card open', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null },
+      { location_id: 'TATR_0002', name: 'Stream', latitude: 49.25, longitude: 20.2, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null },
+    ] } as never)
+    await pickProject()
+    await showAll()
+    const table = await screen.findByRole('table', { name: 'Visits' })
+    await userEvent.click(within(table).getByText('TATR_0002').closest('tr')!)                          // a row is marked
+    expect(within(table).getByText('TATR_0002').closest('tr')).toHaveAttribute('aria-current', 'true')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
+    const map = await screen.findByRole('group', { name: 'Visits on a map' })
+
+    expect(await within(map).findByRole('button', { name: /^TATR_0002/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(map).getByRole('region', { name: 'Details of TATR_0002' })).toBeInTheDocument()
+    expect(within(map).getByRole('button', { name: /^TATR_0001/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('shows the sites on a map — a point for each, coloured by its latest visit — and a point goes to its visit in the table', async () => {
     mockedApi.listLocalLocations.mockResolvedValue({ results: [
       { location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null },

@@ -564,7 +564,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
               {view === 'map' && (
                 <>
                   {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
-                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" />
+                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" markedKey={marked ? marked.split('|')[1]?.toLowerCase() ?? null : null} />
                 </>
               )}
               {view === 'labels' && (
