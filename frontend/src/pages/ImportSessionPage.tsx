@@ -1776,7 +1776,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
-            <WizardStep n={1} title="Preprocessing steps" status={status1} canEdit={false} onEdit={() => {}}
+            <WizardStep n={1} title="Processing steps" status={status1} canEdit={false} onEdit={() => {}}
                         description={`Choose what to do to the images of every deployment as they are imported. Your originals are never touched. ${describePreprocessing(effectiveSteps)}.`}
                         summary={describePreprocessing(effectiveSteps)}>
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700 mb-4">
@@ -1815,7 +1815,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               </div>
             </WizardStep>
 
-            <WizardStep n={2} title="Preprocessing results" status={allDone ? 'done' : importing ? 'running' : started ? 'open' : 'locked'} canEdit={false} onEdit={() => {}} expanded={allDone}
+            <WizardStep n={2} title="Processing results" status={allDone ? 'done' : importing ? 'running' : started ? 'open' : 'locked'} canEdit={false} onEdit={() => {}} expanded={allDone}
                         badge={importing ? 'Importing…' : undefined}
                         description="How each deployment went: its images are copied, renamed, resized and tagged into its folder in the revision’s collection."
                         action={!importing && failures > 0 ? <button type="button" className={`${btnPrimary} flex items-center gap-2`} onClick={handleImport}>{`Import the ${pending.length} left`}</button> : undefined}>

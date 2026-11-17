@@ -262,7 +262,7 @@ async function goToPostvalidation(revision = '1', fillDetails?: () => Promise<vo
 /** From the postvalidation → step "preprocessing" (the list of what is done to the images). */
 async function advanceToPreprocessing() {
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-  await screen.findByText('Preprocessing steps', { selector: 'h4' })
+  await screen.findByText('Processing steps', { selector: 'h4' })
 }
 
 /** Runs the preprocessing, and goes on when it is done. */
@@ -313,7 +313,7 @@ describe('ImportDeploymentPage', () => {
     expect(await screen.findByText('Check the details', { selector: 'h4' })).toBeInTheDocument() // straight from the details
 
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-    expect(await screen.findByText('Preprocessing steps', { selector: 'h4' })).toBeInTheDocument() // the list of what is done to the images
+    expect(await screen.findByText('Processing steps', { selector: 'h4' })).toBeInTheDocument() // the list of what is done to the images
 
     await runPreprocessingAndContinue()
     expect(await screen.findByText('Save to your collection', { selector: 'h4' })).toBeInTheDocument()
@@ -2380,7 +2380,7 @@ describe('ImportDeploymentPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await screen.findByText('Preprocessing steps', { selector: 'h4' })
+      await screen.findByText('Processing steps', { selector: 'h4' })
 
       expect(screen.getByRole('checkbox', { name: 'Rename the images' })).not.toBeChecked()
     })
@@ -2426,15 +2426,15 @@ describe('ImportDeploymentPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await screen.findByText('Preprocessing steps', { selector: 'h4' })
+      await screen.findByText('Processing steps', { selector: 'h4' })
       expect(screen.queryByRole('button', { name: 'Save to my collection' })).not.toBeInTheDocument() // what it did may be stale now
     })
 
-    it('has Preprocessing steps to choose what to do and Preprocessing results for how it went, with Prepare again in its header', async () => {
+    it('has Processing steps to choose what to do and Processing results for how it went, with Prepare again in its header', async () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
-      expect(screen.getByText('Preprocessing steps', { selector: 'h4' })).toBeInTheDocument()
-      expect(screen.getByText('Preprocessing results', { selector: 'h4' })).toBeInTheDocument()
+      expect(screen.getByText('Processing steps', { selector: 'h4' })).toBeInTheDocument()
+      expect(screen.getByText('Processing results', { selector: 'h4' })).toBeInTheDocument()
       expect(screen.getAllByRole('button', { name: 'Back' })).toHaveLength(1) // the one at the bottom, until it has run
 
       await userEvent.click(screen.getByRole('button', { name: 'Start preparing' }))
@@ -2442,7 +2442,7 @@ describe('ImportDeploymentPage', () => {
 
       expect(screen.getAllByRole('button', { name: 'Back' })).toHaveLength(1) // now beside Continue, and Prepare again is in the step's header
       expect(screen.getByRole('button', { name: 'Back' }).parentElement).toContainElement(screen.getByRole('button', { name: 'Continue to save' }))
-      expect(screen.getByRole('button', { name: 'Prepare again' }).closest('section')).toContainElement(screen.getByText(/Preprocessing results/, { selector: 'h4' }))
+      expect(screen.getByRole('button', { name: 'Prepare again' }).closest('section')).toContainElement(screen.getByText(/Processing results/, { selector: 'h4' }))
     })
 
     it('does not list every image as it goes', async () => {
