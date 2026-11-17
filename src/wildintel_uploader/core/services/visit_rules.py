@@ -11,6 +11,7 @@ in both. The only thing a file is excused is what cannot be checked because the 
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 
@@ -29,6 +30,16 @@ _ASKED = {
     "Archive": {},  # the location is given up: nothing else is asked
 }
 _LABELS = {"camera": "The camera", "sd": "The SD card left in the camera", "photos": "The photos on the card collected", "camera_status": "The status of the camera"}
+def unusual_card_id(label: str) -> bool:
+    """Whether the id of an SD card is out of the ordinary: it has spaces or signs — `84 (10)`, `85(78)`, `38_B` — where ids are letters and digits, like `A13`, `47b` or `693`. It is said, not refused:
+    the label on a card is whatever was written on it."""
+    return re.fullmatch(r"[A-Za-z0-9]+", str(label).strip()) is None
+
+
+def unusual_card_message(label: str) -> str:
+    return f"The SD card '{label}' has an unusual id, with spaces or signs: ids are usually letters and digits, like A13, 47b or 693. Check that it is written as it is on the card; it is kept as written."
+
+
 NOT_REVISED = ("not revised", "no revisada", "no revisado")
 # The status of the camera a visit may say ("Knocked down" and "Damaged" are no longer accepted: what was kept with them is still read): how it was found, Stolen when it was gone, Not revised when the visit could not be made, and what the field form says of a site that is
 # new or was inactive (a camera is put up there).

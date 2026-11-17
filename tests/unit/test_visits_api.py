@@ -1599,6 +1599,45 @@ def test_a_file_with_knocked_down_or_damaged_says_the_status_is_not_one_of_the_o
     assert all("is not OK, Altered, Stolen, Not revised, New site or Inactive site" in p["message"] for p in answer["problems"])
 
 
+def test_an_sd_card_id_with_spaces_or_signs_is_said_not_refused_and_one_that_is_kept_already_is_not_said(tmp_path: Path):
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    from wildintel_uploader.core.services.visit_rules import unusual_card_id
+
+    assert [unusual_card_id(x) for x in ("A13", "47b", "693", "32J", "84 (10)", "85(78)", "38_B", " 7 ", "A-1")] == [False, False, False, False, True, True, True, False, True]
+
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5,84 (10)", "DONA_02,R0013,2026-02-01,09:00,Revision,5,38_B", "DONA_01,R0014,2026-03-01,08:00,Revision,5,85(78)", "DONA_02,R0014,2026-03-01,09:00,Revision,5,A1"]
+    text = "location_id,session,date,time,actions,num_photos,sd\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "sd")}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        lfs.write_field_items(tmp_path, "DONA", "sd_cards", [{"label": "85(78)"}])          # a card that is kept already was accepted as it is
+        answer = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "create": {"sd_cards": True}, "defaults": {"sd_brand": "SanDisk"}}).json()
+
+    said = [w for w in answer["warnings"] if "unusual id" in w]
+    assert answer["problems"] == [] and len(answer["visits"]) == 4
+    assert sorted(w.split("'")[1] for w in said) == ["38_B", "84 (10)"]                    # once for each card; not for A1, nor for the one kept
+    assert all("kept as written" in w for w in said)
+
+
+def test_the_id_of_an_sd_card_is_kept_as_written_in_the_cards_the_visits_and_the_fieldwork_log(tmp_path: Path):
+    import glob
+
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    text = "location_id,session,date,time,actions,num_photos,camera_id,sd,sd_brand\nDONA_01,R0001,2026-01-10,08:00,Installation,,P1,47b,SanDisk\nDONA_01,R0002,2026-02-10,08:00,Revision,10,P1,52c,SanDisk\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "camera_id", "sd", "sd_brand")}
+    with _in(tmp_path):
+        _project(archived=(2, 3))
+        saved = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "save": True, "create": {"sd_cards": True, "cameras": True}, "defaults": {"camera_model": "X"}}).json()
+        cards = [c["label"] for c in lfs.list_field_items(tmp_path, "DONA", "sd_cards")]
+        kept = [v["sd"] for v in _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"] if v["session"] in ("R0001", "R0002")]
+        logs = "".join(open(p, encoding="utf-8-sig").read() for p in glob.glob(str(tmp_path / "**" / "*FieldworkLog.csv"), recursive=True))
+
+    assert saved["problems"] == [] and saved["saved"] == 2
+    assert cards == ["47b", "52c"] and sorted(kept) == ["47b", "52c"]                      # never upper-cased
+    assert ",47b," in logs and ",52c," in logs and "47B" not in logs and "52C" not in logs
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io

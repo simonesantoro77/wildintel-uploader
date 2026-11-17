@@ -536,6 +536,9 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
                 made["cameras"].append(_new_camera(cells.camera_id, row))
             if create.get("sd_cards") and cells.sd and cells.sd.lower() not in cards_known:
                 made["sd_cards"].append(_new_card(cells.sd, row))
+            # an id that is out of the ordinary is said once for its card, in the rows it is in; the card that is kept already was accepted as it is
+            if cells.sd and cells.sd.lower() not in cards_known and visit_rules.unusual_card_id(cells.sd):
+                row_warnings.append((n, visit_rules.unusual_card_message(cells.sd)))
             data = cells.model_dump(exclude_unset=True, exclude={"actions"})
             if "card_batteries_ok" in data:   # one column for both, as it was: the batteries and the card each in its own field
                 battery, card = visit_rules.split_card_batteries(data.pop("card_batteries_ok"))
