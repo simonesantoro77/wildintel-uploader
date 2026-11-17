@@ -825,6 +825,17 @@ describe('VisitBookPage', () => {
     expect(mockedApi.visitBook).toHaveBeenCalledTimes(2)   // the book is read again
   })
 
+  it('offers only the statuses of the camera that are accepted, and shows the one a visit was kept with that is not, so that it can be changed', async () => {
+    mockedApi.visitBook.mockResolvedValue({ results: [visit({ session: 'R0001', camera_status: 'Damaged', deployment_status: 'open' })] })
+    await pickProject()
+    await showAll()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit the visit R0001 to TATR_0001' }))
+    const status = within(screen.getByRole('dialog', { name: 'Edit R0001 of TATR_0001' })).getByLabelText('Status of the camera')
+    expect(within(status).getAllByRole('option').map((o) => o.textContent)).toEqual(['Not said', 'OK', 'Altered', 'Stolen', 'Not revised', 'New site', 'Inactive site', 'Damaged (no longer accepted)'])
+    expect(status).toHaveValue('Damaged')
+  })
+
   it('shows an unknown visit as Unknown, with nothing to see, and fills it in with a known one', async () => {
     mockedApi.visitBook.mockResolvedValue({ results: [
       visit({ session: 'R0001', date: '', time: '', actions: [], sd: null, camera_id: null, trappers: null, when: null, unknown: true, locked: true, state: 'unknown' }),

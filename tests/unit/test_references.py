@@ -193,7 +193,10 @@ def test_the_status_of_the_camera_is_one_of_a_few_values_written_as_they_are_and
     from wildintel_uploader.core.schemas.requests import VisitRecord
 
     base = {"location_id": "DONA_01", "session": "R0001", "date": "2026-06-10", "time": "09:00:00", "actions": ["Revision"]}
-    assert [VisitRecord(**base, camera_status=s).camera_status for s in ("ok", "knocked  down", "Altered", "damaged", "", None)] == ["OK", "Knocked down", "Altered", "Damaged", None, None]
+    assert [VisitRecord(**base, camera_status=s).camera_status for s in ("ok", "Altered", "not revised", "", None)] == ["OK", "Altered", "Not revised", None, None]
+    for gone in ("Knocked down", "damaged", "knocked  down"):                                                   # no longer accepted (#43)
+        with pytest.raises(ValidationError, match="OK, Altered, Stolen, Not revised, New site or Inactive site"):
+            VisitRecord(**base, camera_status=gone)
     stolen = {**base, "actions": ["Stolen"]}
     assert [VisitRecord(**stolen, camera_status=s).camera_status for s in ("STOLEN", "", None)] == ["Stolen", "Stolen", "Stolen"]   # the status of a camera found stolen is Stolen, said or not
     for wrong in (dict(**stolen, camera_status="OK"), dict(**base, camera_status="Stolen")):                  # and only there

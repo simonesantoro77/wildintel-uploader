@@ -1540,16 +1540,16 @@ describe('By hand: do you see the camera?', () => {
     expect(screen.getByRole('switch', { name: 'Calibration done' })).toBeInTheDocument()
   })
 
-  it('asks the state of the camera, as cards, before what is done with it: OK, Altered, Knocked down and Damaged', async () => {
+  it('asks the state of the camera, as cards, before what is done with it: OK and Altered (Knocked down and Damaged are no longer accepted)', async () => {
     withCamera()
     mockedApi.saveVisit.mockResolvedValue({} as never)
     await start()
 
     await userEvent.click(await screen.findByRole('radio', { name: 'Yes, I see it' }))
     const states = screen.getByRole('radiogroup', { name: 'What state is the camera in?' })
-    expect(within(states).getAllByRole('radio').map((o) => o.getAttribute('aria-label'))).toEqual(['OK', 'Altered', 'Knocked down', 'Damaged'])
+    expect(within(states).getAllByRole('radio').map((o) => o.getAttribute('aria-label'))).toEqual(['OK', 'Altered'])
     expect(screen.queryByRole('radiogroup', { name: 'What do you do with the camera?' })).not.toBeInTheDocument() // asked once the state is said
-    await userEvent.click(within(states).getByRole('radio', { name: 'Damaged' }))
+    await userEvent.click(within(states).getByRole('radio', { name: 'Altered' }))
     expect(screen.getByRole('radiogroup', { name: 'What do you do with the camera?' })).toBeInTheDocument()
     await openSection('Camera')
     expect(screen.queryByLabelText('Status of the camera')).not.toBeInTheDocument() // it is not asked twice
