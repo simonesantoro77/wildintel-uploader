@@ -4,11 +4,13 @@ import TaskCard, { ArrowIcon, MENU_ICONS, PageHeader, UTIL_ICONS } from '../comp
 import BackupPage from './BackupPage'
 import RepairPage from './RepairPage'
 import SyncCollectionsPage from './SyncCollectionsPage'
+import SetupWizardPage from './SetupWizardPage'
 import TimeFixPage from './TimeFixPage'
 
-export type Util = 'timefix' | 'repair' | 'sync' | 'backup'
+export type Util = 'setup' | 'timefix' | 'repair' | 'sync' | 'backup'
 
 const UTILS: { value: Util; icon: ReactNode; title: string; description: string }[] = [
+  { value: 'setup', icon: UTIL_ICONS.setup, title: 'Initial setup', description: 'A guide that asks, step by step, for the research project, its trappers and their roles, its sites, its cameras and its SD cards.' },
   { value: 'timefix', icon: UTIL_ICONS.timefix, title: 'Check and fix dates and times', description: 'Compare the dates of the images in a folder with the period of the visit, when the camera clock went wrong. Shift a run of images, or remove the ones whose time cannot be trusted. Every fix is written down.' },
   { value: 'repair', icon: UTIL_ICONS.repair, title: 'Repair local deployments', description: 'Check which deployments of a local collection are still valid, and write the description files of the others again from what their folders hold.' },
   { value: 'sync', icon: UTIL_ICONS.sync, title: 'Sync local collections', description: 'Check the local folders against what Trapper has for a classification project, and create what is missing: research project, locations, collections and deployments.' },
@@ -29,7 +31,7 @@ export default function UtilsPage({ onBack, onOpenSettings, settingsOpen }: Prop
   if (util) {
     return (
       <div>
-        {util === 'timefix' ? <TimeFixPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'backup' ? <BackupPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : <SyncCollectionsPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
+        {util === 'setup' ? <SetupWizardPage onBack={() => setUtil(null)} /> : util === 'timefix' ? <TimeFixPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'backup' ? <BackupPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : <SyncCollectionsPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
       </div>
     )
   }
