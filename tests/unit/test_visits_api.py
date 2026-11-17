@@ -1475,6 +1475,22 @@ def test_the_save_lock_is_let_go_when_a_save_fails_and_each_research_project_has
     assert other is True and same is False
 
 
+def test_saving_the_same_file_again_keeps_nothing_twice_not_even_the_not_visited_visits_that_closing_a_revision_made(tmp_path: Path):
+    """The *already kept* check covers what the closing of the revision before creates too: a second save of the file — pressed again, or after a failure — adds nothing."""
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1,))                                    # R0012: only DONA_01, so closing it marks DONA_02 as not visited
+        first = _read_file(rows, save=True)
+        second = _read_file(rows, save=True)
+        kept = _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]
+
+    assert first["saved"] == 1 and [(m["location_id"], m["session"]) for m in first["closed"]] == [("DONA_02", "R0012")]
+    assert second["saved"] == 0 and second["skipped"] == 1 and second["closed"] == []
+    assert sorted((v["location_id"], v["session"], v.get("camera_status")) for v in kept if v["session"] in ("R0012", "R0013")) == [
+        ("DONA_01", "R0012", None), ("DONA_01", "R0013", None), ("DONA_02", "R0012", "Not revised")]
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io
