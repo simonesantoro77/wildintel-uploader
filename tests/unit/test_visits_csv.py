@@ -495,3 +495,30 @@ def test_a_trapper_of_a_row_that_is_refused_for_another_reason_is_not_created():
 
     assert [t["name"] for t in result["create"]["trappers"]] == ["Luis Gómez"]
     assert bad["visits"] == [] and bad["create"]["trappers"] == []
+
+
+# ── the photos were not counted (an old datasheet) ─────────────────────────────────────────────────────────
+
+def _photos_case(rows, options=None):
+    from wildintel_uploader.core.services import visits_csv
+    text = "site,day,hour,what,cam,sd,n\n" + "\n".join(rows) + "\n"
+    mapping = {"location_id": "site", "date": "day", "time": "hour", "actions": "what", "camera_id": "cam", "sd": "sd", "num_photos": "n"}
+    locations = [{"location_id": "WICP_0001", "latitude": 40.0, "longitude": -3.0, "timezone": "UTC"}]
+    return visits_csv.parse_visits(text, locations, [], mapping, {"defaults": {"latitude": "40", "longitude": "-3"}, **(options or {})})
+
+
+def test_a_revision_with_no_count_of_the_photos_is_refused_unless_the_photos_were_not_counted():
+    rows = ["WICP_0001,2026-09-14,11:40,Installation,C1,1,", "WICP_0001,2026-10-14,11:40,Revision,,2,"]
+    strict = _photos_case(rows)
+    loose = _photos_case(rows, {"photos_not_counted": True})
+
+    assert [v["actions"] for v in strict["visits"]] == [["Installation"]] and "The photos on the card collected is required for Revision" in strict["problems"][0]["message"]
+    assert loose["problems"] == [] and [v["num_photos"] for v in loose["visits"]] == [None, None]                    # kept as the file says: no count
+    assert any("no count of the photos on the card" in n for n in loose["notes"])
+
+
+def test_a_count_the_file_gives_is_kept_when_the_photos_were_not_counted_and_nothing_is_invented():
+    result = _photos_case(["WICP_0001,2026-09-14,11:40,Installation,C1,1,", "WICP_0001,2026-10-14,11:40,Revision,,2,320"], {"photos_not_counted": True})
+
+    assert [v["num_photos"] for v in result["visits"]] == [None, 320]
+    assert not any("no count" in n for n in result["notes"])

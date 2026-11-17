@@ -582,6 +582,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvClose, setCsvClose] = useState(false)
   // A row with no coordinates of the visit takes those of its location: on, unless it is turned off.
   const [csvLocationCoordinates, setCsvLocationCoordinates] = useState(true)
+  // The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted as it is.
+  const [csvPhotosNotCounted, setCsvPhotosNotCounted] = useState(false)
   const [closeAndRead, setCloseAndRead] = useState(false)   // the revision before is to be closed and the file read again, once the option is on
   // A location that is created starts as UTC, following summer time, unless the file or the defaults say otherwise.
   useEffect(() => {
@@ -741,12 +743,12 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   // Another way to read the visits starts again from the file.
-  useEffect(() => { forgetCsv(); setCsvName(null); setCsvCreate({ locations: false, cameras: false, sd_cards: false, trappers: false }); setCsvDefaults({}); setCsvClose(false); setCsvLocationCoordinates(true) }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { forgetCsv(); setCsvName(null); setCsvCreate({ locations: false, cameras: false, sd_cards: false, trappers: false }); setCsvDefaults({}); setCsvClose(false); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(false) }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
   const defaultsGiven = Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
-  const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose || !csvLocationCoordinates)
-    ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }) } : undefined
+  const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose || !csvLocationCoordinates || csvPhotosNotCounted)
+    ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }), ...(csvPhotosNotCounted ? { photos_not_counted: true } : {}) } : undefined
   // What follows the mapping in the call that reads the file: the options, when there are any (so none is sent when none is given)
   const readTail: [options?: ImportCsvOptions] = csvOptions ? [csvOptions] : []
   const csvReading = useRef(0)
@@ -836,7 +838,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   useEffect(() => {
     if (source !== 'wildintel-new' || !csvText || !csvResult) return
     if (readWith.current !== JSON.stringify(csvOptions ?? null)) void recheckCsv()
-  }, [csvCreate, csvDefaults, csvClose, csvLocationCoordinates]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [csvCreate, csvDefaults, csvClose, csvLocationCoordinates, csvPhotosNotCounted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** From another CSV file: reads the visits with the columns as they are mapped. */
   async function readMapped() {
@@ -881,6 +883,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       ] as const).map(([entity, label, hint]) => (
         <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={(on) => setCsvCreate((c) => ({ ...c, [entity]: on }))} />
       ))}
+      <SwitchRow label="The photos were not counted" hint="For an old datasheet that has no count of the photos on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the photos of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="The coordinates of a visit are required: a row that gives them by a column or a default keeps them, and one that gives none takes those of its location. With this off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
       <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision starts when the one before it is finished. With this on, the locations still planned in it are marked as not visited, so the file can add the revision after it. An unknown revision is not closed: nothing is known of it." checked={csvClose} onChange={setCsvClose} />
     </div>

@@ -1639,6 +1639,21 @@ def test_the_trappers_a_file_says_are_created_when_asked_and_the_visits_are_kept
     assert kept == ["Luis Gómez, Ana Pérez"]
 
 
+def test_a_revision_with_no_count_of_the_photos_is_kept_without_it_when_the_import_says_they_were_not_counted(tmp_path: Path):
+    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0013,2026-02-01,08:00,Revision,\nDONA_02,R0013,2026-02-01,09:00,Revision,\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        strict = _client().post("/api/visits/import-csv", json=body).json()
+        loose = _client().post("/api/visits/import-csv", json={**body, "photos_not_counted": True, "save": True}).json()
+        kept = [v["num_photos"] for v in _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"] if v["session"] == "R0013"]
+
+    assert strict["visits"] == [] and len(strict["problems"]) == 2
+    assert loose["problems"] == [] and loose["saved"] == 2 and kept == [None, None]            # no number is invented
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io

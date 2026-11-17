@@ -1097,6 +1097,21 @@ describe('VisitsPage from a CSV file', () => {
     expect(within(await screen.findByRole('list', { name: 'What is created' })).getByText(/1 trapper: Luis Gómez/)).toBeInTheDocument()
   })
 
+  it('can say that the photos were not counted, and sends it with the file — off by default', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    const toggle = screen.getByRole('switch', { name: 'The photos were not counted' })
+    expect(toggle).not.toBeChecked()
+    await userEvent.click(toggle)
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await continueFromTheFile()
+
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { photos_not_counted: true }))
+  })
+
   it('takes the coordinates of the location for a row that has none, unless it is turned off — then it sends so', async () => {
     mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
     render(<VisitsPage onBack={vi.fn()} />)
