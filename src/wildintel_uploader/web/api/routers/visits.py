@@ -102,7 +102,7 @@ def _apply_to_entities(root, research_project_id: str, new: list[dict], before: 
         history.append(visit)
     for visit, change in [(v, c) for v, c in changes if c["kind"] == "locations"]:
         site = next((l for l in local_folder_service.list_locations(root, research_project_id) if str(l.get("location_id", "")).lower() == change["name"].lower()), None)
-        if site is not None and site.get("status") in ("ready", "active") and site["status"] != change["status"]:
+        if site is not None and site.get("status") in ("pending", "ready", "active") and site["status"] != change["status"]:
             try:
                 local_folder_service.update_location(root, research_project_id, site["location_id"], {"status": change["status"]}, by_visit=True)
             except local_folder_service.LocalFolderError:
@@ -149,6 +149,7 @@ def save_visit(req: SaveVisitRequest) -> dict:
         location = next((l for l in locations if str(l.get("location_id", "")).lower() == visit["location_id"].lower()), None)
         visit["when"] = visit_time.to_when(visit["date"], visit["time"], location)
         kept_visits = local_folder_service.list_visits(root, req.research_project_id)
+        visit = visit_rules.with_site_start(visit, kept_visits, location)   # the first camera put up at a pending site is where it starts
         cards = local_folder_service.list_field_items(root, req.research_project_id, "sd_cards")
         unknown = local_folder_service.list_unknown(root, req.research_project_id)
         # a visit that takes the place of an unknown one is put where its instant says, among the visits that are kept

@@ -153,8 +153,17 @@ export function unfinishedRevision(number: number, visits: StoredVisit[], locati
   const of = visits.filter((v) => revisionNumber(v.session) === previous)
   const start = of.length ? of.map((v) => v.date).sort()[0] : day
   const visited = new Set(of.map((v) => v.location_id.toLowerCase()))
+  // the revision in which a site starts, where a visit says so: the revisions before it do not wait for a visit to it
+  const starts = new Map<string, number>()
+  for (const v of visits) {
+    const n = revisionNumber(v.session)
+    if (n !== null && (v.actions as string[]).includes('SiteStart')) starts.set(v.location_id.toLowerCase(), Math.min(n, starts.get(v.location_id.toLowerCase()) ?? n))
+  }
+  const withVisits = new Set(visits.map((v) => v.location_id.toLowerCase()))
   const missing = locations
-    .filter((l) => l.status !== 'planned' && !(l.status === 'archived' && (!l.status_date || l.status_date <= start)))
+    .filter((l) => l.status !== 'planned' && !(l.status === 'archived' && (!l.status_date || l.status_date <= start))
+      && (starts.get(l.location_id.toLowerCase()) ?? 0) <= previous            // a site that starts after this revision is not waited for in it
+      && (l.status !== 'pending' || withVisits.has(l.location_id.toLowerCase())))  // a pending site has not started: until a visit to it is known it is not waited for
     .map((l) => l.location_id).filter((id) => !visited.has(id.toLowerCase())).sort()
   if (missing.length === 0) return null
   const name = (n: number) => `R${String(n).padStart(4, '0')}`

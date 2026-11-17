@@ -258,6 +258,8 @@ def visit_book(visits: list[dict], keep_seconds: bool = True, locations: list[di
                     continue
                 if (visit_rules._session_number(session) or 0) < starts.get(site.lower(), 0):
                     continue   # the site starts after this revision
+                if not visit_rules._in_play(location, visits):
+                    continue   # a site that is pending has not started: nothing is waited for of it
                 out.append({"location_id": site, "session": session, "date": "", "time": "", "when": None, "actions": [], "deployment": None, "deployment_status": None, "not_done": True, "not_visited": False, "state": "planned"})
     return out
 

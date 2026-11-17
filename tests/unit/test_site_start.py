@@ -75,3 +75,31 @@ def test_the_visit_book_has_nothing_of_a_site_in_the_revisions_before_its_start(
 
     assert [(r["session"], r["location_id"]) for r in book if r["location_id"] == "DONA_02"] == [("R0002", "DONA_02"), ("R0003", "DONA_02")]   # no R0001: neither planned nor unknown
     assert [r["location_id"] for r in book if r["session"] == "R0001"] == ["DONA_01"]
+
+
+PENDING = {"location_id": "DONA_03", "status": "pending"}
+
+
+def test_the_first_camera_put_up_at_a_pending_site_is_where_it_starts_and_nothing_else_says_a_start():
+    install = visit("DONA_03", 5, ["Installation"])
+
+    assert visit_rules.with_site_start(install, [], PENDING)["actions"] == ["SiteStart", "Installation"]
+    assert visit_rules.with_site_start(install, [], {**PENDING, "status": "ready"}) is install                 # a site that is not pending started before, or its start is not known
+    assert visit_rules.with_site_start(install, [], None) is install
+    assert visit_rules.with_site_start(visit("DONA_03", 5, ["Revision"]), [], PENDING)["actions"] == ["Revision"]   # not a camera put up
+    assert visit_rules.with_site_start(install, [visit("DONA_03", 4, ["Revision"])], PENDING) is install        # not the first visit to the site
+    said = visit("DONA_03", 5, ["SiteStart", "Installation"])
+    assert visit_rules.with_site_start(said, [], PENDING) is said                                               # and it is not said twice
+    assert visit_rules.with_site_start(visit("DONA_03", 5, [], camera_status="Not revised"), [], PENDING)["actions"] == []
+
+
+def test_a_pending_site_is_not_waited_for_until_a_visit_to_it_is_known():
+    locations = [*LOCATIONS, PENDING]
+    kept = [visit("DONA_01", 1, ["Installation"]), visit("DONA_02", 1, ["Installation"])]
+
+    assert visit_rules.revision_missing(1, kept, locations) == []
+    assert visit_rules.not_visited_records(1, kept, locations) == []
+    assert [r["location_id"] for r in visit_deployments.visit_book(kept, locations=locations, planned=["R0002"]) if r["session"] == "R0002"] == ["DONA_01", "DONA_02"]   # no row of it
+
+    kept.append(visit("DONA_03", 2, ["Revision"]))                                                              # a visit to it is known: it is in play
+    assert "DONA_03" in visit_rules.revision_missing(3, [*kept, visit("DONA_01", 3, ["Revision"])], locations)

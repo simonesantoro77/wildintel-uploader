@@ -1549,7 +1549,7 @@ describe('SettingsPage — Entities', () => {
       await userEvent.click(dialog.getByRole('button', { name: 'Add' }))
 
       await waitFor(() => expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', {
-        location_id: 'DONA_02', name: null, latitude: 37.01, longitude: -6.44, coordinate_uncertainty: null, timezone: 'Europe/Madrid', ignore_dst: true, in_service: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), trapper_pk: null, status: 'ready', status_date: null, status_note: null,
+        location_id: 'DONA_02', name: null, latitude: 37.01, longitude: -6.44, coordinate_uncertainty: null, timezone: 'Europe/Madrid', ignore_dst: true, in_service: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), trapper_pk: null, status: 'pending', status_date: null, status_note: null,
       }))
     })
 

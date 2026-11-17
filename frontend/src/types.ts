@@ -626,7 +626,7 @@ export type SdCardStatus = 'planned' | 'ready' | 'active' | 'archived'
 export type VisitState = 'planned' | 'deployed' | 'collected' | 'stolen' | 'not_visited' | 'no_camera' | 'unknown'
 export type ArchiveReason = 'lost' | 'stolen' | 'broken' | 'other'
 export type TrapperStatus = 'active' | 'inactive' | 'archived'
-export type LocationStatus = 'planned' | 'ready' | 'active' | 'archived'
+export type LocationStatus = 'planned' | 'pending' | 'ready' | 'active' | 'archived'
 export type ResearchProjectStatus = 'planned' | 'active' | 'finished' | 'archived'
 
 /** One of the SD cards: what it is called (its number, or the label on it), who makes it, what it holds and the day it was put into production. */

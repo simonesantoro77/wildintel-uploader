@@ -83,6 +83,25 @@ def card_status_code(value) -> str | None:
     return {"ok": "OK", "cardfull": "CardFull", "fullcard": "CardFull", "carfull": "CardFull", "full": "CardFull", "tarjetallena": "CardFull"}.get(word)
 
 
+def with_site_start(visit: dict, kept: list[dict], location: dict | None) -> dict:
+    """The visit as it is kept: the first visit that puts a camera up where the site is *pending* — in the app, not started — is where the site starts, so it says so. A site that is not
+    pending was started before (or its start is not known), and what is not an Installation, or not the first visit, says nothing of a start."""
+    actions = list(visit.get("actions") or [])
+    if not location or location.get("status") != "pending" or SITE_START in actions or "Installation" not in actions or is_not_revised(visit):
+        return visit
+    if any(_same(v.get("location_id"), visit["location_id"]) for v in kept):
+        return visit
+    return {**visit, "actions": [SITE_START, *actions]}
+
+
+def _in_play(location: dict, *visits: list[dict] | None) -> bool:
+    """Whether a location is in play — waited for in the revisions, drawn in the visit book: a *pending* one has not started, so until a visit to it is known it is not."""
+    if location.get("status") != "pending":
+        return True
+    site = str(location.get("location_id") or "")
+    return any(_same(v.get("location_id"), site) for group in visits for v in group or [])
+
+
 def site_start_number(site: str, visits: list[dict]) -> int | None:
     """The revision in which a site starts — that of its visit that says SiteStart — or None when no visit says it: its start is not known."""
     numbers = [n for v in visits if _same(v.get("location_id"), site) and SITE_START in (v.get("actions") or []) for n in [_session_number(v.get("session"))] if n is not None]
@@ -600,7 +619,7 @@ def not_visited_records(previous: int, visits: list[dict], locations: list[dict]
     starts = site_starts(visits)
     for l in locations:
         site = str(l.get("location_id") or "")
-        if not site or site.lower() in visited or l.get("status") == "planned" or starts.get(site.lower(), 0) > previous or (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start)):
+        if not site or site.lower() in visited or l.get("status") == "planned" or starts.get(site.lower(), 0) > previous or not _in_play(l, visits) or (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start)):
             continue
         camera = camera_at_site(visits, site, f"{last}T23:59:59")
         records.append({"location_id": site, "session": f"R{previous:04d}", "date": last, "time": "23:59:00", "actions": [], "camera_status": "Not revised",
@@ -677,7 +696,7 @@ def revision_missing(number: int, visits: list[dict], locations: list[dict], day
     starts = site_starts([*visits, *(starting or [])])
     expected = [str(l["location_id"]) for l in locations
                 if l.get("location_id") and l.get("status") != "planned" and not (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start))
-                and starts.get(str(l["location_id"]).lower(), 0) <= number]   # a site that starts after this revision is not waited for in it
+                and starts.get(str(l["location_id"]).lower(), 0) <= number and _in_play(l, visits, starting)]   # a site that starts after this revision is not waited for in it
     visited = {str(v["location_id"]).lower() for v in of} | {site for n, site in _unknown_keys(unknown) if n == number}
     return sorted(s for s in expected if s.lower() not in visited)
 

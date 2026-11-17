@@ -603,6 +603,14 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             record["session"] = f"R{count[loc] + 1:04d}"
         count[loc] += 1
         visits.append(record)
+    # the first camera put up at a site that is pending — in the app, not started — is where the site starts: the visit says so, as the form says it
+    seen_sites = {str(v.get("location_id", "")).lower() for v in kept}
+    by_site = {str(l.get("location_id", "")).lower(): l for l in [*locations, *new_locations.values()]}
+    for record in sorted(visits, key=visit_rules._stamp):
+        site = record["location_id"].lower()
+        if site not in seen_sites:
+            record["actions"] = visit_rules.with_site_start(record, [], by_site.get(site))["actions"]
+            seen_sites.add(site)
     # every visit of a revision is after those of the revisions before it and before those of the revisions after it, whichever the site
     disordered = visit_rules.revision_order_conflicts(visits, kept)
     for visit, why in disordered:
@@ -782,7 +790,7 @@ def _new_location(site: str, row: dict[str, str]) -> dict:
     try:
         uncertainty = int(float(row["coordinate_uncertainty"])) if row.get("coordinate_uncertainty") else None
         return LocationRecord(location_id=site, name=row.get("location_name") or None, latitude=latitude, longitude=longitude, timezone=row["timezone"],
-                              ignore_dst=saving in NO, coordinate_uncertainty=uncertainty).model_dump(mode="json")
+                              ignore_dst=saving in NO, coordinate_uncertainty=uncertainty, status="pending").model_dump(mode="json")
     except (ValidationError, ValueError) as exc:
         raise RowError("create_invalid", f"To create the location {site}: {_first(exc) if isinstance(exc, ValidationError) else exc}") from exc
 

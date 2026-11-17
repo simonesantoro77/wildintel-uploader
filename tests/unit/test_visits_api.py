@@ -1542,6 +1542,32 @@ def test_a_planned_site_cannot_be_used_not_even_to_start_it_and_a_ready_one_that
     assert result == {4: "planned", 5: "ready", 6: "active"}
 
 
+def test_a_pending_site_starts_with_its_first_camera_and_is_ready_or_active_by_what_its_start_does(tmp_path: Path):
+    def site(n: int) -> None:
+        _client().post("/api/deployment-import/locations/save", json={"research_project_id": "DONA", "location": {"location_id": f"DONA_0{n}", "name": f"Site {n}", "timezone": "UTC", "ignore_dst": False, "latitude": 37.0 + n / 100, "longitude": -6.5, "status": "pending"}})
+
+    def status_of(n: int) -> str:
+        found = _client().post("/api/deployment-import/locations/list", json={"research_project_id": "DONA"}).json()["results"]
+        return next(l["status"] for l in found if l["location_id"] == f"DONA_0{n}")
+
+    def visit_to(n: int, actions: list[str], session: str = "R0001", day: str = "2026-01-10"):
+        return _save({**VISIT, "location_id": f"DONA_0{n}", "session": session, "date": day, "actions": actions, "num_photos": None, "sd": f"S{n}", "camera_id": f"C{n}"})
+
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        site(4); site(5)
+        before = status_of(4)
+        first = visit_to(4, ["Installation"])                       # the first camera at a pending site: it says where the site starts
+        only = visit_to(5, ["SiteStart"])                           # a start alone makes it ready
+        kept = _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]
+        result = {n: status_of(n) for n in (4, 5)}
+
+    assert before == "pending"
+    assert first.status_code == 200 and only.status_code == 200
+    assert [v["actions"] for v in kept if v["location_id"] == "DONA_04"] == [["SiteStart", "Installation"]]
+    assert result == {4: "active", 5: "ready"}
+
+
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():
     import csv
     import io

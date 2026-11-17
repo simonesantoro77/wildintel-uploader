@@ -613,7 +613,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const firstEver = Boolean(allVisits) && visit.site.trim() !== '' && !(allVisits ?? []).some((v) => v.location_id.toLowerCase() === visit.site.trim().toLowerCase())
   const inRevision = revisionNumber(visit.session || nextSession)
   const [siteStarts, setSiteStarts] = useState(false)
-  const startsSite = guided && noCamera && firstEver && (inRevision === 1 || siteStarts)
+  const pendingSite = projectLocations.find((l) => l.location_id.toLowerCase() === visit.site.trim().toLowerCase())?.status === 'pending'   // in the app, not started: its first visit starts it
+  const startsSite = guided && noCamera && firstEver && (pendingSite || inRevision === 1 || siteStarts)
   // A camera taken away with no other put up, or stolen with none put up, gives the location up: it is archived — for good — with the reason.
   const archiving = guided && !noCamera && ((seeCamera === 'yes' && afterRevision === 'remove') || (seeCamera === 'stolen' && afterTheft === 'archive'))
   const notVisited = guided && seeCamera === 'cannot'
@@ -1290,7 +1291,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     This is the first visit to {visit.site}: it can only be an Installation, as no camera is known to be there yet.
                   </p>
                 )}
-                {guided && noCamera && firstEver && inRevision !== null && inRevision > 1 && !notVisited && (
+                {guided && noCamera && firstEver && pendingSite && !notVisited && (
+                  <p role="status" className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{visit.site} is pending: its first visit starts it, so the revisions before it do not wait for a visit to it.</p>
+                )}
+                {guided && noCamera && firstEver && !pendingSite && inRevision !== null && inRevision > 1 && !notVisited && (
                   <label className="mt-3 flex items-start gap-3 text-sm text-zinc-700 dark:text-zinc-300">
                     <input type="checkbox" className="mt-1" checked={siteStarts} onChange={(e) => setSiteStarts(e.target.checked)} />
                     <span>

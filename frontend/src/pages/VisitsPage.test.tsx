@@ -847,6 +847,17 @@ describe('the visit filled in from the last one', () => {
       expect(box).toBeChecked()
     })
 
+    it('does not ask for a site that is pending: its first visit starts it, and says so', async () => {
+      withVisitsToAnotherSite([['R0001', '2026-06-10'], ['R0002', '2026-08-05']])
+      mockedApi.listLocalLocations.mockResolvedValue({ results: [location('TATR_0001'), location('TATR_0002', { status: 'pending' })] })
+      await chooseByHand()
+      await pickWhere('TATR_0002')
+      await pickWhen()
+
+      expect(await screen.findByText(/TATR_0002 is pending: its first visit starts it/)).toBeInTheDocument()
+      expect(checkbox()).not.toBeInTheDocument()
+    })
+
     it('does not ask for the first visit of the first revision — nothing came before', async () => {
       mockedApi.listLocalLocations.mockResolvedValue({ results: [location('TATR_0001'), location('TATR_0002')] })
       await chooseByHand()
