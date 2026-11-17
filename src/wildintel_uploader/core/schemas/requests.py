@@ -553,6 +553,8 @@ class ImportVisitsCsvRequest(LocalLocationsRequest):
     close_revisions: bool = False
     # A row with no coordinates of the visit takes those of its location — unless this is off: then it is refused.
     coordinates_from_location: bool = True
+    # The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted, and the deployment is not checked against a count it has not.
+    photos_not_counted: bool = False
     # The value of a field that the file has no column for, or whose cell is empty: {field: value}.
     defaults: Optional[dict[str, str]] = None
 

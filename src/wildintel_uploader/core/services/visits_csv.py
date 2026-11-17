@@ -668,7 +668,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         if fills:
             reasons += visit_rules.edit_errors(None, visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown])
         else:
-            reasons += visit_rules.refusals(visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown], gate=False, first_may_be_any=True)
+            reasons += visit_rules.refusals(visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown], gate=False, first_may_be_any=True, photos_optional=bool(options.get("photos_not_counted")))
         # what the visit says that is not an entity (a camera, a card, a trapper) is refused, as in the form, unless the import creates it
         camera, card = str(visit.get("camera_id") or "").lower(), str(visit.get("sd") or "").lower()
         check = options.get("check_entities", True)
@@ -690,10 +690,14 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     new_sites = [visit_rules.new_site(site, records, locations) for site, records in sorted(held.items())]
     # what is odd and still kept, said once and told in the rows it is about: the visits that make it odd are rows of the file
     said: list[tuple[str, list[int]]] = [(message, [n]) for n, message in row_warnings]
-    for message, about in [*visit_rules.session_jump_items(visits, kept), *visit_rules.history_warning_items(visits, kept, options.get("cards"), [*unknown_kept, *unknown])]:
+    for message, about in [*visit_rules.session_jump_items(visits, kept), *visit_rules.history_warning_items(visits, kept, options.get("cards"), [*unknown_kept, *unknown], bool(options.get("photos_not_counted")))]:
         said.append((message, sorted({row_of[id(v)] for v in about if id(v) in row_of})))
     warnings = list(dict.fromkeys(message for message, _ in said))
     notes = visit_rules.history_notes(visits, kept)
+    if options.get("photos_not_counted"):
+        uncounted = [v for v in visits if {"Revision", "Desinstallation"} & set(v["actions"]) and v.get("num_photos") is None and v.get("card_status") != "CardFull" and str(v.get("camera_status") or "").lower() not in visit_rules.NOT_REVISED]
+        if uncounted:
+            notes.append(f"{len(uncounted)} {'visit has' if len(uncounted) == 1 else 'visits have'} no count of the photos on the card, kept as the file says: the photos of their deployments are not checked against a count.")
     took = sorted(n for n in took_location_coordinates if n in row_of.values() and any(row_of.get(id(v)) == n for v in visits))
     if took:
         shown = ", ".join(str(n) for n in took[:8]) + (f" and {len(took) - 8} more" if len(took) > 8 else "")

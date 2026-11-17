@@ -421,6 +421,8 @@ Any spreadsheet with a row per visit. Press **Register visits › Custom CSV**; 
 
    **The trappers must be registered first** — in Settings › Trappers —, or the rows that say them are refused (*Luis Gómez is not one of the trappers*), and with them every revision after. Turn on **Create the trappers that do not exist**, in the options of the second step, to make them from the file: each person a row says went — *who went* and *set up by* — who is not a trapper yet is made as the row calls them, the username is worked out from the name (`Ana Pérez` is `ana.perez`, `ana.perez2` if that one is taken) and a note says it; complete them in Settings › Trappers. Only the people of the rows that are kept are made.
 
+   **An old datasheet with no count of the photos.** A Revision or a Desinstallation needs the photos counted on the card, and a file that has none is refused. Turn on **The photos were not counted**, in the options of the second step, to accept those rows as they are: the count stays empty — **no number is invented** — and a note says how many visits have none. The photos of their deployments are then not checked against a count they do not have (as for a card that was full); a made-up count would only say that photos are missing.
+
    Press **Add N visits** to keep them.
 
 When the visits are kept, the end says how many were added and, if they **closed other visits** — a visit closes the one that left the camera whose card it collects —, how many: **pick their revision and import their images** is a link to [Import deployment](#import-a-deployment) on the research project. A **report** of the import is written with the other reports.
