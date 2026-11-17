@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -126,11 +127,11 @@ describe('UploadDeploymentPage', () => {
   })
 
   it('opens on the default research project, asks for its revision as cards, and for its deployments once a revision is picked', async () => {
-    render(<UploadDeploymentPage />)
+    renderWithHeader(<UploadDeploymentPage />)
     const revisions = within(await screen.findByRole('group', { name: 'Revision' }))
     expect(mockedApi.uploadCollections).toHaveBeenCalledWith('DONA')
-    expect(screen.queryByLabelText('Research project')).not.toBeInTheDocument()      // it is the card at the top right, not a step
-    expect(screen.getByText('Doñana', { exact: false })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Research project')).not.toBeInTheDocument()      // it is the button of the header, not a step
+    expect(await screen.findByRole('button', { name: 'Default research project' })).toHaveTextContent('Doñana')
     expect(revisions.getByRole('button', { name: /^R0001\s*1 deployment$/ })).toBeInTheDocument()
     expect(revisions.getByRole('button', { name: /^R0003\s*4 deployments$/ })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: 'Deployments' })).not.toBeInTheDocument()

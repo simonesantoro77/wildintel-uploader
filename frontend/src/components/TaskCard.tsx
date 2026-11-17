@@ -31,13 +31,13 @@ export const UTIL_ICONS = {
 }
 
 /** The title of a page: the path to it, the title and what it is for. */
-export function PageHeader(props: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; withProject?: boolean; actions?: ReactNode }) {
+export function PageHeader(props: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; actions?: ReactNode }) {
   return <DashboardBar {...props} label="Page actions" />
 }
 
 /** The title of the page of a task, which hangs from the menu. */
-export const SectionHeader = (props: { icon: ReactNode; title: string; description: string; onMenu: () => void; withProject?: boolean }) =>
-  <PageHeader icon={props.icon} title={props.title} description={props.description} parent="Menu" onParent={props.onMenu} withProject={props.withProject} />
+export const SectionHeader = (props: { icon: ReactNode; title: string; description: string; onMenu: () => void }) =>
+  <PageHeader icon={props.icon} title={props.title} description={props.description} parent="Menu" onParent={props.onMenu}  />
 
 /** A task to choose, in a card of its own: its icon and an arrow on top, then its title and what it does. */
 export default function TaskCard({ icon, title, description, onClick, selected = false }: { icon: ReactNode; title: string; description: string; onClick: () => void; selected?: boolean }) {

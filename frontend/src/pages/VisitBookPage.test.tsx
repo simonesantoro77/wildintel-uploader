@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -69,8 +70,8 @@ describe('VisitBookPage', () => {
     expect(mockedApi.visitBook).toHaveBeenCalledWith('TATR')
   })
 
-  it('is of the default research project, which the page says and lets change', async () => {
-    render(<VisitBookPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
+  it('is of the default research project, which the header says and lets change', async () => {
+    renderWithHeader(<VisitBookPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
 
     await screen.findByRole('table', { name: 'Visits' })
     expect(await screen.findByRole('button', { name: 'Default research project' })).toHaveTextContent('TATR — Tatra')

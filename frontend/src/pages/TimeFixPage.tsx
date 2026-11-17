@@ -196,7 +196,7 @@ export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-8 space-y-6">
-      <PageHeader icon={UTIL_ICONS.timefix} title="Check and fix dates and times" parent={parent} onParent={onBack} withProject
+      <PageHeader icon={UTIL_ICONS.timefix} title="Check and fix dates and times" parent={parent} onParent={onBack}
         description="For the images of a card copied to a folder whose camera clock went wrong: see where the time jumps, shift the dates and remove the images that can’t be trusted."
         actions={<HelpButton label="Help" expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 

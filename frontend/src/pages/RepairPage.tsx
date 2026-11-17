@@ -162,7 +162,7 @@ export default function RepairPage({ onBack }: { onBack?: () => void; onOpenSett
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <PageHeader icon={UTIL_ICONS.repair} title="Repair local deployments" parent="Utilities" onParent={onBack} withProject
+      <PageHeader icon={UTIL_ICONS.repair} title="Repair local deployments" parent="Utilities" onParent={onBack}
         description="Checks the deployments of a revision and repairs the ones that are not valid." />
 
       <WizardStep n={1} title="Choose what to check" status={chosen ? 'done' : 'open'} canEdit={!busy} onEdit={startOver}

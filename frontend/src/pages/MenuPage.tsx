@@ -1,4 +1,3 @@
-import ResearchProjectSelect from '../components/ResearchProjectSelect'
 import { useTrail } from '../components/Trail'
 import TaskCard, { ArrowIcon, LineIcon, MENU_ICONS as ICONS, taskCard } from '../components/TaskCard'
 import type { Task } from '../types'
@@ -17,12 +16,9 @@ export default function MenuPage({ onChoose }: Props) {
   useTrail([{ label: 'Menu', icon: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> }])
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Choose one of the following.</p>
-        </div>
-        <ResearchProjectSelect />
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Choose one of the following.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {TASKS.map((t) => <TaskCard key={t.value} icon={ICONS[t.icon]} title={t.title} description={t.description} onClick={() => onChoose(t.value)} />)}

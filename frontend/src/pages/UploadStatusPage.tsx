@@ -173,8 +173,7 @@ export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen,
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <DashboardHeader parent="Manage uploads" onParent={onBack} icon={MENU_ICONS.upload} title="Uploads dashboard" description="The uploads of the deployments to each uploader in use, and their current status."
-        actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />}
-        withProject />
+        actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
       {project && deployments === null && <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p>}
