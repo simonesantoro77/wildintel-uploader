@@ -26,9 +26,9 @@ _ASKED = {
 }
 _LABELS = {"camera": "The camera", "sd": "The SD card left in the camera", "photos": "The photos on the card collected", "camera_status": "The status of the camera"}
 NOT_REVISED = ("not revised", "no revisada", "no revisado")
-# The status of the camera a visit may say: how it was found, Stolen when it was gone, Not revised when the visit could not be made, and what the field form says of a site that is
+# The status of the camera a visit may say ("Knocked down" and "Damaged" are no longer accepted: what was kept with them is still read): how it was found, Stolen when it was gone, Not revised when the visit could not be made, and what the field form says of a site that is
 # new or was inactive (a camera is put up there).
-CAMERA_STATUSES = ("OK", "Altered", "Knocked down", "Damaged", "Stolen", "Not revised", "New site", "Inactive site")
+CAMERA_STATUSES = ("OK", "Altered", "Stolen", "Not revised", "New site", "Inactive site")
 
 
 def camera_status_code(value) -> str | None:
