@@ -60,7 +60,7 @@ beforeEach(() => {
   mockedApi.listResearchProjects.mockResolvedValue({ results: [DONA] })
   mockedApi.listLocalLocations.mockResolvedValue({ results: [loc('DONA_01'), loc('DONA_02')] })
   mockedApi.writeTimestampLog.mockResolvedValue({ path: '/c/R0003_FileTimestampLog.csv', action: 'added', rows: 1, collection: 'R0003' })
-  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 10, deployment_id: { ok: true, message: 'fine' } })
+  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 10, out_of_range: [], deployment_id: { ok: true, message: 'fine' } })
   mockedApi.collectionPath.mockResolvedValue({ path: COLLECTION, collection: 'R0003', exists: false, name: null })
   mockedApi.importLocal.mockImplementation(async (_s, _d, _n, deployment, _p, onEvent) => {
     onEvent({ type: 'done', dest_dir: `${COLLECTION}/${deployment.deployment_id}`, processed: 1, skipped: 0 })
@@ -87,6 +87,14 @@ async function scanSession() {
   await screen.findByRole('checkbox', { name: 'DONA_01' })
 }
 
+/** From the checks on: the dates of the images must fit by default, so they are run before going on. */
+const nextFromChecks = async () => {
+  if ((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled) {
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+  }
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+}
 const next = () => userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
 /** How strict a check is — one of the radio buttons of its row: Skip, Warn or Must pass. */
@@ -816,7 +824,7 @@ describe('ImportSessionPage', () => {
   it('imports every deployment into the revision’s collection and offers to open it', async () => {
     await toDetails()
     await next() // details → checks
-    await next() // checks → prepare
+    await nextFromChecks() // checks → prepare
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/Imported — 2 deployment/)
@@ -831,7 +839,7 @@ describe('ImportSessionPage', () => {
 
   it('has Processing steps to choose what to do, Processing results for how it went, and Save to your collection', async () => {
     await toDetails()
-    await next(); await next()
+    await next(); await nextFromChecks()
 
     expect(await screen.findByText('Processing steps', { selector: 'h4' })).toBeInTheDocument()
     expect(screen.getByText('Processing results', { selector: 'h4' })).toBeInTheDocument()
@@ -845,7 +853,7 @@ describe('ImportSessionPage', () => {
 
   it('lets the optional preparation steps be switched off before importing', async () => {
     await toDetails()
-    await next(); await next()
+    await next(); await nextFromChecks()
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Resize the images' }))
     await userEvent.click(screen.getByRole('button', { name: 'Import 2 deployments' }))
 
@@ -858,7 +866,7 @@ describe('ImportSessionPage', () => {
     pageProps = { onUpload }
     await toDetails()
     await next() // details → checks
-    await next() // checks → prepare
+    await nextFromChecks() // checks → prepare
     expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
@@ -874,7 +882,7 @@ describe('ImportSessionPage', () => {
       onEvent({ type: 'done', dest_dir: `${COLLECTION}/${deployment.deployment_id}`, processed: 1, skipped: 0 })
     })
     await toDetails()
-    await next(); await next()
+    await next(); await nextFromChecks()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/disk full/)
@@ -895,7 +903,7 @@ describe('ImportSessionPage', () => {
     fireEvent.change(screen.getByLabelText('Comments'), { target: { value: 'Near the pond' } })
     await openMore('DONA_01', /^Camera/)
     fireEvent.change(screen.getByLabelText('Height above the ground (m)'), { target: { value: '1.2' } })
-    await next(); await next()
+    await next(); await nextFromChecks()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/Imported — /)
@@ -1236,7 +1244,7 @@ describe('an import session of visits', () => {
     expect(calls[0][3]).toEqual(expect.objectContaining({ visit: { left_session: 'R0002', left_sd: 'A13', collected_session: 'R0003', counted_photos: 10, sd_card: 'B2' } }))
     expect(calls[1][3]).toEqual(expect.objectContaining({ visit: { left_session: 'R0002', left_sd: 'B2', collected_session: 'R0003', counted_photos: 300, sd_card: null } }))
 
-    await next() // checks → prepare
+    await nextFromChecks() // checks → prepare
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
     await waitFor(() => expect(mockedApi.linkVisit).toHaveBeenCalledTimes(2))
     expect(mockedApi.linkVisit).toHaveBeenCalledWith('DONA', CLOSED[0].visit, 'R0002-DONA_01')

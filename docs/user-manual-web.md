@@ -551,6 +551,8 @@ For each check you choose **how strict** it is: **Skip** doesn't run it, **Warn*
 continue, **Must pass** stops you from going on while it fails. The ones that are turned off in the
 [settings](#validation) are not shown. Press **Run checks**.
 
+In the checks of the deployment, **Image dates fit the deployment** is **Must pass** by default: images out of the range of dates of the deployment are an error, and the step does not go on until they fit — or you set the check to **Warn** to accept them.
+
 **3. Results.** When it was last run, with the download of its [report](#reports), and then two blocks like those of the dashboards, each of which folds away:
 
 - **Images status & filters** — *Images reviewed* (all of them, with a bar split between the ones that are fine and the ones with errors), *Without errors* and *With errors*.
