@@ -111,7 +111,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <PageHeader icon={UTIL_ICONS.sync} title="Sync local collections" parent="Utilities" onParent={onBack} withProject
+      <PageHeader icon={UTIL_ICONS.sync} title="Sync local collections" parent="Utilities" onParent={onBack}
         description={<>The local folders are checked against what Trapper has for a classification project, and what is missing is created: the research project and its locations, the collection
         (with its timestamp log) and the chosen deployments. What is already there is left as it is. The images are only downloaded if you ask for it.</>} />
 

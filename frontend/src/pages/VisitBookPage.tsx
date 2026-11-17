@@ -418,7 +418,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-3">
-      <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Manage visits" onParent={onBack} withProject
+      <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Manage visits" onParent={onBack}
         actions={<>
           {project && visits !== null && visits.length > 0 && (
             <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>

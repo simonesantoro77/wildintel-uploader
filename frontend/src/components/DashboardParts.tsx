@@ -19,7 +19,7 @@ export function FoldButton({ open, onToggle, name }: { open: boolean; onToggle: 
 
 /** The head of a dashboard: its title, the path to it and the line of buttons. */
 export { DashboardBar }
-export function DashboardHeader(props: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; actions?: ReactNode; withProject?: boolean }) {
+export function DashboardHeader(props: { icon: ReactNode; title: string; description: ReactNode; parent: string; onParent?: () => void; actions?: ReactNode }) {
   return <DashboardBar {...props} />
 }
 

@@ -1,3 +1,4 @@
+import { renderWithHeader } from '../test/renderWithHeader'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,8 +28,8 @@ beforeEach(() => {
 const showAll = async () => { await userEvent.click(await screen.findByRole('button', { name: /^All revisions/ })) }  // the dashboard opens on the latest revision
 
 describe('DeploymentStatusPage', () => {
-  it('is of the default research project, which the page says and lets change', async () => {
-    render(<DeploymentStatusPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
+  it('is of the default research project, which the header says and lets change', async () => {
+    renderWithHeader(<DeploymentStatusPage onBack={vi.fn()} onOpenSettings={vi.fn()} />)
 
     expect(await screen.findByRole('button', { name: 'Default research project' })).toHaveTextContent('TATR')
     await waitFor(() => expect(mockedApi.fieldDeployments).toHaveBeenCalledWith('TATR'))

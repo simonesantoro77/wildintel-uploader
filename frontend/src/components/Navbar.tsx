@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Icon } from './Dashboard'
 import LanguageButton from './LanguageButton'
+import ResearchProjectSelect from './ResearchProjectSelect'
 import { useCurrentTrail } from './Trail'
 
 interface Props {
@@ -69,6 +70,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {trail && <ResearchProjectSelect />}
           <a
             className={`${btnOutline} no-underline`}
             href={DOCS_URL} target="_blank" rel="noopener noreferrer"

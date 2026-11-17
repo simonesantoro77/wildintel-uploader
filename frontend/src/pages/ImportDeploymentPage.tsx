@@ -2584,8 +2584,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     )}
     <div className={fixingDates ? 'hidden' : 'mx-auto max-w-[1100px] px-4 py-8'}>
       <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
-        parent="Manage deployments" onParent={onBack}
-        withProject />
+        parent="Manage deployments" onParent={onBack} />
 
       {/* Step indicator */}
       <div className="flex items-start mb-10">

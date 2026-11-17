@@ -932,8 +932,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <PageHeader icon={MENU_ICONS.deployment} title={title}
         description="Imports a folder of deployments — one subfolder each — into their revision. The revision, the checks and the preprocessing are the same for all of them; the location, the dates and the camera are asked for each."
-        parent="Manage deployments" onParent={onBack}
-        withProject />
+        parent="Manage deployments" onParent={onBack} />
 
       {/* Step indicator */}
       <div className="flex items-start mb-10">
