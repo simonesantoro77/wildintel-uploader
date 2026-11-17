@@ -334,7 +334,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
             {view === 'map' && (
               <>
                 {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
-                <CoordinatesMap name="Deployments on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" />
+                <CoordinatesMap name="Deployments on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" markedKey={every.find((d) => d.deployment_id === focus)?.site.toLowerCase() ?? null} />
               </>
             )}
             {view === 'labels' && (

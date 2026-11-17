@@ -223,6 +223,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A license set by hand in `settings.toml` is kept and shown as *Other*.
 
 ### Fixed
+- **Visit book and Deployments**: when a visit or a deployment is marked and the view is changed to the map, its site is the chosen point, with its card open (#73).
 - **Register visits › CSV**: the note *"R00xx has no visit to …, which were visited in R00yy"* no longer lists the sites that were archived, or whose camera was taken away or stolen, in the trip before (#38): nothing of them stays out in the field.
 - **Register visits › CSV**: the warning *"the site has no visit in R00xx, so the camera has to be put up in R00yy (an Installation)"* is no longer said when the site had its camera out before the gap (#37): a revision after a revision in which the site was skipped is fine while its deployment is still open. It is still said when the camera had been taken away, or the site had none.
 - **Concurrent requests on the same file** (Windows: *PermissionError … .locations.json.<tmp>.tmp → locations.json*): reading no longer writes — the ids of the records that were kept before they existed are worked out each time they are read, and kept with the next write —, a file is read and written one request at a time, and a file that the system says is in use (an antivirus, the indexer) is put in place again after a short wait, up to five times, before the error is said.

@@ -58,11 +58,14 @@ const control = 'flex h-8 w-8 items-center justify-center rounded border border-
  * coloured by what the legend says. The map is zoomed with the buttons at its corner and moved by dragging it; pointing at a point shows its details, and choosing it — pressing it, or Enter —
  * keeps it open. The card has the buttons of what can be done with the site. The map behind is switched off with its button — then the points are drawn on their own, which needs no connection and
  * asks nothing of a provider. Each point can be reached with the keyboard and says its state in its name. */
-export default function CoordinatesMap({ name, points, legend, missing = 0, noun = 'sites' }: {
+export default function CoordinatesMap({ name, points, legend, missing = 0, noun = 'sites', markedKey = null }: {
   name: string; points: MapPoint[]; legend: MapLegend[]; missing?: number; noun?: string
+  /** The site that is marked in the table or the cards: it is the chosen point, with its card open. */
+  markedKey?: string | null
 }) {
   const [hover, setHover] = useState<string | null>(null)
-  const [chosen, setChosen] = useState<string | null>(null)
+  const [chosen, setChosen] = useState<string | null>(markedKey)
+  useEffect(() => { if (markedKey) setChosen(markedKey) }, [markedKey])
   const [background, setBackground] = useState(backgroundWanted)
   const [loaded, setLoaded] = useState<Set<string>>(() => new Set())
   const [failed, setFailed] = useState<Set<string>>(() => new Set())

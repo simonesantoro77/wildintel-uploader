@@ -262,6 +262,17 @@ describe('DeploymentStatusPage', () => {
 
   const place = (location_id: string, name: string, latitude: number | null, longitude: number | null) => ({ location_id, name, latitude, longitude, timezone: null, coordinate_uncertainty: null, trapper_pk: null })
 
+  it('keeps the marked deployment when the view changes to the map: its site is the chosen point, with its card open', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [place('TATR_0001', 'Ridge', 49.2, 20.1), place('TATR_0002', 'Stream', 49.25, 20.2), place('TATR_0003', 'Pond', 49.22, 20.3)] } as never)
+    render(<DeploymentStatusPage onBack={vi.fn()} focus="R0003-TATR_0002" />)                          // the one a link goes to: marked in the table
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the deployments on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Deployments on a map' })
+    expect(await within(map).findByRole('button', { name: /^TATR_0002/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(map).getByRole('region', { name: 'Details of TATR_0002' })).toBeInTheDocument()
+    expect(within(map).getByRole('button', { name: /^TATR_0001/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('shows the deployments on a map — a point for each site, coloured by its state, with a tick when it was uploaded — whose card has the buttons of its row', async () => {
     mockedApi.listLocalLocations.mockResolvedValue({ results: [place('TATR_0001', 'Ridge', 49.2, 20.1), place('TATR_0002', 'Stream', 49.25, 20.2), place('TATR_0003', 'Pond', 49.22, 20.3)] } as never)
     const onShowStatistics = vi.fn()
