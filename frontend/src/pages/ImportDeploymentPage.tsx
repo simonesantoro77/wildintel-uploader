@@ -571,6 +571,9 @@ export const ORIGIN_SOURCE_OPTIONS: Option<OriginSource>[] = [
   { value: 'manual', emoji: '✍️', title: 'By hand', description: 'Fill in the form yourself.', available: true },
 ]
 
+/** The postvalidation checks that must pass by default: photos outside the dates of the deployment are an error, not a warning — the user can set it to Warn. */
+export const DEFAULT_REQUIRED_DEPLOYMENT_CHECKS: DeploymentCheck[] = ['time_range']
+
 export const IMAGE_CHECK_OPTIONS: { value: ImageCheck; label: string }[] = [
   { value: 'corrupted', label: 'Corrupted images' },
   { value: 'sequence', label: 'Shooting order vs. filename sequence' },
@@ -1615,7 +1618,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [exiftool, setExiftool] = useState<boolean | null>(null) // whether ExifTool is installed; null until known
   // The deployment's row in its collection's FileTimestampLog, written on leaving the details.
   const [timestampLogError, setTimestampLogError] = useState<string | null>(null)
-  const [requiredDeploymentChecks, setRequiredDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set())
+  const [requiredDeploymentChecks, setRequiredDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set(DEFAULT_REQUIRED_DEPLOYMENT_CHECKS))
   const [checkingDeployment, setCheckingDeployment] = useState(false)
   const [deploymentCheck, setDeploymentCheck] = useState<DeploymentCheckResult | null>(null)
   const [deploymentCheckError, setDeploymentCheckError] = useState<string | null>(null)
@@ -2423,7 +2426,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     setDeploymentCheck(null); setDeploymentCheckError(null)
     preprocessTouched.current = false
     setRevision(''); revisionTouched.current = false; setRevisionHint(null)
-    setDeploymentChecks(new Set(ALL_DEPLOYMENT_CHECKS)); setRequiredDeploymentChecks(new Set())
+    setDeploymentChecks(new Set(ALL_DEPLOYMENT_CHECKS)); setRequiredDeploymentChecks(new Set(DEFAULT_REQUIRED_DEPLOYMENT_CHECKS))
     setTimestampLogError(null)
     setSdCard('')
     setEvents([]); setImportError(null); setDestDir(null); setCopied(false)

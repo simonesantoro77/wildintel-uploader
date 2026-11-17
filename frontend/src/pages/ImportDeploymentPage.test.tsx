@@ -95,6 +95,7 @@ const closedVisitOf = (locationId: string) => ({
 beforeEach(() => {
   vi.clearAllMocks()
   visitRevision = 1
+  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [] })
   storedProjects = []
   storedLocations = {}
   pageProps = {}
@@ -271,6 +272,10 @@ async function goToPostvalidation(revision = '1', fillDetails?: () => Promise<vo
 
 /** From the postvalidation → step "preprocessing" (the list of what is done to the images). */
 async function advanceToPreprocessing() {
+  if ((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled) {   // the dates check must pass by default: it is run first
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+  }
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
   await screen.findByText('Processing steps', { selector: 'h4' })
 }
@@ -322,6 +327,8 @@ describe('ImportDeploymentPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText('Check the details', { selector: 'h4' })).toBeInTheDocument() // straight from the details
 
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' })) // the dates must fit: Must pass by default
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText('Processing steps', { selector: 'h4' })).toBeInTheDocument() // the list of what is done to the images
 
@@ -1538,7 +1545,7 @@ describe('ImportDeploymentPage', () => {
     it('comes straight after the details and offers the naming, dates and camera checks', async () => {
       await goToPostvalidation()
 
-      for (const label of DEPLOYMENT_CHECK_LABELS) expect(strictness(label, 'Warn')).toBeChecked()
+      for (const label of DEPLOYMENT_CHECK_LABELS) expect(strictness(label, label === 'Image dates fit the deployment' ? 'Must pass' : 'Warn')).toBeChecked()
       expect(screen.getAllByRole('radiogroup')).toHaveLength(11)   // with a visit: the SD card and the number of photos too
       expect(screen.queryByLabelText(/Start date before end date/)).not.toBeInTheDocument() // that one is checked in the details form itself
     })
@@ -1657,17 +1664,20 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getByText(/2 distinct camera models found/)).toBeInTheDocument()
     })
 
-    it('lets the user continue when nothing is required, even before running the checks', async () => {
+    it('has the check of the image dates as Must pass by default: it cannot go on until the dates fit, or it is set to Warn', async () => {
       await goToPostvalidation()
+      expect(strictness('Image dates fit the deployment', 'Must pass')).toBeChecked()
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
 
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+      await chooseDeploymentStrictness(4, 'Warn')
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled() // nothing is required then, even before running the checks
     })
 
     it.each<[string, number, Partial<DeploymentCheckResult>, Partial<DeploymentCheckResult>, RegExp]>([
       ['a naming check', 0, { ...NAMES_OK, deployment_id: { ok: false, message: 'bad id' } }, NAMES_OK, /bad id/],
       ['the image dates', 4, { out_of_range: [{ path: 'a.jpg', date: '2024-08-01T00:00:00', rule: 'first', expected: 'x' }] }, { out_of_range: [] }, /1 image\(s\) outside/],
     ])('blocks continuing until %s, when required, has been run and passes', async (_name, index, failing, passing, message) => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...failing })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], ...failing })
       await goToPostvalidation()
       await chooseDeploymentStrictness(index, 'Must pass')
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
@@ -1676,7 +1686,7 @@ describe('ImportDeploymentPage', () => {
       await screen.findByText(message)
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // run, but it failed
 
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...passing })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], ...passing })
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
     })
@@ -1742,20 +1752,20 @@ describe('ImportDeploymentPage', () => {
     })
 
     it.each([['image_count', 6], ['sequence_count', 7], ['sequence_length', 8]] as const)('blocks continuing when %s is required and not similar', async (key, index) => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, [key]: stat({ ok: false, message: 'it is not similar' }) })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], [key]: stat({ ok: false, message: 'it is not similar' }) })
       await goToPostvalidation()
       await chooseDeploymentStrictness(index, 'Must pass')
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await screen.findByText(/it is not similar/)
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
 
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, [key]: stat() })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], [key]: stat() })
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
     })
 
     it('a check skipped for lack of history does not block, even when required', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, image_count: stat({ skipped: true, ok: true, message: 'Not enough history', history: [] }) })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], image_count: stat({ skipped: true, ok: true, message: 'Not enough history', history: [] }) })
       await goToPostvalidation()
       await chooseDeploymentStrictness(6, 'Must pass')
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
