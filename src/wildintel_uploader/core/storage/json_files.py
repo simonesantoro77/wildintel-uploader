@@ -14,6 +14,8 @@ import json
 import logging
 import os
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 from wildintel_uploader.core.storage.base import GLOBAL_KINDS, RECORD_KINDS, ProjectStore, StorageError, valid_project_id
@@ -29,24 +31,53 @@ GLOBAL_FILES = {"trappers": "trappers.json"}   # beside the folders of the resea
 assert set(RECORD_FILES) == set(RECORD_KINDS) and set(GLOBAL_FILES) == set(GLOBAL_KINDS)
 
 
+# One lock for each file: a read and a write — or two writes — of the same file in this process do not coincide. On Windows a file that is open cannot be replaced (a PermissionError), and a
+# read has it open for a moment. It is reentrant: what holds it may take it again.
+_locks: dict[str, threading.RLock] = {}
+_locks_guard = threading.Lock()
+
+# What is waited, in seconds, between the tries to put a file in place when the system says it is in use — by an antivirus, the indexer… — and not by this process.
+REPLACE_RETRIES = (0.02, 0.05, 0.1, 0.2, 0.4)
+
+
+def _lock_of(path: Path) -> threading.RLock:
+    with _locks_guard:
+        return _locks.setdefault(str(path.resolve()).lower(), threading.RLock())
+
+
 def read_json(path: Path):
     """What a JSON file says, or None when it is not there or cannot be read."""
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+    with _lock_of(path):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+
+def _replace(tmp: str, path: Path) -> None:
+    """Puts the written file in place of `path`, trying again a few times when the system refuses because the file is in use."""
+    for wait in (*REPLACE_RETRIES, None):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if wait is None:
+                raise
+            logger.debug("%s is in use: trying again in %.2f s", path, wait)
+            time.sleep(wait)
 
 
 def write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, indent=2, ensure_ascii=False, default=str)
-        os.replace(tmp, path)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
+    with _lock_of(path):
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, indent=2, ensure_ascii=False, default=str)
+            _replace(tmp, path)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise
 
 
 class JsonFolderStore(ProjectStore):

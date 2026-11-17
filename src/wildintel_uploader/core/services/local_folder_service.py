@@ -278,18 +278,13 @@ def list_locations(root: Path, research_project_id: str, include_deleted: bool =
 
 
 def _read_with_ids(root: Path, research_project_id: str, kind: str, key_of) -> list[dict]:
-    """The records of a kind as they are kept, each with its `id`: what was kept before the ids existed gets its own the first time it is read — the same one whenever it is
-    (see ids.legacy_id) — and is written so, to keep it from then on."""
+    """The records of a kind as they are kept, each with its `id`: what was kept before the ids existed gets its own — the same one whenever it is read (see ids.legacy_id) —
+    and is kept with it the next time the records are written. Reading writes nothing."""
     store = _store(root)
     records = store.read_records(research_project_id, kind)
-    given, fixed = [], False
-    for r in records:
-        if not r.get("id"):
-            r, fixed = {**r, "id": ids.legacy_id(kind, key_of(r), research_project_id)}, True
-        given.append(r)
-    if fixed:
-        store.write_records(research_project_id, kind, given)
-    return given
+    # A record kept before the ids existed gets the one `legacy_id` gives it — always the same — and it is kept the next time the records are written: reading never writes, so that
+    # two requests that read the same file cannot fight over writing it (on Windows one of them fails with a PermissionError).
+    return [r if r.get("id") else {**r, "id": ids.legacy_id(kind, key_of(r), research_project_id)} for r in records]
 
 
 _LOCATION_KEY = lambda r: r.get("location_id", "")   # noqa: E731
@@ -518,13 +513,8 @@ def list_trappers(root: Path, include_deleted: bool = False) -> list[dict]:
     if not records:
         _legacy_trappers(root)
         records = store.read_global("trappers")
-    given, fixed = [], False
-    for t in records:
-        if not t.get("id"):   # kept before the ids existed: the same one whenever it is read
-            t, fixed = {**t, "id": ids.legacy_id("trapper", t.get("username") or t.get("name") or "")}, True
-        given.append(t)
-    if fixed:
-        store.write_global("trappers", given)
+    # kept before the ids existed: the same id whenever it is read, and kept with it the next time the trappers are written (reading writes nothing)
+    given = [t if t.get("id") else {**t, "id": ids.legacy_id("trapper", t.get("username") or t.get("name") or "")} for t in records]
     return given if include_deleted else audit.alive(given)
 
 

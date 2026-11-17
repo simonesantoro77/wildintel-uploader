@@ -96,7 +96,7 @@ def test_a_location_a_card_or_a_trapper_that_was_deleted_is_still_the_one_a_visi
     assert told["sd"] == "A13" and told["trappers"] == "Pedro Pérez, Luis" and told["setup_by"] == "Pedro Pérez"
 
 
-def test_what_was_kept_before_the_ids_existed_gets_them_and_its_visits_are_linked_and_it_is_written_so(tmp_path: Path, people):
+def test_what_was_kept_before_the_ids_existed_gets_them_when_it_is_read_and_its_visits_are_linked_and_written_so(tmp_path: Path, people):
     svc.write_research_project(tmp_path, {"name": "Doñana", "acronym": "DONA"})
     pdir = tmp_path / "DONA"
     (pdir / "locations.json").write_text(json.dumps([{"location_id": "DONA_01", "timezone": "UTC", "ignore_dst": False, "latitude": 1, "longitude": 1}]), encoding="utf-8")
@@ -108,7 +108,10 @@ def test_what_was_kept_before_the_ids_existed_gets_them_and_its_visits_are_linke
     told = svc.list_visits(tmp_path, "DONA")[0]
 
     assert (told["location_id"], told["camera_id"], told["sd"], told["trappers"]) == ("DONA_01", "BR1", "A13", "Pedro Pérez")
-    assert _on_disk(tmp_path, "sd_cards.json")[0]["id"] == ids.legacy_id("sd_cards", "A13", "DONA")   # the same one wherever it is read, and kept from now on
+    assert svc.list_field_items(tmp_path, "DONA", "sd_cards")[0]["id"] == ids.legacy_id("sd_cards", "A13", "DONA")   # the same one wherever it is read
+    assert "id" not in _on_disk(tmp_path, "sd_cards.json")[0]                                                  # reading the cards wrote nothing: it is kept with the next write
+    svc.write_field_items(tmp_path, "DONA", "sd_cards", [{"label": "A13", "brand": "SanDisk"}])
+    assert _on_disk(tmp_path, "sd_cards.json")[0]["id"] == ids.legacy_id("sd_cards", "A13", "DONA")           # and is the same one when it is written
     raw = _on_disk(tmp_path)[0]
     assert raw["sd_ref"] == ids.legacy_id("sd_cards", "A13", "DONA") and raw["trapper_refs"] == [_tid(tmp_path, "pedro")] and raw["id"] and "sd" not in raw
     assert svc.list_visits(tmp_path, "DONA") == [told] and _on_disk(tmp_path)[0] == raw         # and it is stable: reading again changes nothing
