@@ -1071,6 +1071,26 @@ describe('VisitsPage from a CSV file', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('waits while the visits are saved: the button says so and cannot be pressed again', async () => {
+    let finish: (value: unknown) => void = () => {}
+    mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit(), visit({ session: 'R0002', date: '2026-11-05' })], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    mockedApi.importVisitsCsv.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+    await start()
+    await userEvent.selectOptions(await screen.findByLabelText('Photos on the card collected'), 'Fotos')
+    await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add 2 visits' }))
+
+    const saving = await screen.findByRole('button', { name: /Saving 2 visits… this can take some minutes/ })
+    expect(saving).toBeDisabled()
+    expect(saving).toHaveAttribute('aria-busy', 'true')
+    expect(saving.querySelector('.animate-spin')).not.toBeNull()          // something moves: it is working
+    expect(screen.getAllByRole('button', { name: 'Back' }).at(-1)).toBeDisabled()   // and the page cannot be left half way
+    await userEvent.click(saving)
+    expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(2)   // the read and one save, not two
+    finish({ visits: [visit()], problems: [], skipped: 0, saved: 2, new_sites: [], warnings: [] })
+    expect(await screen.findByText('Visits saved')).toBeInTheDocument()
+  })
+
   it('does not read the visits until the site, the actions and when are mapped', async () => {
     await start()
 
