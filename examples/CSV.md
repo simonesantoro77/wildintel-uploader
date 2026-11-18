@@ -3,7 +3,7 @@
 For trying the CSV options of the app. They are in two folders, and each folder has a README that says what is in it:
 
 - [`visits_example`](visits_example) — **visits** (Register visits → From a CSV file), by the option they are for (Custom CSV, WildINTEL Epicollect CSV) and made to fit the entities of `WICP_02`.
-- [`entities_example`](entities_example) — **entities** (Settings → Entities, one tab each), for the research project `WICP_02` (four locations).
+- [`entities_example`](entities_example) — **entities** (Settings → Entities, one tab each), for the research project `WICP_02` (four locations) and for `DONA` (the real history of Doñana, anonymised: 89 locations, 119 cameras and 215 SD cards).
 
 The entities are in five files:
 
