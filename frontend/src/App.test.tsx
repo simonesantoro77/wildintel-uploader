@@ -35,7 +35,8 @@ beforeEach(() => {
   mockedApi.getSettings.mockResolvedValue({ GENERAL: {} } as never)
 })
 
-const getStarted = async () => userEvent.click(await screen.findByRole('button', { name: /get started/i }))
+// Get started when there is no research project, or when it cannot be told; with one, the button to go on with it
+const getStarted = async () => userEvent.click(await screen.findByRole('button', { name: /^(get started|continue)/i }))
 const title = () => screen.findByRole('button', { name: 'Go to the welcome screen' })
 
 describe('App', () => {
@@ -49,6 +50,14 @@ describe('App', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'register the first visit' }))   // the setup leads to Register visits
     expect(await screen.findByText('visits — register')).toBeInTheDocument()
+  })
+
+  it('starts the initial setup from the welcome screen when there is a research project too, with the button that creates a new one', async () => {
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Create a new research project' }))
+
+    expect(await screen.findByText('the initial setup')).toBeInTheDocument()
+    expect(screen.queryByText('What do you want to do?')).not.toBeInTheDocument()
   })
 
   it('goes to the menu when there are research projects, or when they cannot be told', async () => {
@@ -71,7 +80,7 @@ describe('App', () => {
 
     await userEvent.click(await title())
 
-    expect(await screen.findByRole('button', { name: /get started/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^(get started|continue)/i })).toBeInTheDocument()
     expect(screen.queryByText(/Upload page/)).not.toBeInTheDocument()
     expect(screen.queryByText('What do you want to do?')).not.toBeInTheDocument()
   })
@@ -89,7 +98,7 @@ describe('App', () => {
     render(<App />)
     await userEvent.click(await title()) // the sessions are offered first when the app starts
 
-    expect(await screen.findByRole('button', { name: /get started/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^(get started|continue)/i })).toBeInTheDocument()
     await getStarted()
     expect(await screen.findByRole('heading', { name: 'Unfinished run' })).toBeInTheDocument()
   })
