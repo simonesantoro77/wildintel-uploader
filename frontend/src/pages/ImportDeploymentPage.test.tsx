@@ -2172,6 +2172,22 @@ describe('ImportDeploymentPage', () => {
       expect(mockedApi.preprocess.mock.calls[0][4]).toEqual(expect.objectContaining({ rename: false, resize: false, metadata: false }))
     })
 
+    it('has, in Review and save, the style of saving the visits: the summary card, the box with the lock that asks to save, and its own Back and Save at the foot — a single Back', async () => {
+      await goToPostvalidation()
+      await advanceToPreprocessing()
+      await runPreprocessingAndContinue()
+      await screen.findByText('Review and save', { selector: 'h4' })
+
+      const summary = screen.getByRole('region', { name: 'What is going to be saved' })
+      expect(summary).toHaveTextContent('Deployment')
+      expect(summary).toHaveTextContent('R0001-DONA_01')
+      const note = screen.getByRole('note')
+      expect(note).toHaveTextContent('Saving seals the deployment')
+      expect(note).toHaveTextContent('Do you want to save the deployment R0001-DONA_01 in DONA?')
+      expect(screen.getAllByRole('button', { name: 'Back' }).filter((b) => !b.closest('.hidden'))).toHaveLength(1)   // the one of the step, not another one of the page
+      expect(screen.getByRole('button', { name: 'Save to my collection' })).toBeEnabled()
+    })
+
     it('cannot be saved before the preprocessing has run, and has to run it again after going back', async () => {
       await goToPostvalidation()
       await advanceToPreprocessing()

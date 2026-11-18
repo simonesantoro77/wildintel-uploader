@@ -690,7 +690,7 @@ images as thumbnails. The [report](#reports) says what was done to each image. *
 
 ![Stage 5 — Saved](img/screenshots/step-import.png)
 
-The images are ready, so this step **consolidates** the deployment: it says what is going to be saved (the deployment, where it was taken, its period, the images and where it is kept), a note says that *saving seals the deployment*, and **Save to my collection** — under it, at the right — writes its
+The images are ready, so this step **consolidates** the deployment: it says what is going to be saved, in a card (the deployment, where it was taken, its period, the images and where it is kept), a box with a lock says that *saving seals the deployment* and asks *Do you want to save the deployment … in …?*, and, at the foot, **Back** at the left and **Save to my collection** at the right — as when the visits are saved — writes its
 `deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — the app notices if an image
 or its details change — and it can be uploaded.
 
