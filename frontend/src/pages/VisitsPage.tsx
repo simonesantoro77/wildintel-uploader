@@ -600,6 +600,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvName, setCsvName] = useState<string | null>(null)
   // The file step stays open — with what it can create — until Continue: choosing the file does not move on.
   const [fileConfirmed, setFileConfirmed] = useState(false)
+  // The file is read, and ready to be checked: the check waits for Continue — it is what opens the step that checks.
+  const [fileReady, setFileReady] = useState(false)
   // The groups of the matching that are folded away, as there are many fields.
   const [foldedGroups, setFoldedGroups] = useState<string[]>([])
   // Custom CSV: where the file is — on this computer, or in the Epicollect5 project of the settings.
@@ -811,7 +813,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   function forgetCsv() {
     csvReading.current++ // what an older file is still being answered is left out
     setChecking(false); setSavedOpen(false); setCsvConfirming(false); setNotesOpen(false)
-    setCsvResult(null); setCsvError(null); setCsvSaved(null); setCsvColumns(null); setCsvMapping({}); setFileConfirmed(false)
+    setCsvResult(null); setCsvError(null); setCsvSaved(null); setCsvColumns(null); setCsvMapping({}); setFileConfirmed(false); setFileReady(false)
   }
 
   async function readCsv(file: File | undefined) {
@@ -823,18 +825,31 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       const text = await file.text()
       if (reading !== csvReading.current) return
       setCsvText(text)
+      // the file of another CSV has its columns matched next; the others are checked when Continue is pressed
       if (source === 'csv') {
         const found = await api.visitsCsvColumns(text)
         if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping) }
-      } else {
-        readWith.current = JSON.stringify(csvOptions ?? null)
-        const tail: [mapping?: Record<string, string>, options?: ImportCsvOptions] = csvOptions ? [undefined, csvOptions] : []
-        setChecking(true)
-        const result = await api.importVisitsCsv(project.acronym, text, false, csvFormat, ...tail)
-        if (reading === csvReading.current) { setCsvResult(result); setChecking(false) }
       }
+      if (reading === csvReading.current) setFileReady(true)
     } catch (e) {
       if (reading === csvReading.current) { setCsvError(e instanceof Error ? e.message : 'Could not read the file.'); setChecking(false) }
+    }
+  }
+
+  /** Checks the file chosen — what Continue of the step of the file does for the ones that have no columns to match. */
+  async function checkFile() {
+    if (!project || !csvText) return
+    const reading = ++csvReading.current
+    readWith.current = JSON.stringify(csvOptions ?? null)
+    const tail: [mapping?: Record<string, string>, options?: ImportCsvOptions] = csvOptions ? [undefined, csvOptions] : []
+    setCsvResult(null); setCsvError(null); setChecking(true)
+    try {
+      const result = await api.importVisitsCsv(project.acronym, csvText, false, csvFormat, ...tail)
+      if (reading === csvReading.current) setCsvResult(result)
+    } catch (e) {
+      if (reading === csvReading.current) setCsvError(e instanceof Error ? e.message : 'Could not read the file.')
+    } finally {
+      if (reading === csvReading.current) setChecking(false)
     }
   }
 
@@ -849,7 +864,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       if (reading !== csvReading.current) return
       setCsvText(csv)
       const found = await api.visitsCsvColumns(csv)
-      if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping) }
+      if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping); setFileReady(true) }
     } catch (e) {
       if (reading === csvReading.current) setCsvError(e instanceof Error ? e.message : 'Could not read Epicollect5.')
     } finally { setDownloading(false) }
@@ -1635,7 +1650,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           )}
 
           <WizardStep
-            n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
+            n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
             description={source === 'wildintel-new' ? 'The CSV downloaded from the new WildINTEL Epicollect project: a row is a visit. Its columns are found by the label of their question, whatever the case or the number in front. A visit happened when its entry was created (the form has no date or time). A visit that says New site makes its site, at the place of the visit, in the timezone UTC unless the switch below gives another.'
               : 'Any spreadsheet file with a row per visit. Next, you say which column gives each field of a visit.'}
             summary={csvName}
@@ -1693,7 +1708,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             {csvError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{csvError}</p>}
             <div className="flex justify-between items-center mt-4">
               <button type="button" className={btnOutline} onClick={() => { forgetCsv(); setCsvName(null); if (defaultProject) setSource(null); else setProject(undefined) }}><span aria-hidden="true">← </span>Back</button>
-              <button type="button" aria-label="Continue" className={btnPrimary} disabled={!(csvResult || csvColumns) || downloading} onClick={() => setFileConfirmed(true)}>Continue<span aria-hidden="true"> →</span></button>
+              <button type="button" aria-label="Continue" className={btnPrimary} disabled={!fileReady || downloading || checking} onClick={() => { setFileConfirmed(true); if (source !== 'csv') void checkFile() }}>Continue<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
 
@@ -1764,7 +1779,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             </WizardStep>
           )}
 
-          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking || (csvResult && fileConfirmed)) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="What the file says, before it is kept."
+          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="What the file says, before it is kept."
                       action={csvResult && csvSaved == null && fileConfirmed && !csvConfirming && (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={rechecking} onClick={() => void recheckCsv()}
                                 title="Check the file again against what is kept now: the visits, the locations and the settings">
@@ -1773,10 +1788,13 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                         </button>
                       )}>
             {csvSaved === null && (checking || rechecking) && (
-              <p role="status" className="flex items-center gap-3 text-base text-zinc-600 dark:text-zinc-300">
-                <span aria-hidden="true" className="h-5 w-5 rounded-full border-2 border-zinc-400/40 border-t-zinc-500 animate-spin motion-reduce:animate-none" />
-                Checking the file… this can take some minutes for a long history.
-              </p>
+              <div>
+                <p role="status" className="text-base text-zinc-600 dark:text-zinc-300">Checking the file… this can take some minutes for a long history.</p>
+                {/* the check is one request that does not say how far it is: the bar moves, with no end */}
+                <div role="progressbar" aria-label="Checking the file" aria-busy="true" className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <div className="h-full w-1/3 rounded-full bg-blue-500 animate-indeterminate motion-reduce:animate-none" />
+                </div>
+              </div>
             )}
             {csvSaved === null && csvResult && !checking && !rechecking && (
               <>

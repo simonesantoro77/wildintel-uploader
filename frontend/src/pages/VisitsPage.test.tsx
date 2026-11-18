@@ -1144,6 +1144,30 @@ describe('VisitsPage from a CSV file', () => {
     expect(plan).toHaveTextContent('Trappers to createLuis Gómez')
   })
 
+  it('does not check the file until Continue of the step of the file is pressed, and then shows a bar that moves and the step running', async () => {
+    let finish: (value: unknown) => void = () => {}
+    mockedApi.importVisitsCsv.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+
+    const button = await screen.findByRole('button', { name: 'Continue' })
+    await waitFor(() => expect(button).toBeEnabled())                // the file is read, and Continue is there to press
+    expect(mockedApi.importVisitsCsv).not.toHaveBeenCalled()          // nothing is checked yet
+    expect(screen.queryByRole('progressbar', { name: 'Checking the file' })).not.toBeInTheDocument()
+
+    await userEvent.click(button)
+    expect(await screen.findByRole('progressbar', { name: 'Checking the file' })).not.toHaveAttribute('aria-valuenow')   // it moves, and does not say how far
+    expect(mockedApi.importVisitsCsv).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('status', { name: 'In progress' })).toBeInTheDocument()       // the number of the step is a clock while it runs
+
+    finish({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [], create: { locations: [], cameras: [], sd_cards: [], trappers: [] } })
+    expect(await screen.findByText(/to add/)).toHaveTextContent('1 visit to add')
+    expect(screen.queryByRole('progressbar', { name: 'Checking the file' })).not.toBeInTheDocument()
+  })
+
   it('has Check again only while the file is being checked and its result is read — not when the file is just chosen, nor in Review and confirm — and a single Back in the review', async () => {
     mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [], create: { locations: [], cameras: [], sd_cards: [], trappers: [] } })
     render(<VisitsPage onBack={vi.fn()} />)

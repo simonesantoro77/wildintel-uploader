@@ -30,6 +30,9 @@ body {
 }
 
 /* A question that shows up under the answer that asks it. */
+/* a bar that moves with no end: something that runs and does not say how far it is */
+@keyframes indeterminate { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+.animate-indeterminate { animation: indeterminate 1.4s ease-in-out infinite; }
 @keyframes reveal { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 .reveal { animation: reveal 0.3s ease-out; }
 
