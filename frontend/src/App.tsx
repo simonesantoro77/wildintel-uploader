@@ -113,8 +113,9 @@ export default function App() {
     setClosedVisitTarget(target); setDeploymentsView('import'); setTask('deployment')
   }
 
-  function goToImportOfProject(researchProjectId: string) {
-    setImportProjectId(researchProjectId); setDeploymentsView('import'); setTask('deployment')
+  /** The visits that were just saved closed several: Import deployments — all at once or one after another — has them (one goes to Import deployment, with its visit chosen). */
+  function goToImportOfProject() {
+    setDeploymentsView('many'); setTask('deployment')
   }
 
   function goToDeploymentStatus(deploymentId: string) {
@@ -170,7 +171,7 @@ export default function App() {
               ? <ImportDeploymentPage onRegisterVisits={() => { setClosedVisitTarget(null); setImportProjectId(null); setResumeSession(null); setDeploymentsView(null); setTask('visits') }} resumeSession={resumeSession ?? undefined} closedVisit={closedVisitTarget ?? undefined} researchProject={importProjectId ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings}
                                       onBack={goMenu} />
               : deploymentsView === 'many'
-                ? <ImportDeploymentsPage onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={goMenu} />
+                ? <ImportDeploymentsPage onRegisterVisits={() => { setDeploymentsView(null); setTask('visits') }} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={goMenu} />
               : deploymentsView === 'statistics'
                 ? <StatisticsPage settingsOpen={settingsOpen} onOpenSettings={openSettings} focus={statisticsFocus} onBack={() => { if (statisticsFocus) { setDeploymentsView('status'); setStatisticsFocus(undefined) } else goMenu() }} />
               : deploymentsView === 'status'

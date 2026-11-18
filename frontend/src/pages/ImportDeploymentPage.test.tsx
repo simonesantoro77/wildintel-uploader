@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { api } from '../api'
 import ImportDeploymentPage from './ImportDeploymentPage'
@@ -592,19 +592,22 @@ describe('ImportDeploymentPage', () => {
         expect(mockedApi.linkVisit).toHaveBeenCalledWith('DONA', CLOSED[0].visit, 'R0002-DONA_01')
       })
 
-      it('starts from a visit that was just closed: its research project and the visit are chosen for it', async () => {
+      it('starts from a visit that was just closed: the research project and the visit are given, so it goes straight to the images', async () => {
         storedProjects = [DONA_PROJECT]
         storedLocations = { DONA: [DONA_01] }
         mockedApi.closedVisits.mockResolvedValue({ results: CLOSED })
         pageProps = { closedVisit: { researchProjectId: 'DONA', visit: CLOSED[1].visit } }
-        await goToOriginStep()
+        render(<ImportDeploymentPage {...pageProps} />)
 
-        await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
-        expect(screen.getByLabelText('Research project')).toHaveValue('DONA — Doñana')
-        expect(screen.getByRole('button', { name: /R0001/, pressed: true })).toBeInTheDocument()   // the row of the visit is the one picked
-        await continueToDates()
+        expect(await screen.findByText('Select the folder')).toBeInTheDocument()                         // the origin is done: nothing to pick
+        expect(screen.queryByRole('button', { name: /Continue to the images/ })).not.toBeInTheDocument()
+        await scanTheFolder()
+        await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
+        await screen.findByText('Choose the checks')
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
         await screen.findByText('Dates of the deployment')
         expect(screen.queryByLabelText('Revision')).not.toBeInTheDocument() // the visit gives it: it is not asked
+        expect(mockedApi.guessDetails).toHaveBeenCalled()
       })
 
       it('fills in the revision, the period and the details from the two visits, and says where they come from', async () => {
@@ -2401,6 +2404,76 @@ describe('ImportDeploymentPage', () => {
     await pickTheVisit()
     await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
     expect(await screen.findByLabelText('Folder')).toHaveValue('/home/me/DONA_01')
+  })
+
+  describe('one of several deployments imported one after another', () => {
+    const queueOf = (over: Partial<NonNullable<ComponentProps<typeof ImportDeploymentPage>['queue']>> = {}) => ({
+      index: 1, total: 3, current: 'R0001-DONA_01', next: 'R0001-DONA_02', parentFolder: null as string | null,
+      onFolder: vi.fn(), onNext: vi.fn(), onSkip: vi.fn(), onStop: vi.fn(), ...over,
+    })
+
+    it('says which one it is, and has the buttons to skip it or to stop', async () => {
+      const queue = queueOf()
+      pageProps = { queue }
+      await goToOriginStep()
+
+      expect(screen.getByRole('status', { name: 'The deployment in the queue' })).toHaveTextContent('Deployment 2 of 3R0001-DONA_01')
+      await userEvent.click(screen.getByRole('button', { name: 'Skip this one' }))
+      expect(queue.onSkip).toHaveBeenCalledTimes(1)
+      await userEvent.click(screen.getByRole('button', { name: 'Stop here' }))
+      expect(queue.onStop).toHaveBeenCalledTimes(1)
+    })
+
+    it('says to the queue the folder it was told, and proposes the one beside it for the next', async () => {
+      const queue = queueOf({ parentFolder: '/home/me/DONA/R0001' })
+      pageProps = { queue }
+      await goToOriginStep()
+      await addProjectByHand()
+      await addLocationByHand()
+      await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
+      await chooseFolder()
+      await screen.findByLabelText('Folder')
+      await scanTheFolder()
+      expect(queue.onFolder).toHaveBeenCalledWith('/home/me/deployments')   // the one that holds the folder that was scanned
+      cleanup()
+
+      const next = queueOf({ parentFolder: '/home/me/DONA/R0001' })
+      pageProps = { queue: next }
+      await goToOriginStep()
+      await addProjectByHand()
+      await addLocationByHand()
+      await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
+      await chooseFolder()
+      await screen.findByLabelText('Folder')
+      await userEvent.click(screen.getByRole('button', { name: '/home/me/DONA/R0001/R0001-DONA_01' }))
+      expect(mockedApi.scanFolder).toHaveBeenLastCalledWith('/home/me/DONA/R0001/R0001-DONA_01')
+    })
+
+    it('goes on to the next one, once it is saved, in the place of adding another', async () => {
+      const queue = queueOf()
+      pageProps = { queue }
+      mockedApi.consolidate.mockImplementation(async (_src, _dir, _dep, onEvent) => { onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` }) })
+      await walkToImportStep()
+      await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
+      await screen.findByText(/Deployment saved/)
+
+      expect(screen.queryByRole('button', { name: 'Add another deployment' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Skip this one' })).not.toBeInTheDocument()   // it is saved: nothing to skip
+      await userEvent.click(screen.getByRole('button', { name: 'Next: R0001-DONA_02 (3 of 3)' }))
+      expect(queue.onNext).toHaveBeenCalledTimes(1)
+    })
+
+    it('finishes, once the last one is saved', async () => {
+      const queue = queueOf({ index: 2, next: null })
+      pageProps = { queue }
+      mockedApi.consolidate.mockImplementation(async (_src, _dir, _dep, onEvent) => { onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` }) })
+      await walkToImportStep()
+      await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
+      await screen.findByText(/Deployment saved/)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+      expect(queue.onStop).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('a deployment that already exists', () => {

@@ -6,6 +6,7 @@ import SessionResults from '../components/SessionResults'
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import WizardStep from '../components/WizardStep'
+import ClosedVisitsTable from '../components/ClosedVisitsTable'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry } from '../epicollectImport'
@@ -92,9 +93,15 @@ interface Props {
   title?: string
   /** Given, a single visit picked is not imported here: it is handed over — Import deployment takes it, as it is one deployment. */
   onSingleVisit?: (target: ClosedVisitTarget) => void
+  /** Given, the visits ticked can be imported one after another: they are handed over, in order, and Import deployment is run for each. */
+  onQueue?: (targets: ClosedVisitTarget[]) => void
+  /** Goes to Register visits on a research project: what is done when there is no visit to link the deployments to. */
+  onRegisterVisits?: (researchProjectId: string) => void
 }
 
-export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack, title = 'Import deployments', onSingleVisit }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack, title = 'Import deployments', onSingleVisit, onQueue, onRegisterVisits }: Props = {}) {
+  // how the visits ticked are imported: all at once, or one after another
+  const [how, setHow] = useState<'all' | 'one'>('all')
   const [step, setStep] = useState(0)
   const stepKey = STEPS[step].key
   // The sub-steps of the images and of the origin: the one open, and the furthest reached.
@@ -139,8 +146,8 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const [localLocations, setLocalLocations] = useState<LocalLocation[]>([])
   // The visits of the project that closed a deployment with none yet: the ones the session is of are picked in the origin, and each folder is linked to one.
   const [closedVisits, setClosedVisits] = useState<ClosedVisit[] | null>(null)
+  const [visitsError, setVisitsError] = useState<string | null>(null)
   const [pickedVisits, setPickedVisits] = useState<Set<string>>(new Set())
-  const [visitFilter, setVisitFilter] = useState('')
   // The revision the visits are of, picked first: only its closed visits are offered. Ticking a visit locks the list to its revision as well (the others are disabled).
   const [revisionPick, setRevisionPick] = useState<number | null>(null)
   // Where each deployment of visits has its camera, site and notes from, once picked: the visit's (the field sheet) before that.
@@ -261,14 +268,14 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     return () => { cancelled = true }
   }, [projectId])
 
-  // The project's visits that closed a deployment with none yet: when there are none (or they can't be read) the session is as it always was.
+  // The project's visits that closed a deployment with none yet: a deployment is always of one of them, so with none there is nothing to import.
   useEffect(() => {
-    setClosedVisits(null); setPickedVisits(new Set()); setFolderVisit({}); setFolderSd({}); setRevisionFromVisits(false)
+    setClosedVisits(null); setVisitsError(null); setPickedVisits(new Set()); setFolderVisit({}); setFolderSd({}); setRevisionFromVisits(false)
     if (!projectId) return
     let cancelled = false
     Promise.resolve().then(() => api.closedVisits(projectId))
       .then(({ results }) => { if (!cancelled) setClosedVisits(results) })
-      .catch(() => { if (!cancelled) setClosedVisits([]) })
+      .catch((e) => { if (!cancelled) { setClosedVisits([]); setVisitsError(e instanceof Error ? e.message : 'The visits could not be read.') } })
     return () => { cancelled = true }
   }, [projectId])
 
@@ -320,19 +327,37 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     sourcePicked.current.delete(name); guessRequested.current.delete(name)
   }
 
-  /** Ticks a visit of the session — all of one session, which is the revision: those of another are not offered then. */
-  function toggleVisit(c: ClosedVisit) { tickVisits([c], !pickedVisits.has(visitKey(c))) }
-
   /** Picks the revision the visits are of — or none, to see them all: the ticked visits are of another one, so they are let go. */
   function pickRevision(revision: number | null) {
     setRevisionPick(revision)
-    if (pickedVisits.size > 0) { setPickedVisits(new Set()); setDrafts({}); setRevisionFromVisits(false) }
+    // the visits of the revision are all ticked, to be taken off one by one; with none picked, none is
+    if (revision !== null && closedVisits) tickVisits(closedVisits.filter((c) => revisionOfVisit(c) === revision), true, new Set())
+    else if (pickedVisits.size > 0) { setPickedVisits(new Set()); setDrafts({}); setRevisionFromVisits(false) }
+  }
+
+  // The first revision of those offered — the latest — is picked when the visits are read, with all its visits ticked.
+  const revisionDefaulted = useRef<string | null>(null)
+  useEffect(() => {
+    if (!closedVisits || closedVisits.length === 0 || revisionDefaulted.current === projectId) return
+    revisionDefaulted.current = projectId
+    const revisions = closedVisits.map((c) => revisionOfVisit(c)).filter((r): r is number => r !== null)
+    if (revisions.length > 0) pickRevision(Math.max(...revisions))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closedVisits, projectId])
+
+  /** The visits ticked in the table: the keys it says are the ones picked. */
+  function pickVisits(next: Set<string>) {
+    applyPicked(next)
   }
 
   /** Ticks, or unticks, several visits at once. */
-  function tickVisits(list: ClosedVisit[], ticked: boolean) {
-    const next = new Set(pickedVisits)
+  function tickVisits(list: ClosedVisit[], ticked: boolean, from: Set<string> = pickedVisits) {
+    const next = new Set(from)
     for (const c of list) { if (ticked) next.add(visitKey(c)); else next.delete(visitKey(c)) }
+    applyPicked(next)
+  }
+
+  function applyPicked(next: Set<string>) {
     setPickedVisits(next)
     setDrafts({})
     const first = (closedVisits ?? []).find((v) => next.has(visitKey(v)))
@@ -866,7 +891,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   const imagesChecked = candidates.some((d) => validations[d.name])
   const canContinue: Record<StepKey, boolean> = {
-    origin: Boolean(projectId) && closedVisits !== null && (closedVisits.length === 0 || visitsMode),
+    origin: Boolean(projectId) && closedVisits !== null && visitsMode,
     images: chosen.length > 0 && !validating && (!visitsMode || chosen.every((d) => folderVisit[d.name])),
     dates: detailsActive && detailsReady && !savingDetails,
     checks: requiredDeploymentChecksOk && !checking,
@@ -960,27 +985,35 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         <div>
           <StepHeading>Origin</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            Say which research project the session belongs to. Next you pick the folder with the deployments.
+            {fixedProject ? 'Pick the revision and the visits whose images you have.' : 'Say which research project the session belongs to.'} Next you pick the folder with the deployments.
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
-          <WizardStep n={1} title="Which research project?" status="open" canEdit={false} onEdit={() => {}}
-                      description="The research project is the same for all of them. Research projects are kept in the collections folder.">
-            {fixedProject
-              ? <p className="text-sm text-zinc-600 dark:text-zinc-300">The import is of the default research project, <span className="font-mono font-semibold">{defaultProject?.acronym ?? defaultAcronym}</span> — it is changed in the settings, from the card at the top right.</p>
-              : <ResearchProjectPicker value={projectId} onSelect={(picked) => { setProject(picked); setDrafts({}) }} />}
+          <WizardStep n={1} title={fixedProject ? 'Which visits are they of?' : 'Which research project?'} status="open" canEdit={false} onEdit={() => {}}
+                      description={fixedProject
+                        ? <>The revision of <span className="font-mono font-semibold">{defaultProject?.acronym ?? defaultAcronym}</span>, and the visits of it whose images you have.</>
+                        : 'The research project is the same for all of them. Research projects are kept in the collections folder.'}>
+            {!fixedProject && <ResearchProjectPicker value={projectId} onSelect={(picked) => { setProject(picked); setDrafts({}) }} />}
             {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
+            {projectId && closedVisits === null && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400">Reading the visits…</p>}
+            {projectId && closedVisits !== null && closedVisits.length === 0 && (
+              <Notice kind="warning" role="status" className="!items-start"
+                      action={onRegisterVisits && <button type="button" className={btnPrimary} onClick={() => onRegisterVisits(projectId)}>Register the visits</button>}>
+                <div>
+                  <strong>{visitsError ? `The visits of ${projectId} could not be read.` : `There is no visit of ${projectId} whose card was collected and has no deployment.`}</strong>{' '}
+                  {visitsError ?? 'A deployment is always linked to a visit — the one that left the camera, closed by the one that collected its card. Register the visits first, by hand or from a file with their history.'}
+                </div>
+              </Notice>
+            )}
             {projectId && closedVisits !== null && closedVisits.length > 0 && (() => {
               // all of one revision: the visits whose cards were collected on the same trip
               const session = pickedList[0] ? revisionOfVisit(pickedList[0]) : revisionPick
               const offered = (c: ClosedVisit) => !session || revisionOfVisit(c) === session
-              const needle = visitFilter.trim().toLowerCase()
-              const inRevision = revisionPick ? closedVisits.filter((c) => revisionOfVisit(c) === revisionPick) : closedVisits
-              const shown = needle ? inRevision.filter((c) => visitLabel(c).toLowerCase().includes(needle)) : inRevision
+              // the table is filtered by the status collected: those that were closed by a visit that collected the card
+              const collected = closedVisits.filter((c) => (c.visit.state ?? 'collected') === 'collected')
+              const shown = revisionPick ? collected.filter((c) => revisionOfVisit(c) === revisionPick) : collected
               const revisions = [...new Set(closedVisits.map((c) => revisionOfVisit(c)).filter((r): r is number => r !== null))].sort((x, y) => y - x)
               // "Select all" takes the visits of one session — the ticked one's, or else the first shown
               const target = session ?? (shown[0] ? revisionOfVisit(shown[0]) : null)
-              const enabled = shown.filter((c) => revisionOfVisit(c) === target)
-              const allTicked = enabled.length > 0 && enabled.every((c) => pickedVisits.has(visitKey(c)))
               return (
                 <>
                 <FormCard title="Revision" description="A revision is one visit to every site. Pick the one these images are of: only its closed visits without a deployment are offered next.">
@@ -989,41 +1022,40 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                     onPick={(id) => pickRevision(id ? Number(id) : null)} />
                 </FormCard>
                 <FormCard title="Visits" description={`The visits to ${projectId} that left a camera and whose card has been collected, with no deployment yet. Tick the ones the images are of — all of one revision. Each folder will be one of them: it says where and when it was taken.`}>
-                  <input aria-label="Search the visits" className={`${inputClass} !w-72 mb-3`} placeholder="Search by location, card, date…" value={visitFilter} onChange={(e) => setVisitFilter(e.target.value)} />
-                  <div className="max-h-[22rem] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-                    <table className="w-full text-sm">
-                      <thead className="bg-zinc-50 dark:bg-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 sticky top-0">
-                        <tr>
-                          <th scope="col" className="w-10 pl-4 py-2.5 text-left">
-                            <input type="checkbox" aria-label="Select all the visits offered" checked={allTicked}
-                                   onChange={(e) => tickVisits(enabled, e.target.checked)} />
-                          </th>
-                          <th scope="col" className="px-3 py-2.5 text-left">Visit</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-                        {shown.length === 0 && (
-                          <tr><td colSpan={2} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No visit matches “{visitFilter}”.</td></tr>
-                        )}
-                        {shown.map((c) => (
-                          <tr key={visitKey(c)} className={offered(c) ? '' : 'opacity-50'}>
-                            <td className="pl-4 py-2.5"><input type="checkbox" aria-label={visitLabel(c)} disabled={!offered(c)} checked={pickedVisits.has(visitKey(c))} onChange={() => toggleVisit(c)} /></td>
-                            <td className="px-3 py-2.5">{visitLabel(c)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <ClosedVisitsTable
+                    visits={shown}
+                    many={{
+                      selected: pickedVisits, onChange: pickVisits, noun: 'visits',
+                      selectable: offered,
+                      choices: [{ label: 'All the visits of the revision', pick: (items) => items.filter((c) => revisionOfVisit(c) === target) }, { label: 'None', pick: () => [] }],
+                    }}
+                    locations={localLocations} sdCards={sdCards.filter((c) => c.research_project?.toLowerCase() === projectId.toLowerCase())}
+                    filters={[{ label: `Revision: ${session ? `R${String(session).padStart(4, '0')}` : 'All'}`, tone: 'blue' }, { label: 'Status: Collected', tone: 'green' }]} total={closedVisits.length} />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2" role="status">
                     {pickedList.length === 0 ? 'No visit ticked yet.' : `${plural(pickedList.length, 'visit', 'visits')} of the revision R${String(session).padStart(4, '0')}.`}
                   </p>
                 </FormCard>
+                {onQueue && pickedList.length > 1 && (
+                  <FormCard title="How do you want to import them?" description="All at once takes a folder with a subfolder of images for each. One after another asks for each deployment in turn, as Import deployment does, the first, then the second…">
+                    <div role="radiogroup" aria-label="How to import them" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {([['all', 'All at once', 'One folder with a subfolder for each visit: the checks, the details and the preparation are done for all of them together.'],
+                         ['one', 'One after another', 'Each deployment goes through the whole flow before the next one: its folder, its checks, its details and its saving.']] as const).map(([value, label, hint]) => (
+                        <label key={value} className={`block cursor-pointer rounded-xl border px-4 py-3 ${how === value ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700'}`}>
+                          <span className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100"><input type="radio" name="how-to-import" checked={how === value} onChange={() => setHow(value)} />{label}</span>
+                          <span className="mt-1 block text-sm text-zinc-600 dark:text-zinc-300">{hint}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </FormCard>
+                )}
                 </>
               )
             })()}
             <div className="flex justify-between items-center mt-4">
               {onBack ? <button type="button" className={btnOutline} onClick={onBack}><span aria-hidden="true">← </span>Back</button> : <div />}
-              <button type="button" aria-label="Continue to the images" className={btnPrimary} disabled={!canContinue.origin} onClick={() => (onSingleVisit && pickedList.length === 1 ? onSingleVisit({ researchProjectId: projectId, visit: pickedList[0].visit }) : setStep((s) => s + 1))}>Continue<span aria-hidden="true"> →</span></button>
+              <button type="button" aria-label={onQueue && how === 'one' && pickedList.length > 1 ? 'Start with the first' : 'Continue to the images'} className={btnPrimary} disabled={!canContinue.origin} onClick={() => (onSingleVisit && pickedList.length === 1 ? onSingleVisit({ researchProjectId: projectId, visit: pickedList[0].visit })
+                : onQueue && how === 'one' && pickedList.length > 1 ? onQueue([...pickedList].sort((a, b) => a.visit.location_id.localeCompare(b.visit.location_id, undefined, { numeric: true })).map((c) => ({ researchProjectId: projectId, visit: c.visit })))
+                : setStep((s) => s + 1))}>{onQueue && how === 'one' && pickedList.length > 1 ? 'Start with the first' : 'Continue'}<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
         </div>

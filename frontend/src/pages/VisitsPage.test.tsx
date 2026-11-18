@@ -1464,12 +1464,14 @@ describe('VisitsPage from a CSV file', () => {
     expect(screen.queryByRole('button', { name: /Create the deployment of the visit/ })).not.toBeInTheDocument()
   })
 
-  it('links the closed visits to Import deployment on the research project, where their revision is picked', async () => {
+  it('goes from the visits that closed one to Import deployment, with its visit chosen — Create deployment', async () => {
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: 1, new_sites: [], warnings: [] })
-    mockedApi.closedVisits.mockResolvedValue({ results: [{ visit: visit({ session: 'R0001' }), end: visit() }] })
+    const closed = visit({ session: 'R0001' })
+    mockedApi.closedVisits.mockResolvedValue({ results: [{ visit: closed, end: visit() }] })
+    const onImportImages = vi.fn()
     const onImportImagesOf = vi.fn()
-    render(<VisitsPage onBack={vi.fn()} onImportImagesOf={onImportImagesOf} />)
+    render(<VisitsPage onBack={vi.fn()} onImportImages={onImportImages} onImportImagesOf={onImportImagesOf} />)
     await userEvent.click(screen.getByRole('button', { name: /^wildintel epicollect csv/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
@@ -1479,7 +1481,28 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
 
     await userEvent.click(await screen.findByRole('button', { name: 'Create deployment' }))
+    expect(onImportImages).toHaveBeenCalledWith({ researchProjectId: 'TATR', visit: closed })
+    expect(onImportImagesOf).not.toHaveBeenCalled()
+  })
+
+  it('goes from the visits that closed several to Import deployments — Create deployments', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: 1, new_sites: [], warnings: [] })
+    mockedApi.closedVisits.mockResolvedValue({ results: [{ visit: visit({ session: 'R0001' }), end: visit() }, { visit: visit({ session: 'R0001', location_id: 'TATR_0002' }), end: visit() }] })
+    const onImportImages = vi.fn()
+    const onImportImagesOf = vi.fn()
+    render(<VisitsPage onBack={vi.fn()} onImportImages={onImportImages} onImportImagesOf={onImportImagesOf} />)
+    await userEvent.click(screen.getByRole('button', { name: /^wildintel epicollect csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), file)
+    await continueFromTheFile()
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Create deployments' }))
     expect(onImportImagesOf).toHaveBeenCalledWith('TATR')
+    expect(onImportImages).not.toHaveBeenCalled()
   })
 
   it('reads a WildINTEL Epicollect download without asking for any column', async () => {

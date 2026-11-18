@@ -45,6 +45,23 @@ const SCAN: SessionScan = {
   loose_files: 0, warnings: [], timestamp_log: null,
 }
 
+/** The closed visits of the project: a deployment is always of one of them, so the page has them from the start. */
+const stored = (over: Record<string, unknown>) => ({
+  location_id: 'DONA_01', session: 'R0002', date: '2026-08-05', time: '08:14:05', actions: ['Revision'], trappers: 'Ana', camera_status: null, battery_status: null, card_status: null,
+  num_photos: null, sd: 'A13', date_time_ok: null, latitude: null, longitude: null, camera_id: 'P800', camera_model: 'Reconyx HC600', ...over,
+}) as never
+const CLOSED = [
+  { visit: stored({}), end: stored({ session: 'R0003', date: '2026-10-02', num_photos: 10 }) },
+  { visit: stored({ location_id: 'DONA_02', time: '09:30:00', sd: 'B2' }), end: stored({ location_id: 'DONA_02', session: 'R0003', date: '2026-10-02', time: '10:00:00', num_photos: 300 }) },
+  { visit: stored({ session: 'R0001', date: '2026-06-10' }), end: stored({ session: 'R0002', date: '2026-08-05', num_photos: 50 }) },
+]
+
+/** The visits of the third revision that were collected in the fourth: what a deployment of R0003 is of. */
+const REVISION_3 = [
+  { visit: stored({ session: 'R0003', date: '2026-10-02', time: '08:00:00' }), end: stored({ session: 'R0004', date: '2026-11-02', num_photos: 10 }) },
+  { visit: stored({ session: 'R0003', date: '2026-10-02', time: '09:30:00', location_id: 'DONA_02', sd: 'B2' }), end: stored({ session: 'R0004', date: '2026-11-02', time: '10:00:00', location_id: 'DONA_02', num_photos: 5 }) },
+]
+
 beforeEach(() => {
   vi.clearAllMocks()
   pageProps = {}
@@ -70,7 +87,7 @@ beforeEach(() => {
   mockedApi.existingDeployments.mockResolvedValue({ results: {} })
   mockedApi.nextRevision.mockRejectedValue(new Error('no suggestion'))  // the revision stays to be typed, unless a test says otherwise
   mockedApi.previousDeployments.mockResolvedValue({ results: {} })
-  mockedApi.closedVisits.mockResolvedValue({ results: [] })  // the project has no closed visit, unless a test says otherwise
+  mockedApi.closedVisits.mockResolvedValue({ results: REVISION_3 })  // the project has closed visits: a deployment is always of one — here, the ones of the third revision
   mockedApi.linkVisit.mockResolvedValue({} as never)
 })
 
@@ -80,6 +97,8 @@ let pageProps: ComponentProps<typeof ImportSessionPage> = {}
 async function scanSession() {
   render(<ImportSessionPage {...pageProps} />)
   await pickProject() // the origin comes first
+  // the latest revision is picked, with all its visits ticked, once they are read
+  await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
   await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
   await userEvent.click(await screen.findByRole('button', { name: 'Browse…' }))
   await screen.findByDisplayValue('/s')
@@ -107,24 +126,18 @@ const toChecksSubstep = async () => {
   await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
   await screen.findByText('Choose the checks')
 }
-/** The id the deployment being edited gets, which its heading tells. */
-const activeHeading = () => within(screen.getByRole('group', { name: /^(Dates|Details) of/ })).getAllByRole('heading', { level: 5 })[0]
-const expectId = (id: string) => expect(activeHeading()).toHaveTextContent(id)
-const expectIdLater = (id: string) => waitFor(() => expectId(id))
-/** Picks a location in the select of a deployment — whose options are only there once it is used. */
-const chooseLocation = async (select: HTMLElement, id: string) => {
-  await userEvent.click(select)
-  await userEvent.selectOptions(select, id)
-}
-const toDetailsSubstep = () => userEvent.click(screen.getByRole('button', { name: /Continue to the details/ }))
+// the visits give the location: there is no step of where they were taken, and the dates are there at once
+const toDetailsSubstep = async () => { const go = screen.queryByRole('button', { name: /Continue to the details/ }); if (go) await userEvent.click(go) }
 
 async function pickProject() {
   await userEvent.click(await screen.findByLabelText('Research project'))
   await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
 }
 
-/** The locations the folders are named after, assigned from the banner that offers them. */
-const assignLocations = async () => userEvent.click(await screen.findByRole('button', { name: /^Assign \d+$/ }))
+/** The visit of each folder: the one of the location its name says, which is linked by itself — there is nothing to assign. */
+const assignLocations = async () => {
+  await waitFor(() => expect(screen.queryByRole('button', { name: /^Assign \d+$/ })).not.toBeInTheDocument())
+}
 
 async function toOrigin() {
   await scanSession()
@@ -147,7 +160,8 @@ const openMore = async (name: string, section?: RegExp) => {
 async function toDetails() {
   await toOrigin()
   await toDetailsSubstep()
-  fireEvent.change(await screen.findByLabelText('What revision number are you importing?'), { target: { value: '3' } })
+  // the revision is the visits': R0003 here — it is not asked
+  await screen.findAllByText(/R0003-DONA_01/)
 }
 
 async function toMoreDetails() {
@@ -206,7 +220,7 @@ describe('ImportSessionPage', () => {
     await screen.findByText(/1 corrupted image/)
     expect(mockedApi.validateImages.mock.calls.map((c) => c[0])).toEqual(['/s/DONA_01', '/s/DONA_02'])
     expect(mockedApi.validateImages.mock.calls.map((c) => c[2])).toEqual(['DONA', 'DONA'])   // the images are also looked for in what the research project already has
-    expect(screen.getByRole('status')).toHaveTextContent('1 folder fails a check set to Must pass')
+    expect(screen.getByText(/1 folder fails a check set to Must pass/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /DONA_02/ })).toHaveTextContent('left out')
     await userEvent.click(screen.getByRole('button', { name: 'Continue with 1 folder' }))
     await toDetailsSubstep()
@@ -253,7 +267,7 @@ describe('ImportSessionPage', () => {
     await toChecksSubstep()
     await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent('1 check found problems in 1 of 2 folders')
+    expect(await screen.findByText(/1 check found problems in 1 of 2 folders/)).toBeInTheDocument()
     expect(screen.getByLabelText('Summary')).toHaveTextContent('Folders passed')
     await userEvent.click(screen.getByRole('tab', { name: 'By check' }))
     expect(screen.getByText('1 folder')).toBeInTheDocument()
@@ -273,7 +287,7 @@ describe('ImportSessionPage', () => {
 
       expect(screen.queryByRole('option', { name: 'DONA — Doñana' })).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('option', { name: 'TATR — Tatra' }))
-      expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled()
+      await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())   // its visits are read, and the latest revision is ticked
       await userEvent.click(screen.getByRole('button', { name: 'Clear research project' }))
       expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeDisabled()
     })
@@ -402,46 +416,6 @@ describe('ImportSessionPage', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 
-  it('fills each deployment’s location from its folder name, and its dates from the scan', async () => {
-    await toDetails()
-
-    await expectIdLater('R0003-DONA_01')
-    expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('DONA_01')
-    expect(screen.getByText('4 Sep 2024, 13:10 (Europe/Madrid)')).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'Camera metadata (EXIF)' })).toBeChecked() // nothing better is there
-    await userEvent.click(screen.getByRole('button', { name: 'Open DONA_02' }))
-    expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
-    expectId('R0003-DONA_02')
-    expect(screen.getByText('5 Sep 2024, 09:00 (Europe/Madrid)')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument() // only a manual entry can be edited
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
-  })
-
-  it('lists the period of each deployment, with its state and where its dates come from', async () => {
-    mockedApi.scanSession.mockResolvedValue({
-      ...SCAN,
-      deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
-      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null },
-    })
-    await toDetails()
-
-    const list = within((await screen.findByText('When was each one collected?')).closest('section')!)
-    const first = within(list.getByText('DONA_01').closest('li')!)
-    expect(first.getByText('Ready')).toBeInTheDocument()
-    expect(first.getByText(/From S_FileTimestampLog\.csv/)).toBeInTheDocument() // the csv that comes with the collection
-    expect(first.getAllByText(/1 Sep 2024, 08:00 → 1 Nov 2024, 09:00/).length).toBeGreaterThan(0)
-    const second = within(list.getByText('DONA_02').closest('li')!)
-    await waitFor(() => expect(second.getByText(/From the images/)).toBeInTheDocument())
-    expect(second.getByText(/5 Sep 2024, 09:00/)).toBeInTheDocument()
-
-    expect(screen.getByRole('radio', { name: 'Timestamp log file' })).toBeChecked() // DONA_01 is the one open
-    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Edit period' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('radio', { name: 'Manual entry' }))
-    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-02T10:00' } })
-    await waitFor(() => expect(within(list.getByText('DONA_01').closest('li')!).getByText(/Entered by hand/)).toBeInTheDocument())
-  })
-
   it('has the camera, site and notes in a step of their own, locked until the dates are gone over', async () => {
     await toDetails()
     expect(screen.queryByRole('button', { name: /the details of DONA_01/ })).not.toBeInTheDocument() // locked
@@ -465,174 +439,10 @@ describe('ImportSessionPage', () => {
     expect(screen.getByText('No deployment matches.')).toBeInTheDocument()
   })
 
-  it('says in the details when the dates come from the collection’s FileTimestampLog', async () => {
-    mockedApi.scanSession.mockResolvedValue({
-      ...SCAN,
-      deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
-      timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null },
-    })
-    await toDetails()
-    expect(await screen.findByText(/deployment\(s\) were taken from/)).toHaveTextContent('1 of these 2 deployment(s) were taken from S_FileTimestampLog.csv')
-    expect(screen.getByRole('radio', { name: 'Timestamp log file' })).toBeChecked()
-    expect(screen.getByText(/Starts .* the first photo and ends .* the last/)).toBeInTheDocument() // against what the images say
-  })
-
-  describe('the next revision', () => {
-    const toSuggested = async () => { await toOrigin(); await toDetailsSubstep() }
-
-    it('suggests the highest next revision of the deployments’ locations, says so, and keeps what is typed', async () => {
-      mockedApi.nextRevision.mockImplementation(async (_project, location) => (location === 'DONA_01' ? { last: 2, next: 3 } : { last: 4, next: 5 }))
-      await toSuggested()
-
-      await waitFor(() => expect(screen.getByLabelText('What revision number are you importing?')).toHaveValue(5))
-      expect(screen.getByText(/Filled in as the next one expected for these locations/)).toBeInTheDocument()
-      expectId('R0005-DONA_01')
-
-      fireEvent.change(screen.getByLabelText('What revision number are you importing?'), { target: { value: '7' } })
-      expect(screen.queryByText(/Filled in as the next one expected/)).not.toBeInTheDocument()
-      expectId('R0007-DONA_01')
-    })
-
-    it('does not ask the timezone nor summer time: it says the location’s', async () => {
-      await toSuggested()
-
-      expect(screen.queryByLabelText('Timezone (IANA)')).not.toBeInTheDocument()
-      expect(screen.queryByRole('checkbox', { name: /ignore summer time/ })).not.toBeInTheDocument()
-      expect((await screen.findAllByText('Europe/Madrid'))[0]).toBeInTheDocument()
-      expect(screen.getAllByText('Ignores summer time')[0]).toBeInTheDocument()
-      expect(screen.queryByText(/You are entering/)).not.toBeInTheDocument()
-    })
-  })
-
-  describe('deducing the revision and the locations', () => {
-    // The folders are named nothing like a location: only the log's ids say which one each is.
-    const logged = (name: string, id: string) => ({ ...scanned(name, 5, '2024-09-01T08:00:00', '2024-11-01T09:00:00'), from_timestamp_log: true, log_deployment_id: id })
-    beforeEach(() => {
-      mockedApi.scanSession.mockResolvedValue({
-        deployments: [logged('SITE_A', 'R0033-DONA_01'), logged('SITE_B', 'R0033-DONA_02')], loose_files: 0, warnings: [],
-        timestamp_log: { name: 'R0033_FileTimestampLog.csv', path: '/s/R0033_FileTimestampLog.csv', rows: 2, matched: 2, revision: 33 },
-      })
-    })
-    const toDeducedDetails = async () => {
-      render(<ImportSessionPage {...pageProps} />)
-      await pickProject()
-      await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
-      await userEvent.click(await screen.findByRole('button', { name: 'Browse…' }))
-      await screen.findByDisplayValue('/s')
-      await userEvent.click(screen.getByRole('button', { name: 'Scan' }))
-      await screen.findByRole('checkbox', { name: 'SITE_A' })
-      await next() // images → dates
-      await assignLocations()
-      await toDetailsSubstep()
-    }
-
-    it('fills in the revision from the ids in the log, says so, and lets it be changed', async () => {
-      await toDeducedDetails()
-      const field = await screen.findByLabelText('What revision number are you importing?')
-      expect(field).toHaveValue(33)
-      expect(screen.getByText(/Taken from the deployment ids in R0033_FileTimestampLog.csv/)).toBeInTheDocument()
-      expectId('R0033-DONA_01')
-
-      fireEvent.change(field, { target: { value: '34' } })
-      expect(screen.queryByText(/Taken from the deployment ids/)).not.toBeInTheDocument()
-      expectId('R0034-DONA_01')
-    })
-
-    it('deduces the location from the log’s id when the folder’s name is no help, says so, and lets it be changed', async () => {
-      await toDeducedDetails()
-      expect(await screen.findByLabelText('Location of SITE_A')).toHaveValue('DONA_01')
-      expect(screen.getByText(/Assigned from the deployment id in the timestamp log, R0033-DONA_01/)).toBeInTheDocument()
-
-      await chooseLocation(screen.getByLabelText('Location of SITE_A'), 'DONA_02')
-      expect(screen.queryByText(/Assigned from the deployment id in the timestamp log, R0033-DONA_01/)).not.toBeInTheDocument()
-    })
-  })
-
-  describe('where were they taken', () => {
-    const toLocations = async () => { await scanSession(); await next() }
-
-    it('offers the locations the folders are named after, and assigns them only when asked', async () => {
-      await toLocations()
-
-      expect(await screen.findByText(/The names of DONA_01 and DONA_02 match locations in DONA/)).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent('0 of 2 folders have a location')
-      expect(screen.getByRole('progressbar', { name: 'Folders with a location' })).toHaveAttribute('aria-valuenow', '0')
-      expect(screen.getAllByText('Missing')).toHaveLength(2)
-      expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('')
-      await userEvent.click(screen.getByRole('button', { name: /^Assign \d+$/ }))
-
-      expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('DONA_01')
-      expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
-      expect(screen.getByText(/Assigned from the folder's name, DONA_01/)).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent('2 of 2 folders have a location')
-      expect(screen.getByRole('progressbar', { name: 'Folders with a location' })).toHaveAttribute('aria-valuenow', '100')
-      expect(screen.queryByText('Missing')).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /^Assign \d+$/ })).not.toBeInTheDocument()
-    })
-
-    it('counts the folders in tabs and in a percentage, and assigns only the ticked ones when some are', async () => {
-      await toLocations()
-      expect(await screen.findByRole('tab', { name: 'All 2' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Missing 2' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Ready 0' })).toBeInTheDocument()
-      expect(screen.getByText('0%')).toBeInTheDocument()
-
-      await userEvent.click(screen.getByLabelText('Select DONA_02'))
-      await userEvent.click(screen.getByRole('button', { name: 'Assign 1' }))
-
-      expect(screen.getByLabelText('Location of DONA_01')).toHaveValue('')
-      expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02')
-      expect(screen.getByRole('tab', { name: 'Ready 1' })).toBeInTheDocument()
-      expect(screen.getByText('50%')).toBeInTheDocument()
-    })
-
-    it('says so when no folder name matches a location of the research project', async () => {
-      mockedApi.listLocalLocations.mockResolvedValue({ results: [loc('OTHER_01')] })
-      await toLocations()
-
-      expect(await screen.findByRole('alert')).toHaveTextContent('No folder name matches a location in DONA')
-      expect(screen.queryByRole('button', { name: /^Assign \d+$/ })).not.toBeInTheDocument()
-    })
-
-    it('says so when the research project has no locations yet', async () => {
-      mockedApi.listLocalLocations.mockResolvedValue({ results: [] })
-      await toLocations()
-
-      expect(await screen.findByRole('alert')).toHaveTextContent('DONA has no locations yet')
-    })
-
-    it('shows the images of each folder, and lists only those missing a location', async () => {
-      await toLocations()
-      await screen.findByRole('button', { name: /^Assign \d+$/ })
-      await chooseLocation(screen.getByLabelText('Location of DONA_01'), 'DONA_01')
-      expect(await screen.findByText('10 images')).toBeInTheDocument()
-
-      await userEvent.click(screen.getByRole('tab', { name: /Missing/ }))
-      expect(screen.queryByLabelText('Location of DONA_01')).not.toBeInTheDocument()
-      expect(screen.getByLabelText('Location of DONA_02')).toBeInTheDocument()
-    })
-  })
-
   it('says nothing about a log when the session has none', async () => {
     await toDetails()
     await screen.findByText(/deployment\(s\) complete/)
     expect(screen.queryByText(/FileTimestampLog/)).not.toBeInTheDocument()
-  })
-
-  it('does not accept two deployments with the same location', async () => {
-    await toDetails()
-    await chooseLocation(screen.getByLabelText('Location of DONA_02'), 'DONA_01')
-
-    expect((await screen.findAllByText(/Another deployment of the revision has this id/)).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-  })
-
-  it('asks the revision as a question, and explains what it names', async () => {
-    await toDetails()
-
-    expect(screen.getByText('Which revision is this?')).toBeInTheDocument()
-    expect(screen.getByLabelText('What revision number are you importing?')).toHaveValue(3)
-    expect(screen.getByText(/1 for the first visit to these locations/)).toBeInTheDocument()
   })
 
   it('warns at the revision itself of how many of the deployments already exist', async () => {
@@ -703,27 +513,6 @@ describe('ImportSessionPage', () => {
       expect(screen.queryByText(/Epicollect5 has no entry/)).not.toBeInTheDocument()
     })
 
-    it('does not offer Epicollect5 as a source of the dates: the timestamp log comes before the images, and the source can be picked', async () => {
-      on()
-      mockedApi.scanSession.mockResolvedValue({
-        ...SCAN,
-        deployments: [{ ...SCAN.deployments[0], start_date: '2024-09-01T08:00:00', end_date: '2024-11-01T09:00:00', from_timestamp_log: true }, SCAN.deployments[1], SCAN.deployments[2]],
-        timestamp_log: { name: 'S_FileTimestampLog.csv', path: '/s/S_FileTimestampLog.csv', rows: 1, matched: 1, revision: null },
-      })
-      const dates = { start_date: '2025-01-10', start_time: '06:30:00', end_date: '2025-02-11', end_time: '18:00:00' }
-      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: { ...ENTRY, fields: dates }, DONA_02: null } })
-      await toDetails()
-
-      expect(await screen.findByText('1 Sep 2024, 08:00 (Europe/Madrid)')).toBeInTheDocument()
-      expect(screen.queryByRole('radio', { name: /Epicollect5/ })).not.toBeInTheDocument()
-      expect(screen.getByRole('radio', { name: 'Timestamp log file' })).toBeChecked()
-      expect(await screen.findByText('1 Sep 2024, 08:00 (Europe/Madrid)')).toBeInTheDocument()
-
-      await userEvent.click(screen.getByRole('button', { name: 'Open DONA_02' })) // nothing in Epicollect5 nor in a log for it
-      expect(screen.getByRole('radio', { name: /Timestamp log file/ })).toBeDisabled()
-      expect(screen.getByRole('radio', { name: 'Camera metadata (EXIF)' })).toBeChecked()
-    })
-
     it('lets the dates be edited only when the source is manual', async () => {
       await toDetails()
       expect(screen.queryByLabelText('Start')).not.toBeInTheDocument()
@@ -731,13 +520,6 @@ describe('ImportSessionPage', () => {
       expect(screen.getByLabelText('Start')).toBeInTheDocument()
     })
 
-    it('says nothing while the settings turn it off', async () => {
-      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: ENTRY, DONA_02: ENTRY } })
-      await toDetails()
-      await screen.findByLabelText('What revision number are you importing?')
-      expect(mockedApi.epicollectEntriesBatch).not.toHaveBeenCalled()
-      expect(screen.queryByText(/Epicollect5 has/)).not.toBeInTheDocument()
-    })
   })
 
   it('copies only what is on file, and what is typed afterwards is kept', async () => {
@@ -753,39 +535,6 @@ describe('ImportSessionPage', () => {
     await waitFor(() => expect(mockedApi.previousDeployments).toHaveBeenCalledTimes(1))
     await openMore('DONA_01', /^Site/)
     expect(screen.getByLabelText('Habitat')).toHaveValue('My own habitat')
-  })
-
-  it('says which deployments already exist, in the list and in the one being edited', async () => {
-    mockedApi.existingDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': `${COLLECTION}/R0003-DONA_01`, 'R0003-DONA_02': null } })
-    await toDetails()
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(`${COLLECTION}/R0003-DONA_01`)
-    expect(screen.getByRole('alert')).toHaveTextContent('This deployment already exists')
-    expect(screen.getAllByText('Already exists')).toHaveLength(1) // in the list of periods
-    expect(mockedApi.existingDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    expect(screen.getAllByRole('alert')).toHaveLength(1) // only the deployment that exists
-  })
-
-  it('needs the revision', async () => {
-    await toDetails()
-    fireEvent.change(screen.getByLabelText('What revision number are you importing?'), { target: { value: '' } })
-
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-  })
-
-  it('adds a location by hand to a deployment', async () => {
-    mockedApi.listLocalLocations.mockResolvedValue({ results: [loc('DONA_01')] })
-    mockedApi.saveLocalLocation.mockImplementation(async (_rp, location) => location)
-    await toDetails()
-    await userEvent.click((await screen.findAllByRole('button', { name: 'Add a new location' }))[1]) // DONA_02's
-    expect(screen.getByLabelText('Location id')).toHaveValue('DONA_02')
-    fireEvent.change(screen.getByLabelText('Location timezone'), { target: { value: 'Europe/Madrid' } })
-    fireEvent.change(screen.getByLabelText('Location latitude'), { target: { value: '37.1' } })
-    fireEvent.change(screen.getByLabelText('Location longitude'), { target: { value: '-6.4' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Save location' }))
-
-    await waitFor(() => expect(screen.getByLabelText('Location of DONA_02')).toHaveValue('DONA_02'))
-    expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_02', latitude: 37.1, longitude: -6.4 }))
   })
 
   it('says in the postvalidation that some checks are customized in the settings, and has no fields for them', async () => {
@@ -818,7 +567,7 @@ describe('ImportSessionPage', () => {
     await waitFor(() => expect(mockedApi.validateDeployment).toHaveBeenCalledTimes(2))
     expect(mockedApi.writeTimestampLog.mock.calls.map((c) => c[1].deployment_id)).toEqual(['R0003-DONA_01', 'R0003-DONA_02'])
     expect(mockedApi.validateDeployment.mock.calls.map((c) => c[1].deployment_id)).toEqual(['R0003-DONA_01', 'R0003-DONA_02'])
-    expect(mockedApi.validateDeployment.mock.calls[0][1].start_date).toBe('2024-09-04T13:10:00+02:00')
+    expect(mockedApi.validateDeployment.mock.calls[0][1].start_date).toBe('2026-10-02T08:00:00+02:00')   // the visit's, in the timezone of the location
   })
 
   it('imports every deployment into the revision’s collection and offers to open it', async () => {
@@ -908,7 +657,7 @@ describe('ImportSessionPage', () => {
 
     await screen.findByText(/Imported — /)
     expect(mockedApi.importLocal.mock.calls[0][3]).toEqual(expect.objectContaining({ setup_by: 'Ana', comments: 'Near the pond', camera_height: 1.2 }))
-    expect(mockedApi.importLocal.mock.calls[1][3].setup_by).toBeNull() // each deployment has its own
+    expect(mockedApi.importLocal.mock.calls[1][3].setup_by).toBe('Ana') // each deployment has its own: the one the visit says
   })
 
   const previous = (id: string, over: Record<string, unknown> = {}) => ({
@@ -920,39 +669,12 @@ describe('ImportSessionPage', () => {
     },
   })
 
-  it('fills one deployment from its previous revision, keeping its own id, location and dates', async () => {
-    mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': previous('R0002-DONA_01') } })
-    await toMoreDetails()
-    await openMore('DONA_01')
-    await userEvent.click(await screen.findByRole('button', { name: 'Fill from the previous revision' }))
-
-    expect(await screen.findByText('Filled in from R0002-DONA_01.')).toBeInTheDocument()
-    expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    await openMore('DONA_01', /^Site/)
-    expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-    expect(screen.getByLabelText('Set up by')).toHaveValue('Ana')
-    expect(screen.getByRole('switch', { name: 'Photo dates may be wrong' })).toHaveAttribute('aria-checked', 'false') // not carried over
-    await openMore('DONA_01', /^Grouping and notes/)
-    expect(screen.getByLabelText('Comments')).toHaveValue('Near the pond')
-    expect(screen.getByText('forest')).toBeInTheDocument()
-  })
-
   it('does not offer to fill in from a previous revision once it is known there is none', async () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': null, 'R0003-DONA_02': null } })
     await toDetails()
     await waitFor(() => expect(mockedApi.previousDeployments).toHaveBeenCalled())
 
     await waitFor(() => expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
-  })
-
-  it('does not look for an earlier revision in the first one, which has none', async () => {
-    await toDetails()
-    fireEvent.change(screen.getByLabelText('What revision number are you importing?'), { target: { value: '1' } })
-    await new Promise((resolve) => setTimeout(resolve, 600)) // longer than the wait before looking
-
-    expect(mockedApi.previousDeployments).not.toHaveBeenCalledWith('DONA', expect.arrayContaining(['R0001-DONA_01']))
-    expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
   })
 
@@ -971,61 +693,11 @@ describe('ImportSessionPage', () => {
     expect(screen.getByLabelText('Habitat')).toHaveValue('') // nothing filled in
   })
 
-  it('does not offer to fill in from a previous revision without a revision', async () => {
-    await toDetails()
-    fireEvent.change(screen.getByLabelText('What revision number are you importing?'), { target: { value: '' } })
-
-    expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
-  })
-
-  describe('with a big session', () => {
-    const names = Array.from({ length: 66 }, (_, i) => `DONA_${String(i + 1).padStart(2, '0')}`)
-    beforeEach(() => {
-      mockedApi.scanSession.mockResolvedValue({
-        deployments: names.map((n) => scanned(n, 3, '2024-09-04T13:10:00', '2024-11-04T14:28:00')), loose_files: 0, warnings: [], timestamp_log: null,
-      })
-      // Only 60 of the 66 folders are named after a location of the project.
-      mockedApi.listLocalLocations.mockResolvedValue({ results: names.slice(0, 60).map((n) => loc(n)) })
-    })
-
-    it('says how many are complete, and filters the list', async () => {
-      await toDetails()
-
-      expect(await screen.findByText('60 of 66 deployment(s) complete.')).toBeInTheDocument()
-      fireEvent.change(screen.getByLabelText('Filter deployments'), { target: { value: '_6' } })
-      const rows = screen.getAllByRole('button', { name: /^(Open|Close) DONA_/ })
-      expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(expect.arrayContaining([expect.stringContaining('DONA_60'), expect.stringContaining('DONA_66')]))
-      expect(rows).toHaveLength(7) // DONA_06 and DONA_60 to DONA_66
-    })
-
-    it('lists only the incomplete ones, and opens one of them', async () => {
-      await toDetails()
-      await userEvent.click(await screen.findByLabelText('Only the incomplete ones'))
-
-      expect(screen.getAllByRole('button', { name: /^(Open|Close) DONA_/ })).toHaveLength(6)
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-      expect(screen.getByText('6 deployments need details.')).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Open DONA_61' }))
-      expect(screen.getByRole('group', { name: 'Dates of DONA_61' })).toBeInTheDocument()
-      await chooseLocation(screen.getByLabelText('Location of DONA_61'), 'DONA_01')
-      expect((await screen.findAllByText(/Another deployment of the revision has this id/)).length).toBeGreaterThan(0)
-    })
-  })
 })
 
 
 describe('an import session of visits', () => {
-  const stored = (over: Record<string, unknown>) => ({
-    location_id: 'DONA_01', session: 'R0002', date: '2026-08-05', time: '08:14:05', actions: ['Revision'], trappers: 'Ana', camera_status: null, battery_status: null, card_status: null,
-    num_photos: null, sd: 'A13', date_time_ok: null, latitude: null, longitude: null, camera_id: 'P800', camera_model: 'Reconyx HC600', ...over,
-  }) as never
-  const CLOSED = [
-    { visit: stored({}), end: stored({ session: 'R0003', date: '2026-10-02', num_photos: 10 }) },
-    { visit: stored({ location_id: 'DONA_02', time: '09:30:00', sd: 'B2' }), end: stored({ location_id: 'DONA_02', session: 'R0003', date: '2026-10-02', time: '10:00:00', num_photos: 300 }) },
-    { visit: stored({ session: 'R0001', date: '2026-06-10' }), end: stored({ session: 'R0002', date: '2026-08-05', num_photos: 50 }) },
-  ]
-  const visit = (n: number) => screen.getAllByRole('checkbox', { name: /collected on/ })[n]
+  const visit = (n: number) => screen.getAllByRole('checkbox', { name: /^the visit / })[n]
 
   beforeEach(() => {
     mockedApi.closedVisits.mockResolvedValue({ results: CLOSED })
@@ -1039,8 +711,8 @@ describe('an import session of visits', () => {
   async function toTheFolders() {
     render(<ImportSessionPage {...pageProps} />)
     await pickProject()
-    await userEvent.click(await screen.findByRole('checkbox', { name: /DONA_01 · R0002 · Revision · card A13/ }))
-    await userEvent.click(screen.getByRole('checkbox', { name: /DONA_02 · R0002/ }))
+    expect(await screen.findByRole('checkbox', { name: /the visit R0002 to DONA_01/ })).toBeChecked()   // the visits of the latest revision are ticked from the start
+    expect(screen.getByRole('checkbox', { name: /the visit R0002 to DONA_02/ })).toBeChecked()
     await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Browse…' }))
     await screen.findByDisplayValue('/s')
@@ -1052,49 +724,40 @@ describe('an import session of visits', () => {
     render(<ImportSessionPage {...pageProps} />)
     await pickProject()
 
-    expect(await screen.findAllByRole('checkbox', { name: /collected on/ })).toHaveLength(3)
-    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeDisabled()
-    await userEvent.click(visit(0))
-    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled()
-  })
-
-  it('ticks all the visits offered at once, and unticks them', async () => {
-    render(<ImportSessionPage {...pageProps} />)
-    await pickProject()
-    await screen.findAllByRole('checkbox', { name: /collected on/ })
-
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Select all the visits offered' }))
+    // the latest revision is picked, with all its visits ticked
+    await screen.findAllByRole('checkbox', { name: /^the visit / })
+    await waitFor(() => expect(screen.getAllByRole('checkbox', { name: /^the visit / })).toHaveLength(2))
     expect(visit(0)).toBeChecked()
-    expect(visit(1)).toBeChecked() // the ones of the session of the first, not of another (R0001)
-    expect(visit(2)).not.toBeChecked()
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Select all the visits offered' }))
-    expect(visit(0)).not.toBeChecked()
-    expect(visit(1)).not.toBeChecked()
+    expect(visit(1)).toBeChecked()
+    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled()
+    await userEvent.click(visit(0))
+    await userEvent.click(visit(1))
+    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeDisabled()                   // needs one
   })
 
   it('has a square for each revision with visits to import, and shows only the visits of the one picked', async () => {
     render(<ImportSessionPage {...pageProps} />)
     await pickProject()
-    await screen.findAllByRole('checkbox', { name: /collected on/ })
+    await screen.findAllByRole('checkbox', { name: /^the visit / })
     const squares = screen.getByRole('group', { name: 'Revision' })
 
     expect(within(squares).getAllByRole('button').map((b) => b.textContent)).toEqual(['All revisions3 visits to import', 'R00022 visits to import', 'R00011 visit to import'])
-    await userEvent.click(within(squares).getByRole('button', { name: /^R0002/ }))
-    expect(within(squares).getByRole('button', { name: /^R0002/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getAllByRole('checkbox', { name: /collected on/ })).toHaveLength(2) // only the visits of R0002
-    await userEvent.click(visit(0))
-    await userEvent.click(within(squares).getByRole('button', { name: /^R0001/ })) // another revision: what was ticked is let go
-    expect(screen.getAllByRole('checkbox', { name: /collected on/ })).toHaveLength(1)
-    expect(screen.getByRole('checkbox', { name: /collected on/ })).not.toBeChecked()
+    expect(within(squares).getByRole('button', { name: /^R0002/ })).toHaveAttribute('aria-pressed', 'true')   // the latest is picked from the start
+    expect(screen.getAllByRole('checkbox', { name: /^the visit / })).toHaveLength(2) // only the visits of R0002, all ticked
+    expect(visit(0)).toBeChecked()
+    await userEvent.click(within(squares).getByRole('button', { name: /^R0001/ })) // another revision: its visits are ticked, not the ones of the other
+    expect(screen.getAllByRole('checkbox', { name: /^the visit / })).toHaveLength(1)
+    expect(screen.getByRole('checkbox', { name: /^the visit / })).toBeChecked()
     await userEvent.click(within(squares).getByRole('button', { name: /^All revisions/ }))
-    expect(screen.getAllByRole('checkbox', { name: /collected on/ })).toHaveLength(3)
+    expect(screen.getAllByRole('checkbox', { name: /^the visit / })).toHaveLength(3)    // all of them offered, none ticked
+    expect(visit(0)).not.toBeChecked()
   })
 
   it('with one visit works as Import deployment: the folder is the deployment\'s, with the images in it', async () => {
     mockedApi.scanFolder.mockResolvedValue({ file_count: 24, image_count: 24, warnings: [] })
     render(<ImportSessionPage {...pageProps} />)
     await pickProject()
-    await userEvent.click(await screen.findByRole('checkbox', { name: /DONA_01 · R0002 · Revision · card A13/ }))
+    await userEvent.click(await screen.findByRole('checkbox', { name: /the visit R0002 to DONA_02/ }))   // the two visits of the revision are ticked: one is taken off
     await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
 
     expect(await screen.findByText('Folder with the images')).toBeInTheDocument()
@@ -1116,11 +779,63 @@ describe('an import session of visits', () => {
     render(<ImportSessionPage {...pageProps} title="Import deployments" onSingleVisit={onSingleVisit} />)
     await pickProject()
     expect(screen.getByRole('heading', { name: 'Import deployments' })).toBeInTheDocument()
-    await userEvent.click(await screen.findByRole('checkbox', { name: /DONA_01 · R0002 · Revision · card A13/ }))
+    await userEvent.click(await screen.findByRole('checkbox', { name: /the visit R0002 to DONA_02/ }))   // the two visits of the revision are ticked: one is taken off
     await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
 
     expect(onSingleVisit).toHaveBeenCalledWith(expect.objectContaining({ researchProjectId: 'DONA', visit: expect.objectContaining({ location_id: 'DONA_01', session: 'R0002' }) }))
     expect(screen.queryByText('Folder with the images')).not.toBeInTheDocument()
+  })
+
+  it('says there is nothing to import, and offers to register the visits, when the project has no visit whose card was collected', async () => {
+    mockedApi.closedVisits.mockResolvedValue({ results: [] })
+    const onRegisterVisits = vi.fn()
+    render(<ImportSessionPage {...pageProps} onRegisterVisits={onRegisterVisits} />)
+    await pickProject()
+
+    expect(await screen.findByText(/There is no visit of DONA whose card was collected and has no deployment/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeDisabled()          // there is nothing to import: a deployment is always of a visit
+    await userEvent.click(screen.getByRole('button', { name: 'Register the visits' }))
+    expect(onRegisterVisits).toHaveBeenCalledWith('DONA')
+  })
+
+  it('shows the visits in the table of the dashboards, filtered by collected, with a box in each row', async () => {
+    render(<ImportSessionPage {...pageProps} />)
+    await pickProject()
+
+    expect(await screen.findByRole('table', { name: 'Closed visits' })).toBeInTheDocument()
+    expect(await screen.findByText(/Status: Collected/)).toBeInTheDocument()
+  })
+
+  it('asks how to import several visits, when it can: all at once, or one after another — which hands them over in order', async () => {
+    const onQueue = vi.fn()
+    render(<ImportSessionPage {...pageProps} title="Import deployments" onSingleVisit={vi.fn()} onQueue={onQueue} />)
+    await pickProject()
+    expect(await screen.findByRole('radiogroup', { name: 'How to import them' })).toBeInTheDocument()   // the two visits are ticked from the start
+    await userEvent.click(screen.getByRole('checkbox', { name: /the visit R0002 to DONA_02/ }))
+    expect(screen.queryByRole('radiogroup', { name: 'How to import them' })).not.toBeInTheDocument()   // with one it is Import deployment: nothing to ask
+    await userEvent.click(screen.getByRole('checkbox', { name: /the visit R0002 to DONA_02/ }))
+
+    const how = screen.getByRole('radiogroup', { name: 'How to import them' })
+    expect(within(how).getByRole('radio', { name: /All at once/ })).toBeChecked()                       // as it was
+    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeInTheDocument()
+    await userEvent.click(within(how).getByRole('radio', { name: /One after another/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Start with the first/ }))
+
+    expect(onQueue).toHaveBeenCalledTimes(1)
+    expect(onQueue.mock.calls[0][0].map((t: { visit: { location_id: string } }) => t.visit.location_id)).toEqual(['DONA_01', 'DONA_02'])   // in order of the sites
+    expect(screen.queryByText('Folder with the images')).not.toBeInTheDocument()
+  })
+
+  it('goes on to the folder of all of them when all at once is the way, as it always did', async () => {
+    const onQueue = vi.fn()
+    render(<ImportSessionPage {...pageProps} title="Import deployments" onSingleVisit={vi.fn()} onQueue={onQueue} />)
+    await pickProject()
+    expect(await screen.findByRole('checkbox', { name: /the visit R0002 to DONA_01/ })).toBeChecked()   // the visits of the latest revision are ticked from the start
+    expect(screen.getByRole('checkbox', { name: /the visit R0002 to DONA_02/ })).toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
+
+    expect(onQueue).not.toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: 'Browse…' })).toBeInTheDocument()
   })
 
   it('has the default research project fixed, as Import deployment does, when the page is Import deployments', async () => {
@@ -1128,9 +843,12 @@ describe('an import session of visits', () => {
     const onSingleVisit = vi.fn()
     render(<ImportSessionPage {...pageProps} title="Import deployments" onSingleVisit={onSingleVisit} />)
 
-    expect(await screen.findByText(/The import is of the default research project/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Research project')).not.toBeInTheDocument() // it is not picked here
-    await userEvent.click(await screen.findByRole('checkbox', { name: /DONA_01 · R0002 · Revision · card A13/ })) // its visits are there already
+    // the research project is the default one: it is not asked, nor said — the step asks for the revision and the visits
+    expect(await screen.findByText('Which visits are they of?')).toBeInTheDocument()
+    expect(screen.queryByText('Which research project?')).not.toBeInTheDocument()
+    expect(screen.queryByText(/The import is of the default research project/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Research project')).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('checkbox', { name: /the visit R0002 to DONA_02/ })) // its visits are there already, ticked: one is taken off
     await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
     expect(onSingleVisit).toHaveBeenCalledWith(expect.objectContaining({ researchProjectId: 'DONA' }))
   })
@@ -1138,35 +856,14 @@ describe('an import session of visits', () => {
   it('offers only the visits of one session once one is ticked: the session is the revision', async () => {
     render(<ImportSessionPage {...pageProps} />)
     await pickProject()
-    await screen.findAllByRole('checkbox', { name: /collected on/ })
+    await screen.findAllByRole('checkbox', { name: /^the visit / })
 
+    await userEvent.click(within(screen.getByRole('group', { name: 'Revision' })).getByRole('button', { name: /^All revisions/ }))   // all the visits offered, none ticked
     await userEvent.click(visit(0)) // R0002
     expect(visit(2)).toBeDisabled() // R0001
     expect(visit(1)).toBeEnabled()
     await userEvent.click(visit(0))
     expect(visit(2)).toBeEnabled()
-  })
-
-  it('searches the visits by what their line says', async () => {
-    render(<ImportSessionPage {...pageProps} />)
-    await pickProject()
-    await screen.findAllByRole('checkbox', { name: /collected on/ })
-
-    await userEvent.type(screen.getByRole('textbox', { name: 'Search the visits' }), 'DONA_02')
-    expect(screen.getAllByRole('checkbox', { name: /collected on/ })).toHaveLength(1)
-    await userEvent.clear(screen.getByRole('textbox', { name: 'Search the visits' }))
-    await userEvent.type(screen.getByRole('textbox', { name: 'Search the visits' }), 'nothing like this')
-    expect(screen.queryByRole('checkbox', { name: /collected on/ })).not.toBeInTheDocument()
-    expect(screen.getByText(/No visit matches/)).toBeInTheDocument()
-  })
-
-  it('asks no visit when the project has none to offer, and goes on as it always did', async () => {
-    mockedApi.closedVisits.mockResolvedValue({ results: [] })
-    render(<ImportSessionPage {...pageProps} />)
-    await pickProject()
-
-    await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
-    expect(screen.queryByRole('checkbox', { name: /collected on/ })).not.toBeInTheDocument()
   })
 
   it('links each folder to the visit of the location its name says, and asks its SD card', async () => {
@@ -1265,15 +962,4 @@ describe('an import session of visits', () => {
     })
   })
 
-  it('has no checks against the visits when the session is not of visits', async () => {
-    mockedApi.closedVisits.mockResolvedValue({ results: [] })
-    await toOrigin()
-    await toDetailsSubstep()
-    fireEvent.change(await screen.findByLabelText('What revision number are you importing?'), { target: { value: '3' } })
-    await toMoreDetailsSubstep()
-    await next()
-
-    await screen.findByText('Choose the checks')
-    expect(screen.queryByRole('radiogroup', { name: /the visit left|the visit counted/ })).not.toBeInTheDocument()
-  })
 })
