@@ -16,3 +16,5 @@ accuracy and the UTM columns) are emptied. The people who went are as the field 
 | `revisions_6_to_10.csv` | **R0006 to R0010**, 175 visits. | **175 visits**, no warnings. |
 
 To follow the history, load `revision_1.csv`, then `revision_2.csv`… in order; or `revisions_6_to_10.csv` after the first five.
+
+**The photos counted.** The visits that collect a card say the photos they counted (`7_N_pictures_collect`): for the deployments that [`tools/make_dona_deployments.py`](../../../../tools/make_dona_deployments.py) makes — see [`deployment_examples/DONA`](../../../deployment_examples/DONA) — they are the number of images each deployment has, written by the script, so that the postvalidation finds them as many as the visit says.
