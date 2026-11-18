@@ -30,5 +30,5 @@ export default function VisitsHomePage({ onBack, onOpenSettings, settingsOpen, o
   const [start, setStart] = useState<{ researchProjectId: string; site: string } | undefined>(undefined)
 
   if (view === 'register') return <VisitsPage start={start} onBack={onBack} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onImportImages={onImportImages} onImportImagesOf={onImportImagesOf} />
-  return <VisitBookPage onBack={onBack} onImportImages={onImportImages} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onShowDeployment={onShowDeployment} focus={focusVisit} onCreateVisit={(target) => { setStart(target); setView('register') }} />
+  return <VisitBookPage onBack={onBack} onImportImages={onImportImages} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onShowDeployment={onShowDeployment} focus={focusVisit} onCreateVisit={(target) => { setStart(target); setView('register') }} onRegisterVisits={() => { setStart(undefined); setView('register') }} />
 }
