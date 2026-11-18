@@ -222,7 +222,7 @@ describe('UploadStatusPage', () => {
     const onBack = vi.fn()
     renderWithHeader(<UploadStatusPage onBack={onBack} />)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage uploads' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Menu' }))   // it hangs from the menu
     expect(onBack).toHaveBeenCalled()
   })
 })

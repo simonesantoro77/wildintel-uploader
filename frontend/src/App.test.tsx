@@ -7,7 +7,15 @@ import type { SessionSummary } from './types'
 
 vi.mock('./api', () => ({ api: { checkHealth: vi.fn(), checkVersion: vi.fn(), listSessions: vi.fn(), listResearchProjects: vi.fn(), getSettings: vi.fn() } }))
 vi.mock('./pages/SetupWizardPage', () => ({ default: ({ onRegisterVisit }: { onRegisterVisit?: () => void }) => <><p>the initial setup</p><button type="button" onClick={onRegisterVisit}>register the first visit</button></> }))
-vi.mock('./pages/VisitsHomePage', () => ({ default: ({ startRegister }: { startRegister?: boolean }) => <p>visits — {startRegister ? 'register' : 'menu'}</p> }))
+vi.mock('./pages/VisitsHomePage', () => ({ default: ({ startBook }: { startBook?: boolean }) => <p>visits — {startBook ? 'dashboard' : 'register'}</p> }))
+vi.mock('./pages/ImportDeploymentsPage', () => ({
+  default: ({ onUpload }: { onUpload?: (t: { researchProjectId: string; collection: string }) => void }) => (
+    <button type="button" onClick={() => onUpload?.({ researchProjectId: 'DONA', collection: 'R0003' })}>finish the import</button>
+  ),
+}))
+vi.mock('./pages/StatisticsPage', () => ({ default: () => <p>the statistics</p> }))
+vi.mock('./pages/DeploymentStatusPage', () => ({ default: () => <p>the deployments dashboard</p> }))
+vi.mock('./pages/UploadStatusPage', () => ({ default: () => <p>the uploads dashboard</p> }))
 
 // The pages are stand-ins: what is looked at is how the app moves between them.
 vi.mock('./pages/ImportDeploymentPage', async (importOriginal) => ({
@@ -60,6 +68,30 @@ describe('App', () => {
     expect(screen.queryByText('What do you want to do?')).not.toBeInTheDocument()
   })
 
+  it('opens each action and each dashboard from the menu, with no menu of its own between', async () => {
+    render(<App />)
+    await getStarted()
+
+    await userEvent.click(await screen.findByRole('button', { name: /^register visits/i }))
+    expect(await screen.findByText('visits — register')).toBeInTheDocument()
+    await userEvent.click(await title()); await getStarted()
+    await userEvent.click(await screen.findByRole('button', { name: /^dashboards and statistics/i }))   // folded away until opened
+    await userEvent.click(await screen.findByRole('button', { name: /^visit dashboard/i }))
+    expect(await screen.findByText('visits — dashboard')).toBeInTheDocument()
+    await userEvent.click(await title()); await getStarted()
+    await userEvent.click(await screen.findByRole('button', { name: /^dashboards and statistics/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^deployments dashboard/i }))
+    expect(await screen.findByText('the deployments dashboard')).toBeInTheDocument()
+    await userEvent.click(await title()); await getStarted()
+    await userEvent.click(await screen.findByRole('button', { name: /^dashboards and statistics/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^uploads dashboard/i }))
+    expect(await screen.findByText('the uploads dashboard')).toBeInTheDocument()
+    await userEvent.click(await title()); await getStarted()
+    await userEvent.click(await screen.findByRole('button', { name: /^dashboards and statistics/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^statistics/i }))
+    expect(await screen.findByText('the statistics')).toBeInTheDocument()
+  })
+
   it('goes to the menu when there are research projects, or when they cannot be told', async () => {
     render(<App />)
     await getStarted()
@@ -74,8 +106,7 @@ describe('App', () => {
   it('goes back to the welcome screen when the title is pressed, from wherever you are', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /manage uploads/i }))
-    await userEvent.click(await screen.findByRole('button', { name: /upload deployment to trapper/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^upload deployment/i }))
     expect(await screen.findByText(/Upload page — nothing chosen/)).toBeInTheDocument()
 
     await userEvent.click(await title())
@@ -106,8 +137,7 @@ describe('App', () => {
   it('takes a finished import to the upload page, on the collection it went into', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /manage deployments/i }))
-    await userEvent.click(await screen.findByRole('button', { name: /Organize a folder/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /^create deployments/i }))
     await userEvent.click(await screen.findByRole('button', { name: 'finish the import' }))
 
     expect(await screen.findByText('Upload page — DONA / R0003')).toBeInTheDocument()
@@ -116,13 +146,11 @@ describe('App', () => {
   it('opens the upload page empty when it is chosen from the menu, whatever was imported before', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /manage deployments/i }))
-    await userEvent.click(await screen.findByRole('button', { name: /Organize a folder/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /^create deployments/i }))
     await userEvent.click(await screen.findByRole('button', { name: 'finish the import' }))
     await userEvent.click(await title())
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /manage uploads/i }))
-    await userEvent.click(await screen.findByRole('button', { name: /upload deployment to trapper/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^upload deployment/i }))
 
     expect(await screen.findByText('Upload page — nothing chosen')).toBeInTheDocument()
   })

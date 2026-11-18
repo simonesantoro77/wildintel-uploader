@@ -79,7 +79,7 @@ export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsO
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <DashboardHeader parent="Manage deployments" onParent={onBack} icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
+      <DashboardHeader parent="Menu" onParent={onBack} icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
         actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}

@@ -361,7 +361,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-8">
       <PageHeader icon={MENU_ICONS.upload} title="Upload deployment to Trapper" description="Sends the deployments of a revision to Trapper. Anything missing there is created, then the images are sent for Trapper to process."
-        parent="Manage uploads" onParent={onBack} />
+        parent="Menu" onParent={onBack} />
 
       {trapper === null ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Reading the settings…</p>
