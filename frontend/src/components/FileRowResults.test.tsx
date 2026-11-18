@@ -34,36 +34,39 @@ describe('FileRowResults', () => {
     expect(screen.getByRole('table', { name: 'Problems of Row 3' })).toHaveTextContent("The actions 'Flying' are not valid.")
   })
 
-  it('has a button to view what a row says and another, only where something is wrong, to view the errors', async () => {
+  it('has an eye in every row that opens a panel at the right with what the row says — and what is wrong with it, when something is', async () => {
     render(<FileRowResults rows={rows} labels={{ camera_model: 'Camera model' }} />)
     expect(screen.queryByRole('button', { name: /^(Show|Hide) the errors of Row 4$/ })).not.toBeInTheDocument()     // a row to add has no errors
     expect(screen.getByRole('button', { name: /^(Show|Hide) the errors of Row 2$/ })).toHaveAttribute('aria-expanded', 'true')   // the first row with errors starts open
 
     await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 4' }))
-    const contents = screen.getByLabelText('Contents of Row 4')
+    const panel = screen.getByRole('dialog', { name: 'Details of row 4' })
+    const contents = within(panel).getByLabelText('Contents of row 4')
     expect(within(contents).getByText('Camera model').closest('div')).toHaveTextContent('Camera modelBrowning')   // named as the field is, or by its key
     expect(within(contents).getByText('actions').closest('div')).toHaveTextContent('actionsInstallation')
-    expect(screen.queryByRole('table', { name: 'Problems of Row 2' })).not.toBeInTheDocument()       // one thing is open at a time
 
-    await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 4' }))
-    expect(screen.queryByLabelText('Contents of Row 4')).not.toBeInTheDocument()
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 2' }))       // a row with errors says them in the panel too
+    expect(within(screen.getByRole('dialog', { name: 'Details of row 2' })).getByRole('region', { name: 'Problems of row 2' })).toBeInTheDocument()
   })
 
-  it('has a chevron in every row, as the dashboard does, that opens its details and marks the row while they are open', async () => {
+  it('has a chevron only in the rows with something wrong, to see the error under the row, and marks a row while its details are open or its panel is', async () => {
     render(<FileRowResults rows={rows} />)
-    const chevron = screen.getByRole('button', { name: 'Show the contents of Row 4' })          // a row that is fine has its contents behind it
-    const cell = chevron.closest('td')!
-    expect(cell).toHaveClass('border-l-transparent')
-    expect(screen.queryByLabelText('Contents of Row 4')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Show|Hide) the (contents|errors) of Row 4$/ })).not.toBeInTheDocument()    // a row that is fine has no chevron: its eye says what it says
+    const fine = screen.getByRole('button', { name: 'View the contents of Row 4' }).closest('tr')!.querySelector('td')!
+    expect(fine).toHaveClass('border-l-transparent')
+    await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 4' }))
+    expect(fine).toHaveClass('border-l-blue-500')                                                // marked while its panel is open
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
+    expect(fine).toHaveClass('border-l-transparent')
 
+    const chevron = screen.getByRole('button', { name: /^(Show|Hide) the errors of Row 3$/ })     // a row with errors
     await userEvent.click(chevron)
-    expect(screen.getByLabelText('Contents of Row 4')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Hide the contents of Row 4' })).toHaveAttribute('aria-expanded', 'true')
-    expect(cell).toHaveClass('border-l-blue-500')                                                // the open row is marked
-
-    await userEvent.click(screen.getByRole('button', { name: 'Hide the contents of Row 4' }))
-    expect(screen.queryByLabelText('Contents of Row 4')).not.toBeInTheDocument()
-    expect(cell).toHaveClass('border-l-transparent')
+    expect(screen.getByRole('table', { name: 'Problems of Row 3' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide the errors of Row 3' })).toHaveAttribute('aria-expanded', 'true')
+    expect(chevron.closest('td')).toHaveClass('border-l-blue-500')                               // the open row is marked
   })
 
   it('searches the rows by what they say: the words typed have to be all in the row', async () => {
