@@ -609,18 +609,7 @@ fields as Trapper's own deployment form. Each section is a card that says how ma
 | **Site** | Feature type (road, trail, burrow, water source…), habitat, set up by, bait used, timestamp issues. |
 | **Grouping and notes** | Deployment groups, tags, comments. |
 
-**Where do they come from?** When the deployment is of a visit, or an earlier revision is kept, a card asks which source gives these details — *What the field sheet says*, *What the previous deployment says*, *Log files* and *Fill in by hand* — and each option says
-**how many fields it found** and which parts of the form they are:
-
-| Source | What it gives |
-|---|---|
-| **What the field sheet says** | What the **two visits** of the deployment — the one that left the camera and the one that collected its card — wrote down in the field, mixed as the [FieldworkLog](#5-manage-visits) mixes them: who set it up and the habitat as `Setup: … \| Retrieval: …` when they differ, the tags and groups of both, the setup's number or yes/no, and both visits' notes as `Setup: … \| Retrieval: …`. The visits are not changed. |
-| **What the previous deployment says** | The camera, the site and the notes of the previous revision of the location (never its dates). Not available — *Nothing found* — when there is none. |
-| **Log files** | What the `FieldworkLog` of the deployment's collection says of it: its camera, the site and the notes. Not available — *Nothing found* — when the log has no row for the deployment. |
-| **Fill in by hand** | You type them, **starting from the values the last source gave**. |
-
-With the field sheet or the previous deployment picked, the fields are shown **as that source says them, and cannot be edited**; pick *Fill in by hand* and they
-open for editing without losing the values. Picking a source again restores its values (what you changed by hand is lost). What a source does not say is left empty.
+**Pre-filled details.** The details are **what the previous deployment of the location says, overwritten with what its visit says** — only the values that are not empty; a visit that was not made, or that is unknown, says nothing. The card **Pre-filled details** says it: *Locked · Previous deployment (R0001-DONA_06) & Visit R0002*, a sentence with where the data comes from — *Data comes from previous deployment **R0001-DONA_06** and field work visit **R0002** (16 Nov 2020, 14:24 UTC). Original records are never modified.* — and a chip for each source with **how many fields it gave**. Under it the sections — **Camera**, **Site** and **Grouping and notes** — are **locked**: each has its padlock, its line says which source gave its values (*From Visit R0002 & R0001-DONA_06*) and how many fields are filled. **Edit details** unlocks them: the fields open for editing without losing the values, and **Restore the pre-filled details** gives back what the sources say (what you changed by hand is lost).
 When Epicollect5 [is turned on](#epicollect) and has an entry, a notice under the revision also offers **Import from Epicollect5**, which fills the camera, the site and the notes
 from it (and leaves the form to be edited by hand); the location's own data are never taken from the entry.
 

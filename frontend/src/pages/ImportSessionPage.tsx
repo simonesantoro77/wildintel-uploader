@@ -11,6 +11,7 @@ import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry } from '../epicollectImport'
 import RecordingPeriod from '../components/RecordingPeriod'
+import PrefilledDetails from '../components/PrefilledDetails'
 import { SOURCE_ORDER } from '../components/DateSourcePicker'
 import Notice, { BadgeIcon, Mark } from '../components/Notice'
 import type { DateSource, Period } from '../components/DateSourcePicker'
@@ -31,7 +32,7 @@ import {
   FormCard, IMAGE_CHECK_DESCRIPTIONS, IMAGE_CHECK_OPTIONS, SmallSpinner, StepHeading, StrictnessTable,
   DEFAULT_REQUIRED_DEPLOYMENT_CHECKS, DeploymentFormBody, LocationTimeNote, MoreDetailsForm, ValidationReport, buildDeploymentId, fillFromPreviousRevision, btnOutline, btnPrimary, deploymentCheckPassed, describePreprocessing, imageCheckPassed,
   inputClass, labelClass, hintClass, statParamsOf, statParamsValid, toggled, fillFromClosedVisit, visitKey, visitLabel,
-  FieldLabel, FILLED_FROM_PREVIOUS, LockedDetailsContext, detailsFound, fieldworkVisits, revisionOfVisit,
+  FieldLabel, DetailsFromContext, LockedDetailsContext, mergedDetails, visitApplies, detailsFound, fieldworkVisits, revisionOfVisit,
 } from './ImportDeploymentPage'
 import type { PreprocessStep, Strictness, WizardSettings } from './ImportDeploymentPage'
 
@@ -152,7 +153,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   // The revision the visits are of, picked first: only its closed visits are offered. Ticking a visit locks the list to its revision as well (the others are disabled).
   const [revisionPick, setRevisionPick] = useState<number | null>(null)
   // Where each deployment of visits has its camera, site and notes from, once picked: the visit's (the field sheet) before that.
-  const [detailsPick, setDetailsPick] = useState<Record<string, 'visit' | 'previous' | 'manual'>>({})
+  const [detailsPick, setDetailsPick] = useState<Record<string, 'merge' | 'manual'>>({})
   const [folderVisit, setFolderVisit] = useState<Record<string, string>>({})
   // The SD card each folder's images come from, and the cards the settings keep.
   const [folderSd, setFolderSd] = useState<Record<string, string>>({})
@@ -602,7 +603,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
       }
       return next
     })
-    setDetailsPick((p) => ({ ...p, ...Object.fromEntries(found.map((n) => [n, 'previous' as const])) }))
+    setDetailsPick((p) => ({ ...p, ...Object.fromEntries(found.map((n) => [n, 'manual' as const])) }))
     const before = names.length === 1 ? drafts[names[0]]?.fields : undefined
     setFillMessage({ scope, undo: found.length && before ? { name: names[0], fields: before } : undefined, text: names.length === 1
       ? (found.length ? `Filled in from ${previousFound[`${projectId}|${fieldsOf(names[0]).deployment_id}`]!.deployment_id}.` : 'There is no previous revision of this deployment to fill it in from.')
@@ -705,17 +706,26 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
     applyPeriod({ [d.name]: { source, period: periodOf(d, source, drafts[d.name]?.timezone ?? '') } })
   }
 
-  /** The camera, site and notes of a deployment as one of its sources says them — what the source does not say is left empty; by hand keeps what is there. */
-  function pickDetails(name: string, source: 'visit' | 'previous' | 'manual') {
+  /** The camera, site and notes of a deployment: what its previous deployment says overwritten with what its visit says, locked — or by hand, keeping what is there. */
+  function pickDetails(name: string, source: 'merge' | 'manual') {
     setDetailsPick((p) => ({ ...p, [name]: source }))
     if (source === 'manual') return
     const cv = visitOf(name)
-    const previous = previousFound[`${projectId}|${fieldsOf(name).deployment_id}`]?.deployment
-    updateEntry(name, (e) => {
-      const emptied = { ...e.fields, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) }
-      return { ...e, fields: source === 'visit' && cv ? fillFromClosedVisit(emptied, cv) : source === 'previous' && previous ? fillFromPreviousRevision(emptied, previous) : e.fields }
-    })
+    const previous = previousFound[`${projectId}|${fieldsOf(name).deployment_id}`]?.deployment ?? null
+    updateEntry(name, (e) => ({ ...e, fields: mergedDetails(e.fields, previous, cv ?? null) }))
   }
+
+  // What the previous deployments say is read after the visits' details are taken: the merge is made again when they are there.
+  useEffect(() => {
+    for (const d of chosen) {
+      if (detailsPick[d.name] === 'manual' || !drafts[d.name]) continue
+      const cv = visitOf(d.name)
+      const previous = previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]?.deployment ?? null
+      if (!cv && !previous) continue
+      updateEntry(d.name, (e) => ({ ...e, fields: mergedDetails(e.fields, previous, cv ?? null) }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previousFound, folderVisit, Object.keys(drafts).join('|')])
 
   /** Fills the camera, site and notes of the deployments that have an entry in Epicollect5 from it. */
   function importFromEpicollect() {
@@ -1610,41 +1620,14 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   {open && fields && entry && (
                     <div aria-label={`Details of ${d.name}`} role="group" className="mx-5 mb-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-4">
                       <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
-                      {visitOf(d.name) && (() => {
-                        const cv = visitOf(d.name)!
-                        const given = fillFromClosedVisit(EMPTY_DEPLOYMENT_FIELDS, cv)
-                        const visitFound = detailsFound(given)
+                      {(visitOf(d.name) || previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]) && (() => {
+                        const cv = visitOf(d.name) && visitApplies(visitOf(d.name)!.visit) ? visitOf(d.name)! : null
                         const previous = previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]
-                        const previousFound_ = detailsFound(previous ? fillFromPreviousRevision(EMPTY_DEPLOYMENT_FIELDS, previous.deployment) : EMPTY_DEPLOYMENT_FIELDS)
-                        const source = detailsPick[d.name] ?? 'visit'
-                        const options = [
-                          { source: 'visit' as const, title: 'What the field sheet says', found: visitFound, available: true,
-                            hint: `From the visit ${cv.visit.session} (${formatVisitWhen(cv.visit)}), as it was written in the field${visitFound.parts ? `: ${visitFound.parts}` : ''}. The visits (the field sheet) are not changed.` },
-                          { source: 'previous' as const, title: 'What the previous deployment says', found: previous ? previousFound_ : null, available: Boolean(previous),
-                            hint: previous ? `From ${previous.deployment_id}, the previous deployment at this location${previousFound_.parts ? `: ${previousFound_.parts}` : ''}. Dates are never copied.` : 'No earlier revision of this location is on file.' },
-                          { source: 'manual' as const, title: 'Fill in by hand', found: null, available: true, hint: 'Type them yourself, starting from the values the last source gave.' },
-                        ]
                         return (
-                          <div role="radiogroup" aria-label={`Source of the details of ${d.name}`} className="mb-4 space-y-2">
-                            {options.map((o) => (
-                              <label key={o.source} className={`block rounded-xl border px-4 py-3 ${o.available ? 'cursor-pointer' : 'opacity-60'} ${source === o.source ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700'}`}>
-                                <span className="flex items-start gap-3">
-                                  <input type="radio" className="mt-1" name={`details-source-${d.name}`} aria-label={`${o.title} (${d.name})`} disabled={!o.available} checked={source === o.source} onChange={() => pickDetails(d.name, o.source)} />
-                                  <span className="flex-1 min-w-0">
-                                    <span className="flex items-center justify-between gap-3">
-                                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{o.title}</span>
-                                      {(o.found || !o.available) && (
-                                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${o.found && o.found.count > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
-                                          {o.found && o.found.count > 0 ? `${o.found.count} ${o.found.count === 1 ? 'field' : 'fields'} found` : 'Nothing found'}
-                                        </span>
-                                      )}
-                                    </span>
-                                    <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{o.hint}</span>
-                                  </span>
-                                </span>
-                              </label>
-                            ))}
-                          </div>
+                          <PrefilledDetails
+                            previous={previous ? { id: previous.deployment_id, fields: detailsFound(fillFromPreviousRevision(EMPTY_DEPLOYMENT_FIELDS, previous.deployment)).count } : null}
+                            visit={cv ? { session: cv.visit.session, when: formatVisitWhen(cv.visit), fields: detailsFound(fillFromClosedVisit(EMPTY_DEPLOYMENT_FIELDS, cv)).count } : null}
+                            locked={(detailsPick[d.name] ?? 'merge') === 'merge'} onEdit={() => pickDetails(d.name, 'manual')} onRestore={() => pickDetails(d.name, 'merge')} />
                         )
                       })()}
                       {!visitOf(d.name) && (hasEarlierRevision(d.name) || fillMessage?.scope === 'one') && (
@@ -1664,8 +1647,10 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                         </div>
                       )}
 
-                      <LockedDetailsContext.Provider value={Boolean(visitOf(d.name)) && (detailsPick[d.name] ?? 'visit') !== 'manual'}>
-                        <MoreDetailsForm deployment={fields} errors={activeErrors_of(d.name)} onField={(key, value) => updateField(d.name, key, value)} />
+                      <LockedDetailsContext.Provider value={Boolean(visitOf(d.name) || previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]) && (detailsPick[d.name] ?? 'merge') !== 'manual'}>
+                        <DetailsFromContext.Provider value={[visitOf(d.name) && `Visit ${visitOf(d.name)!.visit.session}`, previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]?.deployment_id].filter(Boolean).join(' & ') || null}>
+                          <MoreDetailsForm deployment={fields} errors={activeErrors_of(d.name)} onField={(key, value) => updateField(d.name, key, value)} />
+                        </DetailsFromContext.Provider>
                       </LockedDetailsContext.Provider>
                     </div>
                   )}

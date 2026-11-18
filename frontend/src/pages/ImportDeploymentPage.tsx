@@ -28,6 +28,7 @@ import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import type { ClosedVisit, ClosedVisitTarget, FieldworkVisits, LogEntry, SdCard, StoredVisit } from '../types'
 import { applyEntry, entryLabel, entryPeriod } from '../epicollectImport'
 import RecordingPeriod from '../components/RecordingPeriod'
+import PrefilledDetails from '../components/PrefilledDetails'
 import TimeFixPage from './TimeFixPage'
 import Notice, { BadgeIcon, Mark, mark, StatusIcon } from '../components/Notice'
 import type { DateSource, Period } from '../components/DateSourcePicker'
@@ -864,10 +865,13 @@ function DetailCard({ title, icon, tone, children }: { title: string; icon: Reac
 /** A section of the details — shut until it is opened, with how much of it is filled in on its header: "3 of 7". */
 /** True while the details are shown as they were taken from a source, not to be edited: the fields of every card in it are disabled. */
 export const LockedDetailsContext = createContext(false)
+/** Where the details of the sections of the card come from — said in their line, with the lock. */
+export const DetailsFromContext = createContext<string | null>(null)
 
 export function SectionCard({ title, icon, filled, total, summary, optional = false, missing = 0, children }: { title: string; icon: ReactNode; filled: number; total: number; summary?: string; optional?: boolean; missing?: number; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const locked = useContext(LockedDetailsContext)
+  const from = useContext(DetailsFromContext)
   return (
     <section className="rounded-lg border border-zinc-200 dark:border-zinc-700 mb-3" aria-label={title}>
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
@@ -875,9 +879,10 @@ export function SectionCard({ title, icon, filled, total, summary, optional = fa
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400">{icon}</svg>
         <span className="min-w-0">
           <span className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">{title}{optional && <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">optional</span>}</span>
-          {!open && summary && <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{summary}</span>}
+          {!open && (summary || (locked && from)) && <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{[summary, locked && from && `From ${from}`].filter(Boolean).join(' · ')}</span>}
         </span>
-        <span className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${missing > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : filled > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{filled} of {total} filled{missing > 0 && ` · ${missing} required missing`}</span>
+        {locked && <svg role="img" aria-label="Locked" viewBox="0 0 24 24" className="ml-auto h-4 w-4 shrink-0 fill-none stroke-zinc-500 dark:stroke-zinc-400" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 118 0v3" /></svg>}
+        <span className={`${locked ? '' : 'ml-auto '}shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${missing > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : filled > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{filled} of {total} filled{missing > 0 && ` · ${missing} required missing`}</span>
       </button>
       {/* a line between the header and what is under it, while it is open */}
       {open && <div className="border-t border-zinc-200 dark:border-zinc-700 px-4 pt-4 pb-4"><fieldset disabled={locked} className="contents">{children}</fieldset></div>}
@@ -1449,6 +1454,17 @@ export function fillFromPreviousRevision(current: DeploymentFields, previous: De
     ...current, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, previous[k]])), tags: previous.tags ?? [],
     camera_model: current.camera_model || previous.camera_model, camera_id: current.camera_id || previous.camera_id,
   }
+}
+
+/** Whether a visit says anything of the camera and the site: one that could not be made — not revised — or that is only a record of an unknown revision has nothing to say. */
+export const visitApplies = (v: StoredVisit) => !['not revised', 'no revisada', 'no revisado'].includes(String(v.camera_status ?? '').toLowerCase()) && (v.actions ?? []).length > 0
+
+/** The details of a deployment as its sources say them together: what the **previous deployment** of the location says first, overwritten with what the **visit** says — only the values that
+ * are not empty —. A visit that does not apply (not visited, unknown) says nothing. The dates, the id and the location are the deployment's own. */
+export function mergedDetails(d: DeploymentFields, previous: DeploymentFields | null, closed: ClosedVisit | null): DeploymentFields {
+  const emptied: DeploymentFields = { ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) }
+  const withPrevious = previous ? fillFromPreviousRevision(emptied, previous) : emptied
+  return closed && visitApplies(closed.visit) ? fillFromClosedVisit(withPrevious, closed) : withPrevious
 }
 
 /** The groups of fields a deployment's details are made of, as a source can fill them in. */
@@ -2442,29 +2458,17 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
   /** Takes back what was copied from the previous revision: the optional details start empty again. */
   // The sources to pick the details from are shown when there are two to choose from, by hand included.
-  const logDetails = logEntry?.fieldwork?.details ?? null
-  const pickable = Boolean(linkedVisit || previousRevision || logDetails)
-  const detailsSource: 'visit' | 'previous' | 'log' | 'manual' = detailsPick ?? (linkedVisit ? 'visit' : 'manual')
-  const visitFound = detailsFound(linkedVisit ? fillFromClosedVisit(EMPTY_DEPLOYMENT_FIELDS, linkedVisit) : EMPTY_DEPLOYMENT_FIELDS)
-  const logFound = detailsFound(logDetails ? { ...EMPTY_DEPLOYMENT_FIELDS, ...logDetails } : EMPTY_DEPLOYMENT_FIELDS)
+  // The details are what the previous deployment says, overwritten with what the visit says, and locked until Edit details.
+  const pickable = Boolean(linkedVisit || previousRevision)
+  const detailsSource: 'merge' | 'manual' = detailsPick === 'manual' ? 'manual' : pickable ? 'merge' : 'manual'
+  const visitSays = linkedVisit && visitApplies(linkedVisit.visit) ? linkedVisit : null
+  const visitFound = detailsFound(visitSays ? fillFromClosedVisit(EMPTY_DEPLOYMENT_FIELDS, visitSays) : EMPTY_DEPLOYMENT_FIELDS)
   const previousFound = detailsFound(previousRevision ? fillFromPreviousRevision(EMPTY_DEPLOYMENT_FIELDS, previousRevision.deployment) : EMPTY_DEPLOYMENT_FIELDS)
-
-  /** The camera, the site and the notes as a source says them: what the visit or the previous deployment do not say is left empty. */
-  function pickDetailsSource(source: 'visit' | 'previous' | 'log' | 'manual') {
-    setDetailsPick(source)
-    if (source === 'manual') return
-    const emptied = (d: DeploymentFields): DeploymentFields => ({ ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) })
-    if (source === 'visit' && linkedVisit) {
-      setDeployment((d) => fillFromClosedVisit(emptied(d), linkedVisit))
-      setFilledFrom(`the visit ${linkedVisit.visit.session}`)
-    } else if (source === 'log' && logDetails) {
-      setDeployment((d) => ({ ...emptied(d), ...logDetails, start_date: d.start_date, end_date: d.end_date }))
-      setFilledFrom(`the logs of ${logEntry!.collection}`)
-    } else if (source === 'previous' && previousRevision) {
-      setDeployment((d) => fillFromPreviousRevision(emptied(d), previousRevision.deployment))
-      setFilledFrom(previousRevision.deployment_id)
-    }
-  }
+  useEffect(() => {
+    if (detailsSource !== 'merge') return
+    setDeployment((d) => mergedDetails(d, previousRevision?.deployment ?? null, linkedVisit))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsSource, linkedVisit, previousRevision])
 
   function handleStartEmpty() {
     setDeployment((d) => ({ ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) }))
@@ -2976,39 +2980,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                       description="Everything here is optional. Fill in what you know now — you can add the rest later."
                       summary={moreFilled > 0 ? `${moreFilled} ${moreFilled === 1 ? 'detail' : 'details'} filled in` : 'Nothing filled in yet'}>
             {pickable && (
-              <FormCard title="Where do they come from?" description="Pick one. Each option shows what it found, and you can change anything afterwards by filling them in by hand.">
-                <div role="radiogroup" aria-label="Source of the details" className="space-y-2">
-                  {([
-                    { source: 'visit' as const, title: 'What the field sheet says', found: linkedVisit ? visitFound : null, available: Boolean(linkedVisit),
-                      hint: linkedVisit ? `From the visit ${linkedVisit.visit.session} (${formatVisitWhen(linkedVisit.visit)}), as it was written in the field${visitFound.parts ? `: ${visitFound.parts}` : ''}. The visits (the field sheet) are not changed.`
-                        : 'No visit is linked to this deployment: choose a closed visit in the origin.' },
-                    { source: 'previous' as const, title: 'What the previous deployment says', found: previousRevision ? previousFound : null, available: Boolean(previousRevision),
-                      hint: previousRevision ? `From ${previousRevision.deployment_id}, the previous deployment at this location${previousFound.parts ? `: ${previousFound.parts}` : ''}. Dates are never copied.`
-                        : `No earlier revision of ${deployment.location_id || 'this location'} is on file.` },
-                    { source: 'log' as const, title: 'Log files', found: logDetails ? logFound : null, available: Boolean(logDetails),
-                      hint: logDetails ? `From the FieldworkLog of ${logEntry!.collection}, which has a row for ${deployment.deployment_id}${logFound.parts ? `: ${logFound.parts}` : ''}. Dates are never copied.`
-                        : `The FieldworkLog of this collection has no row for ${deployment.deployment_id || 'this deployment'}.` },
-                    { source: 'manual' as const, title: 'Fill in by hand', found: null, available: true, hint: 'Type them yourself, starting from the values the last source gave.' },
-                  ]).map((o) => (
-                    <label key={o.source} className={`block rounded-xl border px-4 py-3 ${o.available ? 'cursor-pointer' : 'opacity-60'} ${detailsSource === o.source ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700'}`}>
-                      <span className="flex items-start gap-3">
-                        <input type="radio" className="mt-1" name="details-source" aria-label={o.title} disabled={!o.available} checked={detailsSource === o.source} onChange={() => pickDetailsSource(o.source)} />
-                        <span className="flex-1 min-w-0">
-                          <span className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{o.title}</span>
-                            {(o.found || !o.available) && (
-                              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${o.found && o.found.count > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
-                                {o.found && o.found.count > 0 ? `${o.found.count} ${o.found.count === 1 ? 'field' : 'fields'} found` : 'Nothing found'}
-                              </span>
-                            )}
-                          </span>
-                          <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{o.hint}</span>
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </FormCard>
+              <PrefilledDetails
+                previous={previousRevision ? { id: previousRevision.deployment_id, fields: previousFound.count } : null}
+                visit={visitSays ? { session: visitSays.visit.session, when: formatVisitWhen(visitSays.visit), fields: visitFound.count } : null}
+                locked={detailsSource === 'merge'} onEdit={() => setDetailsPick('manual')} onRestore={() => setDetailsPick(null)} />
             )}
             {filledFrom && !pickable && (
               <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 text-sm text-emerald-900 dark:text-emerald-100">
@@ -3017,8 +2992,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 <button type="button" className="rounded-lg border border-emerald-400 dark:border-emerald-800 px-4 py-2 text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40" onClick={handleStartEmpty}>Start empty</button>
               </div>
             )}
-            <LockedDetailsContext.Provider value={pickable && detailsSource !== 'manual'}>
-              <MoreDetailsForm deployment={deployment} errors={fieldErrors} onField={updateField} />
+            <LockedDetailsContext.Provider value={pickable && detailsSource === 'merge'}>
+              <DetailsFromContext.Provider value={[visitSays && `Visit ${visitSays.visit.session}`, previousRevision?.deployment_id].filter(Boolean).join(' & ') || null}>
+                <MoreDetailsForm deployment={deployment} errors={fieldErrors} onField={updateField} />
+              </DetailsFromContext.Provider>
             </LockedDetailsContext.Provider>
           </WizardStep>
           )}

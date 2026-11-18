@@ -629,47 +629,27 @@ describe('ImportDeploymentPage', () => {
         expect(screen.getByText(/Locked · Field work \(R0001 → R0002\)/)).toBeInTheDocument()          // the dates are the visits', and locked
         expect(screen.getByText(/Dates come from field work visits/)).toHaveTextContent('Visits themselves are never modified.')
         await userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
-        expect(await screen.findByRole('radio', { name: 'What the field sheet says' })).toBeChecked()
-        expect(screen.getByText(/The visits \(the field sheet\) are not changed/)).toBeInTheDocument()
-        expect(screen.getByRole('radio', { name: 'What the previous deployment says' })).toBeDisabled() // none on file
-        expect(screen.getByText(/No earlier revision of DONA_01 is on file/)).toBeInTheDocument()
-        expect(screen.getByText('6 fields found')).toBeInTheDocument() // camera id and model, set up by, height, bait and the notes
-        expect(screen.getByText(/as it was written in the field: the camera, who set it up, mounting, site and notes\./)).toBeInTheDocument()
+        const card = await screen.findByRole('region', { name: 'Pre-filled details' })
+        expect(card).toHaveTextContent('Locked · Visit R0001')                                         // the visit is the only source: there is no previous deployment
+        expect(card).toHaveTextContent('Data comes from field work visit R0001')
+        expect(card).toHaveTextContent('Original records are never modified.')
+        expect(within(card).getByText(/Field work visit: R0001 \(6 fields\)/)).toBeInTheDocument()   // camera id and model, set up by, height, bait and the notes
+        expect(within(card).queryByText(/Previous deployment:/)).not.toBeInTheDocument()
         await openSection(/^Camera/); await openSection(/^Site/); await openSection(/^Grouping and notes/)
         expect(screen.getByLabelText('Camera id')).toHaveValue('P800')
         expect(screen.getByLabelText('Set up by')).toHaveValue('Setup: Ana Pérez | Retrieval: Luis')
         expect(screen.getByLabelText('Comments')).toHaveValue('Setup: New camera | Retrieval: Batteries changed') // both visits' notes, as the log has them
-        // what the visit says is shown, not edited — until it is filled in by hand, which keeps the values
+        // what the visit says is shown, not edited — until Edit details unlocks it, which keeps the values
         expect(screen.getByLabelText('Set up by')).toBeDisabled()
-        await userEvent.click(screen.getByRole('radio', { name: 'Fill in by hand' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+        expect(screen.getByText(/Unlocked · Edited by hand/)).toBeInTheDocument()
         expect(screen.getByLabelText('Set up by')).toBeEnabled()
         expect(screen.getByLabelText('Set up by')).toHaveValue('Setup: Ana Pérez | Retrieval: Luis')
         await userEvent.clear(screen.getByLabelText('Set up by'))
         await userEvent.type(screen.getByLabelText('Set up by'), 'Luis')
-        await userEvent.click(screen.getByRole('radio', { name: 'What the field sheet says' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Restore the pre-filled details' }))
         expect(screen.getByLabelText('Set up by')).toHaveValue('Setup: Ana Pérez | Retrieval: Luis') // back to what the visits say
-      })
-
-      it('offers the collection\'s logs as a source of the dates and the details when they have the deployment\'s row', async () => {
-        const start = stored({ session: 'R0001', date: '2026-06-10', time: '09:30:00', actions: ['Installation'], sd: 'A13', camera_id: 'P800', camera_model: 'Reconyx-PC800', setup_by: null })
-        const end = stored({ session: 'R0002', date: '2026-08-05', time: '08:10:00', actions: ['Revision'], num_photos: 12 })
-        mockedApi.closedVisits.mockResolvedValue({ results: [{ visit: start, end }] })
-        mockedApi.logEntry.mockResolvedValue({ collection: 'R0001', timestamps: { start: '2026-06-10T09:35:00', end: '2026-08-05T08:05:00' },
-          fieldwork: { start: null, end: null, details: { setup_by: 'Ana', camera_height: 1.4 } } })
-        storedProjects = [DONA_PROJECT]
-        storedLocations = { DONA: [DONA_01] }
-        await goToOriginStep()
-        await userEvent.click(await screen.findByLabelText('Research project'))
-        await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
-        await userEvent.click(within(await screen.findByRole('table', { name: 'Closed visits' })).getByRole('row', { name: /R0001/ }))
-        await continueToDates()
-        await screen.findByText('Dates of the deployment')
-        await waitFor(() => expect(mockedApi.logEntry).toHaveBeenCalledWith('DONA', 'R0001-DONA_01'))
-        await userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
-        await userEvent.click(await screen.findByRole('radio', { name: 'Log files' }))
-        expect(screen.getByRole('radio', { name: 'Log files' }).closest('label')).toHaveTextContent('2 fields found')
-        await openSection(/^Camera/); await openSection(/^Site/); await openSection(/^Grouping and notes/)
-        expect(screen.getByLabelText('Set up by')).toHaveValue('Ana')
+        expect(screen.getByLabelText('Set up by')).toBeDisabled()
       })
 
       describe('the SD card and the number of photos, against what the visits say', () => {
@@ -1512,7 +1492,7 @@ describe('ImportDeploymentPage', () => {
   it('exposes the Camtrap DP camera and grouping fields', async () => {
     await goToNewDetailsStep()
     await openMoreDetails()
-    await userEvent.click(screen.getByRole('radio', { name: 'Fill in by hand' }))   // the details are the visit's until it is chosen
+    await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))   // the details are the visit's, locked, until they are unlocked
     await openSection(/^Camera/)
     await userEvent.click(screen.getByRole('button', { name: 'Below the surface' }))
     await userEvent.type(await screen.findByLabelText('Depth below the surface (m)'), '4.8')
@@ -2282,7 +2262,7 @@ describe('ImportDeploymentPage', () => {
       })
       await walkToImportStep('1', async () => {
         await openMoreDetails()
-        await userEvent.click(screen.getByRole('radio', { name: 'Fill in by hand' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
         await openSection(/^Camera/)
         await userEvent.click(screen.getByRole('button', { name: 'Below the surface' }))
         await userEvent.click(screen.getByRole('button', { name: 'Below the surface' }))
@@ -2595,6 +2575,48 @@ describe('ImportDeploymentPage', () => {
         timestamp_issues: true, bait_use: null, feature_type: null, habitat: 'Pine forest', deployment_groups: null, comments: 'Near the pond', tags: ['forest'],
       },
     }
+
+    it('pre-fills the details with what the previous deployment says, overwritten with what the visit says, locked, and says where each part comes from', async () => {
+      visitRevision = 2
+      mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': PREVIOUS } })
+      mockedApi.closedVisits.mockImplementation(async () => ({ results: [{ ...closedVisitOf('DONA_01'), details: { setup_by: 'MG', camera_model: 'Reconyx HC600' } }] }))
+      await goToNewDetailsStep()
+      await openMoreDetails()
+
+      const card = await screen.findByRole('region', { name: 'Pre-filled details' })
+      await waitFor(() => expect(card).toHaveTextContent('Locked · Previous deployment (R0001-DONA_01) & Visit R0002'))
+      expect(card).toHaveTextContent('Data comes from previous deployment R0001-DONA_01 and field work visit R0002')
+      expect(within(card).getByText(/Previous deployment: R0001-DONA_01 \(\d+ fields?\)/)).toBeInTheDocument()
+      expect(within(card).getByText(/Field work visit: R0002 \(2 fields\)/)).toBeInTheDocument()
+      const camera = screen.getByRole('region', { name: 'Camera' })
+      expect(camera).toHaveTextContent('From Visit R0002 & R0001-DONA_01')
+      expect(within(camera).getByRole('img', { name: 'Locked' })).toBeInTheDocument()
+      await openSection(/^Camera/); await openSection(/^Site/); await openSection(/^Grouping and notes/)
+      expect(screen.getByLabelText('Camera model')).toHaveValue('Reconyx HC600')        // the visit overwrites what the previous deployment says (Old model)
+      expect(screen.getByLabelText('Set up by')).toHaveValue('MG')                       // the visit
+      expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')               // what the visit does not say stays as the previous deployment says it
+      expect(screen.getByLabelText('Comments')).toHaveValue('Near the pond')
+      expect(screen.getByLabelText('Habitat')).toBeDisabled()                           // locked
+      await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+      expect(screen.getByLabelText('Habitat')).toBeEnabled()
+    })
+
+    it('takes nothing from a visit that was not made: the previous deployment alone says the details', async () => {
+      visitRevision = 2
+      mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': PREVIOUS } })
+      mockedApi.closedVisits.mockImplementation(async () => {
+        const closed = closedVisitOf('DONA_01') as unknown as { visit: Record<string, unknown> }
+        return { results: [{ ...closed, visit: { ...closed.visit, camera_status: 'Not revised' }, details: { setup_by: 'MG' } }] as never }
+      })
+      await goToNewDetailsStep()
+      await openMoreDetails()
+
+      const card = await screen.findByRole('region', { name: 'Pre-filled details' })
+      await waitFor(() => expect(card).toHaveTextContent('Locked · Previous deployment (R0001-DONA_01)'))
+      expect(card).not.toHaveTextContent('Field work visit')
+      await openSection(/^Site/)
+      expect(screen.getByLabelText('Set up by')).toHaveValue('Ana')                      // the previous deployment's: the visit says nothing
+    })
 
     it('does not ask to copy the camera, the site and the notes from an earlier revision, with or without one: the dates step has no such notice', async () => {
       visitRevision = 2   // the revision is the visit's

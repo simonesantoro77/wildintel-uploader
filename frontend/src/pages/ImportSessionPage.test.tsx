@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { api } from '../api'
 import ImportSessionPage, { matchLocation } from './ImportSessionPage'
-import { EMPTY_RESEARCH_PROJECT } from '../types'
+import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import type { LocalLocation, LocalResearchProject, SessionScan } from '../types'
 import { APP_SETTINGS } from '../test/fixtures'
 
@@ -612,6 +612,7 @@ describe('ImportSessionPage', () => {
   it('asks the same fields as a single deployment — and sends them with the deployment', async () => {
     await toMoreDetails()
     await openMore('DONA_01', /^Site/)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))   // the details are the visit's, locked, until they are unlocked
     fireEvent.change(screen.getByLabelText('Set up by'), { target: { value: 'Ana' } })
     await openMore('DONA_01', /^Grouping and notes/)
     fireEvent.change(screen.getByLabelText('Comments'), { target: { value: 'Near the pond' } })
@@ -857,13 +858,32 @@ describe('an import session of visits', () => {
     await toMoreDetailsSubstep()
     await openMore('DONA_01', /^Camera/)
     expect(screen.getByLabelText('Camera model')).toHaveValue('Reconyx HC600')
-    // what the field sheet says is shown, not edited, until it is filled in by hand — which keeps the values
-    expect(screen.getByRole('radio', { name: 'What the field sheet says (DONA_01)' })).toBeChecked()
-    expect(screen.getByRole('radio', { name: 'What the previous deployment says (DONA_01)' })).toBeDisabled()
+    // what the visit says is shown, not edited, until Edit details unlocks it — which keeps the values
+    const card = screen.getByRole('region', { name: 'Pre-filled details' })
+    expect(card).toHaveTextContent('Locked · Visit R0002')
+    expect(within(card).queryByText(/Previous deployment:/)).not.toBeInTheDocument()
     expect(screen.getByLabelText('Camera model')).toBeDisabled()
-    await userEvent.click(screen.getByRole('radio', { name: 'Fill in by hand (DONA_01)' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
     expect(screen.getByLabelText('Camera model')).toBeEnabled()
     expect(screen.getByLabelText('Camera model')).toHaveValue('Reconyx HC600')
+  })
+
+  it('pre-fills the details of each deployment with what its previous deployment says, overwritten with what its visit says', async () => {
+    mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': {
+      revision: 1, deployment_id: 'R0001-DONA_01',
+      deployment: { ...EMPTY_DEPLOYMENT_FIELDS, deployment_id: 'R0001-DONA_01', location_id: 'DONA_01', latitude: 1, longitude: 2, habitat: 'Pine forest', setup_by: 'Old team', camera_model: 'Old model' },
+    } } })
+    await toTheFolders()
+    await next() // images → dates
+    await toMoreDetailsSubstep()
+    await openMore('DONA_01', /^Site/)
+
+    const card = await screen.findByRole('region', { name: 'Pre-filled details' })
+    await waitFor(() => expect(card).toHaveTextContent('Locked · Previous deployment (R0001-DONA_01) & Visit R0002'))
+    expect(card).toHaveTextContent('Data comes from previous deployment R0001-DONA_01 and field work visit R0002')
+    await waitFor(() => expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest'))       // what the visit does not say: the previous deployment's
+    await waitFor(() => expect(screen.getByLabelText('Set up by')).toHaveValue('Ana'))             // the visit overwrites it (Old team)
+    expect(screen.getByLabelText('Habitat')).toBeDisabled()
   })
 
   it('adds the checks against the visit, runs them with what each visit says, and links the visits once they are imported', async () => {
