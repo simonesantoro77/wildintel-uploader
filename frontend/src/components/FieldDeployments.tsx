@@ -34,7 +34,7 @@ const STATE_NAME: Record<string, string> = { planned: 'planned', done: 'done', f
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** The deployments the visits of a research project say, as a book: a square for each revision (collection), the status squares of the one picked, and a table — the one a link of the visit book goes to is highlighted. */
-export default function FieldDeployments({ deployments: every, onShowSd, onShowLocation, onShowUploads, onShowStatistics, highlight, initialFilter = '', onShowVisit, loadDetails, onUpload, onCreate, loadVisits, sdCards, researchProjectId, helpOpen = false, onCloseHelp }: {
+export default function FieldDeployments({ deployments: every, onShowSd, onShowLocation, onShowUploads, onShowStatistics, highlight, initialFilter = '', onShowVisit, loadDetails, onUpload, onUploadMany, onCreate, loadVisits, sdCards, researchProjectId, helpOpen = false, onCloseHelp }: {
   /** The help and the legend are open: the panel that says them is this component's, as it knows the states. */
   helpOpen?: boolean
   onCloseHelp?: () => void
@@ -51,6 +51,8 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   loadDetails?: (deploymentId: string) => Promise<DeploymentFields | null>
   /** Goes to upload the deployment — its revision is what the upload page starts from. */
   onUpload?: (deployment: FieldDeployment) => void
+  /** Goes to upload the deployments ticked — all of one revision. */
+  onUploadMany?: (deployments: FieldDeployment[]) => void
   /** Goes to create the deployment — to import its images — of one that is planned and whose card was already collected. */
   onCreate?: (deployment: FieldDeployment) => void
   /** Reads the visit that left the camera of a deployment, and the one that collected its card when there is one: the link of the visit opens them in a panel. */
@@ -122,6 +124,14 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
   const current = Math.min(page, pages)
   const onPage = shown.slice((current - 1) * perPage, current * perPage)
   const count = (f: Filter) => inRevision.filter((d) => matches(d, f)).length
+  // The deployments ticked, to upload them all: each one created, with its upload to Trapper still to do, and all of one revision.
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const pickedDeployments = deployments.filter((d) => picked.has(d.deployment_id))
+  const uploadable = (d: FieldDeployment) => phaseOf(d) === 'created' && statesOf(d).some((u) => u.destination === 'trapper' && u.state !== 'done')
+  const canUploadPicked = pickedDeployments.length > 0 && pickedDeployments.every(uploadable) && new Set(pickedDeployments.map((d) => d.collection)).size === 1
+  const togglePicked = (id: string) => setPicked((p) => { const next = new Set(p); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  const pagePicked = onPage.length > 0 && onPage.every((d) => picked.has(d.deployment_id))
+  const togglePage = () => setPicked((p) => { const next = new Set(p); for (const d of onPage) { if (pagePicked) next.delete(d.deployment_id); else next.add(d.deployment_id) } return next })
 
   // the one a link of the visit book goes to is brought into view, on its revision and on its page
   const marked = useRef<HTMLTableRowElement | null>(null)
@@ -288,17 +298,33 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
             )}
             {view !== 'search' && (<ActiveFilters filters={[{ label: `Revision: ${revision || 'All'}`, tone: 'blue' }, { label: `Status: ${filter ? SQUARES.find((q) => q.filter === filter)?.label : 'All'}`, tone: 'green' }]} summary={`${shown.length} of ${deployments.length} deployments match`} />)}
 
+            {view === 'table' && picked.size > 0 && (
+              <div role="group" aria-label="Action on the selected deployments" className="m-3 flex flex-wrap items-center gap-3 rounded-xl border border-blue-300 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 text-sm">
+                <span role="status" className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white">{picked.size} selected</span>
+                {picked.size < shown.length && (
+                  <button type="button" className="text-blue-700 dark:text-blue-300 underline hover:no-underline" onClick={() => setPicked(new Set(shown.map((d) => d.deployment_id)))}>Select all {shown.length} matching</button>
+                )}
+                <button type="button" className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setPicked(new Set())}>Clear</button>
+                <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!canUploadPicked || !onUploadMany} title={canUploadPicked ? 'Upload the selected deployments' : 'Only deployments that are created and not yet on Trapper, all of one revision, can be uploaded.'} onClick={() => onUploadMany?.(pickedDeployments)}>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICON_PATHS.upload}</svg>Upload deployments
+                </button>
+              </div>
+            )}
             {view === 'table' && (
             <div className="overflow-x-auto">
               <table className={TABLE.table} aria-label="Deployments">
                 <thead className={TABLE.head}>
-                  <tr>{['Deployment', 'Visit', 'SD and photos', 'Creation', 'Upload'].map((h) => <th key={h} scope="col" className={TABLE.th}>{h}</th>)}<th scope="col" className="px-4 py-3"><span className="sr-only">What to do</span></th></tr>
+                  <tr><th scope="col" className="w-10 pl-4 py-3"><input type="checkbox" aria-label="Select all the deployments of the page" checked={pagePicked} ref={(el) => { if (el) el.indeterminate = !pagePicked && onPage.some((d) => picked.has(d.deployment_id)) }} onChange={togglePage} /></th>{['Deployment', 'Visit', 'SD and photos', 'Creation', 'Upload'].map((h) => <th key={h} scope="col" className={TABLE.th}>{h}</th>)}<th scope="col" className="px-4 py-3"><span className="sr-only">What to do</span></th></tr>
                 </thead>
                 <tbody className={TABLE.body}>
                   {onPage.map((d) => (
                     <Fragment key={d.deployment_id}>
                     <tr ref={d.deployment_id === focus ? marked : undefined} aria-current={d.deployment_id === focus ? 'true' : undefined} className={d.deployment_id === focus ? 'row-flash bg-blue-100/80 dark:bg-blue-950/50 transition-colors' : TABLE.row(false)}>
-                      <td className={`${TABLE.cell} border-l-4 font-mono text-xs font-semibold ${d.deployment_id === focus ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+                      <td className={`border-l-4 pl-3 py-3 ${d.deployment_id === focus ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+                        <input type="checkbox" aria-label={`Select the deployment ${d.deployment_id}`} checked={picked.has(d.deployment_id)} onChange={() => togglePicked(d.deployment_id)} />
+                      </td>
+                      <td className={`${TABLE.cell} font-mono text-xs font-semibold`}>
                         {d.deployment_id === focus && <svg data-marker aria-hidden="true" viewBox="0 0 24 24" className="mr-1 inline-block h-4 w-4 -translate-y-px fill-none stroke-blue-600 dark:stroke-sky-400" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 5l8 7-8 7" /></svg>}
                         {d.deployment_id}
                       </td>
@@ -326,7 +352,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
                     </tr>
                     </Fragment>
                   ))}
-                  {shown.length === 0 && <tr><td colSpan={6} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No deployment matches.</td></tr>}
+                  {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No deployment matches.</td></tr>}
                 </tbody>
               </table>
             </div>
