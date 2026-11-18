@@ -1633,6 +1633,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [resultsDone, setResultsDone] = useState(false)
   const [preprocessError, setPreprocessError] = useState<string | null>(null)
   const [preprocessed, setPreprocessed] = useState<ImportEvent | null>(null)
+  const [savedOpen, setSavedOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [events, setEvents] = useState<ImportEvent[]>([])
   const [importError, setImportError] = useState<string | null>(null)
@@ -2414,7 +2415,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   }
 
   function handleStartOver() {
-    setStep(0); setImagesOpen(1); setImagesReached(1); setOriginOpen(1); setOriginReached(1)
+    setSavedOpen(false); setStep(0); setImagesOpen(1); setImagesReached(1); setOriginOpen(1); setOriginReached(1)
     setSourceDir(''); setScan(null); setScanError(null); setValidation(null); setValidationError(null)
     setGuess(null); guessedFor.current = null; sourcePicked.current = false; setDateSource(undefined)
     setImageChecks(new Set(['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates'])); setRequiredImageChecks(new Set())
@@ -3308,9 +3309,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               )}
             </WizardStep>
 
-            <WizardStep n={3} title="Save to your collection" status={destDir ? 'locked' : prepStatus2} canEdit={false} onEdit={() => {}} badge={importing ? 'Saving…' : undefined}
-                        summary={destDir ? <>{deployment.deployment_id} saved in your collection</> : undefined}
-                        description={destDir ? 'Locked: the deployment is saved and sealed.' : 'Available once the images are prepared.'}>
+            <WizardStep n={3} title="Review and save" status={destDir ? 'open' : prepStatus2} canEdit={false} onEdit={() => {}} badge={importing ? 'Saving…' : undefined}
+                        description={destDir ? 'What was saved, and what to do with it.' : 'Available once the images are prepared.'}>
+              {!destDir && (
+              <>
               <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4">
                 Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to Trapper yet.
               </p>
@@ -3352,9 +3354,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   </button>
                 </div>
               )}
-            </WizardStep>
-            <WizardStep n={4} title="Review and upload" status={destDir ? 'open' : 'locked'} canEdit={false} onEdit={() => {}}
-                        description="What was saved, and what to do with it.">
+              </>
+              )}
               {destDir && (
                 <div className="space-y-4">
                   <div role="status" className="rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
@@ -3366,11 +3367,13 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   </div>
 
                   <section aria-label="What was saved" className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5">
-                    <h6 className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100">
-                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 3v5h7V3M7 21v-7h10v7" /></svg>
+                    <button type="button" aria-expanded={savedOpen} onClick={() => setSavedOpen((o) => !o)}
+                            className={`flex w-full items-center gap-2 text-left text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100 ${savedOpen ? 'border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4' : ''}`}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
                       What was saved
-                    </h6>
-                    {(() => {
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className={`ml-auto h-4 w-4 fill-none stroke-current transition-transform ${savedOpen ? '' : '-rotate-90'}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {savedOpen && (() => {
                       const done = preprocessed?.type === 'done' ? preprocessed : null
                       const did = [effectivePreprocessSteps.has('rename') && 'renamed', effectivePreprocessSteps.has('resize') && 'resized', effectivePreprocessSteps.has('metadata') && 'tagged'].filter(Boolean) as string[]
                       const path = plannedCollection ? `${plannedCollection.path}/${deployment.deployment_id}` : destDir

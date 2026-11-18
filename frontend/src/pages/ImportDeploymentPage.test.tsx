@@ -291,7 +291,7 @@ async function runPreprocessingAndContinue() {
 async function advanceToImportStep() {
   await advanceToPreprocessing()
   await runPreprocessingAndContinue()
-  await screen.findByText('Save to your collection', { selector: 'h4' })
+  await screen.findByText('Review and save', { selector: 'h4' })
 }
 
 /** Everything up to the import step. */
@@ -333,7 +333,7 @@ describe('ImportDeploymentPage', () => {
     expect(await screen.findByText('Processing steps', { selector: 'h4' })).toBeInTheDocument() // the list of what is done to the images
 
     await runPreprocessingAndContinue()
-    expect(await screen.findByText('Save to your collection', { selector: 'h4' })).toBeInTheDocument()
+    expect(await screen.findByText('Review and save', { selector: 'h4' })).toBeInTheDocument()
   })
 
   it('has no new-or-existing question and no destination to choose: the deployment is always a new one, kept locally', async () => {
@@ -2054,6 +2054,8 @@ describe('ImportDeploymentPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
+      expect(screen.getByRole('button', { name: 'What was saved' })).toHaveAttribute('aria-expanded', 'false')   // collapsed
+      await userEvent.click(screen.getByRole('button', { name: 'What was saved' }))
       await userEvent.click(screen.getByRole('button', { name: 'Open folder' }))
       expect(mockedApi.openFolder).toHaveBeenCalledWith(`${COLLECTIONS_DIR}/R0001-DONA_01`)
     })
@@ -2153,7 +2155,7 @@ describe('ImportDeploymentPage', () => {
       for (const name of ['Rename the images', 'Resize the images', 'Add metadata']) await userEvent.click(screen.getByRole('checkbox', { name }))
 
       await runPreprocessingAndContinue()
-      expect(await screen.findByText('Save to your collection', { selector: 'h4' })).toBeInTheDocument()
+      expect(await screen.findByText('Review and save', { selector: 'h4' })).toBeInTheDocument()
       expect(mockedApi.preprocess.mock.calls[0][4]).toEqual(expect.objectContaining({ rename: false, resize: false, metadata: false }))
     })
 
@@ -2163,7 +2165,7 @@ describe('ImportDeploymentPage', () => {
       expect(screen.queryByRole('button', { name: 'Save to my collection' })).not.toBeInTheDocument()   // it is under the notice of the last step, which opens once the images are prepared
 
       await runPreprocessingAndContinue()
-      await screen.findByText('Save to your collection', { selector: 'h4' })
+      await screen.findByText('Review and save', { selector: 'h4' })
       expect(screen.getByRole('button', { name: 'Save to my collection' })).toBeInTheDocument()
 
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
@@ -2240,6 +2242,7 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getByText(/is now in your local collection/)).toBeInTheDocument()
       // the card of what was saved: where it is, with the buttons to copy its path and open it, and that it is not on Trapper yet
       expect(screen.getByText('Not uploaded yet')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'What was saved' }))
       expect(screen.getByRole('button', { name: 'Copy path' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Open folder' })).toBeInTheDocument()
       expect(screen.queryByText('Saving seals the deployment')).not.toBeInTheDocument()   // said before saving, not after
@@ -2341,8 +2344,9 @@ describe('ImportDeploymentPage', () => {
 
       const next = within(screen.getByRole('group', { name: 'What next' }))
       expect(next.getAllByRole('button').map((b) => b.textContent)).toEqual(['Upload to Trapper', 'Add another deployment', '← Deployments menu', '← Main menu'])
-      expect(screen.getByText('Review and upload', { selector: 'h3, h4, h5, span, p' })).toBeInTheDocument()   // the step that holds what was saved and what to do next
-      expect(screen.getAllByText('Locked: the deployment is saved and sealed.')).toHaveLength(3)   // the three steps before it are locked once it is saved
+      expect(screen.getByText('Review and save', { selector: 'h3, h4, h5, span, p' })).toBeInTheDocument()   // the same step, that now holds what was saved and what to do next
+      expect(screen.queryByText('Review and upload')).not.toBeInTheDocument()
+      expect(screen.getAllByText('Locked: the deployment is saved and sealed.')).toHaveLength(2)   // the two steps before it are locked once it is saved
       await userEvent.click(next.getByRole('button', { name: 'Main menu' }))
       expect(onMainMenu).toHaveBeenCalledTimes(1)
       await userEvent.click(next.getByRole('button', { name: 'Deployments menu' }))
