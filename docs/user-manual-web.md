@@ -27,7 +27,7 @@ first. Part of what the web app does can also be done from a terminal: see the
 [Install](user-manual.md#1-installation) the app and run it with no arguments. It starts a small server on your computer
 and opens the app in your default browser (<http://127.0.0.1:8769>, or the next free port). **Keep the window it
 opened until you finish** — closing it stops the app. Everything stays on your machine: the only thing the app talks to is
-the Trapper server you configure. The welcome screen says what it does; press **Get Started**.
+the Trapper server you configure. The welcome screen says what it does. With **no research project** it has one button, **Get started**, that goes straight to the initial setup; with one, it has **Continue with** the default research project — the menu, or the runs that were left unfinished — with an arrow at its right that lists the research projects, to **pick another** to go on with (it becomes the default one), and, beside it, **+ Create a new research project**, which starts the initial setup.
 
 ![Welcome](img/screenshots/welcome.png)
 

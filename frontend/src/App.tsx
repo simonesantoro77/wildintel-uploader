@@ -99,7 +99,12 @@ export default function App() {
     setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setUtilStart(undefined); setRegisterFirst(false); setHome(false); setMenuShown(true)
   }
 
-  /** Get started: with no research project there is nothing to work on, so the initial setup comes first; otherwise the menu, or the runs that were left unfinished. */
+  /** A new research project: the initial setup. */
+  function startSetup() {
+    setHome(false); setUtilStart('setup'); setMenuShown(true); setTask('utils')
+  }
+
+  /** Go on with the research project that there is: the menu, or the runs that were left unfinished — and with none, the initial setup comes first. */
   async function start() {
     let none = false
     try { none = (await api.listResearchProjects()).results.length === 0 } catch { /* it cannot be told: the menu */ }
@@ -189,7 +194,7 @@ export default function App() {
                 )
                 : menuShown
                   ? <MenuPage onChoose={(t) => { setClosedVisitTarget(null); setUploadTarget(null); setUploadsView(null); setDeploymentsView(null); setDeploymentFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setTask(t) }} />
-                  : <WelcomePage onStart={() => void start()} />}
+                  : <WelcomePage onStart={() => void start()} onNewProject={startSetup} />}
         </div>
       </main>
       <Footer />
