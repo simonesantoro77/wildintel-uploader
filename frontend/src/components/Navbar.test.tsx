@@ -17,6 +17,13 @@ describe('Navbar', () => {
     expect(onHome).toHaveBeenCalledTimes(1)
   })
 
+  it('has the logo — the lynx, which goes home — at the left of the title', () => {
+    render(<Navbar version="0.1.0" onHome={() => {}} onOpenSettings={() => {}} settingsOpen={false} />)
+
+    const home = screen.getByRole('button', { name: 'Go to the welcome screen' })
+    expect(home.querySelector('img')).toHaveAttribute('src', '/logo.svg')
+  })
+
   it('shows the title as the way home even without a version', async () => {
     const onHome = vi.fn()
     render(<Navbar version={null} onHome={onHome} onOpenSettings={() => {}} settingsOpen={false} />)

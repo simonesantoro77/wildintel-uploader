@@ -12,7 +12,7 @@ theme:
   name: material
   language: en
   logo: img/wildIntel_logo.webp
-  favicon: img/wildIntel_logo.webp
+  favicon: img/wildintel-uploader-icon.png
 
   palette:
     - scheme: default
