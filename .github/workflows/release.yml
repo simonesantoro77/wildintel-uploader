@@ -161,7 +161,7 @@ jobs:
           chmod +x AppDir/AppRun
           printf '[Desktop Entry]\nType=Application\nName=WildINTEL Uploader\nExec=wildintel-uploader\nIcon=wildintel-uploader\nTerminal=true\nCategories=Science;\n' \
             > AppDir/wildintel-uploader.desktop
-          cp docs/img/WildINTEL_onlyCircle_25.png AppDir/wildintel-uploader.png
+          cp docs/img/wildintel-uploader-icon.png AppDir/wildintel-uploader.png
 
           ARCH=x86_64 ./appimagetool AppDir/ "dist/wildintel-uploader-${VERSION}-linux-x86_64.AppImage"
 
