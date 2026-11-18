@@ -573,7 +573,7 @@ export const ORIGIN_SOURCE_OPTIONS: Option<OriginSource>[] = [
 ]
 
 /** The postvalidation checks that must pass by default: photos outside the dates of the deployment are an error, not a warning — the user can set it to Warn. */
-export const DEFAULT_REQUIRED_DEPLOYMENT_CHECKS: DeploymentCheck[] = ['time_range']
+export const DEFAULT_REQUIRED_DEPLOYMENT_CHECKS: DeploymentCheck[] = ['time_range', 'sd_card']
 
 export const IMAGE_CHECK_OPTIONS: { value: ImageCheck; label: string }[] = [
   { value: 'corrupted', label: 'Corrupted images' },

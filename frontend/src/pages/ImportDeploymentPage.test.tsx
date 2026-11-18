@@ -92,10 +92,13 @@ const closedVisitOf = (locationId: string) => ({
   end: storedVisit({ location_id: locationId, session: `R${String(visitRevision + 1).padStart(4, '0')}`, date: '2024-11-04', time: '14:28:00', actions: ['Revision'], num_photos: 12 }),
 })
 
+/** The card of the visit is the one the images say — what the check of the card answers, which is required by default. */
+const SD_OK = { sd_card: { ok: true, message: 'The card is the one the visit left.' } }
+
 beforeEach(() => {
   vi.clearAllMocks()
   visitRevision = 1
-  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [] })
+  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [] })
   storedProjects = []
   storedLocations = {}
   pageProps = {}
@@ -750,7 +753,7 @@ describe('ImportDeploymentPage', () => {
         })
 
         it('sends what was not said as nothing, for the checks to say they cannot check it', async () => {
-          mockedApi.validateDeployment.mockResolvedValue({ checked_count: 12 })
+          mockedApi.validateDeployment.mockResolvedValue({ checked_count: 12, ...SD_OK })
           await toTheChecks(null, null)
 
           await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
@@ -1553,7 +1556,7 @@ describe('ImportDeploymentPage', () => {
     })
 
     it('has a section to choose the checks and another for how they went, under the summary of the details and the title', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...NAMES_OK })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, ...NAMES_OK })
       await goToPostvalidation('1')
 
       expect(screen.getByText('Check the details', { selector: 'h4' })).toBeInTheDocument()
@@ -1567,7 +1570,7 @@ describe('ImportDeploymentPage', () => {
     })
 
     it('runs the checks with what the wizard knows of the deployment: its collection, its location and the tolerance', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...NAMES_OK })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, ...NAMES_OK })
       await goToPostvalidation('1')
 
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
@@ -1590,6 +1593,7 @@ describe('ImportDeploymentPage', () => {
 
     it('shows what each naming check found, and why one failed', async () => {
       mockedApi.validateDeployment.mockResolvedValue({
+        ...SD_OK,
         checked_count: 2, ...NAMES_OK,
         location: { ok: false, message: "The deployment id's location is 'DONA_02', but the location chosen is DONA_01." },
       })
@@ -1602,7 +1606,7 @@ describe('ImportDeploymentPage', () => {
     })
 
     it('is customized in the settings: the wizard has no tolerance field and runs with the one of the settings, one hour by default', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2 })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK })
       await goToPostvalidation()
       expect(screen.queryByLabelText('Tolerance (hours)')).not.toBeInTheDocument()
 
@@ -1615,6 +1619,7 @@ describe('ImportDeploymentPage', () => {
 
     it('says which images fell outside the dates, by which rule, and what was expected', async () => {
       mockedApi.validateDeployment.mockResolvedValue({
+        ...SD_OK,
         checked_count: 20, tolerance_hours: 1,
         out_of_range: [
           { path: 'IMG_0001.jpg', date: '2024-09-04T12:00:00', rule: 'first', expected: '2024-09-04T10:00:00 ± 1h' },
@@ -1633,7 +1638,7 @@ describe('ImportDeploymentPage', () => {
     })
 
     it('offers to fix the dates and times when images fell outside them, and comes back to the checks', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 3, tolerance_hours: 1, out_of_range: [{ path: 'IMG_0001.jpg', date: '2020-01-01T00:00:00', rule: 'first', expected: 'x' }] })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 3, ...SD_OK, tolerance_hours: 1, out_of_range: [{ path: 'IMG_0001.jpg', date: '2020-01-01T00:00:00', rule: 'first', expected: 'x' }] })
       mockedApi.timefixTimeline.mockResolvedValue({ folder: '/photos/card', period: null, tolerance_hours: 1, images: [], segments: [], undated: [], outside: 0, problems: [], ok: true, corrections: [] })
       await goToPostvalidation()
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
@@ -1648,7 +1653,7 @@ describe('ImportDeploymentPage', () => {
     })
 
     it('says so when the first image is at the start, the last at the end and the rest in between', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 3, tolerance_hours: 2, out_of_range: [] })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 3, ...SD_OK, tolerance_hours: 2, out_of_range: [] })
       await goToPostvalidation()
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
@@ -1657,6 +1662,7 @@ describe('ImportDeploymentPage', () => {
 
     it('still reports the camera checks', async () => {
       mockedApi.validateDeployment.mockResolvedValue({
+        ...SD_OK,
         checked_count: 2, camera_mismatches: [{ path: 'b.jpg', detected: 'Bushnell Trophy Cam' }], camera_models_found: ['Bushnell Trophy Cam', 'Reconyx HC600'],
       })
       await goToPostvalidation()
@@ -1666,12 +1672,15 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getByText(/2 distinct camera models found/)).toBeInTheDocument()
     })
 
-    it('has the check of the image dates as Must pass by default: it cannot go on until the dates fit, or it is set to Warn', async () => {
+    it('has the check of the image dates and the one of the SD card as Must pass by default: it cannot go on until the dates fit and the card is the visit\'s, or they are set to Warn', async () => {
       await goToPostvalidation()
       expect(strictness('Image dates fit the deployment', 'Must pass')).toBeChecked()
+      expect(strictness('The SD card is the one the visit left', 'Must pass')).toBeChecked()
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
 
       await chooseDeploymentStrictness(4, 'Warn')
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // the card is still a must
+      await chooseStrictness('The SD card is the one the visit left', 'Warn')
       expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled() // nothing is required then, even before running the checks
     })
 
@@ -1679,7 +1688,7 @@ describe('ImportDeploymentPage', () => {
       ['a naming check', 0, { ...NAMES_OK, deployment_id: { ok: false, message: 'bad id' } }, NAMES_OK, /bad id/],
       ['the image dates', 4, { out_of_range: [{ path: 'a.jpg', date: '2024-08-01T00:00:00', rule: 'first', expected: 'x' }] }, { out_of_range: [] }, /1 image\(s\) outside/],
     ])('blocks continuing until %s, when required, has been run and passes', async (_name, index, failing, passing, message) => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], ...failing })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [], ...failing })
       await goToPostvalidation()
       await chooseDeploymentStrictness(index, 'Must pass')
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
@@ -1688,7 +1697,7 @@ describe('ImportDeploymentPage', () => {
       await screen.findByText(message)
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // run, but it failed
 
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], ...passing })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [], ...passing })
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
     })
@@ -1723,7 +1732,7 @@ describe('ImportDeploymentPage', () => {
       mockedApi.getSettings.mockResolvedValue({ ...APP_SETTINGS, POSTVALIDATION: {
         ...APP_SETTINGS.POSTVALIDATION, sequence_gap_seconds: 90, min_revisions: 3, similarity_method: 'range', image_count_tolerance: 20, sequence_count_tolerance: 30, sequence_length_tolerance: 40,
       } })
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2 })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK })
       await goToPostvalidation()
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
@@ -1739,6 +1748,7 @@ describe('ImportDeploymentPage', () => {
 
     it('shows what each check found, with the value of each previous revision', async () => {
       mockedApi.validateDeployment.mockResolvedValue({
+        ...SD_OK,
         checked_count: 310,
         image_count: stat(),
         sequence_count: stat({ ok: false, message: 'The number of sequences (900) is not similar to the median of the 3 previous revision(s) of DONA_01 (allowed 50–150, ±50%).' }),
@@ -1754,20 +1764,20 @@ describe('ImportDeploymentPage', () => {
     })
 
     it.each([['image_count', 6], ['sequence_count', 7], ['sequence_length', 8]] as const)('blocks continuing when %s is required and not similar', async (key, index) => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], [key]: stat({ ok: false, message: 'it is not similar' }) })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [], [key]: stat({ ok: false, message: 'it is not similar' }) })
       await goToPostvalidation()
       await chooseDeploymentStrictness(index, 'Must pass')
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await screen.findByText(/it is not similar/)
       expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
 
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], [key]: stat() })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [], [key]: stat() })
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
     })
 
     it('a check skipped for lack of history does not block, even when required', async () => {
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, out_of_range: [], image_count: stat({ skipped: true, ok: true, message: 'Not enough history', history: [] }) })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [], image_count: stat({ skipped: true, ok: true, message: 'Not enough history', history: [] }) })
       await goToPostvalidation()
       await chooseDeploymentStrictness(6, 'Must pass')
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
@@ -1892,7 +1902,7 @@ describe('ImportDeploymentPage', () => {
 
     it('shows only the postvalidation checks turned on, and runs only those', async () => {
       mockedApi.getSettings.mockResolvedValue(settings({}, { location: false, camera: false, collection_prefix: false }))
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2 })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK })
       await goToPostvalidation()
 
       await waitFor(() => expect(screen.queryByRole('radiogroup', { name: "How strict: Deployment id's location is the one you chose" })).not.toBeInTheDocument())
@@ -1921,7 +1931,7 @@ describe('ImportDeploymentPage', () => {
 
     it('runs with the tolerance of the setting', async () => {
       mockedApi.getSettings.mockResolvedValue(settings({}, { tolerance_hours: 2.5 }))
-      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2 })
+      mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK })
       await goToPostvalidation()
 
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))

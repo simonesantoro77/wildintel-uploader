@@ -77,7 +77,7 @@ beforeEach(() => {
   mockedApi.listResearchProjects.mockResolvedValue({ results: [DONA] })
   mockedApi.listLocalLocations.mockResolvedValue({ results: [loc('DONA_01'), loc('DONA_02')] })
   mockedApi.writeTimestampLog.mockResolvedValue({ path: '/c/R0003_FileTimestampLog.csv', action: 'added', rows: 1, collection: 'R0003' })
-  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 10, out_of_range: [], deployment_id: { ok: true, message: 'fine' } })
+  mockedApi.validateDeployment.mockResolvedValue({ checked_count: 10, out_of_range: [], deployment_id: { ok: true, message: 'fine' }, sd_card: { ok: true, message: 'fine' } })
   mockedApi.collectionPath.mockResolvedValue({ path: COLLECTION, collection: 'R0003', exists: false, name: null })
   mockedApi.importLocal.mockImplementation(async (_s, _d, _n, deployment, _p, onEvent) => {
     onEvent({ type: 'done', dest_dir: `${COLLECTION}/${deployment.deployment_id}`, processed: 1, skipped: 0 })
