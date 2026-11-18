@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { api } from '../api'
 import ImportSessionPage, { matchLocation } from './ImportSessionPage'
-import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
+import { EMPTY_RESEARCH_PROJECT } from '../types'
 import type { LocalLocation, LocalResearchProject, SessionScan } from '../types'
 import { APP_SETTINGS } from '../test/fixtures'
 
@@ -453,25 +453,6 @@ describe('ImportSessionPage', () => {
     expect(screen.getByText('R0003-DONA_01, R0003-DONA_02', { selector: 'span' })).toBeInTheDocument()
   })
 
-  it('offers to copy every deployment from its previous revision once the revision is known, and copies when asked', async () => {
-    mockedApi.previousDeployments.mockResolvedValue({ results: {
-      'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': previous('R0002-DONA_02', { habitat: 'Oak forest' }),
-    } })
-    await toDetails() // offered with the revision itself
-
-    expect(await screen.findByText(/Revision 1 is on file for DONA_01 and DONA_02/)).toBeInTheDocument()
-    expect(screen.queryByText(/Filled in \d+ of/)).not.toBeInTheDocument() // nothing is copied unasked
-    await userEvent.click(screen.getByRole('button', { name: 'Copy from revision 1' }))
-
-    expect(await screen.findByText(/Filled in 2 of 2 from their previous revision/)).toBeInTheDocument()
-    expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    await toMoreDetailsSubstep()
-    await openMore('DONA_01', /^Site/)
-    expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-    await openMore('DONA_02', /^Site/)
-    expect(screen.getByLabelText('Habitat')).toHaveValue('Oak forest')
-  })
-
   describe('Epicollect5', () => {
     const ENTRY = { uuid: 'u1', title: 'DONA_01', created_at: '2026-10-01T10:00:00.000Z', fields: { habitat: 'Pine forest', setup_by: 'Ana' } }
     const on = () => mockedApi.getSettings.mockResolvedValue({ ...APP_SETTINGS, EPICOLLECT5: { ...APP_SETTINGS.EPICOLLECT5, enabled: true } })
@@ -502,39 +483,23 @@ describe('ImportSessionPage', () => {
       expect(onOpenSettings).toHaveBeenCalledWith('epicollect')
     })
 
-    it('does not warn of the lack of entries while a previous revision can be copied from', async () => {
-      on()
-      mockedApi.epicollectEntriesBatch.mockResolvedValue({ results: { DONA_01: null, DONA_02: null } })
-      mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': previous('R0002-DONA_01'), 'R0003-DONA_02': null } })
-      await toDetails()
-
-      expect(await screen.findByRole('button', { name: 'Copy from revision 1' })).toBeInTheDocument()
-      await waitFor(() => expect(mockedApi.epicollectEntriesBatch).toHaveBeenCalled())
-      expect(screen.queryByText(/Epicollect5 has no entry/)).not.toBeInTheDocument()
-    })
-
-    it('lets the dates be edited only when the source is manual', async () => {
+    it('keeps the dates of the visits locked until Edit dates, and gives them back with Restore', async () => {
       await toDetails()
       expect(screen.queryByLabelText('Start')).not.toBeInTheDocument()
-      await userEvent.click(screen.getByRole('radio', { name: 'Manual entry' }))
+      expect(screen.getByText(/Locked · Field work \(R0003 → R0004\)/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Edit dates' }))
+
       expect(screen.getByLabelText('Start')).toBeInTheDocument()
+      expect(screen.getByText(/Unlocked · Custom override/)).toBeInTheDocument()
+      expect(screen.queryByText(/Quick fill from detected sources/)).not.toBeInTheDocument()   // the dates are the visits' or what is typed
+      fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-10-05T10:00' } })
+      expect(screen.getByLabelText('Start')).toHaveValue('2026-10-05T10:00')
+      await userEvent.click(screen.getByRole('button', { name: 'Restore from Visits of the field work' }))
+      expect(screen.getByLabelText('Start')).toHaveValue('2026-10-02T08:00')
+      await userEvent.click(screen.getByRole('button', { name: 'Apply changes' }))
+      expect(screen.queryByLabelText('Start')).not.toBeInTheDocument()
     })
 
-  })
-
-  it('copies only what is on file, and what is typed afterwards is kept', async () => {
-    mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': null } })
-    await toMoreDetails()
-    await userEvent.click(await screen.findByRole('button', { name: 'Copy from revision 1' }))
-    await screen.findByText('Filled in from R0002-DONA_01.')
-    await openMore('DONA_01', /^Site/)
-    fireEvent.change(screen.getByLabelText('Habitat'), { target: { value: 'My own habitat' } })
-    await openMore('DONA_02')
-    await openMore('DONA_01')
-
-    await waitFor(() => expect(mockedApi.previousDeployments).toHaveBeenCalledTimes(1))
-    await openMore('DONA_01', /^Site/)
-    expect(screen.getByLabelText('Habitat')).toHaveValue('My own habitat')
   })
 
   it('says in the postvalidation that some checks are customized in the settings, and has no fields for them', async () => {
@@ -660,15 +625,6 @@ describe('ImportSessionPage', () => {
     expect(mockedApi.importLocal.mock.calls[1][3].setup_by).toBe('Ana') // each deployment has its own: the one the visit says
   })
 
-  const previous = (id: string, over: Record<string, unknown> = {}) => ({
-    revision: 1, deployment_id: id,
-    deployment: {
-      ...EMPTY_DEPLOYMENT_FIELDS, deployment_id: id, location_id: 'X', latitude: 1, longitude: 2,
-      start_date: '2024-01-01T00:00:00+01:00', end_date: '2024-02-01T00:00:00+01:00',
-      habitat: 'Pine forest', setup_by: 'Ana', comments: 'Near the pond', camera_height: 1.2, tags: ['forest'], timestamp_issues: true, ...over,
-    },
-  })
-
   it('does not offer to fill in from a previous revision once it is known there is none', async () => {
     mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0003-DONA_01': null, 'R0003-DONA_02': null } })
     await toDetails()
@@ -676,21 +632,6 @@ describe('ImportSessionPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Fill from the previous revision' })).not.toBeInTheDocument()
-  })
-
-  it('fills all the deployments at once, each from its own previous revision', async () => {
-    mockedApi.previousDeployments.mockResolvedValue({ results: {
-      'R0003-DONA_01': previous('R0002-DONA_01', { habitat: 'Pine forest' }), 'R0003-DONA_02': null,
-    } })
-    await toMoreDetails()
-    await userEvent.click(await screen.findByRole('button', { name: /Copy from revision/ }))
-
-    expect(await screen.findByText('Filled in from R0002-DONA_01.')).toBeInTheDocument()
-    expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0003-DONA_01', 'R0003-DONA_02'])
-    await openMore('DONA_01', /^Site/)
-    expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-    await openMore('DONA_02', /^Site/)
-    expect(screen.getByLabelText('Habitat')).toHaveValue('') // nothing filled in
   })
 
 })
@@ -911,7 +852,7 @@ describe('an import session of visits', () => {
     expect(screen.getAllByText('R0002-DONA_01').length).toBeGreaterThan(0) // the id the revision gives the deployment
     expect(screen.queryByText('Where were they taken?')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Location of DONA_01')).not.toBeInTheDocument()
-    expect(await screen.findByRole('radio', { name: /Visits of the field work/ })).toBeChecked()
+    expect(await screen.findByText(/Locked · Field work \(R0002 → R0003\)/)).toBeInTheDocument()   // the dates are the visits', locked
     expect(screen.getAllByText(/From the visits/).length).toBeGreaterThan(0) // what each row says its dates come from
     await toMoreDetailsSubstep()
     await openMore('DONA_01', /^Camera/)

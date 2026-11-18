@@ -27,10 +27,10 @@ import type { Option } from '../components/OptionCards'
 import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import type { ClosedVisit, ClosedVisitTarget, FieldworkVisits, LogEntry, SdCard, StoredVisit } from '../types'
 import { applyEntry, entryLabel, entryPeriod } from '../epicollectImport'
-import DateSourcePicker from '../components/DateSourcePicker'
+import RecordingPeriod from '../components/RecordingPeriod'
 import TimeFixPage from './TimeFixPage'
 import Notice, { BadgeIcon, Mark, mark, StatusIcon } from '../components/Notice'
-import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
+import type { DateSource, Period } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
 import { shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
@@ -2281,13 +2281,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     setEpicollectMessage({ kind: 'info', text: `Filled in from “${entryLabel(entry)}” — check the camera, site and notes in More details.` })
   }
 
-  function handleFillFromPrevious() {
-    if (!previousRevision) return
-    setDeployment((d) => fillFromPreviousRevision(d, previousRevision.deployment))
-    setFilledFrom(previousRevision.deployment_id)
-    setDetailsPick('previous')
-  }
-
   // The research projects kept in the collections folder — read each time the origin step is shown.
   useEffect(() => {
     if (stepKey !== 'origin') return
@@ -2904,7 +2897,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                       summary={deployment.start_date && <>{deployment.deployment_id}<br />{formatLocal(deployment.start_date, timezone)} → {deployment.end_date ? formatLocal(deployment.end_date, timezone) : '…'}</>}>
             {guessing && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">Reading the dates and the camera from the images…</p>}
               {/* With a visit chosen the revision, and so the id of the deployment, are the visit's: nothing is asked, and the card is only there for what has to be said */}
-              {(!linkedVisit || previousRevision || (epicollectEntry && !epicollectImported) || (epicollectDone && epicollectMissing !== null && !epicollectMessage) || epicollectMessage || existingFolder || fieldErrors.deployment_id) && (
+              {(!linkedVisit || (epicollectEntry && !epicollectImported) || (epicollectDone && epicollectMissing !== null && !epicollectMessage) || epicollectMessage || existingFolder || fieldErrors.deployment_id) && (
               <FormCard title={linkedVisit ? undefined : 'Which revision is this?'}>
                 {!linkedVisit && <div className="flex items-end gap-6 flex-wrap">
                   <div>
@@ -2933,17 +2926,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 {revision.trim() !== '' && !revisionValid && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Must be a whole number between 1 and 9999.</p>}
                 {fieldErrors.deployment_id && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.deployment_id}</p>}
                 {!linkedVisit && <p className={hintClass}>{`1 for the first visit to this location, 2 for the second, and so on.${revisionHint ? ` ${revisionHint}` : ''}`}</p>}
-                {previousRevision && (
-                  <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
-                    <span className="flex-1 min-w-[14rem]">
-                      Revision {previousRevision.revision} is on file for <strong>{deployment.location_id}</strong> (<span className="font-mono">{previousRevision.deployment_id}</span>).
-                      Copy its camera, site and notes? Dates are never copied — each revision has its own.
-                      {filledFrom && <span role="status" className="block mt-1 text-xs text-blue-800 dark:text-blue-300">Filled in from {filledFrom} — check the camera, site and notes in More details.</span>}
-                    </span>
-                    <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
-                  </div>
-                )}
                 {epicollectEntry && !epicollectImported && (
                   <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
@@ -2976,20 +2958,11 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               </FormCard>
               )}
 
-              <FormCard title="Period">
-                <DateSourcePicker
-                  name={deployment.deployment_id || 'deployment'} value={dateSource} onPick={pickSource} start={deployment.start_date || null} end={deployment.end_date ?? null} timezone={timezone}
-                  options={[
-                    ...(linkedVisit ? [{ source: 'visit' as const, title: 'Visits of the field work', period: periodOf('visit'),
-                      hint: `From the visit ${linkedVisit.visit.session} (${formatVisitWhen(linkedVisit.visit)}), where the card was left, to ${linkedVisit.end.session} (${formatVisitWhen(linkedVisit.end)}), where it was collected — in the timezone of the location. You can change the dates here; the visits are not changed.` }] : []),
-                    ...(logEntry?.timestamps ? [{ source: 'log' as const, title: 'Log files', period: periodOf('log'),
-                      hint: `From the FileTimestampLog of ${logEntry.collection}, which has a row for ${deployment.deployment_id}: the camera's wall-clock time, in the timezone of the location.` }] : []),
-                    { source: 'exif', title: 'Camera data in the photos', period: periodOf('exif'),
-                      hint: `First and last photo of the deployment.${scan && periodOf('exif') ? ` ${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'photo' : 'photos'}, read from their EXIF data.` : ''}` },
-                    { source: 'manual', title: 'Manual entry', period: null, hint: 'Type the start and the end yourself.' },
-                  ] satisfies SourceOption[]}
-                  manualForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
-              </FormCard>
+              <RecordingPeriod
+                visits={linkedVisit ? { left: linkedVisit.visit.session, collected: linkedVisit.end.session } : null} fromVisits={dateSource === 'visit'}
+                start={deployment.start_date || null} end={deployment.end_date ?? null} timezone={timezone}
+                onEdit={() => pickSource('manual')} onRestore={() => pickSource('visit')}
+                editForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
               <div className="flex justify-between items-center mt-4">
                 <button type="button" className={btnOutline} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
                 <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>

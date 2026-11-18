@@ -591,18 +591,7 @@ deployment is kept, a notice offers to **copy from it** its camera, site and not
 collections folder you are told, and the import would be refused as it would mix two sets of images: choose another revision or location, or move that
 folder away.
 
-Then the **period**: when the camera started and stopped recording, as the clock of the location's timezone. The dates are not typed from scratch — the app looks for
-them in several **sources**, and shows **what each one found** so you can compare them and **pick one**:
-
-| Source | Where the dates come from |
-|---|---|
-| **Visits of the field work** | Only if the deployment is of a visit: from the visit where the card was left to the one where it was collected, in the timezone of the location. You can change the dates here; **the visits (the field sheet) are not changed**. |
-| **Camera data in the photos** | The first and the last photo of the folder: the earliest and the latest capture date in their EXIF data. |
-| **Manual entry** | You type the start and the end yourself. It is the only one that lets you edit them. |
-
-Each option says **Found** — with the start and end it found — or **Nothing found**. Below them, **Recording period** shows the dates taken, which source they are
-**from**, and the **duration**. The app picks for you the first source that has dates: **the visits, then the photos**; by hand only when neither has found anything. A better
-source that turns up later replaces the one taken — until you pick one yourself.
+Then the **period**: when the camera started and stopped recording, as the clock of the location's timezone. **The dates always come from the visits**: from the visit where the card was left to the one where it was collected. The card **Recording period** shows them **locked** — *Locked · Field work (R0002 → R0003)* —, the start and the end each with its visit, the **duration** and the timezone. **Edit dates** unlocks them: the form to type the start and the end appears, marked *Unlocked · Custom override*, with **Cancel**, **Apply changes** and **Restore from Visits of the field work**, which gives the dates of the visits back. The visits are never changed.
 
 If the deployment's collection has a `<COLLECTION>_FileTimestampLog.csv` (the file wildintel-tools asks for), going on from *More details*
 **adds the deployment's row to that file**. A log that is already there is used for the dates in an [*Import deployments*](#7-import-deployments).
@@ -782,20 +771,7 @@ When it ends, **Upload to Trapper** goes to the upload page with the collection 
 
 ![Session — When was each one collected?](img/screenshots/session-details.png)
 
-Each deployment has its own period and its own **source**. Open its row to see what **every source found** for it, as in a
-single deployment, and pick one. There are four, and a session adds the **timestamp log**:
-
-| Source | Where the dates come from |
-|---|---|
-| **Visits of the field work** | When the deployment is of a visit: from the visit where the card was left to the one where it was collected. You can change the dates; the visits are not changed. |
-| **Timestamp log file** | The row of that deployment in the `<COLLECTION>_FileTimestampLog.csv` found in the session folder — the file wildintel-tools asks for beside a collection's deployments —, with the set-up and pick-up times someone wrote down. The row is found by the folder's name or by the id the log gives (`R0003-DONA_02`). |
-| **Camera data in the photos** | The first and the last photo of that deployment's folder. They are read in the background, a folder after another, so a row may say *Reading the images…* for a moment. |
-| **Manual entry** | You type the start and the end. |
-
-Each deployment takes **the first source that has its dates, in this order: the visits, the timestamp log, the photos** — by
-hand only if none does — and a better one found later replaces it, unless you picked one yourself for that deployment. So in a
-session some deployments may come from the visits, others from the log and others from the photos, each row saying which.
-A notice above the list says how many of the deployments the log gave dates to.
+Each deployment has its own period, **the one its visits say**, in the same card **Recording period**: locked, with **Edit dates** to unlock it, **Cancel**, **Apply changes** and **Restore from Visits of the field work**, as in a single deployment.
 
 ![A deployment whose dates come from the timestamp log](img/screenshots/session-dates-log.png)
 
