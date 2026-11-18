@@ -299,13 +299,14 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
     .filter((w) => !w.not_done && w.location_id.toLowerCase() === v.location_id.toLowerCase() && w.session > v.session)
     .sort((a, b) => a.session.localeCompare(b.session) || `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0]
   // the visit that collected the card of a row — the closest later one that was made: the revisions not made, not visited or unknown say nothing and are left between, as dots —
+  // What the panel of a visit shows: the earlier visit that left the card this one collects — the closest one that was made, when it left a camera — and then this one; the revisions between that say nothing (not made, not visited or unknown) are dots on the line. When the closest earlier visit left no camera (or there is none) there is no card to collect: it is said, and the visit is shown alone.
   const closedOf = (v: BookVisit) => {
-    if (v.deployment_status !== 'closed') return { visit: v, end: null }
-    const later = everyRow.filter((w) => w.location_id.toLowerCase() === v.location_id.toLowerCase() && w.session > v.session).sort((a, b) => a.session.localeCompare(b.session))
-    const end = later.find((w) => !w.not_done && !w.not_visited && !w.unknown)
-    if (!end) return { visit: v, end: null }
+    const earlier = everyRow.filter((w) => w.location_id.toLowerCase() === v.location_id.toLowerCase() && w.session < v.session).sort((a, b) => b.session.localeCompare(a.session))
+    const left = earlier.find((w) => !w.not_done && !w.not_visited && !w.unknown)
+    const leftACamera = left !== undefined && ['deployed', 'collected', 'stolen'].includes(phaseOf(left) ?? '')
+    if (!left || !leftACamera) return { visit: v, end: null, opened: v, noEarlier: true }
     const label = (w: BookVisit) => (w.unknown ? 'Unknown' : w.not_visited ? 'Not visited' : 'Not made')
-    return { visit: v, end, between: later.filter((w) => w.session < end.session).map((w) => ({ session: w.session, label: label(w) })) }
+    return { visit: left, end: v, opened: v, between: earlier.filter((w) => w.session > left.session).sort((a, b) => a.session.localeCompare(b.session)).map((w) => ({ session: w.session, label: label(w) })) }
   }
   // the visit that was made to the same location in the closest revision before the one of a row
   const previousOf = (v: BookVisit) => everyRow
