@@ -272,14 +272,15 @@ Once it is configured, the menu is where you choose what you want to do:
 
 | Task | What it's for |
 |---|---|
-| 📋 **Manage visits** | **Register visits** to the camera traps — who went, when, to which site and what was done — or the **visit dashboard**. The deployments are worked out from the visits. |
-| 📷 **Manage deployments** | **Import deployment** — check one folder of images and organize it in the collections folder —, **Import deployments** — one or several closed visits — or **show the status of the deployments** or their **statistics**. |
-| ☁️ **Manage uploads** | **Upload deployment to Trapper** — send deployments already kept locally — or **show the status of the uploads**: each revision with how many of its deployments are on Trapper, and the deployments still to be uploaded. |
+| 📋 **Register visits** | Record the visits to the camera traps: who went, when, to which site and what was done — one by one, or in batch mode from files. |
+| 📷 **Create deployments** | Import the images collected in a visit: pick the closed visits whose images you have and create their deployments — one, several at once, or one after another. |
+| ☁️ **Upload deployment** | Upload deployments to public repositories: send a deployment already kept locally to a repository, such as Trapper. |
+| 📊 **Dashboards and statistics** | A card, folded away until it is opened, with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on Trapper — and the **statistics**. |
 | 🧰 **Utils** | *Check and fix dates and times* compares the dates of a folder's images with the period of the visit, when the camera clock went wrong, and shifts or removes the ones that cannot be trusted (every fix is written down). Maintenance of the local collections: *Sync local collections* brings the collections folder up to date with what Trapper already has, and *Repair local deployments* checks which deployments are still valid and writes the metadata files of the others again from their folders. |
 
 ![The task menu](img/screenshots/menu.png)
 
-The usual order is **Register visits** first, then **Import** (or **Import deployments**) — which take the location, the camera and the dates from the visits — and then **Upload**. *Sync* is for when
+A bar at the top of the menu shows the **typical workflow**: **Register visits**, then **Create deployments** — which takes the location, the camera and the dates from the visits — and then **Upload deployment**. *Sync* is for when
 Trapper already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this

@@ -1286,3 +1286,7 @@ export interface RevisionCreated {
   planned: string[]
   previous: { session: string; missing: string[] } | null
 }
+
+/** What Import deployments and the deployment pages show, and what the uploads show: the page the menu opened. */
+export type DeploymentsView = 'import' | 'many' | 'status' | 'statistics'
+export type UploadsView = 'upload' | 'status'

@@ -2479,7 +2479,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     )}
     <div className={fixingDates ? 'hidden' : 'mx-auto max-w-[1100px] px-4 py-8'}>
       <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
-        parent="Manage deployments" onParent={onBack} />
+        parent="Menu" onParent={onBack} />
 
       {/* Step indicator */}
       <div className="flex items-start mb-10">
@@ -3424,7 +3424,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                     {((onDeploymentsMenu ?? onBack) || onMainMenu) && (
                       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
                         <span>Or go back to</span>
-                        {(onDeploymentsMenu ?? onBack) && <button type="button" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onDeploymentsMenu ?? onBack}><span aria-hidden="true">← </span>Deployments menu</button>}
+                        {(onDeploymentsMenu ?? onBack) && <button type="button" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onDeploymentsMenu ?? onBack}><span aria-hidden="true">← </span>{onDeploymentsMenu ? 'Deployments menu' : 'Menu'}</button>}
                         {onMainMenu && <button type="button" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onMainMenu}><span aria-hidden="true">← </span>Main menu</button>}
                       </div>
                     )}

@@ -301,7 +301,7 @@ export default function StatisticsPage({ onBack, settingsOpen, focus }: Props) {
         <p className="text-xl font-semibold">Statistics report — {project?.acronym ?? defaultAcronym}{collectionName ? ` · Revision ${collectionName}` : ''}</p>
         <p className="text-xs text-zinc-600">{isolated ? `Figures of ${isolated} alone` : `Figures of the ${all.length} deployments of the revision`} · {formatInstant(new Date().toISOString())} · WildINTEL Uploader</p>
       </div>
-      <div className="print:hidden"><DashboardHeader parent="Manage deployments" onParent={onBack} icon={<path d="M3 3v18h18M7 15l4-4 3 3 5-6" />} title="Statistics" description="Each deployment of a revision against the previous revisions of its location."
+      <div className="print:hidden"><DashboardHeader parent="Menu" onParent={onBack} icon={<path d="M3 3v18h18M7 15l4-4 3 3 5-6" />} title="Statistics" description="Each deployment of a revision against the previous revisions of its location."
         actions={<>
           <HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />
           <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} disabled={!rows || rows.length === 0 || printing} title="Print the report of the revision, or save it as a PDF" onClick={() => setPrinting(true)}>

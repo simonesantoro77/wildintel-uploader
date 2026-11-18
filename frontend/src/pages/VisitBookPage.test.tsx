@@ -384,18 +384,16 @@ describe('VisitBookPage', () => {
     expect(onImportImages).toHaveBeenCalledWith({ researchProjectId: 'TATR', visit: expect.objectContaining({ session: 'R0003', location_id: 'TATR_0001' }) })
   })
 
-  it('says where it hangs from, Manage visits, and goes back there', async () => {
+  it('says where it hangs from, the menu, and goes back there', async () => {
     const onBack = vi.fn()
     const onMenu = vi.fn()
     // The path is said in the header of the application.
     render(<TrailProvider onMenu={onMenu}><Navbar version={null} onHome={vi.fn()} onOpenSettings={vi.fn()} settingsOpen={false} /><VisitBookPage onBack={onBack} onOpenSettings={vi.fn()} /></TrailProvider>)
 
     const here = await screen.findByRole('navigation', { name: 'You are here' })
-    expect(here).toHaveTextContent('Menu›Manage visits›Visit dashboard')
-    await userEvent.click(within(here).getByRole('button', { name: 'Manage visits' }))
-    expect(onBack).toHaveBeenCalled()
+    expect(here).toHaveTextContent('Menu›Visit dashboard')
     await userEvent.click(within(here).getByRole('button', { name: 'Menu' }))
-    expect(onMenu).toHaveBeenCalled()
+    expect(onBack).toHaveBeenCalled()
   })
 
   it('opens on the visit a link of the deployments dashboard goes to: its revision picked and its row the current one', async () => {
