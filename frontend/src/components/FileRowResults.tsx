@@ -5,6 +5,7 @@ import { Icon, StateCard } from './Dashboard'
 import IconButton, { ICON_PATHS } from './IconButton'
 import { plural } from './SessionResults'
 import { formatLocal } from '../dateFormat'
+import SidePanel from './SidePanel'
 
 export interface FileRow {
   row: number
@@ -85,6 +86,8 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
   // The row that is open, and what is shown of it: what it says (its contents) or what is wrong with it (its errors). The first row with errors starts open.
   const [opened, setOpened] = useState<{ row: number; panel: 'contents' | 'errors' } | null>(flagged[0] ? { row: flagged[0].row, panel: 'errors' } : null)
   const [picked, setPicked] = useState<string | null>(null)
+  // the row whose eye was pressed: what it says, and what is wrong with it, in a panel at the right
+  const [side, setSide] = useState<FileRow | null>(null)
   const [sort, setSort] = useState<{ key: SortKey; descending: boolean }>({ key: 'row', descending: false })
 
   const keeps = FILTERS.find((f) => f.value === filter)!.keeps
@@ -218,7 +221,6 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
                 <tbody className={TABLE.body}>
                   {onPage.map((r) => {
                     const panel = opened?.row === r.row ? opened.panel : null
-                    const toggle = (which: 'contents' | 'errors') => setOpened(panel === which ? null : { row: r.row, panel: which })
                     const name = `Row ${r.row}`
                     return (
                       <Fragment key={r.row}>
@@ -239,7 +241,7 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
                           </td>
                           <td className="whitespace-nowrap px-4 py-3">
                             <RowOptions label={`Options of ${name}`}>
-                              <IconButton compact label={`View the contents of ${name}`} title="View what the row says" expanded={panel === 'contents'} onClick={() => toggle('contents')} path={ICON_PATHS.view} />
+                              <IconButton compact label={`View the contents of ${name}`} title="View what the row says" expanded={side?.row === r.row} onClick={() => setSide(r)} path={ICON_PATHS.view} />
                             </RowOptions>
                           </td>
                         </tr>
@@ -287,6 +289,26 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
           </>
         )}
       </TableCard>
+      {side && (
+        <SidePanel label={`Details of row ${side.row}`} title={`Row ${side.row}`} subtitle={[side.session, side.site].filter(Boolean).join(' · ') || undefined} onClose={() => setSide(null)}>
+          {(isFlagged(side) || warned(side)) && (
+            <section aria-label={`Problems of row ${side.row}`} className="mb-4">
+              <h5 className={`mb-2 text-sm font-semibold ${TONES[shownTone(side)].text}`}>{kindOf(side)}</h5>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
+                {(warned(side) ? side.warnings! : [side.message]).map((message, i) => <li key={i}>{message}</li>)}
+              </ul>
+            </section>
+          )}
+          {side.result === 'ok' && side.message && !warned(side) && <p className="mb-3 text-xs text-zinc-600 dark:text-zinc-400">{side.message}</p>}
+          {Object.keys(side.data ?? {}).length > 0 ? (
+            <dl aria-label={`Contents of row ${side.row}`} className="grid grid-cols-1 gap-y-2 text-xs">
+              {Object.entries(side.data!).map(([field, value]) => (
+                <DetailLine key={field} name={labels[field] ?? field} kind="mono">{value}</DetailLine>
+              ))}
+            </dl>
+          ) : <p className="text-sm text-zinc-600 dark:text-zinc-400">The row has no contents.</p>}
+        </SidePanel>
+      )}
     </div>
   )
 }

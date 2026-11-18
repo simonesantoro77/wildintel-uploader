@@ -1144,6 +1144,26 @@ describe('VisitsPage from a CSV file', () => {
     expect(plan).toHaveTextContent('Trappers to createLuis Gómez')
   })
 
+  it('has Check again only while the file is being checked and its result is read — not when the file is just chosen, nor in Review and confirm — and a single Back in the review', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [], create: { locations: [], cameras: [], sd_cards: [], trappers: [] } })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+    expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()      // the file is only chosen: its step is still locked
+
+    await continueFromTheFile()
+    expect(await screen.findByText(/to add/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeEnabled()                  // its result is there to be read
+
+    await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
+    expect(await screen.findByRole('region', { name: 'What is going to be saved' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()      // locked in the review
+    expect(screen.getAllByRole('button', { name: /^Back$/ }).filter((b) => !b.closest('.hidden'))).toHaveLength(1)      // the one of the review: the page's own Back and the shut steps' ones are not shown
+  })
+
   it('shows nothing of the file while it is checked, and the visits are added from a step that says what is going to be done', async () => {
     const answer = { visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [], create: { locations: [], cameras: [{ camera_id: 'C9' }], sd_cards: [], trappers: [] } }
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ ...answer, visits: [], problems: [{ row: 2, message: 'Simone is not one of the trappers.' }] })

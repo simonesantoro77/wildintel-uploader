@@ -34,19 +34,22 @@ describe('FileRowResults', () => {
     expect(screen.getByRole('table', { name: 'Problems of Row 3' })).toHaveTextContent("The actions 'Flying' are not valid.")
   })
 
-  it('has a button to view what a row says and another, only where something is wrong, to view the errors', async () => {
+  it('has an eye in every row that opens a panel at the right with what the row says — and what is wrong with it, when something is', async () => {
     render(<FileRowResults rows={rows} labels={{ camera_model: 'Camera model' }} />)
     expect(screen.queryByRole('button', { name: /^(Show|Hide) the errors of Row 4$/ })).not.toBeInTheDocument()     // a row to add has no errors
     expect(screen.getByRole('button', { name: /^(Show|Hide) the errors of Row 2$/ })).toHaveAttribute('aria-expanded', 'true')   // the first row with errors starts open
 
     await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 4' }))
-    const contents = screen.getByLabelText('Contents of Row 4')
+    const panel = screen.getByRole('dialog', { name: 'Details of row 4' })
+    const contents = within(panel).getByLabelText('Contents of row 4')
     expect(within(contents).getByText('Camera model').closest('div')).toHaveTextContent('Camera modelBrowning')   // named as the field is, or by its key
     expect(within(contents).getByText('actions').closest('div')).toHaveTextContent('actionsInstallation')
-    expect(screen.queryByRole('table', { name: 'Problems of Row 2' })).not.toBeInTheDocument()       // one thing is open at a time
 
-    await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 4' }))
-    expect(screen.queryByLabelText('Contents of Row 4')).not.toBeInTheDocument()
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'View the contents of Row 2' }))       // a row with errors says them in the panel too
+    expect(within(screen.getByRole('dialog', { name: 'Details of row 2' })).getByRole('region', { name: 'Problems of row 2' })).toBeInTheDocument()
   })
 
   it('has a chevron in every row, as the dashboard does, that opens its details and marks the row while they are open', async () => {

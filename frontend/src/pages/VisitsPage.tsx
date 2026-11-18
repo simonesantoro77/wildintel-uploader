@@ -1765,7 +1765,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           )}
 
           <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking || (csvResult && fileConfirmed)) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="What the file says, before it is kept."
-                      action={csvResult && csvSaved == null && (
+                      action={csvResult && csvSaved == null && fileConfirmed && !csvConfirming && (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={rechecking} onClick={() => void recheckCsv()}
                                 title="Check the file again against what is kept now: the visits, the locations and the settings">
                           <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current ${rechecking ? 'animate-spin' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12a8 8 0 11-2.3-5.7M20 4v5h-5" /></svg>
@@ -1992,7 +1992,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       )}
 
       {/* once the visits are kept the step of the end has its own way back: "Or go back to" */}
-      {!justAdded && csvSaved === null && (
+      {!justAdded && csvSaved === null && !csvConfirming && (
         <div className="mt-6">
           <BackButton onClick={onBack} disabled={csvSaving} />
         </div>
