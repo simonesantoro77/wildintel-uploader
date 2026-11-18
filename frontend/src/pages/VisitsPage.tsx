@@ -2,7 +2,8 @@ import { inTheApp } from '../researchProjects'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { Glyph } from '../components/ViewSwitch'
 import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import TimezoneCombobox from '../components/TimezoneCombobox'
 import { api } from '../api'
 import BackButton from '../components/BackButton'
 import PickTable, { LabelFrame, PickedTick } from '../components/PickTable'
@@ -782,10 +783,17 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   // Another way to read the visits starts again from the file.
-  useEffect(() => { forgetCsv(); setCsvName(null); setCsvCreate({ locations: false, cameras: false, sd_cards: false, trappers: false }); setCsvDefaults({}); setCsvClose(false); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(false) }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    forgetCsv(); setCsvName(null)
+    // the options of what is created start all marked in the WildINTEL CSV, where the form says everything but the timezone; in a custom CSV creating asks for more columns, so they start off
+    const on = source === 'wildintel-new'
+    setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvDefaults(on ? { timezone: 'UTC', daylight_saving: 'no' } : {})
+    setCsvClose(on); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(on)
+  }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
-  const defaultsGiven = Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
+  // (in the WildINTEL CSV the defaults are the timezone of the new locations: nothing is said of it when no location is created)
+  const defaultsGiven = source === 'wildintel-new' && !csvCreate.locations ? {} : Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
   const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose || !csvLocationCoordinates || csvPhotosNotCounted)
     ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }), ...(csvPhotosNotCounted ? { photos_not_counted: true } : {}) } : undefined
   // What follows the mapping in the call that reads the file: the options, when there are any (so none is sent when none is given)
@@ -804,8 +812,6 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     csvReading.current++ // what an older file is still being answered is left out
     setChecking(false); setSavedOpen(false); setCsvConfirming(false); setNotesOpen(false)
     setCsvResult(null); setCsvError(null); setCsvSaved(null); setCsvColumns(null); setCsvMapping({}); setFileConfirmed(false)
-    // what to create and the defaults go with the columns they are for, and the columns are those of a custom CSV
-    if (source !== 'csv') { setCsvCreate({ locations: false, cameras: false, sd_cards: false, trappers: false }); setCsvDefaults({}) }
   }
 
   async function readCsv(file: File | undefined) {
@@ -924,6 +930,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // The fields that are asked: those of an entity only when it is created.
   const fieldsShown = (csvColumns?.fields ?? []).filter((f) => f.field !== 'setup_by' && (!f.entity || csvCreate[f.entity])) // who set up is who went: one field
   const createdNeeds = (csvColumns?.fields ?? []).filter((f) => (f.required_with ?? []).some((e) => csvCreate[e]))
+  // every option of the box, marked or cleared together
+  const optionsOn = [...Object.values(csvCreate), csvPhotosNotCounted, csvLocationCoordinates, csvClose].filter(Boolean).length
+  const everyOption = optionsOn === 7
+  const allOptions = (on: boolean) => { setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvPhotosNotCounted(on); setCsvLocationCoordinates(on); setCsvClose(on) }
   const createSwitches = (
     <div className="space-y-2">
       {([
@@ -931,31 +941,38 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         ['cameras', 'Create the cameras that do not exist', 'Needs the camera id and its model.'],
         ['sd_cards', 'Create the SD cards that do not exist', 'Needs the SD card id and its brand; its capacity is optional.'],
         ['trappers', 'Create the trappers that do not exist', 'Each person a row says went, who is not a trapper yet, is made as the row calls them: their username is worked out from the name, and the rest is completed in Settings › Trappers.'],
-      ] as const).map(([entity, label, hint]) => (
-        <Fragment key={entity}>
-          <SwitchRow label={label} hint={hint} checked={csvCreate[entity]} onChange={(on) => setCsvCreate((c) => ({ ...c, [entity]: on }))} />
-          {entity === 'locations' && source === 'wildintel-new' && csvCreate.locations && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 px-6 pb-2">
+      ] as const).map(([entity, label, hint]) => {
+        const withZone = entity === 'locations' && source === 'wildintel-new' && csvCreate.locations
+        const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
+        if (!withZone) return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
+        const utc = (csvDefaults.timezone ?? 'UTC').trim().toUpperCase() === 'UTC'
+        // the timezone and summer time of the new locations are in the card of the switch: summer time is asked only when the zone is not UTC
+        return (
+          <div key={entity} className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-5">
+            <SwitchRow plain label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 border-t border-zinc-200 dark:border-zinc-700 py-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="epicollect-timezone" className={labelClass}>Timezone of the new locations</label>
-                <input id="epicollect-timezone" className={inputClass} value={csvDefaults.timezone ?? ''} placeholder="Europe/Madrid"
-                       onChange={(e) => { const timezone = e.target.value; setCsvDefaults((d) => ({ ...d, timezone, daylight_saving: timezone.trim().toUpperCase() === 'UTC' ? 'no' : (d.daylight_saving === 'no' && (d.timezone ?? '').trim().toUpperCase() === 'UTC' ? 'yes' : d.daylight_saving ?? 'yes') })) }} />
+                <TimezoneCombobox id="epicollect-timezone" value={csvDefaults.timezone ?? 'UTC'}
+                                  onChange={(timezone) => setCsvDefaults((d) => ({ ...d, timezone, daylight_saving: timezone.trim().toUpperCase() === 'UTC' ? 'no' : ((d.timezone ?? 'UTC').trim().toUpperCase() === 'UTC' ? 'yes' : d.daylight_saving ?? 'yes') }))} />
                 <p className={hintClass}>The form does not say it. The coordinates of a new location are the ones of its first visit.</p>
               </div>
-              <div>
-                <label htmlFor="epicollect-dst" className={labelClass}>Their cameras follow summer time</label>
-                {(csvDefaults.timezone ?? '').trim().toUpperCase() === 'UTC'
-                  ? <p id="epicollect-dst" className={`${inputClass} flex items-center opacity-60`}>Does not apply: UTC has no summer time</p>
-                  : (
-                    <select id="epicollect-dst" className={inputClass} value={csvDefaults.daylight_saving ?? 'yes'} onChange={(e) => setCsvDefaults((d) => ({ ...d, daylight_saving: e.target.value }))}>
-                      <option value="yes">Yes</option><option value="no">No</option>
-                    </select>
-                  )}
-              </div>
+              {!utc && (
+                <div>
+                  <span id="epicollect-dst-label" className={labelClass}>Their cameras follow summer time</span>
+                  <div role="group" aria-labelledby="epicollect-dst-label" className="inline-flex w-full gap-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900/60 p-1">
+                    {(['yes', 'no'] as const).map((v) => (
+                      <button key={v} type="button" aria-pressed={(csvDefaults.daylight_saving ?? 'yes') === v} onClick={() => setCsvDefaults((d) => ({ ...d, daylight_saving: v }))}
+                              className={`flex-1 px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${(csvDefaults.daylight_saving ?? 'yes') === v ? 'bg-blue-600 text-white shadow' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'}`}>{v === 'yes' ? 'Yes' : 'No'}</button>
+                    ))}
+                  </div>
+                  <p className={hintClass}>Enable if camera clocks shift +1h during daylight saving time.</p>
+                </div>
+              )}
             </div>
-          )}
-        </Fragment>
-      ))}
+          </div>
+        )
+      })}
       <SwitchRow label="The photos were not counted" hint="For an old datasheet that has no count of the photos on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the photos of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="The coordinates of a visit are required: a row that gives them by a column or a default keeps them, and one that gives none takes those of its location. With this off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
       <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision starts when the one before it is finished. With this on, the locations still planned in it are marked as not visited, so the file can add the revision after it. An unknown revision is not closed: nothing is known of it." checked={csvClose} onChange={setCsvClose} />
@@ -1656,7 +1673,17 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             )}
             {(source === 'csv' || source === 'wildintel-new') && (
               <fieldset className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 mt-4">
-                <legend className="px-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">Create what does not exist yet <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">optional</span></legend>
+                <legend className="sr-only">Create what does not exist yet</legend>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h5 className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Create what does not exist <span className="rounded-full bg-zinc-200 dark:bg-zinc-700 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">optional</span></h5>
+                  <div className="flex items-center gap-3">
+                    <span aria-label="Options marked" className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{optionsOn} / 7</span>
+                    <button type="button" role="switch" aria-checked={everyOption} aria-label="Mark all the options" onClick={() => allOptions(!everyOption)}
+                            className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${everyOption ? 'bg-blue-600' : optionsOn > 0 ? 'bg-blue-400/60' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${everyOption || optionsOn > 0 ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                </div>
                 {source === 'csv'
                   ? <p className={`${hintClass} mb-3`}>When a visit names a location, a camera or an SD card that is not in {project?.acronym ?? 'the research project'}, it is created with the visits. Each one asks for more fields in the matching of the columns, where a default value can also be given for a field the file has no column for. After changing it, check the file again.</p>
                   : <p className={`${hintClass} mb-3`}>When an entry names a location, a camera or an SD card that is not in {project?.acronym ?? 'the research project'}, it is created with the visits. The coordinates of a location, the camera and the card are those of the entry; what the form does not have is asked here, once for all of them. After changing it, check the file again.</p>}

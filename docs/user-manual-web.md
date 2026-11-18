@@ -159,6 +159,7 @@ The places the visits of a research project can be taken from, besides entering 
 The visits are read from the **CSV file downloaded from the new WildINTEL Epicollect project**, the form of the field flow (*Register visits › WildINTEL Epicollect CSV*). The columns are found by the label of their question: there is nothing to say about them.
 
 - **The time of a visit** — the form has no date or time to read: a visit happened when its entry was created (`created_at`, UTC), and it is told in the timezone of its location.
+- **What is created** — the box *Create what does not exist yet* has the options to create the locations, cameras, SD cards and trappers the file names that are not kept, and three more (*The photos were not counted*, *Use the coordinates of the location…* and *Close the revision before…*). **They are all marked at first** — a switch at the right of the title, with how many are marked (*7 / 7*), marks or clears them all at once. With **Create the locations** on, the same card asks the **timezone of the new locations** — the form does not say it —, to pick from all of them (**UTC** by default), and, only when it is not UTC, whether **their cameras follow summer time**. In a custom CSV they start cleared, because creating asks for more columns.
 
 #### Custom CSV
 
