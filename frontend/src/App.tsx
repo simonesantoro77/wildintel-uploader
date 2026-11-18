@@ -47,6 +47,8 @@ export default function App() {
   // Where the upload page starts from, when it is reached from a finished import.
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null)
   // The visit Import deployment starts from, when it is reached from the visits page, right after one was closed.
+  // The visits Import deployments opens with ticked: the ones ticked in the visit dashboard.
+  const [importVisits, setImportVisits] = useState<ClosedVisitTarget[] | null>(null)
   const [closedVisitTarget, setClosedVisitTarget] = useState<ClosedVisitTarget | null>(null)
   // Import deployment opened on a research project, to pick the revision whose visits were just closed.
   const [importProjectId, setImportProjectId] = useState<string | null>(null)
@@ -115,7 +117,12 @@ export default function App() {
 
   /** The visits that were just saved closed several: Import deployments — all at once or one after another — has them (one goes to Import deployment, with its visit chosen). */
   function goToImportOfProject() {
-    setDeploymentsView('many'); setTask('deployment')
+    setImportVisits(null); setDeploymentsView('many'); setTask('deployment')
+  }
+
+  /** The closed visits ticked in the visit dashboard: Import deployments has them ticked. */
+  function goToImportOfVisits(targets: ClosedVisitTarget[]) {
+    setImportVisits(targets); setDeploymentsView('many'); setTask('deployment')
   }
 
   function goToDeploymentStatus(deploymentId: string) {
@@ -171,7 +178,7 @@ export default function App() {
               ? <ImportDeploymentPage onRegisterVisits={() => { setClosedVisitTarget(null); setImportProjectId(null); setResumeSession(null); setDeploymentsView(null); setTask('visits') }} resumeSession={resumeSession ?? undefined} closedVisit={closedVisitTarget ?? undefined} researchProject={importProjectId ?? undefined} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings}
                                       onBack={goMenu} />
               : deploymentsView === 'many'
-                ? <ImportDeploymentsPage onRegisterVisits={() => { setDeploymentsView(null); setTask('visits') }} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={goMenu} />
+                ? <ImportDeploymentsPage initialVisits={importVisits ?? undefined} onRegisterVisits={() => { setDeploymentsView(null); setTask('visits') }} onUpload={goToUpload} settingsOpen={settingsOpen} onOpenSettings={openSettings} onBack={goMenu} />
               : deploymentsView === 'statistics'
                 ? <StatisticsPage settingsOpen={settingsOpen} onOpenSettings={openSettings} focus={statisticsFocus} onBack={() => { if (statisticsFocus) { setDeploymentsView('status'); setStatisticsFocus(undefined) } else goMenu() }} />
               : deploymentsView === 'status'
@@ -192,7 +199,7 @@ export default function App() {
               : task === 'repair'
               ? <RepairPage onBack={() => setTask(null)} />
               : task === 'visits'
-              ? <VisitsHomePage settingsOpen={settingsOpen} onOpenSettings={openSettings} onImportImages={goToImportOfVisit} onImportImagesOf={goToImportOfProject} onShowDeployment={goToDeploymentStatus} focusVisit={visitFocus} startBook={visitBook} onBack={goMenu} />
+              ? <VisitsHomePage settingsOpen={settingsOpen} onOpenSettings={openSettings} onImportImages={goToImportOfVisit} onImportImagesOf={goToImportOfProject} onCreateDeployments={goToImportOfVisits} onShowDeployment={goToDeploymentStatus} focusVisit={visitFocus} startBook={visitBook} onBack={goMenu} />
               : showResumeScreen
                 ? (
                   <ResumeSessionsPage

@@ -15,6 +15,8 @@ interface Props {
   onImportImages?: (target: ClosedVisitTarget) => void
   /** Goes to Import deployment on a research project, to pick the revision whose visits were just closed. */
   onImportImagesOf?: (researchProjectId: string) => void
+  /** Goes to Import deployments for the closed visits ticked in the visit dashboard. */
+  onCreateDeployments?: (targets: ClosedVisitTarget[]) => void
   /** Goes to the status of the deployments, on one of them. */
   onShowDeployment?: (deploymentId: string) => void
   /** The visit the dashboard opens on, when a link of the deployments dashboard sent the user here. */
@@ -24,11 +26,11 @@ interface Props {
 }
 
 /** Register visits, or the visit dashboard: the page the menu opens, with the way back to the menu. */
-export default function VisitsHomePage({ onBack, onOpenSettings, settingsOpen, onImportImages, onImportImagesOf, onShowDeployment, focusVisit, startBook }: Props) {
+export default function VisitsHomePage({ onBack, onOpenSettings, settingsOpen, onImportImages, onImportImagesOf, onCreateDeployments, onShowDeployment, focusVisit, startBook }: Props) {
   const [view, setView] = useState<View>(focusVisit || startBook ? 'book' : 'register')
   // The visit that was planned and is to be created: the register opens on it.
   const [start, setStart] = useState<{ researchProjectId: string; site: string } | undefined>(undefined)
 
   if (view === 'register') return <VisitsPage start={start} onBack={onBack} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onImportImages={onImportImages} onImportImagesOf={onImportImagesOf} />
-  return <VisitBookPage onBack={onBack} onImportImages={onImportImages} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onShowDeployment={onShowDeployment} focus={focusVisit} onCreateVisit={(target) => { setStart(target); setView('register') }} onRegisterVisits={() => { setStart(undefined); setView('register') }} />
+  return <VisitBookPage onBack={onBack} onImportImages={onImportImages} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} onShowDeployment={onShowDeployment} focus={focusVisit} onCreateVisit={(target) => { setStart(target); setView('register') }} onRegisterVisits={() => { setStart(undefined); setView('register') }} onCreateDeployments={onCreateDeployments} />
 }

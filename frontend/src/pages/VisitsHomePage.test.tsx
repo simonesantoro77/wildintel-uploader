@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
 import VisitsHomePage from './VisitsHomePage'
 
-vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), trapperGetConfig: vi.fn(), listVisits: vi.fn(), fieldDeployments: vi.fn(), getSettings: vi.fn(), listLocalLocations: vi.fn(), closedVisits: vi.fn() } }))
+vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), trapperGetConfig: vi.fn(), listVisits: vi.fn(), visitBook: vi.fn(), fieldDeployments: vi.fn(), getSettings: vi.fn(), listLocalLocations: vi.fn(), closedVisits: vi.fn() } }))
 const mockedApi = vi.mocked(api)
 
 beforeEach(() => {
@@ -16,6 +16,7 @@ beforeEach(() => {
   mockedApi.listLocalLocations.mockResolvedValue({ results: [] })
   mockedApi.closedVisits.mockResolvedValue({ results: [] })
   mockedApi.listVisits.mockResolvedValue({ results: [] })
+  mockedApi.visitBook.mockResolvedValue({ results: [] })
   mockedApi.fieldDeployments.mockResolvedValue({ results: [] })
 })
 
@@ -38,6 +39,22 @@ describe('VisitsHomePage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Register visits' }))
 
     expect(await screen.findByText('Where do the visits come from?')).toBeInTheDocument()
+  })
+
+  it('hands the visits ticked in the visit dashboard over, to create their deployments', async () => {
+    mockedApi.visitBook.mockResolvedValue({ results: [
+      { location_id: 'TATR_0001', session: 'R0001', date: '2024-05-01', time: '09:00:00', actions: ['Installation'], trappers: 'Ana', camera_status: null, battery_status: null, card_status: null, num_photos: null, sd: 'A1',
+        date_time_ok: null, latitude: null, longitude: null, deployment: null, deployment_status: 'closed', not_done: false, state: 'collected' },
+    ] } as never)
+    mockedApi.listResearchProjects.mockResolvedValue({ results: [{ name: 'Tatra', acronym: 'TATR' }] } as never)
+    mockedApi.getSettings.mockResolvedValue({ GENERAL: { default_research_project: 'TATR' }, FIELDWORK: { trappers: [], sd_cards: [], cameras: [] } } as never)
+    const onCreateDeployments = vi.fn(); const onImportImages = vi.fn()
+    render(<VisitsHomePage onBack={vi.fn()} startBook onCreateDeployments={onCreateDeployments} onImportImages={onImportImages} />)
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select the visit R0001 to TATR_0001' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Create deployments/ }))
+
+    expect(onImportImages).toHaveBeenCalledTimes(1)       // one visit: Import deployment, as the button of its row does
+    expect(onCreateDeployments).not.toHaveBeenCalled()
   })
 
   it('goes back to the menu from each, and its breadcrumb is Menu › the page', async () => {
