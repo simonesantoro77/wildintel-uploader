@@ -224,10 +224,10 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
                     const name = `Row ${r.row}`
                     return (
                       <Fragment key={r.row}>
-                        <tr className={TABLE.row(panel !== null)}>
-                          {/* the chevron opens the details of the row — what is wrong with it, when something is; what it says, when it is fine — and marks it while they are open, as in the dashboard */}
-                          <ChevronCell open={panel !== null} label={isFlagged(r) ? `the errors of ${name}` : `the contents of ${name}`}
-                                       onToggle={() => (panel ? setOpened(null) : setOpened({ row: r.row, panel: isFlagged(r) ? 'errors' : 'contents' }))} />
+                        <tr className={TABLE.row(panel !== null || side?.row === r.row)}>
+                          {/* the chevron is only where something is wrong: it opens the errors under the row; what a row says is seen with its eye, in the panel, which marks the row while it is open */}
+                          <ChevronCell open={panel !== null || side?.row === r.row} available={isFlagged(r)} label={`the errors of ${name}`}
+                                       onToggle={() => (panel ? setOpened(null) : setOpened({ row: r.row, panel: 'errors' }))} />
                           <td className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">{r.row}</td>
                           <td className="whitespace-nowrap px-4 py-3 font-mono font-semibold text-zinc-900 dark:text-zinc-200">{r.session || '—'}</td>
                           <td className="whitespace-nowrap px-4 py-3 font-mono font-semibold text-zinc-900 dark:text-zinc-200">{r.site || '—'}</td>
