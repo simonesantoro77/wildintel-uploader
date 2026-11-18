@@ -99,9 +99,11 @@ interface Props {
   onQueue?: (targets: ClosedVisitTarget[]) => void
   /** Goes to Register visits on a research project: what is done when there is no visit to link the deployments to. */
   onRegisterVisits?: (researchProjectId: string) => void
+  /** The visits ticked when it opens, with the revision they are of — instead of the latest revision with all its visits. */
+  initialVisits?: ClosedVisitTarget[]
 }
 
-export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack, title = 'Import deployments', onSingleVisit, onQueue, onRegisterVisits }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack, title = 'Import deployments', onSingleVisit, onQueue, onRegisterVisits, initialVisits }: Props = {}) {
   // how the visits ticked are imported: all at once, or one after another
   const [how, setHow] = useState<'all' | 'one'>('all')
   const [step, setStep] = useState(0)
@@ -342,6 +344,14 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   useEffect(() => {
     if (!closedVisits || closedVisits.length === 0 || revisionDefaulted.current === projectId) return
     revisionDefaulted.current = projectId
+    // the visits ticked in the visit dashboard, when it comes from there: with the revision they are of
+    const wanted = new Set((initialVisits ?? []).map((t) => visitKey({ visit: t.visit, end: t.visit } as ClosedVisit)))
+    const given = wanted.size > 0 ? closedVisits.filter((c) => wanted.has(visitKey(c))) : []
+    if (given.length > 0) {
+      setRevisionPick(revisionOfVisit(given[0]))
+      tickVisits(given, true, new Set())
+      return
+    }
     const revisions = closedVisits.map((c) => revisionOfVisit(c)).filter((r): r is number => r !== null)
     if (revisions.length > 0) pickRevision(Math.max(...revisions))
     // eslint-disable-next-line react-hooks/exhaustive-deps

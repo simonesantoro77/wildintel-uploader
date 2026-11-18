@@ -728,6 +728,16 @@ describe('an import session of visits', () => {
     expect(screen.queryByText('Folder with the images')).not.toBeInTheDocument()
   })
 
+  it('opens with the visits ticked in the visit dashboard, with the revision they are of, instead of the latest revision with all its visits', async () => {
+    mockedApi.closedVisits.mockResolvedValue({ results: [...REVISION_3, ...CLOSED] })
+    render(<ImportSessionPage {...pageProps} initialVisits={[{ researchProjectId: 'DONA', visit: CLOSED[2].visit }]} />)   // the one of R0001
+    await pickProject()
+
+    expect(await screen.findByRole('checkbox', { name: 'the visit R0001 to DONA_01' })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'the visit R0003 to DONA_01' })).not.toBeInTheDocument()   // only the visits of its revision are offered
+    expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled()
+  })
+
   it('says there is nothing to import, and offers to register the visits, when the project has no visit whose card was collected', async () => {
     mockedApi.closedVisits.mockResolvedValue({ results: [] })
     const onRegisterVisits = vi.fn()
