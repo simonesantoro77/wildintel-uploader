@@ -8,7 +8,7 @@ import LinkButton from './LinkButton'
 import LocationDetails from './LocationDetails'
 import SdCardDetails from './SdCardDetails'
 import VisitDetails from './VisitDetails'
-import PickTable, { Glyph, LabelFrame, PickedTick, type PickColumn } from './PickTable'
+import PickTable, { Glyph, LabelFrame, PickedTick, type PickColumn, type PickMany } from './PickTable'
 
 /** The key of a closed visit: where and when it was made. */
 export const closedVisitKey = (c: ClosedVisit) => `${c.visit.location_id}|${c.visit.date}|${c.visit.time}`
@@ -89,8 +89,10 @@ function VisitLabel({ visit, picked, onPress }: { visit: ClosedVisit; picked: bo
 }
 
 /** The closed visits in the table of a dashboard, or as labels: pressing one picks its visit, and pressing it again lets it go. `visits` are those to show, newest first. */
-export default function ClosedVisitsTable({ visits, selectedKey, onSelect, locations, onOpenSite, sdCards, onOpenSdCard, filters, total }: {
-  visits: ClosedVisit[]; selectedKey: string; onSelect: (visit: ClosedVisit | undefined) => void
+export default function ClosedVisitsTable({ visits, selectedKey = '', onSelect, many, locations, onOpenSite, sdCards, onOpenSdCard, filters, total }: {
+  visits: ClosedVisit[]; selectedKey?: string; onSelect?: (visit: ClosedVisit | undefined) => void
+  /** Several can be picked, not one: each row has its box. */
+  many?: PickMany<ClosedVisit>
   /** The locations of the research project: the site of a row opens its data in a panel. */
   locations?: LocalLocation[]
   /** Goes to a location in the settings — a button of its panel — when it is given. */
@@ -107,7 +109,7 @@ export default function ClosedVisitsTable({ visits, selectedKey, onSelect, locat
   const [card, setCard] = useState<string | null>(null)
   return (
     <>
-    <PickTable items={visits} keyOf={closedVisitKey} selectedKey={selectedKey} onSelect={onSelect} columns={columnsOf(setSite, setCard, setDetails)} searchText={(c) => cellsOf(c).join(' ')}
+    <PickTable items={visits} keyOf={closedVisitKey} selectedKey={selectedKey} onSelect={onSelect} many={many} columns={columnsOf(setSite, setCard, setDetails)} searchText={(c) => cellsOf(c).join(' ')}
       renderLabel={(c, picked, press) => <VisitLabel visit={c} picked={picked} onPress={press} />}
       names={{ table: 'Closed visits', search: 'Filter the closed visits', items: 'visits', pick: (c) => `the visit ${c.visit.session} to ${c.visit.location_id}`, pickPlaceholder: 'Select a visit…' }}
       optionLabel={(c) => { const [session, site, left, status, card, collected, photos] = cellsOf(c); return `${left} · ${site} · ${session} · ${status}${card !== '—' ? ` · card ${card}` : ''} · collected on ${collected}${photos !== '—' ? ` (${photos} photos)` : ''}` }}

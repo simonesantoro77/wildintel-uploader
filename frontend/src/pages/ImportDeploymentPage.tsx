@@ -1493,12 +1493,22 @@ interface Props {
   onMainMenu?: () => void
   /** Goes to Register visits on a research project: what is done when there is no visit to link the deployment to. */
   onRegisterVisits?: (researchProjectId: string) => void
+  /** This is one of several deployments imported one after another: where it is in the queue, and what to do to go on, skip it or stop. */
+  queue?: DeploymentQueue
+}
+
+/** The deployments of a queue, imported one after another: this is `index` of `total` (from 0); `next` is the one after it, if there is one. The folder of the images
+ * of the one before gives where to look for this one: `parentFolder`, which is told with `onFolder` when a folder is scanned. */
+export interface DeploymentQueue {
+  index: number; total: number; current: string; next: string | null
+  parentFolder: string | null; onFolder: (folder: string) => void
+  onNext: () => void; onSkip: () => void; onStop: () => void
 }
 
 // Blank credentials: the backend uses the ones saved in the settings.
 export const NO_CREDENTIALS: TrapperCredentials = {}
 
-export default function ImportDeploymentPage({ resumeSession, closedVisit, researchProject, onUpload, onOpenSettings, settingsOpen = false, onBack, onDeploymentsMenu, onMainMenu, onRegisterVisits }: Props) {
+export default function ImportDeploymentPage({ resumeSession, closedVisit, researchProject, queue, onUpload, onOpenSettings, settingsOpen = false, onBack, onDeploymentsMenu, onMainMenu, onRegisterVisits }: Props) {
   const [step, setStep] = useState(0)
 
   // The Trapper account is the one saved in the settings: nothing is asked for here, and the backend
@@ -1814,6 +1824,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     try {
       const result = await api.scanFolder(dir)
       setScan(result)
+      queue?.onFolder(dir.replace(/[\\/][^\\/]*[\\/]*$/, ''))   // the next deployment of the queue is looked for beside this one
       setGuess(null); guessedFor.current = null  // the details are read from the images when they are asked for
       try {
         const session = await api.saveScan(dir, result, taskId ?? undefined)
@@ -2040,7 +2051,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     const wanted = visitKey({ visit: closedVisit.visit, end: closedVisit.visit })
     const found = closedVisits.find((c) => visitKey(c) === wanted)
     closedVisitApplied.current = true
-    if (found) selectClosedVisit(found)
+    // the revision and the visit are given: the origin is done, and it goes on to the images
+    if (found) { selectClosedVisit(found); setStep(1) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closedVisit, selectedProjectId, closedVisits, localLocations])
 
@@ -2481,6 +2493,19 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
       <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
         parent="Menu" onParent={onBack} />
 
+      {queue && (
+        <div role="status" aria-label="The deployment in the queue" className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 px-5 py-3 text-sm text-blue-900 dark:text-blue-100">
+          <span className="font-semibold">Deployment {queue.index + 1} of {queue.total}</span>
+          <span className="font-mono">{queue.current}</span>
+          {!destDir && (
+            <span className="ml-auto flex items-center gap-2">
+              <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={queue.onSkip}>Skip this one</button>
+              <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={queue.onStop}>Stop here</button>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Step indicator */}
       <div className="flex items-start mb-10">
         {STEPS.map((s, i) => (
@@ -2572,6 +2597,12 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 </button>
               </div>
               {browseError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{browseError}</p>}
+              {queue?.parentFolder && !sourceDir.trim() && !scanning && (
+                <p className={`${hintClass} mt-2`}>
+                  Beside the one before:{' '}
+                  <button type="button" className="font-mono underline text-blue-700 dark:text-blue-300" onClick={() => { const dir = `${queue.parentFolder}/${queue.current}`; setSourceDir(dir); void handleScan(dir) }}>{`${queue.parentFolder}/${queue.current}`}</button>
+                </p>
+              )}
             </div>
             )}
             {scanError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{scanError}</p>}
@@ -3416,9 +3447,15 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                             <Glyph className="h-5 w-5">{ICON_PATHS.upload}</Glyph>Upload to Trapper
                           </button>
                         )}
-                        <button type="button" className={`${onUpload && selectedProjectId && plannedCollection ? btnOutline : btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`} onClick={handleStartOver}>
-                          <Glyph className="h-5 w-5"><path d="M12 5v14M5 12h14" /></Glyph>Add another deployment
-                        </button>
+                        {queue ? (
+                          <button type="button" className={`${onUpload && selectedProjectId && plannedCollection ? btnOutline : btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`} onClick={queue.next ? queue.onNext : queue.onStop}>
+                            <Glyph className="h-5 w-5"><path d="M5 12h14M13 6l6 6-6 6" /></Glyph>{queue.next ? `Next: ${queue.next} (${queue.index + 2} of ${queue.total})` : 'Finish'}
+                          </button>
+                        ) : (
+                          <button type="button" className={`${onUpload && selectedProjectId && plannedCollection ? btnOutline : btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`} onClick={handleStartOver}>
+                            <Glyph className="h-5 w-5"><path d="M12 5v14M5 12h14" /></Glyph>Add another deployment
+                          </button>
+                        )}
                       </div>
                     </section>
                     {((onDeploymentsMenu ?? onBack) || onMainMenu) && (

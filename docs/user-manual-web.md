@@ -739,10 +739,12 @@ whoever edits the files on purpose could seal them again.
 
 ## 7. Import deployments
 
-Press **📷 Manage deployments**, then **Import deployments**. It works from the **visits**: first the **research project** — the default one of the settings, with a link to change it —, then a **revision** — a square for each one (*All revisions*, *R0003*…) with how many closed visits without a deployment it has — and then you tick the **visits** of that revision whose images you have.
+Press **📷 Manage deployments**, then **Import deployments**. It works from the **visits** of the research project — the default one of the settings, which is not asked —: a **revision** — a square for each one (*All revisions*, *R0003*…) with how many closed visits without a deployment it has — and the **visits** of it whose images you have. **The latest revision is picked, with all its visits ticked**; picking another ticks its visits, and you take off the ones you do not have. The visits are in the same **table as the dashboards**, filtered by *Collected*, with a box in each row. With **no visit whose card was collected** it says so and offers **Register the visits**: a deployment is always of a visit.
 
 - **One visit:** it works as [Import deployment](#import-a-deployment): the folder is the deployment's, with its images in it (no subfolders), and it is linked to the one visit. Only its SD card is asked beside it.
-- **Several visits:** the folder is a **collection**: a folder with **one subfolder per visit**, as follows. A **collection** is a folder with **one subfolder per deployment** — the
+- **Several visits:** a card **How do you want to import them?** asks for **All at once** or **One after another**.
+  - **One after another** (*Start with the first*) runs [Import deployment](#import-a-deployment) for each visit, the first, then the second…: *Deployment 3 of 38* is at the top, with **Skip this one** and **Stop here**, and when one is saved the button is **Next: R0001-DONA_0007 (4 of 38)** — **Finish** on the last. The folder of the images of the first is told to the next: *Beside the one before* proposes `<the folder above>/<the deployment>`. Stopping leaves the visits that were not imported as they were: they are closed visits without a deployment, and they are offered again.
+  - **All at once:** the folder is a **collection**: a folder with **one subfolder per visit**, as follows. A **collection** is a folder with **one subfolder per deployment** — the
 usual way a field trip's images come home. The revision, the checks and the preprocessing are the
 same for all; the location, dates and camera are asked for each deployment.
 

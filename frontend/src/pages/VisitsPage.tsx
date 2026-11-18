@@ -1954,8 +1954,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
                         As a result of {csvSaved === 1 ? 'this new visit' : 'these new visits'}, {justClosed.length} other {justClosed.length === 1 ? 'visit is' : 'visits are'} now closed: their card was collected. Create {justClosed.length === 1 ? 'its deployment' : 'their deployments'} now — {justClosed.length === 1 ? 'its images are' : 'their images are'} imported —, or do it later from the deployments menu.
                       </p>
-                      {onImportImagesOf && project && (
-                        <button type="button" className={`${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`} onClick={() => onImportImagesOf(project.acronym)}>
+                      {/* one deployment goes to Import deployment, with its visit chosen; several go to Import deployments, all at once or one after another */}
+                      {project && (justClosed.length === 1 ? onImportImages : onImportImagesOf) && (
+                        <button type="button" className={`${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`}
+                                onClick={() => (justClosed.length === 1 && onImportImages ? onImportImages({ researchProjectId: project.acronym, visit: justClosed[0].visit }) : onImportImagesOf?.(project.acronym))}>
                           <Glyph className="h-5 w-5">{MENU_ICONS.deployment}</Glyph>Create {justClosed.length === 1 ? 'deployment' : 'deployments'}
                         </button>
                       )}
