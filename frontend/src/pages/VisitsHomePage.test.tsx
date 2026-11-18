@@ -33,6 +33,13 @@ describe('VisitsHomePage', () => {
     expect(await screen.findByRole('heading', { name: 'Visit dashboard' })).toBeInTheDocument()
   })
 
+  it('goes from the visit dashboard to Register visits with its button', async () => {
+    render(<VisitsHomePage onBack={vi.fn()} startBook />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Register visits' }))
+
+    expect(await screen.findByText('Where do the visits come from?')).toBeInTheDocument()
+  })
+
   it('goes back to the menu from each, and its breadcrumb is Menu › the page', async () => {
     const onBack = vi.fn()
     const { unmount } = renderWithHeader(<VisitsHomePage onBack={onBack} />)

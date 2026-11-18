@@ -33,6 +33,8 @@ interface Props {
   focus?: VisitFocus
   /** Goes to register the visit of a location that is planned: its research project and the location. */
   onCreateVisit?: (target: { researchProjectId: string; site: string }) => void
+  /** Goes to Register visits — the button in the header of the dashboard. */
+  onRegisterVisits?: () => void
 }
 
 
@@ -87,7 +89,7 @@ const PER_PAGE = 10
 const LABELS = 6
 
 /** The visit book of a research project: the visits kept to it, and the deployments they say — closed, and the ones whose camera is still out — with the logs of their collections. */
-export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, settingsOpen, onShowDeployment, focus, onCreateVisit }: Props) {
+export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, settingsOpen, onShowDeployment, focus, onCreateVisit, onRegisterVisits }: Props) {
   // The legend and the help: a panel at the right, marked from the header.
   const [helpOpen, setHelpOpen] = useState(false)
   // The revisions and the status cards fold away, to leave the table alone.
@@ -423,6 +425,12 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
         actions={<>
           {project && visits !== null && visits.length > 0 && (
             <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>
+          )}
+          {onRegisterVisits && (
+            <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} title="Register the visits to the camera traps" onClick={onRegisterVisits}>
+              <Icon path={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} className="h-4 w-4" />
+              Register visits
+            </button>
           )}
           {project && visits !== null && (
             <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} disabled={creating} title="Plans the next revision: a visit to each location that is ready, planned"

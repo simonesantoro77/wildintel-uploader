@@ -38,6 +38,23 @@ async function pickProject() {
 const showAll = async () => { await userEvent.click(await screen.findByRole('button', { name: /^All revisions/ })) }  // the dashboard opens on the latest revision
 
 describe('VisitBookPage', () => {
+  it('has a Register visits button in its header, beside the export and the next revision, that goes to Register visits', async () => {
+    const onRegisterVisits = vi.fn()
+    render(<VisitBookPage onBack={vi.fn()} onImportImages={vi.fn()} onRegisterVisits={onRegisterVisits} />)
+    await screen.findByRole('table', { name: 'Visits' })
+
+    const buttons = within(screen.getByRole('group', { name: 'Dashboard actions' })).getAllByRole('button').map((b) => b.textContent)
+    expect(buttons).toEqual(['Export visits (CSV)', 'Register visits', 'Create the next revision', 'Help & Legend'])
+    await userEvent.click(screen.getByRole('button', { name: 'Register visits' }))
+    expect(onRegisterVisits).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no Register visits button where there is nowhere to go to register', async () => {
+    await pickProject()
+
+    expect(screen.queryByRole('button', { name: 'Register visits' })).not.toBeInTheDocument()
+  })
+
   it('exports the visits of the research project as a CSV file', async () => {
     mockedApi.exportVisitsCsv.mockResolvedValue({ csv: 'location_id,actions\r\n', filename: 'TATR_visits.csv', count: 3 })
     await pickProject()
