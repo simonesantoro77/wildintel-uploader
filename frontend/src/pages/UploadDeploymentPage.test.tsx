@@ -439,6 +439,14 @@ describe('UploadDeploymentPage', () => {
     expect(await screen.findByText('Upload complete')).toBeInTheDocument()
   })
 
+  it('opens with only the deployments ticked in the deployments dashboard ticked, instead of all that are left to send', async () => {
+    render(<UploadDeploymentPage initial={{ researchProjectId: 'DONA', collection: 'R0003', deployments: ['R0003-DONA_02'] }} />)
+
+    expect(await screen.findByRole('checkbox', { name: 'R0003-DONA_02' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'R0003-DONA_01' })).not.toBeChecked()      // left to send, but not ticked there
+    expect(screen.getByRole('checkbox', { name: 'R0003-DONA_04' })).not.toBeChecked()
+  })
+
   it('starts empty when there is no default research project and it is not reached from an import', async () => {
     mockedApi.getSettings.mockResolvedValue({ GENERAL: {} } as never)
     render(<UploadDeploymentPage />)

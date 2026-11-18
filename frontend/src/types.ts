@@ -396,6 +396,8 @@ export type SyncEvent = { type: 'progress'; message: string } | ({ type: 'done' 
 export interface UploadTarget {
   researchProjectId: string
   collection: string
+  /** The deployments of the collection to have ticked, when it comes from the ones ticked in the deployments dashboard (instead of all that are left to send). */
+  deployments?: string[]
 }
 
 export interface SelectedResearchProject {

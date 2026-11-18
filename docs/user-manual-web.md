@@ -464,6 +464,8 @@ A deployment is one row: the **deployment** (`R0003-DONA_01`), **where**, **when
 
 **The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the deployment of the revision **before** and the one **after**, to the same site; **show its statistics** — on a created one: it opens [Statistics](#statistics) on its revision, with it isolated —; **view** its details; **create the deployment** — a *planned* one, whose card was already collected: it opens [Import deployment](#import-a-deployment) with the research project and the visit that left the camera already chosen —; and **upload** — on a created deployment not uploaded yet (it opens the upload page on its revision). In the **Upload** column an uploaded one has a tick (the platform and the day, in its tip) that opens the uploads dashboard on its uploads. The camera still out or the card not imported is the state of the *visit*, not of the deployment. The **Show image details** button of a visit of the visit dashboard opens it on that deployment.
 
+**Select deployments and upload them** — each row has a box (and one in the header selects the page). Once deployments are ticked a bar appears over the table: *N selected*, **Select all N matching**, **Clear** and **Upload deployments**. The button is only active when every deployment ticked is **created** (its images are stored), is **not on Trapper yet** and they are all of **one revision**. It goes to [Upload a deployment to Trapper](#8-upload-a-deployment-to-trapper) on that revision with those deployments ticked, instead of all that are left to send.
+
 ![The status of the deployments](img/screenshots/deployments-status.png)
 
 
