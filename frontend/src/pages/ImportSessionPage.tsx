@@ -10,9 +10,10 @@ import ClosedVisitsTable from '../components/ClosedVisitsTable'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { api } from '../api'
 import { applyEntry } from '../epicollectImport'
-import DateSourcePicker, { SOURCE_ORDER, against } from '../components/DateSourcePicker'
+import RecordingPeriod from '../components/RecordingPeriod'
+import { SOURCE_ORDER } from '../components/DateSourcePicker'
 import Notice, { BadgeIcon, Mark } from '../components/Notice'
-import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
+import type { DateSource, Period } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { isValidTimezone, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import ResearchProjectPicker from '../components/ResearchProjectPicker'
@@ -686,23 +687,14 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
   /** The sources of a deployment's dates, each showing what it found so they can be compared, and the period taken — typed when it is by hand. */
   function datePanel(d: SessionScanDeployment, entry: Entry, start: string | null, end: string | null, dateSource: DateSource | undefined) {
-    const exif = periodOf(d, 'exif', entry.timezone), log = periodOf(d, 'log', entry.timezone)
     const cv = visitOf(d.name)
-    const options: SourceOption[] = [
-      ...(cv ? [{ source: 'visit' as const, title: 'Visits of the field work', period: periodOf(d, 'visit', entry.timezone),
-        hint: `From the visit ${cv.visit.session} (${formatVisitWhen(cv.visit)}), where the card was left, to ${cv.end.session} (${formatVisitWhen(cv.end)}), where it was collected — in the timezone of the location. You can change the dates here; the visits are not changed.` }] : []),
-      { source: 'exif', title: 'Camera data in the photos', period: exif,
-        hint: `First and last photo of the deployment.${d.image_count > 0 && exif ? ` ${plural(d.image_count, 'photo', 'photos')}, read from their EXIF data.` : ''}` },
-      { source: 'log', title: 'Timestamp log file', period: log,
-        hint: log ? ((exif && against(log, exif)) ?? 'Set-up and pick-up times written down in the file.') : `No row for ${d.name} in a timestamp log.` },
-      { source: 'manual', title: 'Manual entry', period: null, hint: 'Type the start and the end yourself.' },
-    ]
     return (
       <div aria-label={`Dates of ${d.name}`} role="group" className="mx-5 mb-4">
         <h5 className="sr-only">{fieldsOf(d.name).deployment_id || d.name}</h5>
-        <DateSourcePicker name={d.name} options={options} value={dateSource} onPick={(src) => pickSource(d, src)} start={start} end={end} timezone={entry.timezone}
-                          manualForm={<DeploymentFormBody collapsible periodOnly deployment={entry.fields} timezone={entry.timezone} errors={activeErrors_of(d.name)}
-                                                          onField={(key, value) => updateField(d.name, key, value)} datesGuessed={false} />} />
+        <RecordingPeriod visits={cv ? { left: cv.visit.session, collected: cv.end.session } : null} fromVisits={dateSource === 'visit'} start={start} end={end} timezone={entry.timezone}
+                         onEdit={() => pickSource(d, 'manual')} onRestore={() => pickSource(d, 'visit')}
+                         editForm={<DeploymentFormBody collapsible periodOnly deployment={entry.fields} timezone={entry.timezone} errors={activeErrors_of(d.name)}
+                                                       onField={(key, value) => updateField(d.name, key, value)} datesGuessed={false} />} />
       </div>
     )
   }
@@ -1476,21 +1468,6 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 Importing them again would be refused — pick another revision, or leave them out.
               </Notice>
             )}
-            {revisionValid && canFillFromPrevious && (() => {
-              const withEarlier = chosen.filter((d) => hasEarlierRevision(d.name))
-              const earlier = Math.max(...withEarlier.map((d) => previousFound[`${projectId}|${fieldsOf(d.name).deployment_id}`]!.revision))
-              return (
-                <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
-                  <span className="flex-1 min-w-[14rem]">
-                    Revision {earlier} is on file for {withEarlier.length <= 3 ? listOf(withEarlier.map((d) => d.name)) : `${withEarlier.length} of these deployments`}.
-                    Copy their camera, site and notes? Locations and dates aren&rsquo;t copied — each revision has its own.
-                  </span>
-                  <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                          onClick={() => fillFromPrevious(withEarlier.map((d) => d.name), 'all')}>Copy from revision {earlier}</button>
-                </div>
-              )
-            })()}
             {Object.keys(epicollectFound).length > 0 && !epicollectImported && (
               <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
                 <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>

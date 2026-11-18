@@ -230,9 +230,9 @@ async function goToNewDetailsStep() {
   await waitFor(() => expect(screen.queryByText(/Reading the dates and the camera/)).not.toBeInTheDocument())
 }
 
-/** The dates can only be typed when their source is the manual entry: keeps the ones there are, and shows the fields. */
+/** The dates are the visits' and locked: Edit dates unlocks them, keeping the ones there are, and shows the fields. */
 async function manualEntry() {
-  await userEvent.click(await screen.findByRole('radio', { name: 'Manual entry' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Edit dates' }))
 }
 
 async function addProjectByHand(name = 'Doñana', acronym = 'DONA', location: Partial<LocalLocation> = {}) {
@@ -626,8 +626,8 @@ describe('ImportDeploymentPage', () => {
         await screen.findByText('Dates of the deployment')
 
         expect(screen.queryByLabelText('Revision')).not.toBeInTheDocument() // the visit gives it: it is not asked
-        expect(screen.getByRole('radio', { name: /Visits of the field work/ })).toBeChecked()
-        expect(screen.getByText(/From the visit R0001 \(10 Jun 2026, 09:30\)/)).toHaveTextContent('the visits are not changed')
+        expect(screen.getByText(/Locked · Field work \(R0001 → R0002\)/)).toBeInTheDocument()          // the dates are the visits', and locked
+        expect(screen.getByText(/Dates come from field work visits/)).toHaveTextContent('Visits themselves are never modified.')
         await userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
         expect(await screen.findByRole('radio', { name: 'What the field sheet says' })).toBeChecked()
         expect(screen.getByText(/The visits \(the field sheet\) are not changed/)).toBeInTheDocument()
@@ -665,8 +665,6 @@ describe('ImportDeploymentPage', () => {
         await continueToDates()
         await screen.findByText('Dates of the deployment')
         await waitFor(() => expect(mockedApi.logEntry).toHaveBeenCalledWith('DONA', 'R0001-DONA_01'))
-        await userEvent.click(await screen.findByRole('radio', { name: 'Timestamp log file' }))
-        expect(screen.getByText(/FileTimestampLog of R0001/)).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
         await userEvent.click(await screen.findByRole('radio', { name: 'Log files' }))
         expect(screen.getByRole('radio', { name: 'Log files' }).closest('label')).toHaveTextContent('2 fields found')
@@ -992,12 +990,12 @@ describe('ImportDeploymentPage', () => {
     await screen.findByText('Choose the checks')
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     await screen.findByText('Dates of the deployment')
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'Visits of the field work' })).toBeChecked())   // the visit says the dates, by default
+    expect(await screen.findByText(/Locked · Field work/)).toBeInTheDocument()   // the visit says the dates, locked
 
     expect(mockedApi.guessDetails).toHaveBeenCalledTimes(1)
     expect(mockedApi.guessDetails).toHaveBeenCalledWith(expect.stringContaining('/'))
     expect(screen.getByText('4 Sep 2024, 13:10 (Europe/Madrid)')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument() // only a manual entry can be edited
+    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument() // locked: they are edited with Edit dates
     await manualEntry()
     expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
   })
@@ -2388,7 +2386,8 @@ describe('ImportDeploymentPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
     await screen.findByText('Dates of the deployment')
-    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10') // kept: the source is the manual entry
+    await manualEntry()
+    expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10') // kept: the dates were typed
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     expect(mockedApi.saveScan).not.toHaveBeenCalled()
   })
@@ -2597,61 +2596,14 @@ describe('ImportDeploymentPage', () => {
       },
     }
 
-    it('offers to fill the form in from it, once the revision gives a deployment that has one', async () => {
+    it('does not ask to copy the camera, the site and the notes from an earlier revision, with or without one: the dates step has no such notice', async () => {
       visitRevision = 2   // the revision is the visit's
       mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': PREVIOUS } })
-      await goToNewDetailsStep()
-
-      expect(await screen.findByText(/Revision 1 is on file for/)).toBeInTheDocument()
-      expect(mockedApi.previousDeployments).toHaveBeenCalledWith('DONA', ['R0002-DONA_01'])
-      expect(screen.getByRole('button', { name: 'Copy from revision 1' })).toBeInTheDocument()
-    })
-
-    it('fills in everything but the start and end dates, the id and the location', async () => {
-      visitRevision = 2   // the revision is the visit's
-      mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': PREVIOUS } })
-      await goToNewDetailsStep()
-      await manualEntry()
-      fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-04T13:10:00' } })
-      await userEvent.click(await screen.findByRole('button', { name: 'Copy from revision 1' }))
-
-      expect(await screen.findByRole('status')).toHaveTextContent('Filled in from R0001-DONA_01')
-      expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10') // the new revision's own
-      await openMoreDetails()
-      await openSection(/^Site/)
-      expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-      expect(screen.getByLabelText('Set up by')).toHaveValue('Ana')
-      expect(screen.getByLabelText('Photo dates may be wrong')).not.toBeChecked() // belongs to that revision
-      await openSection(/^Grouping and notes/)
-      expect(screen.getByLabelText('Comments')).toHaveValue('Near the pond')
-      expect(screen.getByText('forest')).toBeInTheDocument()
-      await openSection(/^Camera/)
-      expect(screen.getByLabelText('Height above the ground (m)')).toHaveValue(1.2)
-    })
-
-    it('shows the details of the previous deployment as such, and lets them be changed once filled in by hand', async () => {
-      visitRevision = 2   // the revision is the visit's
-      mockedApi.previousDeployments.mockResolvedValue({ results: { 'R0002-DONA_01': PREVIOUS } })
-      await goToNewDetailsStep()
-      await userEvent.click(await screen.findByRole('button', { name: 'Copy from revision 1' }))
-      await manualEntry()
-      await openMoreDetails()
-      await openSection(/^Site/)
-
-      expect(screen.getByRole('radio', { name: 'What the previous deployment says' })).toBeChecked()
-      expect(screen.getByText(/\d+ fields found/)).toBeInTheDocument()
-      expect(screen.getByLabelText('Habitat')).toBeDisabled()
-      await userEvent.click(screen.getByRole('radio', { name: 'Fill in by hand' }))
-      expect(screen.getByLabelText('Habitat')).toHaveValue('Pine forest')
-      expect(screen.getByLabelText('Habitat')).toBeEnabled()
-    })
-
-    it('does not offer it when there is no earlier revision', async () => {
-      visitRevision = 2   // the revision is the visit's
       await goToNewDetailsStep()
       await waitFor(() => expect(mockedApi.previousDeployments).toHaveBeenCalled())
 
       expect(screen.queryByText(/is on file for/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Copy from revision/ })).not.toBeInTheDocument()
     })
   })
 
