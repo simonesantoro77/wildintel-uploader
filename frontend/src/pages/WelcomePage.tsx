@@ -76,9 +76,7 @@ export default function WelcomePage({ onStart, onNewProject }: Props) {
   const primary = 'px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-base flex items-center gap-2'
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-10 flex flex-col items-center" style={{ minHeight: 'calc(100vh - 56px)' }}>
-      <span aria-hidden="true" className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-        <svg viewBox="0 0 24 24" className="h-9 w-9 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.450 5.110 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.450-6.890A2 2 0 0 0 16.760 4H7.240a2 2 0 0 0-1.790 1.110z" /></svg>
-      </span>
+      <img src="/logo.svg" alt="" aria-hidden="true" width={64} height={64} className="mb-3 h-16 w-16 rounded-2xl" />
       <h1 className="text-2xl font-bold mb-2 text-center">WildINTEL Uploader</h1>
       <p className="text-zinc-500 dark:text-zinc-400 mb-8 text-base text-center max-w-[480px]">
         Bring camera-trap images from a memory card into the WildINTEL project, organized and registered in Trapper.
