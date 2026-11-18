@@ -414,7 +414,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
           })()}
 
           {visitPanel && (
-            <VisitDetails closed={visitPanel} onClose={() => setVisitPanel(null)}
+            <VisitDetails closed={visitPanel} onClose={() => setVisitPanel(null)} researchProjectId={researchProjectId}
               onOpenVisit={onShowVisit ? (session) => { setVisitPanel(null); onShowVisit({ session, site: visitPanel.visit.location_id }) } : undefined} />
           )}
 

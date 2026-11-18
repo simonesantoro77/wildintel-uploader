@@ -208,6 +208,38 @@ describe('VisitBookPage', () => {
     expect(within(revisions).getByRole('button', { name: /^R0001/ })).toHaveTextContent('2024-06-01 → …')
   })
 
+  it('has, in the details of a visit, the location and the camera underlined with dots, each opening its own panel over the visit', async () => {
+    mockedApi.visitBook.mockResolvedValue({ results: [visit({ session: 'R0004', deployment_status: 'open', camera_id: 'P800', camera_model: 'Reconyx' })] })
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5 }] } as never)
+    mockedApi.getSettings.mockResolvedValue({ GENERAL: { default_research_project: 'TATR' }, FIELDWORK: { cameras: [{ label: 'Cam 7', camera_id: 'P800', camera_model: 'Reconyx HF2', research_project: 'TATR', status: 'active', in_service: '2023-05-01' }] } } as never)
+    const onOpenSettings = vi.fn()
+    render(<VisitBookPage onBack={vi.fn()} onOpenSettings={onOpenSettings} />)
+    await showAll()
+    await screen.findByRole('table', { name: 'Visits' })
+    await userEvent.click(screen.getByRole('button', { name: 'View the visit R0004 to TATR_0001' }))
+    const visitPanel = within(await screen.findByRole('dialog', { name: 'Details of the visit R0004 to TATR_0001' }))
+
+    const location = visitPanel.getByRole('button', { name: 'TATR_0001' })
+    expect(location).toHaveClass('decoration-dotted')                                               // underlined with dots, as the other links are
+    const camera = visitPanel.getByRole('button', { name: 'P800 · Reconyx' })
+    expect(camera).toHaveClass('decoration-dotted')
+
+    await userEvent.click(location)
+    const siteDialog = within(await screen.findByRole('dialog', { name: 'Details of the location TATR_0001' }))
+    expect(siteDialog.getByText('Ridge')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Details of the visit R0004 to TATR_0001' })).toBeInTheDocument()   // the visit is still under it
+    await userEvent.keyboard('{Escape}')                                                                // Escape shuts the one on top only
+    expect(screen.queryByRole('dialog', { name: 'Details of the location TATR_0001' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Details of the visit R0004 to TATR_0001' })).toBeInTheDocument()
+
+    await userEvent.click(camera)
+    const cameraDialog = within(await screen.findByRole('dialog', { name: 'Details of the camera Cam 7' }))
+    expect(cameraDialog.getByRole('heading', { name: 'Cam 7' })).toBeInTheDocument()
+    expect(cameraDialog.getByLabelText('The camera')).toHaveTextContent('Serial numberP800')
+    await userEvent.click(cameraDialog.getByRole('button', { name: 'Open it in the settings' }))
+    expect(onOpenSettings).toHaveBeenCalledWith('cameras', 'TATR', 'Cam 7')
+  })
+
   it('opens the data of the location of a visit in a panel at the right, with a way on to its page in the settings', async () => {
     mockedApi.visitBook.mockResolvedValue({ results: [visit({ session: 'R0001', deployment_status: 'closed' })] })
     mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5, trapper_pk: null }] } as never)

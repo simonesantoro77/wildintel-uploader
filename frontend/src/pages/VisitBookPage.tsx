@@ -24,7 +24,7 @@ interface Props {
   /** Goes to Import deployment for a closed visit: its research project, and the visit whose card was collected — the deployment is of it. */
   onImportImages?: (target: ClosedVisitTarget) => void
   /** Opens the settings, on the section given — where the default research project is changed. */
-  onOpenSettings?: (section?: 'general' | 'locations', researchProjectId?: string, item?: string) => void
+  onOpenSettings?: (section?: 'general' | 'cameras' | 'locations', researchProjectId?: string, item?: string) => void
   /** Whether the settings are open: the default research project is read again when they are closed, as it may have been changed. */
   settingsOpen?: boolean
   /** Goes to the status of the deployments, on one of them: the link of the tick of the images stored. */
@@ -648,7 +648,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
 
       {siteError && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{siteError}</p>}
       {panelVisit && (
-        <VisitDetails onClose={() => setPanelVisit(null)} closed={closedOf(panelVisit)} />
+        <VisitDetails onClose={() => setPanelVisit(null)} closed={closedOf(panelVisit)} researchProjectId={project?.acronym} onOpenSettings={onOpenSettings} />
       )}
       {sitePanel && (
         <LocationDetails site={sitePanel.site} location={sitePanel.location} onClose={() => setSitePanel(null)}

@@ -1,6 +1,10 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { api } from '../api'
 import { daysBetween, formatVisitWhen } from '../dateFormat'
-import type { StoredVisit } from '../types'
+import type { Camera, LocalLocation, StoredVisit } from '../types'
+import CameraDetails from './CameraDetails'
+import LinkButton from './LinkButton'
+import LocationDetails from './LocationDetails'
 import { btnOutline } from '../pages/ImportDeploymentPage'
 import SidePanel from './SidePanel'
 
@@ -75,26 +79,57 @@ const VISIT_ICON = (
 )
 
 /** Everything a closed visit says — the visit that left the card and the one that collected it, on a line of the days between them — in a panel at the right, as the details of an image are. */
-export default function VisitDetails({ closed, onClose, onOpenVisit }: { closed: { visit: StoredVisit; end?: StoredVisit | null
+export default function VisitDetails({ closed, onClose, onOpenVisit, researchProjectId, onOpenSettings }: { closed: { visit: StoredVisit; end?: StoredVisit | null
   /** The revisions of the location that lie between the two visits and say nothing — not made, not visited or unknown —: dots on the line, so that it is told why the card goes from one revision to a later one. */
   between?: { session: string; label: string }[] }; onClose: () => void
   /** Goes to the visit — the one that left the card, or the one that collected it — in the dashboard of the visits: a button under each, when it is given. */
-  onOpenVisit?: (session: string) => void }) {
+  onOpenVisit?: (session: string) => void
+  /** The research project of the visit: with it, the location and the camera are links that open their own panel on top of this one. */
+  researchProjectId?: string
+  /** Opens the settings on an entity — the button of the panels of the location and of the camera. */
+  onOpenSettings?: (section: 'cameras' | 'locations', researchProjectId?: string, item?: string) => void }) {
   const { visit, end, between = [] } = closed
+  // the panel of the location or of the camera that is open over this one
+  const [site, setSite] = useState<{ name: string; location: LocalLocation | undefined } | null>(null)
+  const [cameraPanel, setCameraPanel] = useState<{ name: string; camera: Camera | undefined } | null>(null)
+  const [linkError, setLinkError] = useState<string | null>(null)
+  async function showSite() {
+    if (!researchProjectId) return
+    setLinkError(null)
+    try {
+      const { results } = await api.listLocalLocations(researchProjectId)
+      setSite({ name: visit.location_id, location: results.find((l) => l.location_id.toLowerCase() === visit.location_id.toLowerCase()) })
+    } catch (e) { setLinkError(e instanceof Error ? e.message : 'Could not read the locations.') }
+  }
+  async function showCamera() {
+    if (!researchProjectId || !visit.camera_id) return
+    setLinkError(null)
+    try {
+      const settings = await api.getSettings()
+      const mine = (settings?.FIELDWORK?.cameras ?? []).filter((c) => (c.research_project ?? '').toLowerCase() === researchProjectId.toLowerCase())
+      const wanted = visit.camera_id.toLowerCase()
+      setCameraPanel({ name: visit.camera_id, camera: mine.find((c) => (c.camera_id ?? '').toLowerCase() === wanted || c.label.toLowerCase() === wanted) })
+    } catch (e) { setLinkError(e instanceof Error ? e.message : 'Could not read the cameras.') }
+  }
   const days = end ? daysBetween(visit.date, end.date) : null
   const coordinates = visit.latitude != null && visit.longitude != null ? `${visit.latitude}, ${visit.longitude}` : null
   const camera = [visit.camera_id, visit.camera_model].filter(Boolean).join(' · ')
   return (
-    <SidePanel label={`Details of the visit ${visit.session} to ${visit.location_id}`} title={visit.location_id} icon={VISIT_ICON} subtitle={end ? `${visit.session} · ${when(visit)} → ${formatVisitWhen(end)}` : `${visit.session} · ${when(visit)} · the camera is still out`} onClose={onClose}>
+    <>
+    <SidePanel label={`Details of the visit ${visit.session} to ${visit.location_id}`} title={visit.location_id} icon={VISIT_ICON} subtitle={end ? `${visit.session} · ${when(visit)} → ${formatVisitWhen(end)}` : `${visit.session} · ${when(visit)} · the camera is still out`} onClose={() => { if (!site && !cameraPanel) onClose() }}>
       <div className="relative mt-6">
         <span aria-hidden="true" className={`absolute bottom-2 left-[7px] top-3 w-0 border-l ${between.length > 0 ? 'border-dashed' : ''} border-zinc-300 dark:border-zinc-700`} />
         <Stage title={visit.sd ? 'The visit that left the card' : 'The visit that left the camera'} visit={visit} kind="left">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Field label="When">{when(visit)}</Field>
             {visit.trappers && <Field label="Who went">{visit.trappers}</Field>}
-            <Field label="Location">{visit.location_id}</Field>
+            <Field label="Location">{researchProjectId
+              ? <LinkButton title={`Show the details of the location ${visit.location_id}`} onClick={() => void showSite()}>{visit.location_id}</LinkButton>
+              : visit.location_id}</Field>
             {coordinates && <Field label="Visit coordinates">{coordinates}</Field>}
-            {camera && <Field label="Camera">{camera}</Field>}
+            {camera && <Field label="Camera">{researchProjectId && visit.camera_id
+              ? <LinkButton title={`Show the details of the camera ${visit.camera_id}`} onClick={() => void showCamera()}>{camera}</LinkButton>
+              : camera}</Field>}
             {visit.sd && <Field label="SD card">{visit.sd}</Field>}
             {visit.num_photos != null && <Field label="Photos counted">{visit.num_photos.toLocaleString('en-US')}</Field>}
           </dl>
@@ -142,5 +177,15 @@ export default function VisitDetails({ closed, onClose, onOpenVisit }: { closed:
         )}
       </div>
     </SidePanel>
+    {site && (
+      <LocationDetails site={site.name} location={site.location} onClose={() => setSite(null)}
+        onOpenInSettings={onOpenSettings && researchProjectId ? () => { setSite(null); onClose(); onOpenSettings('locations', researchProjectId, site.name) } : undefined} />
+    )}
+    {cameraPanel && (
+      <CameraDetails name={cameraPanel.name} camera={cameraPanel.camera} onClose={() => setCameraPanel(null)}
+        onOpenInSettings={onOpenSettings && researchProjectId ? () => { setCameraPanel(null); onClose(); onOpenSettings('cameras', researchProjectId, cameraPanel.camera?.label) } : undefined} />
+    )}
+    {linkError && <p role="alert" className="fixed bottom-4 right-4 z-[60] rounded-lg bg-red-600 px-4 py-2 text-sm text-white shadow-lg">{linkError}</p>}
+    </>
   )
 }
