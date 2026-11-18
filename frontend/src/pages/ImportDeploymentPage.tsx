@@ -573,7 +573,7 @@ export const ORIGIN_SOURCE_OPTIONS: Option<OriginSource>[] = [
 ]
 
 /** The postvalidation checks that must pass by default: photos outside the dates of the deployment are an error, not a warning — the user can set it to Warn. */
-export const DEFAULT_REQUIRED_DEPLOYMENT_CHECKS: DeploymentCheck[] = ['time_range']
+export const DEFAULT_REQUIRED_DEPLOYMENT_CHECKS: DeploymentCheck[] = ['time_range', 'sd_card']
 
 export const IMAGE_CHECK_OPTIONS: { value: ImageCheck; label: string }[] = [
   { value: 'corrupted', label: 'Corrupted images' },
@@ -2969,7 +2969,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 editForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
               <div className="flex justify-between items-center mt-4">
                 <button type="button" className={btnOutline} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
-                <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
+                <button type="button" aria-label="Continue to more details" className={btnPrimary} disabled={!newDetailsReady} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
               </div>
           </WizardStep>
 
@@ -3297,6 +3297,11 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4">
                 Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to Trapper yet.
               </p>
+              <section aria-label="What is going to be saved" className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5">
+              <h6 className="mb-4 flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+                What is going to be saved
+              </h6>
               {(() => {
                 const done = preprocessed?.type === 'done' ? preprocessed : null
                 const savedLocation = localLocations.find((l) => l.location_id === deployment.location_id)
@@ -3309,7 +3314,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   ['Saved to', plannedCollection ? <span className="font-mono break-all">{`${plannedCollection.path}/${deployment.deployment_id}`}</span> : ''],
                 ]
                 return (
-                  <dl className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-6 divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
+                  <dl className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
                     {rows.map(([term, value]) => (
                       <div key={term} className="grid grid-cols-[7rem_1fr] gap-4 py-4">
                         <dt className="text-zinc-500 dark:text-zinc-400">{term}</dt>
@@ -3319,16 +3324,21 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   </dl>
                 )
               })()}
+              </section>
               <div role="note" className="mb-4 flex items-start gap-4 rounded-2xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-6 py-5 text-amber-900 dark:text-amber-200">
                 <span className="mt-0.5 text-amber-500"><Glyph className="h-6 w-6"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Glyph></span>
                 <div>
                   <p className="text-lg font-semibold">Saving seals the deployment</p>
+                  <p className="text-base leading-relaxed">Do you want to save the deployment <strong>{deployment.deployment_id}</strong>{selectedProject?.acronym ? <> in <strong>{selectedProject.acronym}</strong></> : null}?</p>
                   <p className="text-base leading-relaxed">Its metadata is written and it can&rsquo;t be modified afterwards. The app notices if an image or its details change. Once saved, it can be uploaded.</p>
                 </div>
               </div>
               {importError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{importError}</p>}
               {!destDir && (
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <button type="button" className={`${btnOutline} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={importing} onClick={handleBack}>
+                    <Glyph className="h-5 w-5"><path d="M19 12H5M11 6l-6 6 6 6" /></Glyph>Back
+                  </button>
                   {preprocessed?.type !== 'done' && !preprocessing && <p className="text-xs text-amber-600 dark:text-amber-400">Prepare the images to save.</p>}
                   <button type="button" className={`${btnPrimary} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={preprocessed?.type !== 'done' || !resultsDone || !canImport || importing || preprocessing} onClick={handleImport}>
                     {importing ? <SmallSpinner /> : <Glyph className="h-5 w-5"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 3v5h7V3M7 21v-7h10v7" /></Glyph>}{importing ? 'Saving…' : 'Save to my collection'}
@@ -3435,7 +3445,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           <button type="button" className={btnOutline} onClick={() => setOriginOpen(2)}><span aria-hidden="true">← </span>Back</button>
         ) : stepKey === 'images' && imagesOpen === 2 ? (
           <div />  // its own Back is in the step
-        ) : step > 0 && !(stepKey === 'prepare' && !preprocessing && !resultsDone && (preprocessed?.type === 'done' || preprocessError)) && !(stepKey === 'images' && imagesOpen === 3) ? (
+        ) : step > 0 && !(stepKey === 'prepare' && !preprocessing && !resultsDone && (preprocessed?.type === 'done' || preprocessError)) && !(stepKey === 'prepare' && resultsDone && !destDir) && !(stepKey === 'images' && imagesOpen === 3) ? (
           <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
         ) : stepKey === 'images' && imagesOpen === 3 ? (
           <button type="button" className={btnOutline} disabled={validating} onClick={() => setImagesOpen(2)}><span aria-hidden="true">← </span>Back</button>
@@ -3449,7 +3459,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             <button type="button" className={btnPrimary} disabled={!scan || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
-        {!destDir && stepKey === 'dates' && (
+        {!destDir && stepKey === 'dates' && originOpen === 3 && (      // only when step 3, More details, is the one open: before it, the step open has its own Continue
           <div className="flex flex-col items-end gap-1 max-w-md">
             {timestampLogError && <p className="text-xs text-red-600 dark:text-red-400 text-right">{timestampLogError}</p>}
             <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!originReady || !newDetailsReady || savingDetails} onClick={handleContinueFromDeployment}>

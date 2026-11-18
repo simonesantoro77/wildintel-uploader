@@ -560,7 +560,7 @@ For each check you choose **how strict** it is: **Skip** doesn't run it, **Warn*
 continue, **Must pass** stops you from going on while it fails. The ones that are turned off in the
 [settings](#validation) are not shown. Press **Run checks**.
 
-In the checks of the deployment, **Image dates fit the deployment** is **Must pass** by default: images out of the range of dates of the deployment are an error, and the step does not go on until they fit — or you set the check to **Warn** to accept them.
+In the checks of the deployment, **Image dates fit the deployment** and **The SD card is the one the visit left** are **Must pass** by default: images out of the range of dates of the deployment, or that come from another card than the one the visit left, are an error, and the step does not go on until they fit — or you set the check to **Warn** to accept them.
 
 **3. Results.** When it was last run, with the download of its [report](#reports), and then two blocks like those of the dashboards, each of which folds away:
 
@@ -690,7 +690,7 @@ images as thumbnails. The [report](#reports) says what was done to each image. *
 
 ![Stage 5 — Saved](img/screenshots/step-import.png)
 
-The images are ready, so this step **consolidates** the deployment: it says what is going to be saved (the deployment, where it was taken, its period, the images and where it is kept), a note says that *saving seals the deployment*, and **Save to my collection** — under it, at the right — writes its
+The images are ready, so this step **consolidates** the deployment: it says what is going to be saved, in a card (the deployment, where it was taken, its period, the images and where it is kept), a box with a lock says that *saving seals the deployment* and asks *Do you want to save the deployment … in …?*, and, at the foot, **Back** at the left and **Save to my collection** at the right — as when the visits are saved — writes its
 `deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — the app notices if an image
 or its details change — and it can be uploaded.
 
