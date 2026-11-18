@@ -2969,7 +2969,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 editForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
               <div className="flex justify-between items-center mt-4">
                 <button type="button" className={btnOutline} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
-                <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
+                <button type="button" aria-label="Continue to more details" className={btnPrimary} disabled={!newDetailsReady} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
               </div>
           </WizardStep>
 
@@ -3449,7 +3449,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             <button type="button" className={btnPrimary} disabled={!scan || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
-        {!destDir && stepKey === 'dates' && (
+        {!destDir && stepKey === 'dates' && originOpen === 3 && (      // only when step 3, More details, is the one open: before it, the step open has its own Continue
           <div className="flex flex-col items-end gap-1 max-w-md">
             {timestampLogError && <p className="text-xs text-red-600 dark:text-red-400 text-right">{timestampLogError}</p>}
             <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!originReady || !newDetailsReady || savingDetails} onClick={handleContinueFromDeployment}>

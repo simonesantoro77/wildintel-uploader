@@ -237,6 +237,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A license set by hand in `settings.toml` is kept and shown as *Other*.
 
 ### Fixed
+- **Import deployment** (#109): while the dates (step 2) are the open step, the **Continue** of the page — that goes on to the checks — was shown and active under step 3, still locked. Now each step has only its own Continue: **Continue to more details** (active only when the dates are valid), and then the one of More details.
 - **Register visits › WildINTEL Epicollect CSV** (#102): the file is no longer checked as soon as it is chosen — which left **Continue** disabled while it ran —, but when **Continue** of the step of the file is pressed; and while it is checked the step shows a bar that moves and its number turns like a clock, as the preprocessing of the images does.
 - **Register visits › WildINTEL Epicollect CSV** (#98, #99): **Check again** is no longer active when the file is only chosen, nor in *Review and confirm*; there is a single **Back** in the review (the one of the page is not shown there); and the **eye** of a row of the file opens a **panel at the right** with what the row says and what is wrong with it, as in the dashboards (the row is marked while it is open), and the **chevron** is only in the rows with something wrong, to see the error under the row.
 - **Visit book and Deployments**: when a visit or a deployment is marked and the view is changed to the map, its site is the chosen point, with its card open (#73).

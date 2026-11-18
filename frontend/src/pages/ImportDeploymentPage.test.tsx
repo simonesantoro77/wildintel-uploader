@@ -260,12 +260,19 @@ async function fillRequiredDetails() {
   await screen.findByText('Dates of the deployment')
 }
 
+/** From the dates to More details — the step the Continue of the page belongs to: before it, the step open has its own. */
+async function toMoreDetails() {
+  const more = screen.queryByRole('button', { name: 'Continue to more details' })
+  if (more) await userEvent.click(more)
+}
+
 /** Origin and details filled in, then Next (→ step "postvalidation"). `fillDetails` can fill in more first. */
 async function goToPostvalidation(revision = '1', fillDetails?: () => Promise<void>) {
   visitRevision = Number(revision)   // the revision is the one of the visit
   await goToNewDetailsStep()
   await fillRequiredDetails()
   await fillDetails?.()
+  await toMoreDetails()
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
   await screen.findByText('Check the details', { selector: 'h4' })
 }
@@ -324,6 +331,7 @@ describe('ImportDeploymentPage', () => {
     expect(await screen.findByText('Dates of the deployment')).toBeInTheDocument()
 
     await fillRequiredDetails()
+    await toMoreDetails()
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText('Check the details', { selector: 'h4' })).toBeInTheDocument() // straight from the details
 
@@ -583,6 +591,7 @@ describe('ImportDeploymentPage', () => {
         await continueToDates()
         await screen.findByText('Dates of the deployment')
         await waitFor(() => expect(screen.queryByText(/Reading the dates and the camera/)).not.toBeInTheDocument())
+        await toMoreDetails()
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
         await screen.findByText('Check the details', { selector: 'h4' })
         await advanceToImportStep()
@@ -681,6 +690,7 @@ describe('ImportDeploymentPage', () => {
           await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
           await screen.findByText('Dates of the deployment')
           await waitFor(() => expect(screen.queryByText(/Reading the dates and the camera/)).not.toBeInTheDocument())
+          await toMoreDetails()
           await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
           await screen.findByText('Check the details', { selector: 'h4' })
         }
@@ -1025,6 +1035,17 @@ describe('ImportDeploymentPage', () => {
     expect(screen.queryByRole('button', { name: /^← Back$|^Back$/ })).not.toBeInTheDocument()
   })
 
+  it('has only the Continue of the step that is open: while the dates are, the one of the page — that goes on to the checks — is not there until More details is', async () => {
+    await goToNewDetailsStep()
+    await fillRequiredDetails()
+
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()      // step 3 is locked: it has no Continue yet
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to more details' }))
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()                   // now it is the one of More details
+    expect(screen.getByRole('button', { name: 'Continue to more details' }).closest('.hidden')).not.toBeNull()   // the dates are shut: theirs is not shown
+  })
+
   it('asks for the deployment details right after the origin', async () => {
     await goToNewDetailsStep()
     await manualEntry()
@@ -1033,13 +1054,13 @@ describe('ImportDeploymentPage', () => {
     expect(screen.getByLabelText('Start')).toHaveAttribute('type', 'datetime-local')
     expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10')
     expect(screen.getByLabelText('End')).toHaveValue('2024-11-04T14:28')
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()   // the visit gave the revision, the dates and the location
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()   // the visit gave the revision, the dates and the location
 
     fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-09-05T08:00' } })
     expect(screen.getByLabelText('Start')).toHaveValue('2024-09-05T08:00')
 
     await fillRequiredDetails()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()
   })
 
   describe('the revision and the deployment id', () => {
@@ -1057,18 +1078,18 @@ describe('ImportDeploymentPage', () => {
     await goToNewDetailsStep()
     await manualEntry()
     await fillRequiredDetails()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()
 
     fireEvent.change(screen.getByLabelText('End'), { target: { value: '2024-09-01T08:00' } }) // before the start, 2024-09-04
     expect(screen.getByText('Must be later than the start date.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText('End'), { target: { value: '2024-09-04T13:10' } }) // the same moment
     expect(screen.getByText('Must be later than the start date.')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('End'), { target: { value: '2024-12-01T08:00' } })
     expect(screen.queryByText('Must be later than the start date.')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()
   })
 
   it('checks the start date against the end date too, once the timezone is known', async () => {
@@ -1078,7 +1099,7 @@ describe('ImportDeploymentPage', () => {
 
     fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2024-12-31T00:00' } }) // after the end, 2024-11-04
     expect(screen.getByText('Must be later than the start date.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeDisabled()
   })
 
   it('gives both dates the timezone designator of the location', async () => {
@@ -1778,10 +1799,11 @@ describe('ImportDeploymentPage', () => {
       mockedApi.writeTimestampLog.mockRejectedValue(new Error('R0001_FileTimestampLog.csv is missing the columns: EndDate, EndTime.'))
       await goToNewDetailsStep()
       await fillRequiredDetails()
+      await toMoreDetails()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(await screen.findByText('R0001_FileTimestampLog.csv is missing the columns: EndDate, EndTime.')).toBeInTheDocument()
-      expect(screen.getByText('Dates of the deployment')).toBeInTheDocument() // still on the details
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument() // still on the details
       expect(screen.queryByText('Postvalidation', { selector: 'h4' })).not.toBeInTheDocument()
 
       mockedApi.writeTimestampLog.mockResolvedValue({ path: 'x/R0001_FileTimestampLog.csv', action: 'added', rows: 1, collection: 'R0001' })
@@ -2368,7 +2390,7 @@ describe('ImportDeploymentPage', () => {
     await screen.findByText('Dates of the deployment')
     await manualEntry()
     expect(screen.getByLabelText('Start')).toHaveValue('2024-09-04T13:10') // kept: the dates were typed
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continue to more details' })).toBeEnabled()
     expect(mockedApi.saveScan).not.toHaveBeenCalled()
   })
 
