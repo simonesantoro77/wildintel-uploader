@@ -80,6 +80,10 @@ const VISIT_ICON = (
 
 /** Everything a closed visit says — the visit that left the card and the one that collected it, on a line of the days between them — in a panel at the right, as the details of an image are. */
 export default function VisitDetails({ closed, onClose, onOpenVisit, researchProjectId, onOpenSettings }: { closed: { visit: StoredVisit; end?: StoredVisit | null
+  /** The visit that was opened, when it is not `visit`: the dashboard of the visits opens a visit and shows the one before it that left the card it collects — `visit` — and then it. */
+  opened?: StoredVisit
+  /** The visit opened has no earlier visit that left a card for it to collect: it says so, and shows just the visit. */
+  noEarlier?: boolean
   /** The revisions of the location that lie between the two visits and say nothing — not made, not visited or unknown —: dots on the line, so that it is told why the card goes from one revision to a later one. */
   between?: { session: string; label: string }[] }; onClose: () => void
   /** Goes to the visit — the one that left the card, or the one that collected it — in the dashboard of the visits: a button under each, when it is given. */
@@ -88,7 +92,7 @@ export default function VisitDetails({ closed, onClose, onOpenVisit, researchPro
   researchProjectId?: string
   /** Opens the settings on an entity — the button of the panels of the location and of the camera. */
   onOpenSettings?: (section: 'cameras' | 'locations', researchProjectId?: string, item?: string) => void }) {
-  const { visit, end, between = [] } = closed
+  const { visit, end, between = [], opened = visit, noEarlier = false } = closed
   // the panel of the location or of the camera that is open over this one
   const [site, setSite] = useState<{ name: string; location: LocalLocation | undefined } | null>(null)
   const [cameraPanel, setCameraPanel] = useState<{ name: string; camera: Camera | undefined } | null>(null)
@@ -116,10 +120,11 @@ export default function VisitDetails({ closed, onClose, onOpenVisit, researchPro
   const camera = [visit.camera_id, visit.camera_model].filter(Boolean).join(' · ')
   return (
     <>
-    <SidePanel label={`Details of the visit ${visit.session} to ${visit.location_id}`} title={visit.location_id} icon={VISIT_ICON} subtitle={end ? `${visit.session} · ${when(visit)} → ${formatVisitWhen(end)}` : `${visit.session} · ${when(visit)} · the camera is still out`} onClose={() => { if (!site && !cameraPanel) onClose() }}>
+    <SidePanel label={`Details of the visit ${opened.session} to ${opened.location_id}`} title={opened.location_id} icon={VISIT_ICON} subtitle={end ? `${visit.session} · ${when(visit)} → ${formatVisitWhen(end)}` : noEarlier ? `${opened.session} · ${when(opened)}` : `${visit.session} · ${when(visit)} · the camera is still out`} onClose={() => { if (!site && !cameraPanel) onClose() }}>
+      {noEarlier && <p role="status" className="mt-6 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">There is no earlier revision in which the card was left.</p>}
       <div className="relative mt-6">
         <span aria-hidden="true" className={`absolute bottom-2 left-[7px] top-3 w-0 border-l ${between.length > 0 ? 'border-dashed' : ''} border-zinc-300 dark:border-zinc-700`} />
-        <Stage title={visit.sd ? 'The visit that left the card' : 'The visit that left the camera'} visit={visit} kind="left">
+        <Stage title={noEarlier ? 'This visit' : visit.sd ? 'The visit that left the card' : 'The visit that left the camera'} visit={visit} kind="left">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Field label="When">{when(visit)}</Field>
             {visit.trappers && <Field label="Who went">{visit.trappers}</Field>}

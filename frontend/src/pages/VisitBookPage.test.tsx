@@ -208,6 +208,36 @@ describe('VisitBookPage', () => {
     expect(within(revisions).getByRole('button', { name: /^R0001/ })).toHaveTextContent('2024-06-01 → …')
   })
 
+  it('shows, for a visit, the earlier one that left the card it collects with dots for the revisions between that say nothing — and says there is none when it left no camera or there is no earlier one', async () => {
+    mockedApi.visitBook.mockResolvedValue({ results: [
+      visit({ session: 'R0003', date: '2024-05-01', state: 'collected', deployment_status: 'closed', sd: 'A1' }),
+      visit({ session: 'R0004', date: '2024-06-01', state: 'unknown', unknown: true, actions: [], sd: null, camera_id: null }),
+      visit({ session: 'R0005', date: '2024-07-01', state: 'collected', deployment_status: 'closed', actions: ['Revision'], sd: 'A2' }),
+      visit({ session: 'R0006', date: '2024-08-01', state: 'no_camera', deployment_status: null, actions: ['Desinstallation'], sd: null, camera_id: null }),
+      visit({ session: 'R0007', date: '2024-09-01', state: 'deployed', deployment_status: 'open', actions: ['Installation'], sd: 'A3' }),
+    ] } as never)
+    render(<VisitBookPage onBack={vi.fn()} />)
+    await showAll()
+    await screen.findByRole('table', { name: 'Visits' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'View the visit R0005 to TATR_0001' }))      // collects what R0003 left, with R0004 unknown between
+    let panel = within(await screen.findByRole('dialog', { name: 'Details of the visit R0005 to TATR_0001' }))
+    expect(within(panel.getByRole('region', { name: 'The visit that left the card' })).getByText('R0003')).toBeInTheDocument()
+    expect(panel.getByText('Unknown', { exact: false })).toBeInTheDocument()                                 // the revision between, as dots
+    expect(within(panel.getByRole('region', { name: 'The visit that collected it' })).getByText('R0005')).toBeInTheDocument()
+    await userEvent.click(panel.getByRole('button', { name: 'Close' }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'View the visit R0007 to TATR_0001' }))      // R0006 left no camera: there is no card of it to collect
+    panel = within(await screen.findByRole('dialog', { name: 'Details of the visit R0007 to TATR_0001' }))
+    expect(panel.getByText('There is no earlier revision in which the card was left.')).toBeInTheDocument()
+    expect(panel.queryByRole('region', { name: 'The visit that collected it' })).not.toBeInTheDocument()
+    await userEvent.click(panel.getByRole('button', { name: 'Close' }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'View the visit R0003 to TATR_0001' }))      // the first one: nothing before it
+    panel = within(await screen.findByRole('dialog', { name: 'Details of the visit R0003 to TATR_0001' }))
+    expect(panel.getByText('There is no earlier revision in which the card was left.')).toBeInTheDocument()
+  })
+
   it('has, in the details of a visit, the location and the camera underlined with dots, each opening its own panel over the visit', async () => {
     mockedApi.visitBook.mockResolvedValue({ results: [visit({ session: 'R0004', deployment_status: 'open', camera_id: 'P800', camera_model: 'Reconyx' })] })
     mockedApi.listLocalLocations.mockResolvedValue({ results: [{ location_id: 'TATR_0001', name: 'Ridge', latitude: 49.2, longitude: 20.1, timezone: 'Europe/Warsaw', coordinate_uncertainty: 5 }] } as never)
@@ -457,9 +487,12 @@ describe('VisitBookPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'View the visit R0004 to TATR_0001' }))
     const panel = within(await screen.findByRole('dialog', { name: 'Details of the visit R0004 to TATR_0001' }))      // in a panel at the right
     expect(panel.getByText('pilas cambiadas')).toBeInTheDocument()
-    expect(panel.getByText('P800')).toBeInTheDocument()                                    // the camera, the card and the photos are in the details
-    expect(panel.getByText('B2')).toBeInTheDocument()
-    expect(panel.getByText('241')).toBeInTheDocument()
+    // opening R0004 shows the visit before it that left the card it collects — R0003 — and then R0004: the camera and the card are of the first, the photos and the notes of the second
+    expect(within(panel.getByRole('region', { name: 'The visit that left the card' })).getByText('R0003')).toBeInTheDocument()
+    expect(within(panel.getByRole('region', { name: 'The visit that collected it' })).getByText('R0004')).toBeInTheDocument()
+    expect(panel.getByText('P800')).toBeInTheDocument()
+    expect(panel.getByText('A13')).toBeInTheDocument()
+    expect(panel.getByText('241 photos')).toBeInTheDocument()
     await userEvent.click(panel.getByRole('button', { name: 'Close' }))
     expect(within(screen.getByRole('table', { name: 'Visits' })).queryByRole('columnheader', { name: 'Camera' })).not.toBeInTheDocument()
 
