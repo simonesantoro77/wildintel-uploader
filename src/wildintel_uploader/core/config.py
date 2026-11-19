@@ -510,9 +510,10 @@ class FieldworkSettings(BaseModel):
         trappers = [t for t in trappers if t.deleted_at or id(t) in alive]
         seen: dict[str, str] = {}
         for t in trappers:
-            if t.username in seen:
-                raise ValueError(f"The username '{t.username}' is used by more than one trapper ({seen[t.username]} and {t.name}): it is unique.")
-            seen[t.username] = t.name
+            # a username is the account of the trapper, an email: it is read whatever its case, while the full name counts it
+            if t.username.lower() in seen:
+                raise ValueError(f"The username '{t.username}' is used by more than one trapper ({seen[t.username.lower()]} and {t.name}): it is unique.")
+            seen[t.username.lower()] = t.name
         return trappers
 
     @field_validator("roles")

@@ -617,7 +617,7 @@ def test_a_trapper_without_a_username_or_with_one_that_another_has_is_refused_an
     body = config.Settings().model_dump(mode="json")
     body["FIELDWORK"]["trappers"] = [{"name": "Ana"}]
     assert _client().put("/api/settings", json=body).status_code == 422                       # the username is required
-    body["FIELDWORK"]["trappers"] = [{"username": "ana", "name": "Ana"}, {"username": "ana", "name": "Anabel"}]
+    body["FIELDWORK"]["trappers"] = [{"username": "ana", "name": "Ana"}, {"username": "ANA", "name": "Anabel"}]
     refused = _client().put("/api/settings", json=body)
     assert refused.status_code == 422 and "unique" in refused.text
     body["FIELDWORK"]["trappers"] = [{"username": "ana", "name": "Ana", "email": "ana@uhu.es"}]

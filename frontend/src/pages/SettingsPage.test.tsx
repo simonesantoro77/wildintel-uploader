@@ -895,7 +895,7 @@ describe('SettingsPage', () => {
     it('imports trappers from a CSV file — the new ones are added, one with the same username is updated, one with no username or no full name is left out — and saves them with the rest', async () => {
       await open([ANA])
 
-      const file = new File(['username,name,affiliation,email\nana,Ana Pérez,CSIC,\nluis,Luis,,luis@x.org\n,nobody,,\nmaria,,,\nmaria lopez,María López,,\n'], 'trappers.csv', { type: 'text/csv' })
+      const file = new File(['username,name,affiliation,email\nANA,Ana Pérez,CSIC,\nluis,Luis,,luis@x.org\n,nobody,,\nmaria,,,\nmaria lopez,María López,,\n'], 'trappers.csv', { type: 'text/csv' })
       await userEvent.upload(screen.getByLabelText('Import Trappers from a CSV file'), file)
 
       expect(await screen.findByRole('status')).toHaveTextContent('1 added, 1 updated from the file')
@@ -904,7 +904,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Row 6: username “maria lopez”')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       expect(mockedApi.saveSettings.mock.calls[0][0].FIELDWORK.trappers).toEqual([
-        { username: 'ana', name: 'Ana Pérez', affiliation: 'CSIC', email: null, status: 'active' }, { username: 'luis', name: 'Luis', affiliation: null, email: 'luis@x.org', status: 'active' },
+        { username: 'ANA', name: 'Ana Pérez', affiliation: 'CSIC', email: null, status: 'active' }, { username: 'luis', name: 'Luis', affiliation: null, email: 'luis@x.org', status: 'active' },
       ])
     })
 
@@ -993,12 +993,9 @@ describe('SettingsPage', () => {
       const username = screen.getByLabelText('Username')
       await userEvent.clear(username)
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
-      await userEvent.type(username, 'ana')                                                    // the username of another
-      expect(screen.getByText('ana is already in the list.')).toBeInTheDocument()
-      await userEvent.clear(username)
-      await userEvent.type(username, 'ANA')                                                    // as written: ANA is another one
-      expect(screen.queryByText('ANA is already in the list.')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
+      await userEvent.type(username, 'ANA')                                                    // the username of another, whatever its case: it is the account
+      expect(screen.getByText('ANA is already in the list.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
     })
   })
 

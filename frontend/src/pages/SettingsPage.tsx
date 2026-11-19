@@ -1875,7 +1875,7 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
       )}
 
       {tab === 'trappers' && (
-        <ItemsEditor<Trapper> caseSensitive
+        <ItemsEditor<Trapper>
           heading="Trappers" noun="trapper" fileName="trappers" styled plain onDetail={setDetail} items={trappers} onChange={changeTrappers}
           icon={(t) => initialsOf(t.name)} dim={(t) => t.status === 'inactive' || t.status === 'archived'} readOnly={(t) => t.trapper_pk != null || t.status === 'archived'}
           notice={(t) => (t.trapper_pk != null ? <TrapperNotice noun="trapper" /> : undefined)}
