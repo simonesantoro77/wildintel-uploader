@@ -5,6 +5,7 @@ import { DetailLine } from './DashboardParts'
 import LocationMap from './LocationMap'
 import { formatDay } from '../dateFormat'
 import SidePanel from './SidePanel'
+import { isUtcZone } from '../deploymentValidation'
 
 const STATUS: Record<string, string> = { planned: 'Planned', ready: 'Ready', active: 'Active', archived: 'Archived' }
 
@@ -14,7 +15,7 @@ function linesOf(l: LocalLocation): [string, ReactNode][] {
     ['Latitude', l.latitude],
     ['Longitude', l.longitude],
     ['Coordinate uncertainty', l.coordinate_uncertainty != null && `${l.coordinate_uncertainty} m`],
-    ['Timezone', l.timezone && `${l.timezone}${l.ignore_dst === true ? ' · cameras ignore summer time' : l.ignore_dst === false ? ' · cameras follow summer time' : ''}`],
+    ['Timezone', l.timezone && <>{l.timezone}{l.ignore_dst === true ? ' · cameras ignore summer time' : l.ignore_dst === false ? ' · cameras follow summer time' : ''}{!isUtcZone(l.timezone) && <span title={`The time zone is ${l.timezone}, not UTC`} className="ml-2 inline-flex items-center rounded-md bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-800 dark:text-red-300">Not UTC</span>}</>],
     ['Status', l.status && `${STATUS[l.status] ?? l.status}${l.status_date ? ` since ${formatDay(l.status_date)}` : ''}`],
     ['Note on the status', l.status_note],
     ['In production since', l.in_service && formatDay(l.in_service)],
