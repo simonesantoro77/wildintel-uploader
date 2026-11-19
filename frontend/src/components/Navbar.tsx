@@ -11,6 +11,8 @@ interface Props {
   onHome: () => void
   onOpenSettings: () => void
   settingsOpen: boolean
+  /** Creates a new research project — the last option of the list of the research projects. */
+  onCreateProject?: () => void
 }
 
 /** The published documentation (docs/, see mkdocs.yml's site_url). */
@@ -21,7 +23,7 @@ export const REPO_URL = 'https://github.com/wildintelproject/wildintel-uploader'
 
 const btnOutline = 'px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors'
 
-export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }: Props) {
+export default function Navbar({ version, onHome, onOpenSettings, settingsOpen, onCreateProject }: Props) {
   const { t } = useTranslation()
   const trail = useCurrentTrail()
   const [dark, setDark] = useState(true)
@@ -70,7 +72,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {trail && <ResearchProjectSelect />}
+          {trail && <ResearchProjectSelect onCreate={onCreateProject} />}
           <a
             className={`${btnOutline} no-underline`}
             href={DOCS_URL} target="_blank" rel="noopener noreferrer"
