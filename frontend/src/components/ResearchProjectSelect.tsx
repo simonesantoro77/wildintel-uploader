@@ -4,7 +4,9 @@ import type { LocalResearchProject } from '../types'
 import { DEFAULT_PROJECT_CHANGED, useDefaultResearchProject } from './DefaultResearchProject'
 
 /** The research project the application works on — the default one —, in the header: it says which, and lists the ones defined to change it. */
-export default function ResearchProjectSelect({ settingsOpen }: { settingsOpen?: boolean }) {
+export default function ResearchProjectSelect({ settingsOpen, onCreate }: { settingsOpen?: boolean
+  /** Creates a new research project: the Initial setup of the utilities. The last option of the list, when it is given. */
+  onCreate?: () => void }) {
   const { project, defaultAcronym } = useDefaultResearchProject(settingsOpen)
   const [projects, setProjects] = useState<LocalResearchProject[]>([])
   const [open, setOpen] = useState(false)
@@ -73,6 +75,16 @@ export default function ResearchProjectSelect({ settingsOpen }: { settingsOpen?:
             )
           })}
           {error && <li role="alert" className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400">{error}</li>}
+          {onCreate && (
+            <li role="presentation" className="mt-1 border-t border-zinc-200 dark:border-zinc-700 pt-1">
+              <button type="button" onClick={() => { setOpen(false); onCreate() }}
+                      className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                Create a new research project
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="ml-auto h-4 w-4 shrink-0 fill-none stroke-zinc-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>

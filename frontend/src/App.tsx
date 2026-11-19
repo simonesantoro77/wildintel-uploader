@@ -97,6 +97,12 @@ export default function App() {
     setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setUtilStart(undefined); setVisitBook(false); setHome(false); setMenuShown(true)
   }
 
+  /** The option of the list of the research projects: a new one, from the initial setup — wherever the user is. */
+  function createResearchProject() {
+    setSettingsOpen(false); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null)
+    startSetup()
+  }
+
   /** A new research project: the initial setup. */
   function startSetup() {
     setHome(false); setUtilStart('setup'); setMenuShown(true); setTask('utils')
@@ -164,7 +170,7 @@ export default function App() {
   return (
     <TrailProvider onMenu={goMenu}>
     <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <Navbar version={currentVersion} onHome={goHome} settingsOpen={settingsOpen} onOpenSettings={() => openSettings()} />
+      <Navbar version={currentVersion} onHome={goHome} settingsOpen={settingsOpen} onOpenSettings={() => openSettings()} onCreateProject={createResearchProject} />
       {backendDown && (
         <div className="bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm text-center py-2">
           Backend not reachable — is the server running?
