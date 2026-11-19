@@ -107,7 +107,7 @@ def add_field_items(req: FieldItemsRequest) -> dict:
     root = config.collections_dir()
     try:
         kept = local_folder_service.list_field_items(root, req.research_project_id, req.kind)
-        have = {str(i.get("label", "")).strip().lower() for i in kept}
+        have = {str(i.get("label", "")).strip() for i in kept}   # as written: 7b and 7B are two
         added, skipped, new = [], [], []
         for item in req.items:
             data = _clean(item.model_dump())
@@ -115,7 +115,7 @@ def add_field_items(req: FieldItemsRequest) -> dict:
                 data.pop("brand", None); data.pop("capacity", None)
             else:
                 data.pop("camera_id", None); data.pop("camera_model", None)
-            key = data["label"].lower()
+            key = data["label"]
             if key in have:
                 skipped.append(data["label"])
                 continue

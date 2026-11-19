@@ -310,8 +310,8 @@ def restore_backup(
                 else:
                     summary["project_files"]["research_project"] = "kept"
             for kind, label, key in (("locations", "locations", lambda i: str(i.get("location_id", "")).lower()),
-                                     ("cameras", "cameras", lambda i: str(i.get("label") or i.get("camera_id") or "").lower()),
-                                     ("sd_cards", "sd_cards", lambda i: str(i.get("label", "")).lower()),
+                                     ("cameras", "cameras", lambda i: str(i.get("label") or i.get("camera_id") or "")),
+                                     ("sd_cards", "sd_cards", lambda i: str(i.get("label", ""))),
                                      ("roles", "roles", lambda i: (str(i.get("trapper", "")).lower(), i.get("role") or "contributor"))):
                 if f"project/{PROJECT_RECORDS[kind]}" not in names:
                     continue

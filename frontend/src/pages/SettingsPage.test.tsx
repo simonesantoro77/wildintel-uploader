@@ -895,7 +895,7 @@ describe('SettingsPage', () => {
     it('imports trappers from a CSV file — the new ones are added, one with the same username is updated, one with no username or no full name is left out — and saves them with the rest', async () => {
       await open([ANA])
 
-      const file = new File(['username,name,affiliation,email\nANA,Ana Pérez,CSIC,\nluis,Luis,,luis@x.org\n,nobody,,\nmaria,,,\nmaria lopez,María López,,\n'], 'trappers.csv', { type: 'text/csv' })
+      const file = new File(['username,name,affiliation,email\nana,Ana Pérez,CSIC,\nluis,Luis,,luis@x.org\n,nobody,,\nmaria,,,\nmaria lopez,María López,,\n'], 'trappers.csv', { type: 'text/csv' })
       await userEvent.upload(screen.getByLabelText('Import Trappers from a CSV file'), file)
 
       expect(await screen.findByRole('status')).toHaveTextContent('1 added, 1 updated from the file')
@@ -904,7 +904,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Row 6: username “maria lopez”')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       expect(mockedApi.saveSettings.mock.calls[0][0].FIELDWORK.trappers).toEqual([
-        { username: 'ANA', name: 'Ana Pérez', affiliation: 'CSIC', email: null, status: 'active' }, { username: 'luis', name: 'Luis', affiliation: null, email: 'luis@x.org', status: 'active' },
+        { username: 'ana', name: 'Ana Pérez', affiliation: 'CSIC', email: null, status: 'active' }, { username: 'luis', name: 'Luis', affiliation: null, email: 'luis@x.org', status: 'active' },
       ])
     })
 
@@ -993,9 +993,12 @@ describe('SettingsPage', () => {
       const username = screen.getByLabelText('Username')
       await userEvent.clear(username)
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
-      await userEvent.type(username, 'ANA')                                                    // whatever its case
-      expect(screen.getByText('ANA is already in the list.')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+      await userEvent.type(username, 'ana')                                                    // the username of another
+      expect(screen.getByText('ana is already in the list.')).toBeInTheDocument()
+      await userEvent.clear(username)
+      await userEvent.type(username, 'ANA')                                                    // as written: ANA is another one
+      expect(screen.queryByText('ANA is already in the list.')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
     })
   })
 
@@ -1125,8 +1128,11 @@ describe('SettingsPage', () => {
       expect(screen.queryByText('A label is required.')).not.toBeInTheDocument() // the label already says Required
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
 
-      await userEvent.type(label, 'a12')
-      expect(screen.getByText('a12 is already in the list.')).toBeInTheDocument()
+      await userEvent.type(label, 'A12')
+      expect(screen.getByText('A12 is already in the list.')).toBeInTheDocument()
+      await userEvent.clear(label)
+      await userEvent.type(label, 'a12')                                                         // as written: a12 is another card than A12
+      expect(screen.queryByText('a12 is already in the list.')).not.toBeInTheDocument()
     })
   })
 
@@ -1204,7 +1210,7 @@ describe('SettingsPage', () => {
     it('says how many visits a camera was used in, and does not let one that was used be deleted', async () => {
       const visit = (camera_id: string) => ({ project: 'DONA', camera_id })
       mockedApi.listResearchProjects.mockResolvedValue({ results: [DONA] })
-      mockedApi.listVisits.mockResolvedValue({ results: [visit('X1'), visit('x1')] } as never)
+      mockedApi.listVisits.mockResolvedValue({ results: [visit('X1'), visit('X1'), visit('x1')] } as never)   // x1 is not X1: as written
       await open([{ label: 'X1', camera_id: 'X1', camera_model: null, in_service: null, research_project: 'DONA' }, { label: 'X2', camera_id: 'X2', camera_model: null, in_service: null, research_project: 'DONA' }])
 
       expect(await screen.findByText('Used in 2 visits')).toBeInTheDocument()
@@ -1232,8 +1238,8 @@ describe('SettingsPage', () => {
       expect(screen.queryByText('A label is required.')).not.toBeInTheDocument() // the label already says Required
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
 
-      await userEvent.type(id, 'x1')
-      expect(screen.getByText('x1 is already in the list.')).toBeInTheDocument()
+      await userEvent.type(id, 'X1')
+      expect(screen.getByText('X1 is already in the list.')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
     })
   })

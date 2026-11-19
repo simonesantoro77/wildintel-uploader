@@ -990,9 +990,11 @@ function DateBox({ label, value, onChange }: { label: string; value: string; onC
   )
 }
 
-function ItemForm<T extends object>({ same, noun, backLabel, fields, item, others, isNew, onChange, onRemove, onClose, onDone, doneLabel = 'Save changes', lockFirst = false, badges, readOnly = false, notice, extraRows = [], styled = false, qr, confirmArchive = false }: {
+function ItemForm<T extends object>({ same, caseSensitive = false, noun, backLabel, fields, item, others, isNew, onChange, onRemove, onClose, onDone, doneLabel = 'Save changes', lockFirst = false, badges, readOnly = false, notice, extraRows = [], styled = false, qr, confirmArchive = false }: {
   /** When two items are the same one, if it is not that they have the same first field. */
   same?: (a: T, b: T) => boolean
+  /** Two names that differ only in case are two items (an SD card `7b` and `7B`, two cameras, two people): the sites and the research projects are read whatever their case. */
+  caseSensitive?: boolean
   noun: string; backLabel: string; fields: ItemField<T>[]; item: T; others: T[]; isNew: boolean; onChange: (patch: Partial<T>) => void; onClose: () => void
   /** Without it the item cannot be removed from here. */
   onRemove?: () => void
@@ -1021,7 +1023,7 @@ function ItemForm<T extends object>({ same, noun, backLabel, fields, item, other
   const [typed, setTyped] = useState('')
   const archiving = confirmArchive && !isNew && !wasArchived && !!statusKey && textOf(item, statusKey) === 'archived'
   const unconfirmed = archiving && typed.trim() !== name
-  const error = !name ? `A ${first.label.toLowerCase()} is required.` : others.some((o) => (same ? same(o, item) : textOf(o, first.key).trim().toLowerCase() === name.toLowerCase())) ? (same ? 'This one is already in the list.' : `${name} is already in the list.`) : null
+  const error = !name ? `A ${first.label.toLowerCase()} is required.` : others.some((o) => (same ? same(o, item) : (caseSensitive ? textOf(o, first.key).trim() === name : textOf(o, first.key).trim().toLowerCase() === name.toLowerCase()))) ? (same ? 'This one is already in the list.' : `${name} is already in the list.`) : null
   const fieldError = (f: ItemField<T>, i: number) => (i === 0 ? error : null) ?? f.validate?.(textOf(item, f.key).trim()) ?? null
   const invalid = fields.some((f, i) => !!fieldError(f, i)) || unconfirmed
   const Noun = noun[0].toUpperCase() + noun.slice(1)
@@ -1165,11 +1167,13 @@ function ItemForm<T extends object>({ same, noun, backLabel, fields, item, other
 }
 
 /** A list kept in the settings: a card for each, with the way to edit it or delete it, and to add one. Adding or editing is a page of its own, kept with Done. */
-function ItemsEditor<T extends object>({ same, heading, noun, items, onChange, blank, fields, subtitle, empty, fileName, badges, onDetail, icon, styled, searchLabel, canDelete, plain, dim, meta, readOnly, notice, footnote, qr, openItem }: {
+function ItemsEditor<T extends object>({ same, caseSensitive = false, heading, noun, items, onChange, blank, fields, subtitle, empty, fileName, badges, onDetail, icon, styled, searchLabel, canDelete, plain, dim, meta, readOnly, notice, footnote, qr, openItem }: {
   /** What the QR code of an item says, shown on its page. */
   qr?: (item: T) => string | undefined
   /** When two items are the same one, if it is not that they have the same first field. */
   same?: (a: T, b: T) => boolean
+  /** Two names that differ only in case are two items. */
+  caseSensitive?: boolean
   heading: string; noun: string; items: T[]; onChange: (v: T[]) => void
   /** What an item is when it is added, before it is edited. */
   blank: T
@@ -1229,7 +1233,7 @@ function ItemsEditor<T extends object>({ same, heading, noun, items, onChange, b
     let added = 0
     let updated = 0
     for (const item of read) {
-      const same = next.findIndex((it) => textOf(it, key).toLowerCase() === textOf(item, key).toLowerCase())
+      const same = next.findIndex((it) => (caseSensitive ? textOf(it, key).trim() === textOf(item, key).trim() : textOf(it, key).toLowerCase() === textOf(item, key).toLowerCase()))
       if (same >= 0) { next[same] = item; updated++ } else { next.push(item); added++ }
     }
     if (added + updated > 0) onChange(next)
@@ -1245,7 +1249,7 @@ function ItemsEditor<T extends object>({ same, heading, noun, items, onChange, b
     const kept = editing.index === null ? editing.item : items[editing.index]
     return (
       <ItemForm
-        same={same} noun={noun} backLabel={heading} fields={fields} item={editing.item} others={items.filter((_, i) => i !== editing.index)} isNew={editing.index === null}
+        same={same} caseSensitive={caseSensitive} noun={noun} backLabel={heading} fields={fields} item={editing.item} others={items.filter((_, i) => i !== editing.index)} isNew={editing.index === null}
         onChange={(patch) => setEditing((e) => (e ? { ...e, item: { ...e.item, ...patch } } : e))}
         onRemove={editing.index === null ? undefined : () => { onChange(items.filter((_, i) => i !== editing.index)); setEditing(null) }}
         onClose={() => setEditing(null)} onDone={done} doneLabel={styled ? (editing.index === null ? 'Add' : 'Save changes') : 'Done'} badges={badges?.(editing.item)} styled={styled} qr={qr?.(editing.item)} readOnly={readOnly?.(kept)} notice={notice?.(kept)}
@@ -1796,8 +1800,10 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
   /** How many visits match — not known until they are read. */
   const countVisits = (match: (v: StoredVisit, project: string) => boolean) => (visits ? visits.filter((x) => match(x.visit, x.project)).length : undefined)
   const same = (a: string | null | undefined, b: string) => (a ?? '').trim().toLowerCase() === b.trim().toLowerCase()
+  // a camera, an SD card or a person is the same one only when written the same: 7b and 7B are two
+  const sameName = (a: string | null | undefined, b: string) => (a ?? '').trim() === b.trim()
   // A visit keeps the serial number of its camera, or its label when it has none.
-  const usesCamera = (visitCamera: string | null | undefined, c: Camera) => same(visitCamera, c.camera_id || c.label)
+  const usesCamera = (visitCamera: string | null | undefined, c: Camera) => sameName(visitCamera, c.camera_id || c.label)
   const inProject = (project: string) => owner === null || project.toLowerCase() === owner.toLowerCase()
   const TAB_INTRO: Record<EntityTab, string> = {
     projects: 'The research projects the field work belongs to. Each one keeps its own locations, cameras and SD cards.',
@@ -1869,14 +1875,14 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
       )}
 
       {tab === 'trappers' && (
-        <ItemsEditor<Trapper>
+        <ItemsEditor<Trapper> caseSensitive
           heading="Trappers" noun="trapper" fileName="trappers" styled plain onDetail={setDetail} items={trappers} onChange={changeTrappers}
           icon={(t) => initialsOf(t.name)} dim={(t) => t.status === 'inactive' || t.status === 'archived'} readOnly={(t) => t.trapper_pk != null || t.status === 'archived'}
           notice={(t) => (t.trapper_pk != null ? <TrapperNotice noun="trapper" /> : undefined)}
           blank={{ username: '', name: '', affiliation: null, email: null, status: 'active' }}
           badges={(t) => [...(t.status === 'inactive' || t.status === 'archived' ? [statusBadge(t.status)] : []), ...(t.trapper_pk != null ? [originBadge(t.trapper_pk)] : [])]}
           subtitle={(t) => [t.name, t.affiliation].filter(Boolean).join(' · ')}
-          meta={(t) => usedIn(countVisits((v) => (v.trappers ?? '').split(',').some((n) => same(n, t.name))))}
+          meta={(t) => usedIn(countVisits((v) => (v.trappers ?? '').split(',').some((n) => sameName(n, t.name))))}
           footnote="Trappers that come from Trapper are read-only here. Change them in Trapper and import them again. If someone no longer goes to the field, mark them as inactive instead of deleting them."
           empty="No trapper yet — a visit will have none to pick as who went."
           searchLabel="Search by username, name or affiliation"
@@ -1894,14 +1900,14 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
       {tab === 'locations' && (project ? <LocationsTab project={project} onDetail={setDetail} openItem={initialItem} used={(id) => countVisits((v, p) => same(p, project.acronym) && same(v.location_id, id))} /> : <p className={hintClass}>Pick a research project to see its locations.</p>)}
 
       {tab === 'sdcards' && (!projectId ? <p className={hintClass}>Pick a research project to see its SD cards.</p> : (
-        <ItemsEditor<SdCard> openItem={initialItem}
+        <ItemsEditor<SdCard> caseSensitive openItem={initialItem}
           heading={`SD cards${owner ? ` of ${owner}` : ' of no project'}`} qr={(c) => (c.label ? qrPayload('sdcard', owner, c.label) : undefined)} noun="SD card" fileName={`${owner ?? 'unassigned'}_sd_cards`} icon={<SdCardIcon />} onDetail={setDetail} styled
           items={sdCards.filter((c) => belongs(c.research_project))}
           onChange={(v) => onSdCards([...sdCards.filter((c) => !belongs(c.research_project)), ...v.map((c) => ({ ...c, research_project: owner }))])}
           blank={{ label: '', brand: null, capacity: null, in_service: today(), research_project: owner, status: 'ready', status_date: null, status_note: null }}
           badges={unusualStatus} readOnly={(c) => c.status === 'archived'} notice={(c) => (c.status === 'archived' ? <Notice kind="info">This one is archived for good: it never goes back to active, and it can no longer be changed.</Notice> : undefined)} subtitle={(c) => [c.brand, c.capacity].filter(Boolean).join(' · ')}
-          meta={(c) => gearMeta(c, countVisits((v, p) => inProject(p) && same(v.sd, c.label)))}
-          canDelete={(c) => countVisits((v, p) => inProject(p) && same(v.sd, c.label)) === 0}
+          meta={(c) => gearMeta(c, countVisits((v, p) => inProject(p) && sameName(v.sd, c.label)))}
+          canDelete={(c) => countVisits((v, p) => inProject(p) && sameName(v.sd, c.label)) === 0}
           footnote="An SD card that already has visits can't be deleted; mark it as archived instead and it stops being offered for new visits."
           empty="No SD card yet." searchLabel="Search by label, brand or size"
           fields={[
@@ -1914,7 +1920,7 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
       ))}
 
       {tab === 'cameras' && (!projectId ? <p className={hintClass}>Pick a research project to see its cameras.</p> : (
-        <ItemsEditor<Camera> openItem={initialItem}
+        <ItemsEditor<Camera> caseSensitive openItem={initialItem}
           heading={`Cameras${owner ? ` of ${owner}` : ' of no project'}`} qr={(c) => (c.label ? qrPayload('camera', owner, c.label) : undefined)} noun="camera" fileName={`${owner ?? 'unassigned'}_cameras`} icon={<CameraIcon />} onDetail={setDetail} styled
           items={cameras.filter((c) => belongs(c.research_project))}
           onChange={(v) => onCameras([...cameras.filter((c) => !belongs(c.research_project)), ...v.map((c) => ({ ...c, research_project: owner }))])}

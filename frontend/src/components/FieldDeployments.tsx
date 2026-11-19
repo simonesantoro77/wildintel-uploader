@@ -423,7 +423,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
           )}
 
           {cardPanel && (
-            <SdCardDetails label={cardPanel} card={sdCards?.find((c) => c.label.toLowerCase() === cardPanel.toLowerCase())} onClose={() => setCardPanel(null)}
+            <SdCardDetails label={cardPanel} card={sdCards?.find((c) => c.label === cardPanel)} onClose={() => setCardPanel(null)}
               onOpenInSettings={onShowSd ? () => { setCardPanel(null); onShowSd(cardPanel) } : undefined} />
           )}
 

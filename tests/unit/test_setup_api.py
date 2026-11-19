@@ -55,10 +55,12 @@ def test_cameras_and_sd_cards_are_added_to_the_research_project_and_a_label_is_n
     cameras = _post("field-items", {"research_project_id": "DONA", "kind": "cameras", "items": [{"label": "CAM-001", "camera_id": "P800", "camera_model": "Browning"}, {"label": "cam-001"}]})
     cards = _post("field-items", {"research_project_id": "DONA", "kind": "sd_cards", "items": [{"label": "1", "brand": "SanDisk", "capacity": "64 GB"}]})
 
-    assert cameras.json() == {"added": ["CAM-001"], "skipped": ["cam-001"]}
+    assert cameras.json() == {"added": ["CAM-001", "cam-001"], "skipped": []}                  # as written: cam-001 is another camera than CAM-001
+    again = _post("field-items", {"research_project_id": "DONA", "kind": "cameras", "items": [{"label": "CAM-001"}]})
+    assert again.json() == {"added": [], "skipped": ["CAM-001"]}                               # the same label is not added twice
     assert cards.json() == {"added": ["1"], "skipped": []}
     kept = local_folder_service.list_field_items(collections, "DONA", "cameras")
-    assert [(c["label"], c["camera_id"], c["status"]) for c in kept] == [("CAM-001", "P800", "active")]
+    assert [(c["label"], c.get("camera_id"), c["status"]) for c in kept] == [("CAM-001", "P800", "active"), ("cam-001", None, "active")]
     assert local_folder_service.list_field_items(collections, "DONA", "sd_cards")[0]["capacity"] == "64 GB"
 
 

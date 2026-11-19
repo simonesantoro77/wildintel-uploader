@@ -462,12 +462,12 @@ class Camera(BaseModel):
 
 
 def _unique(items: list, key: str, scope: str | None = None) -> list:
-    """What is listed once by its `key` (whatever its case) — within its `scope`, when it has one — in the order given; the blank ones go."""
+    """What is listed once by its `key` — as written: `7b` and `7B` are two —, within its `scope` (whatever its case) when it has one, in the order given; the blank ones go."""
     kept: dict[tuple, object] = {}
     for item in items:
         name = getattr(item, key)
         if name:
-            kept.setdefault(((getattr(item, scope) or "").lower() if scope else "", name.lower()), item)
+            kept.setdefault(((getattr(item, scope) or "").lower() if scope else "", name), item)
     return list(kept.values())
 
 
@@ -510,9 +510,9 @@ class FieldworkSettings(BaseModel):
         trappers = [t for t in trappers if t.deleted_at or id(t) in alive]
         seen: dict[str, str] = {}
         for t in trappers:
-            if t.username.lower() in seen:
-                raise ValueError(f"The username '{t.username}' is used by more than one trapper ({seen[t.username.lower()]} and {t.name}): it is unique.")
-            seen[t.username.lower()] = t.name
+            if t.username in seen:
+                raise ValueError(f"The username '{t.username}' is used by more than one trapper ({seen[t.username]} and {t.name}): it is unique.")
+            seen[t.username] = t.name
         return trappers
 
     @field_validator("roles")

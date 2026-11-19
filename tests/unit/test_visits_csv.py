@@ -112,11 +112,11 @@ def test_locations_cameras_and_sd_cards_that_do_not_exist_are_created_when_asked
 
     # what exists is not created again, and what is not asked for is not created
     again = _parse(text, [{"location_id": "WICP_0001", "timezone": "UTC"}], [], mapping,
-                                    {"create": {"cameras": True, "sd_cards": True}, "cameras": [{"camera_id": "CAM9", "label": "A"}], "cards": [{"label": "s9"}, {"label": "s10"}]})
+                                    {"create": {"cameras": True, "sd_cards": True}, "cameras": [{"camera_id": "CAM9", "label": "A"}], "cards": [{"label": "S9"}, {"label": "S10"}]})
     assert again["create"] == {"locations": [], "cameras": [], "sd_cards": [], "trappers": []}
 
 
-def test_the_id_of_a_camera_and_of_an_sd_card_is_what_the_cell_says_stripped_and_what_exists_is_found_ignoring_the_case():
+def test_the_id_of_a_camera_and_of_an_sd_card_is_what_the_cell_says_stripped_and_what_exists_is_found_only_when_written_the_same():
     from wildintel_uploader.core.services import visits_csv
     text = ("site,what,day,hour,lat,lon,cam,sd\n"
             "WICP_0001,Installation,2026-09-14,11:40,40.1,-3.2, 5.0 ,SD 7\n"
@@ -128,9 +128,11 @@ def test_the_id_of_a_camera_and_of_an_sd_card_is_what_the_cell_says_stripped_and
     assert not result["problems"]
     assert [v["camera_id"] for v in result["visits"]] == ["5.0", "P800"] and [v["sd"] for v in result["visits"]] == ["SD 7", "7"]
     assert [c["camera_id"] for c in result["create"]["cameras"]] == ["5.0", "P800"] and [c["label"] for c in result["create"]["sd_cards"]] == ["SD 7", "7"]
-    # what exists is found whatever its case, in cameras and in cards alike
-    again = _parse(text, locations, [], _MAP, {**options, "cameras": [{"camera_id": "p800", "label": "p800"}], "cards": [{"label": "sd 7"}]})
+    # what exists is found when it is written the same — the case counts, in cameras and in cards alike: p800 is not P800, sd 7 is not SD 7
+    again = _parse(text, locations, [], _MAP, {**options, "cameras": [{"camera_id": "P800", "label": "P800"}], "cards": [{"label": "SD 7"}]})
     assert [c["camera_id"] for c in again["create"]["cameras"]] == ["5.0"] and [c["label"] for c in again["create"]["sd_cards"]] == ["7"]
+    other = _parse(text, locations, [], _MAP, {**options, "cameras": [{"camera_id": "p800", "label": "p800"}], "cards": [{"label": "sd 7"}]})
+    assert [c["camera_id"] for c in other["create"]["cameras"]] == ["5.0", "P800"] and [c["label"] for c in other["create"]["sd_cards"]] == ["SD 7", "7"]
 
 
 def test_a_row_that_would_create_something_without_what_it_needs_is_a_problem_and_creates_nothing():
@@ -471,8 +473,9 @@ def test_a_trapper_that_is_not_registered_refuses_the_row_unless_the_import_crea
 def test_each_trapper_is_created_once_by_the_name_the_visits_say_and_the_ones_that_exist_are_not():
     result = _trappers_case(["Ana Pérez, Luis Gómez", "luis gómez", "Marta Ruiz, Luis Gómez"], {"trappers": True})
 
-    assert [t["name"] for t in result["create"]["trappers"]] == ["Luis Gómez", "Marta Ruiz"]           # Ana exists; Luis once, whatever the case; Marta
-    assert [t["username"] for t in result["create"]["trappers"]] == ["luis.gomez", "marta.ruiz"]
+    # Ana exists; Luis Gómez once as written — the case counts: luis gómez is another person —; Marta
+    assert [t["name"] for t in result["create"]["trappers"]] == ["Luis Gómez", "luis gómez", "Marta Ruiz"]
+    assert [t["username"] for t in result["create"]["trappers"]] == ["luis.gomez", "luis.gomez2", "marta.ruiz"]
 
 
 def test_the_username_of_a_trapper_is_the_name_without_accents_with_dots_and_another_number_when_it_is_taken():

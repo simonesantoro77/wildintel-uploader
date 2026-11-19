@@ -686,13 +686,15 @@ def test_a_revision_is_of_the_camera_that_is_at_the_site_unless_the_visit_also_i
         _project(archived=(2, 3))
         _save(install)
         other = _save({**VISIT, "actions": ["Revision"], "camera_id": "P999", "num_photos": 10, "sd": "B2", "date": "2024-10-12", "session": "R0004"})
-        same = _save({**VISIT, "actions": ["Revision"], "camera_id": "p800", "num_photos": 10, "sd": "B2", "date": "2024-10-12", "session": "R0004"})
+        lower = _save({**VISIT, "actions": ["Revision"], "camera_id": "p800", "num_photos": 10, "sd": "B2", "date": "2024-10-12", "session": "R0004"})
+        same = _save({**VISIT, "actions": ["Revision"], "camera_id": "P800", "num_photos": 10, "sd": "B2", "date": "2024-10-12", "session": "R0004"})
         two = _save({**VISIT, "actions": ["Revision", "Installation"], "camera_id": "P999", "num_photos": 10, "sd": "C7", "date": "2024-11-12", "session": "R0005"})
         swapped = _save({**VISIT, "actions": ["Revision", "Desinstallation", "Installation"], "camera_id": "P999", "num_photos": 10, "sd": "C7", "date": "2024-11-12", "session": "R0005"})
 
     assert other.status_code == 422 and "The camera at DONA_01 is P800" in other.json()["detail"] and "add a Desinstallation and an Installation" in other.json()["detail"]
-    assert same.status_code == 200                                  # the camera that is there, whatever its case
-    assert two.status_code == 422 and "already has a camera: p800" in two.json()["detail"]   # a site has one camera at a time: the old one has to be taken away
+    assert lower.status_code == 422 and "The camera at DONA_01 is P800" in lower.json()["detail"]   # as written: p800 is not P800
+    assert same.status_code == 200                                  # the camera that is there
+    assert two.status_code == 422 and "already has a camera: P800" in two.json()["detail"]   # a site has one camera at a time: the old one has to be taken away
     assert swapped.status_code == 200                               # the camera was replaced: the visit takes the old one away and puts the new one up
 
 
@@ -2092,3 +2094,39 @@ def test_a_planned_revision_with_no_visit_is_closed_by_marking_every_location_as
     assert next_one.status_code == 200 and next_one.json()["session"] == "R0003"
     second = [v for v in book if v["session"] == "R0002"]
     assert [(v["location_id"], v["not_visited"], v["not_done"]) for v in second] == [("DONA_01", True, False)]
+
+
+@pytest.mark.entities
+def test_two_sd_cards_that_differ_only_in_case_are_two_cards_each_kept_as_written_and_what_says_another_case_is_refused(tmp_path: Path):
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    rows = ["DONA_01,R0001,2026-01-10,08:00,Installation,,P1,7b", "DONA_02,R0001,2026-01-10,09:00,Installation,,P2,7B"]
+    text = "location_id,session,date,time,actions,num_photos,camera_id,sd\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "camera_id", "sd")}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        lfs.write_field_items(tmp_path, "DONA", "sd_cards", [{"label": "7b"}, {"label": "7B"}])           # the two cards of the two sites, as the datasheet has them
+        lfs.write_field_items(tmp_path, "DONA", "cameras", [{"label": "P1", "camera_id": "P1"}, {"label": "P2", "camera_id": "P2"}])
+        ok = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "save": True}).json()
+        kept = {v["location_id"]: v["sd"] for v in _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]}
+        cards = [c["label"] for c in lfs.list_field_items(tmp_path, "DONA", "sd_cards")]
+        other = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text.replace(",7B", ",7C").replace("R0001", "R0002").replace("2026-01-10", "2026-02-10").replace(",7b", ",7B"), "format": "mapped", "mapping": mapping}).json()
+
+    assert ok["problems"] == [] and ok["saved"] == 2
+    assert cards == ["7b", "7B"] and kept == {"DONA_01": "7b", "DONA_02": "7B"}                         # two cards, each as written
+    assert any("The SD card 7C is not one of the SD cards" in p["message"] for p in other["problems"])
+
+
+@pytest.mark.entities
+def test_the_case_of_an_sd_card_counts_where_a_visit_names_it_a_card_that_exists_with_another_case_is_not_it(tmp_path: Path):
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    text = "location_id,session,date,time,actions,num_photos,camera_id,sd\nDONA_01,R0001,2026-01-10,08:00,Installation,,P1,7b\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos", "camera_id", "sd")}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        lfs.write_field_items(tmp_path, "DONA", "sd_cards", [{"label": "7B"}])
+        lfs.write_field_items(tmp_path, "DONA", "cameras", [{"label": "P1", "camera_id": "P1"}])
+        refused = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}).json()
+        created = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "create": {"sd_cards": True}, "defaults": {"sd_brand": "SanDisk"}}).json()
+
+    assert any("The SD card 7b is not one of the SD cards" in p["message"] for p in refused["problems"])   # only 7B exists
+    assert [c["label"] for c in created["create"]["sd_cards"]] == ["7b"]                                  # asked to, it is another card
