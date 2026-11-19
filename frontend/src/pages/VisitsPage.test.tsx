@@ -946,6 +946,53 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(button)
   }
 
+  it('accepts a dropped CSV, reports invalid drops, and lets the user choose a replacement', async () => {
+    mockedApi.visitsCsvColumns.mockResolvedValue(COLUMNS)
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /custom csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    const drop = screen.getByLabelText('Drop CSV file')
+    fireEvent.dragOver(drop, { dataTransfer: { files: [file] } })
+    fireEvent.drop(drop, { dataTransfer: { files: [file] } })
+    await waitFor(() => expect(mockedApi.visitsCsvColumns).toHaveBeenCalledWith(expect.stringContaining('Lugar,Dia')))
+    expect(screen.getByText('visits.csv')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+
+    fireEvent.drop(drop, { dataTransfer: { files: [new File(['bad'], 'notes.txt')] } })
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose a CSV file.')
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    fireEvent.drop(drop, { dataTransfer: { files: [file, file] } })
+    expect(screen.getByRole('alert')).toHaveTextContent('Drop one CSV file.')
+    await userEvent.upload(screen.getByLabelText('CSV file'), file)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('summarizes the import rules while collapsed and retains changes when closed', async () => {
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /^wildintel epicollect csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    expect(screen.getByText('Drop the CSV downloaded from Epicollect. Columns are matched automatically by question label.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Options marked')).toHaveTextContent('7 / 7')
+    expect(screen.getByText(/Timezone: UTC/)).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'The photos were not counted' })).not.toBeInTheDocument()
+    const customize = screen.getByRole('button', { name: 'Customize' })
+    expect(customize.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
+    await userEvent.click(customize)
+    expect(screen.getByText('Auto-create missing entities (4)')).toBeInTheDocument()
+    expect(screen.getByText('Validation & revision rules (3)')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('switch', { name: 'The photos were not counted' }))
+    const done = screen.getByRole('button', { name: 'Done' })
+    expect(done.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
+    await userEvent.click(done)
+    expect(screen.getByLabelText('Options marked')).toHaveTextContent('6 / 7')
+    expect(screen.getByText('Customized')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    expect(screen.getByRole('switch', { name: 'The photos were not counted' })).not.toBeChecked()
+  })
+
   const onMainMenu = vi.fn()
   async function start(option = /custom csv/i) {
     mockedApi.visitsCsvColumns.mockResolvedValue(COLUMNS)
@@ -955,6 +1002,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
     if (option.test('custom csv')) {   // closing the revision before starts on: most of these tests are of what happens when it is not
+      await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
       const close = await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })
       if (close.getAttribute('aria-checked') === 'true') await userEvent.click(close)
     }
@@ -969,6 +1017,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     expect(await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })).toBeChecked()
     await continueFromTheFile()
     await screen.findByLabelText('Site (a location of the research project)')
@@ -1012,7 +1061,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
 
-    expect(await screen.findByText('Create what does not exist yet')).toBeVisible()      // the step did not move on
+    expect(await screen.findByText('Import & auto-creation rules')).toBeVisible()      // the step did not move on
     expect(screen.queryByLabelText('Columns of the file and fields of the visit')).not.toBeInTheDocument()   // the matching waits for Continue
     const next = screen.getByRole('button', { name: 'Continue' })
     await waitFor(() => expect(next).toBeEnabled())
@@ -1047,6 +1096,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     // what to create is chosen with the file, before it is read
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     await userEvent.click(screen.getByRole('switch', { name: 'Create the locations that do not exist' }))
     await userEvent.click(screen.getByRole('switch', { name: 'Create the cameras that do not exist' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
@@ -1096,14 +1146,14 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
 
     expect(screen.getByRole('switch', { name: 'Create the locations that do not exist' })).toBeChecked()    // everything is marked
     expect(screen.getByLabelText('Timezone of the new locations')).toHaveValue('UTC')
-    // they come right under the switch of the locations, and with UTC summer time does not apply
+    // The timezone is above the entity switches, and with UTC summer time does not apply.
     const locationsSwitch = screen.getByRole('switch', { name: 'Create the locations that do not exist' })
     const timezone = screen.getByLabelText('Timezone of the new locations')
-    expect(locationsSwitch.compareDocumentPosition(timezone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(timezone.compareDocumentPosition(screen.getByRole('switch', { name: 'Create the cameras that do not exist' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(timezone.compareDocumentPosition(locationsSwitch) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // with UTC summer time does not apply, so it is not asked
     expect(screen.queryByText('Their cameras follow summer time')).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('Timezone of the new locations'))
@@ -1123,6 +1173,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     const all = screen.getByRole('switch', { name: 'Mark all the options' })
     const others = () => screen.getAllByRole('switch').filter((b) => b !== all).map((b) => b.getAttribute('aria-checked'))
 
@@ -1156,6 +1207,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     await userEvent.click(screen.getByRole('switch', { name: 'Mark all the options' }))                 // all cleared, and then the trappers
     await userEvent.click(screen.getByRole('switch', { name: 'Create the trappers that do not exist' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
@@ -1250,6 +1302,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     const toggle = screen.getByRole('switch', { name: 'The photos were not counted' })
     expect(toggle).toBeChecked()
     await userEvent.click(toggle)
@@ -1266,6 +1319,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     const toggle = screen.getByRole('switch', { name: 'Use the coordinates of the location when a row has none' })
     expect(toggle).toBeChecked()                                    // on by default: nothing is sent for it
     await userEvent.click(toggle)
@@ -1282,6 +1336,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^wildintel epicollect csv\s*read the visits of a field trip from the csv downloaded from the new/i }))
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
     const toggle = screen.getByRole('switch', { name: 'Close the revision before when it has locations still planned' })
     expect(toggle).toBeChecked()
     await userEvent.click(toggle)

@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Site start** (#129): a visit that says *New site* starts the site whether it already exists or what its status is, in a file or by hand. Revisions before its start do not expect a visit. Locations newly synced from Trapper are pending; locations already kept are not changed.
 
 ### Added
+- **Register visits** (#133): choose a CSV by drag and drop or browsing, and customize import and auto-creation rules in a collapsible card.
 - **Register visits** (#131): the three choices of where visits come from are displayed in one row on wide screens, and remain responsive on smaller screens.
 - **Entities in the settings** (#127): the **More** button of each tab — research projects, trappers, locations, cameras, SD cards — has **CSV template** beside **Import CSV** and **Export CSV**: the columns that Import CSV reads, with no rows, as the initial setup offers.
 - **Register visits › CSV**: an SD card whose id has spaces or signs — `84 (10)`, `85(78)`, `38_B` — where ids are letters and digits (`A13`, `47b`, `693`) is said in the check of the file, once for the card and in the rows it is in; it is not refused: the label on a card is what was written on it. A card that is kept already was accepted as it is and is not said. The id of an SD card is kept as written — in the cards, the visits and the FieldworkLog — and never upper-cased (a test says so).
