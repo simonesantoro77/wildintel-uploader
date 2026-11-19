@@ -40,6 +40,7 @@ import type {
   FeatureType, GuessedDetails, ImageCheck, ImportEvent, LocalLocation, LocalResearchProject, PreviousDeployment, ResearchProject, ScanResult,
   SessionSummary, UploadTarget, ValidationResult,
 } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 export const inputClass = 'w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono'
 export const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
@@ -2486,7 +2487,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     {fixingDates && (
       <TimeFixPage initial={{ folder: sourceDir, researchProjectId: selectedProjectId, visit: linkedVisit?.visit }} onBack={() => setFixingDates(false)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} parent="Import deployment" />
     )}
-    <div className={fixingDates ? 'hidden' : 'mx-auto max-w-[1100px] px-4 py-8'}>
+    <div className={fixingDates ? 'hidden' : PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
         parent="Menu" onParent={onBack} />
 

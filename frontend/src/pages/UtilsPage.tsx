@@ -6,6 +6,7 @@ import RepairPage from './RepairPage'
 import SyncCollectionsPage from './SyncCollectionsPage'
 import SetupWizardPage from './SetupWizardPage'
 import TimeFixPage from './TimeFixPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 export type Util = 'setup' | 'timefix' | 'repair' | 'sync' | 'backup'
 
@@ -43,7 +44,7 @@ export default function UtilsPage({ onBack, onOpenSettings, settingsOpen, start,
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.utils} title="Utilities" description="Maintenance of the local collections." parent="Menu" onParent={onBack} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {UTILS.map((u) => <TaskCard key={u.value} icon={u.icon} title={u.title} description={u.description} onClick={() => setUtil(u.value)} />)}

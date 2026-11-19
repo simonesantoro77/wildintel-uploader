@@ -7,6 +7,7 @@ import { readDeployment } from '../deploymentDetails'
 import type { ClosedVisitTarget, FieldDeployment, SdCard, UploadTarget } from '../types'
 import { btnOutline } from './ImportDeploymentPage'
 import type { VisitFocus } from './VisitBookPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 interface Props {
   onBack: () => void
@@ -78,7 +79,7 @@ export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsO
   }, [project?.acronym]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <DashboardHeader parent="Menu" onParent={onBack} icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
         actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 

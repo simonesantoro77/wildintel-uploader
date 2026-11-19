@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { formatInstant } from '../dateFormat'
 import type { SessionSummary } from '../types'
+import { PAGE_CLASS, PageTitle } from '../components/PageBar'
 
 interface Props {
   sessions: SessionSummary[]
@@ -107,14 +108,12 @@ function SessionCard({ session, onResume, onDiscarded }: { session: SessionSumma
 
 export default function ResumeSessionsPage({ sessions, onResume, onDiscarded, onSkip }: Props) {
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <h1 className="text-2xl font-bold mb-1">Unfinished run{sessions.length > 1 ? 's' : ''}</h1>
-      <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">
-        {sessions.length === 1
-          ? 'A previous run was left before it finished. Resume it to pick up where it left off.'
-          : 'These runs were left before they finished. Resume one to pick up where it left off.'}{' '}
-        Credentials are never saved in a session, so you may be asked for them again.
-      </p>
+    <div className={PAGE_CLASS}>
+      <PageTitle title={`Unfinished run${sessions.length > 1 ? 's' : ''}`}
+                 description={<>{sessions.length === 1
+                   ? 'A previous run was left before it finished. Resume it to pick up where it left off.'
+                   : 'These runs were left before they finished. Resume one to pick up where it left off.'}{' '}
+                   Credentials are never saved in a session, so you may be asked for them again.</>} />
 
       <div className="space-y-4 mb-6">
         {sessions.map((session) => (

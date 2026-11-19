@@ -20,6 +20,7 @@ import { readDeployment } from '../deploymentDetails'
 import { Glyph } from '../components/ViewSwitch'
 import { RevisionSelection } from '../components/DashboardParts'
 import type { AccessCheck, ClassificationProject, DeploymentFields, FieldDeployment, LocalResearchProject, UploadCollection, UploadTarget, UploadDeploymentInfo, UploadEvent, UploadMode, UploadStep } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 const btnPrimary = 'px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 const btnOutline = 'px-4 py-2 text-sm border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50'
@@ -360,7 +361,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.upload} title="Upload deployment to Trapper" description="Sends the deployments of a revision to Trapper. Anything missing there is created, then the images are sent for Trapper to process."
         parent="Menu" onParent={onBack} />
 

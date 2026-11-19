@@ -17,6 +17,7 @@ import type { DeploymentFields, DeploymentUploadState, FieldDeployment, LocalLoc
 import { destinationLabel } from '../uploadDestinations'
 import { btnOutline } from './ImportDeploymentPage'
 import type { VisitFocus } from './VisitBookPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 interface Props {
   onBack: () => void
@@ -171,7 +172,7 @@ export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen,
   ]
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <DashboardHeader parent="Menu" onParent={onBack} icon={MENU_ICONS.upload} title="Uploads dashboard" description="The uploads of the deployments to each uploader in use, and their current status."
         actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 

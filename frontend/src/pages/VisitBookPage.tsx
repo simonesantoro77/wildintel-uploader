@@ -18,6 +18,7 @@ import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import type { BookVisit, ClosedVisitTarget, LocalLocation, RevisionCreated, VisitState } from '../types'
 import { btnOutline, btnPrimary } from './ImportDeploymentPage'
 import { download } from '../csvFile'
+import { PAGE_CLASS } from '../components/PageBar'
 
 interface Props {
   onBack: () => void
@@ -440,7 +441,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-3">
+    <div className={PAGE_CLASS}>
       <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Menu" onParent={onBack}
         actions={<>
           {project && visits !== null && visits.length > 0 && (

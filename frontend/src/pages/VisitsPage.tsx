@@ -24,6 +24,7 @@ import { shownErrors, validateDeployment } from '../deploymentValidation'
 import { availabilityErrors, cameraAtSite, cardBlock, nextRevision, unfinishedRevision } from '../visitAvailability'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
 import type { Camera, DeploymentFields, LocalLocation, LocalResearchProject, SdCard, StoredVisit, Trapper, ClosedVisit, ClosedVisitTarget, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, CsvCreate, ImportCsvOptions } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 export type VisitSource = 'manual' | 'wildintel-new' | 'csv'
 
@@ -1145,7 +1146,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Menu" onParent={onBack} />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary

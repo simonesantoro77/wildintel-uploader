@@ -43,7 +43,7 @@ describe('MenuPage', () => {
     const title = screen.getByRole('heading', { name: 'What do you want to do?' })
     expect(title).toHaveClass('text-[22px]', 'font-semibold')
     expect(title.nextElementSibling).toHaveTextContent('Choose one of the following.')
-    expect(title.parentElement).toHaveClass('border-b')                                            // the line under the heading
+    expect(title.closest('header')).toHaveClass('border-b')                                        // the line under the heading
   })
 
   it('has the three actions in three columns, and the dashboards under them as a bar of their own, as the utilities are', async () => {

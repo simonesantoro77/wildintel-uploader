@@ -1,5 +1,6 @@
 import { useTrail } from '../components/Trail'
 import { ArrowIcon, LineIcon, MENU_ICONS as ICONS, taskCard } from '../components/TaskCard'
+import { PAGE_CLASS, PageTitle } from '../components/PageBar'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Task } from '../types'
@@ -53,12 +54,8 @@ export default function MenuPage({ onAction, onDashboard, onChoose }: Props) {
   const [dashboardsOpen, setDashboardsOpen] = useState(false)
   useTrail([{ label: 'Menu', icon: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> }])
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      {/* the title at 22 px, semibold; under it what it says, and a subtle line */}
-      <div className="mb-6 border-b border-zinc-200/70 dark:border-zinc-800/80 pb-4">
-        <h1 className="mb-1 text-[22px] font-semibold leading-snug">What do you want to do?</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Choose one of the following.</p>
-      </div>
+    <div className={PAGE_CLASS}>
+      <PageTitle title="What do you want to do?" description="Choose one of the following." />
       <nav aria-label="Typical workflow" className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 px-4 py-3">
         <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-950/50 px-4 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300">
           <LineIcon><path d="M3 12h4l3-8 4 16 3-8h4" /></LineIcon>Typical workflow
