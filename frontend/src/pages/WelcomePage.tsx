@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { api } from '../api'
 import { working } from '../researchProjects'
 import type { LocalResearchProject } from '../types'
@@ -12,17 +11,12 @@ interface Props {
   onNewProject: () => void
 }
 
-const ICONS: Record<string, ReactNode> = {
-  visits: <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />,
-  deployment: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>,
-  session: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
-  upload: <><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" /><path d="M12 12v9M8 16l4-4 4 4" /></>,
-}
-
-const TASKS = [
-  { icon: 'visits', title: 'Manage visits', description: 'Register who visited each camera trap, when and what was done, and look at the visit book.' },
-  { icon: 'deployment', title: 'Manage deployments', description: 'Import the images of a deployment, see how far the deployments are, or compare them with the previous revisions.' },
-  { icon: 'upload', title: 'Manage uploads', description: 'Send a deployment to a repository, or see how far the uploads are.' },
+/** What the application gives, in four points: each with its tick. */
+const POINTS = [
+  { title: 'Validated', description: 'Corrupted files, duplicates, EXIF, dates and times and SD cards checked against the field data' },
+  { title: 'Traceable', description: 'Each deployment sealed with the checks it passed and a SHA-256 fingerprint of every image' },
+  { title: 'Standard', description: 'Deployments described with the Camtrap DP fields, all times in UTC' },
+  { title: 'Organized', description: 'Hierarchically: research project › collection › deployment' },
 ]
 
 /** Where the app stands: the Trapper it is connected to, the research project that comes filled in and the research projects there are — none until it is known,
@@ -78,16 +72,17 @@ export default function WelcomePage({ onStart, onNewProject }: Props) {
     <div className="mx-auto max-w-[1100px] px-4 py-10 flex flex-col items-center" style={{ minHeight: 'calc(100vh - 56px)' }}>
       <img src="/logo.svg" alt="" aria-hidden="true" width={64} height={64} className="mb-3 h-16 w-16 rounded-2xl" />
       <h1 className="text-2xl font-bold mb-2 text-center">WildINTEL Uploader</h1>
-      <p className="text-zinc-500 dark:text-zinc-400 mb-8 text-base text-center max-w-[480px]">
-        Bring camera-trap images from a memory card into the WildINTEL project, organized and registered in Trapper.
+      <p className="mb-8 max-w-[760px] text-center text-base leading-relaxed text-zinc-500 dark:text-zinc-400">
+        From the field to a curated, standard dataset: field data and camera-trap images checked, curated and organized into deployments described in{' '}
+        <strong className="font-semibold text-zinc-900 dark:text-zinc-100">Camtrap DP</strong>, ready for the remote repository (e.g. TRAPPER).
       </p>
-      <ul className="w-full max-w-[460px] list-none p-0 m-0 space-y-4 text-left">
-        {TASKS.map((t) => (
+      <ul className="grid w-full list-none grid-cols-1 gap-x-8 gap-y-5 p-0 m-0 text-left sm:grid-cols-2 lg:grid-cols-4">
+        {POINTS.map((t) => (
           <li key={t.title} className="flex items-start gap-3 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-300">
-              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONS[t.icon]}</svg>
+            <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
             </span>
-            <span><strong className="font-semibold text-zinc-900 dark:text-zinc-100">{t.title}</strong> — {t.description}</span>
+            <span><strong className="block font-semibold text-zinc-900 dark:text-zinc-100">{t.title}</strong>{t.description}</span>
           </li>
         ))}
       </ul>

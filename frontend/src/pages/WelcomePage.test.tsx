@@ -15,12 +15,16 @@ beforeEach(() => {
 })
 
 describe('WelcomePage', () => {
-  it('says what the app does, with a line for each task, and starts the flow', async () => {
+  it('says what the app does — from the field to a curated, standard dataset — with its four points, and starts the flow', async () => {
     const onStart = vi.fn()
     render(<WelcomePage onStart={onStart} onNewProject={vi.fn()} />)
 
-    for (const title of ['Manage visits', 'Manage deployments', 'Manage uploads']) expect(screen.getByText(title)).toBeInTheDocument()
-    expect(screen.getByText(/see how far the uploads are/i)).toBeInTheDocument()
+    expect(screen.getByText(/From the field to a curated, standard dataset: field data and camera-trap images checked, curated and organized into deployments described in/)).toHaveTextContent('described in Camtrap DP, ready for the remote repository (e.g. TRAPPER).')
+    expect(screen.getByText('Camtrap DP', { selector: 'strong' })).toBeInTheDocument()
+    const points = screen.getAllByRole('listitem').slice(0, 4)
+    expect(points.map((li) => li.querySelector('strong')?.textContent)).toEqual(['Validated', 'Traceable', 'Standard', 'Organized'])
+    expect(points[1]).toHaveTextContent('Each deployment sealed with the checks it passed and a SHA-256 fingerprint of every image')
+    expect(points[3]).toHaveTextContent('Hierarchically: research project › collection › deployment')
 
     await userEvent.click(await screen.findByRole('button', { name: 'Continue with WICP_01' }))
     expect(onStart).toHaveBeenCalled()
