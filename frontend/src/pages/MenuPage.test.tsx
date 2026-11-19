@@ -38,6 +38,30 @@ describe('MenuPage', () => {
     expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
   })
 
+  it('has its title at 22 px, semibold, with what it says under it and a subtle line after', () => {
+    renderMenu()
+    const title = screen.getByRole('heading', { name: 'What do you want to do?' })
+    expect(title).toHaveClass('text-[22px]', 'font-semibold')
+    expect(title.nextElementSibling).toHaveTextContent('Choose one of the following.')
+    expect(title.parentElement).toHaveClass('border-b')                                            // the line under the heading
+  })
+
+  it('has the three actions in three columns, and the dashboards under them as a bar of their own, as the utilities are', async () => {
+    renderMenu()
+    const actions = screen.getByRole('button', { name: /^Register visits/ }).parentElement!
+    expect(actions).toHaveClass('md:grid-cols-3')                                                  // the three in a row
+    expect([...actions.children].map((c) => c.querySelector('strong')?.textContent)).toEqual(['Register visits', 'Create deployments', 'Upload deployment'])
+
+    const bar = screen.getByRole('region', { name: 'Dashboards and statistics' })
+    expect(actions.contains(bar)).toBe(false)                                                      // not one of the cards: under them, full width
+    expect(actions.nextElementSibling).toBe(bar)
+    expect(bar).toHaveClass('w-full')
+    expect(within(bar).getByText('Open dashboards')).toBeInTheDocument()                           // with its button at the right, as Open utilities
+    expect(screen.getByRole('button', { name: /Open utilities/ })).toBeInTheDocument()
+    await userEvent.click(within(bar).getByRole('button', { name: /Dashboards and statistics/ }))
+    expect(within(bar).getByText('Hide dashboards')).toBeInTheDocument()
+  })
+
   it('has a card with the dashboards and the statistics', async () => {
     const { onDashboard } = renderMenu()
     const card = screen.getByRole('region', { name: 'Dashboards and statistics' })

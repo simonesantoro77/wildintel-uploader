@@ -269,14 +269,14 @@ test one and the real one) or two sets of authorship. Each can be downloaded, an
 
 ## 3. The task menu
 
-Once it is configured, the menu is where you choose what you want to do:
+Once it is configured, the menu is where you choose what you want to do. The three actions — register the visits, create the deployments and upload them — are in **three columns**, in the order of the work; under them, the **dashboards and statistics** and the **utils** are a bar each, full width, with its button (*Open dashboards*, *Open utilities*) at the right:
 
 | Task | What it's for |
 |---|---|
 | 📋 **Register visits** | Record the visits to the camera traps: who went, when, to which site and what was done — one by one, or in batch mode from files. |
 | 📷 **Create deployments** | Import the images collected in a visit: pick the closed visits whose images you have and create their deployments — one, several at once, or one after another. |
 | ☁️ **Upload deployment** | Upload deployments to public repositories: send a deployment already kept locally to a repository, such as Trapper. |
-| 📊 **Dashboards and statistics** | A card, folded away until it is opened, with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on Trapper — and the **statistics**. |
+| 📊 **Dashboards and statistics** | A bar that opens, under it, the list with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on Trapper — and the **statistics**. |
 | 🧰 **Utils** | *Check and fix dates and times* compares the dates of a folder's images with the period of the visit, when the camera clock went wrong, and shifts or removes the ones that cannot be trusted (every fix is written down). Maintenance of the local collections: *Sync local collections* brings the collections folder up to date with what Trapper already has, and *Repair local deployments* checks which deployments are still valid and writes the metadata files of the others again from their folders. |
 
 ![The task menu](img/screenshots/menu.png)
