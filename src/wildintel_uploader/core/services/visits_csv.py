@@ -479,8 +479,8 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     known = {str(l.get("location_id", "")).lower(): l for l in locations}
     # What a row creates when its location, camera or SD card does not exist and it is asked to: {row: {"locations": [...], "cameras": [...], "sd_cards": [...]}}, and the
     # locations made from the first row that gave each site (the other rows of it are read in its timezone).
-    cameras_known = {str(c.get(k) or "").lower() for c in options.get("cameras") or [] if c.get("status") != "planned" for k in ("camera_id", "label")} - {""}
-    cards_known = {str(c.get("label") or "").lower() for c in options.get("cards") or [] if c.get("status") != "planned"} - {""}
+    cameras_known = {str(c.get(k) or "") for c in options.get("cameras") or [] if c.get("status") != "planned" for k in ("camera_id", "label")} - {""}   # as written: 7b and 7B are two
+    cards_known = {str(c.get("label") or "") for c in options.get("cards") or [] if c.get("status") != "planned"} - {""}
     made_by_row: dict[int, dict[str, list[dict]]] = {}
     new_locations: dict[str, dict] = {}
     already = {(str(v.get("location_id", "")).lower(), v.get("date"), v.get("time")) for v in kept}
@@ -545,10 +545,13 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
                 actions = ["SiteStart", *actions]
             report[n]["actions"] = " + ".join(actions)  # as the dashboard of visits says them
             # a camera and an SD card are what their cell says, stripped; the ones that exist are found ignoring the case
-            if create.get("cameras") and cells.camera_id and cells.camera_id.lower() not in cameras_known:
+            if create.get("cameras") and cells.camera_id and cells.camera_id not in cameras_known:
                 made["cameras"].append(_new_camera(cells.camera_id, row))
-            if create.get("sd_cards") and cells.sd and cells.sd.lower() not in cards_known:
+            if create.get("sd_cards") and cells.sd and cells.sd not in cards_known:
                 made["sd_cards"].append(_new_card(cells.sd, row))
+            # an id that is out of the ordinary is said once for its card, in the rows it is in; the card that is kept already was accepted as it is
+            if cells.sd and cells.sd not in cards_known and visit_rules.unusual_card_id(cells.sd):
+                row_warnings.append((n, visit_rules.unusual_card_message(cells.sd)))
             data = cells.model_dump(exclude_unset=True, exclude={"actions"})
             if "card_batteries_ok" in data:   # one column for both, as it was: the batteries and the card each in its own field
                 battery, card = visit_rules.split_card_batteries(data.pop("card_batteries_ok"))
@@ -670,15 +673,15 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         else:
             reasons += visit_rules.refusals(visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown], gate=False, first_may_be_any=True, photos_optional=bool(options.get("photos_not_counted")))
         # what the visit says that is not an entity (a camera, a card, a trapper) is refused, as in the form, unless the import creates it
-        camera, card = str(visit.get("camera_id") or "").lower(), str(visit.get("sd") or "").lower()
+        camera, card = str(visit.get("camera_id") or ""), str(visit.get("sd") or "")
         check = options.get("check_entities", True)
         if check and camera and options.get("cameras") is not None and camera not in cameras_known and not create.get("cameras"):
             reasons.append(visit_rules._reason("camera_unknown", f"The camera {visit['camera_id']} is not one of the cameras of the research project."))
         if check and card and options.get("cards") is not None and card not in cards_known and not create.get("sd_cards"):
             reasons.append(visit_rules._reason("card_unknown", f"The SD card {visit['sd']} is not one of the SD cards of the research project."))
         if check and options.get("trappers") is not None and not create.get("trappers"):
-            known_trappers = {str(t).lower() for t in options["trappers"]}
-            reasons += [visit_rules._reason("trapper_unknown", f"{t} is not one of the trappers.") for t in (x.strip() for x in str(visit.get("trappers") or "").split(",")) if t and t.lower() not in known_trappers]
+            known_trappers = {str(t) for t in options["trappers"]}   # as written: two people that differ only in case are two
+            reasons += [visit_rules._reason("trapper_unknown", f"{t} is not one of the trappers.") for t in (x.strip() for x in str(visit.get("trappers") or "").split(",")) if t and t not in known_trappers]
         if reasons:
             # the kind of error is that of the first rule it breaks; every reason is told
             problem(n, " ".join(dict.fromkeys(reasons)), getattr(reasons[0], "code", "visit_refused"))
@@ -736,15 +739,15 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     # the people the visits that are kept say went, who are not trappers yet: made as they are called, when the import is asked to
     trapper_rows: dict[int, list[str]] = {}
     if create.get("trappers") and options.get("trappers") is not None:
-        have = {str(t).lower() for t in options["trappers"]}
+        have = {str(t) for t in options["trappers"]}
         taken = {str(u).lower() for u in options.get("trapper_usernames") or []}
         for visit in visits:
             for who in (x.strip() for x in str(visit.get("trappers") or "").split(",")):
-                if who and who.lower() not in have:
+                if who and who not in have:
                     username = _username_of(who, taken)
-                    taken.add(username.lower()); have.add(who.lower())
+                    taken.add(username.lower()); have.add(who)
                     create_out["trappers"].append({"username": username, "name": who, "status": "active"})
-                if who and who.lower() in {t["name"].lower() for t in create_out["trappers"]}:
+                if who and who in {t["name"] for t in create_out["trappers"]}:
                     trapper_rows.setdefault(row_of[id(visit)], []).append(who)
         if create_out["trappers"]:
             notes.append(f"The trappers {', '.join(t['name'] for t in create_out['trappers'])} {'is' if len(create_out['trappers']) == 1 else 'are'} created as the visits say {'it' if len(create_out['trappers']) == 1 else 'them'}: "
@@ -752,8 +755,8 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     for n in sorted(kept_rows):
         for kind in ("cameras", "sd_cards"):
             for entity in made_by_row.get(n, {}).get(kind, []):
-                key = str(entity.get("camera_id") or entity.get("label")).lower()
-                if key not in {str(e.get("camera_id") or e.get("label")).lower() for e in create_out[kind]}:
+                key = str(entity.get("camera_id") or entity.get("label"))
+                if key not in {str(e.get("camera_id") or e.get("label")) for e in create_out[kind]}:
                     create_out[kind].append(entity)
     # a warning goes to the rows that are added; one about no row, or only about rows that are not added, is said apart
     loose: list[str] = []

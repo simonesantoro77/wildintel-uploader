@@ -167,7 +167,9 @@ def test_a_trapper_has_a_username_that_is_required_and_unique_and_an_email_that_
         config.Trapper(username="ana", name="Ana", email="not an email")                 # an email, when given, is one
     assert config.Trapper(username="ana", name="Ana", email="  ").email is None          # blank is none
     with pytest.raises(ValidationError, match="unique"):
-        config.FieldworkSettings(trappers=[{"username": "ana", "name": "Ana"}, {"username": "ANA", "name": "Anabel"}])
+        config.FieldworkSettings(trappers=[{"username": "ana", "name": "Ana"}, {"username": "ANA", "name": "Anabel"}])   # the username is the account, an email: whatever its case
+    # the full name counts the case: two people that differ only in case are two
+    assert [t.name for t in config.FieldworkSettings(trappers=[{"username": "ana", "name": "Ana"}, {"username": "ana2", "name": "ANA"}]).trappers] == ["Ana", "ANA"]
 
 
 def test_what_was_kept_before_the_username_existed_gets_one_made_from_its_name_when_it_is_read_from_the_file():

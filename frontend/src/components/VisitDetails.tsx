@@ -111,8 +111,8 @@ export default function VisitDetails({ closed, onClose, onOpenVisit, researchPro
     try {
       const settings = await api.getSettings()
       const mine = (settings?.FIELDWORK?.cameras ?? []).filter((c) => (c.research_project ?? '').toLowerCase() === researchProjectId.toLowerCase())
-      const wanted = visit.camera_id.toLowerCase()
-      setCameraPanel({ name: visit.camera_id, camera: mine.find((c) => (c.camera_id ?? '').toLowerCase() === wanted || c.label.toLowerCase() === wanted) })
+      const wanted = visit.camera_id.trim()   // as written: two cameras that differ only in case are two
+      setCameraPanel({ name: visit.camera_id, camera: mine.find((c) => (c.camera_id ?? '').trim() === wanted || c.label.trim() === wanted) })
     } catch (e) { setLinkError(e instanceof Error ? e.message : 'Could not read the cameras.') }
   }
   const days = end ? daysBetween(visit.date, end.date) : null

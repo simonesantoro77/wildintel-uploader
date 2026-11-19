@@ -53,7 +53,7 @@ def test_the_trappers_start_empty_and_are_saved_clean():
 
     saved = _put(FIELDWORK={"trappers": [
         {"username": " ana ", "name": "  Ana   Pérez ", "affiliation": " University of Huelva ", "email": " ana@uhu.es "}, {"username": "luis", "name": "Luis", "affiliation": "  ", "email": ""},
-        {"username": "ana.2", "name": "ana pérez"},
+        {"username": "ana.2", "name": "Ana Pérez"},   # the same name as written: listed once — ana pérez would be another person
     ]})
 
     expected = [{"username": "ana", "name": "Ana Pérez", "affiliation": "University of Huelva", "email": "ana@uhu.es", "status": "active", "trapper_pk": None},
@@ -69,9 +69,9 @@ def _no_dates(items: list[dict]) -> list[dict]:
 
 def test_the_sd_cards_and_the_cameras_are_saved_clean_and_listed_once():
     saved = _put(FIELDWORK={
-        "sd_cards": [{"label": " A12 ", "brand": " SanDisk ", "capacity": " 64   GB ", "in_service": "2026-03-01", "research_project": "DONA"}, {"label": "a12", "research_project": "DONA"},
+        "sd_cards": [{"label": " A12 ", "brand": " SanDisk ", "capacity": " 64   GB ", "in_service": "2026-03-01", "research_project": "DONA"}, {"label": "A12", "research_project": "DONA"},
                      {"label": "B3", "brand": "", "capacity": "", "in_service": "", "research_project": "DONA"}],
-        "cameras": [{"camera_id": "P800HG0819", "camera_model": " Reconyx-PC800 ", "in_service": "2025-11-12", "research_project": "DONA"}, {"camera_id": "p800hg0819", "research_project": "DONA"},
+        "cameras": [{"camera_id": "P800HG0819", "camera_model": " Reconyx-PC800 ", "in_service": "2025-11-12", "research_project": "DONA"}, {"camera_id": "P800HG0819", "research_project": "DONA"},
                     {"camera_id": "X1", "in_service": "", "research_project": "DONA"}],
     })
 
@@ -127,8 +127,8 @@ def test_the_status_of_the_cameras_the_sd_cards_and_the_trappers_is_kept_and_onl
 
 def test_the_sd_cards_and_the_cameras_belong_to_a_research_project_and_are_listed_once_in_each(tmp_path: Path):
     saved = _put(FIELDWORK={
-        "sd_cards": [{"label": "A1", "research_project": " DONA "}, {"label": "a1", "research_project": "dona"}, {"label": "A1", "research_project": "TATR"}],
-        "cameras": [{"camera_id": "X1", "research_project": "DONA"}, {"camera_id": "x1", "research_project": "DONA"}],
+        "sd_cards": [{"label": "A1", "research_project": " DONA "}, {"label": "A1", "research_project": "dona"}, {"label": "A1", "research_project": "TATR"}],
+        "cameras": [{"camera_id": "X1", "research_project": "DONA"}, {"camera_id": "X1", "research_project": "DONA"}],
     })
 
     assert [(c["label"], c["research_project"]) for c in saved["FIELDWORK"]["sd_cards"]] == [("A1", "DONA"), ("A1", "TATR")]
@@ -165,7 +165,7 @@ def test_what_was_kept_in_the_settings_file_goes_to_the_research_projects_when_t
 
 
 def test_a_camera_is_called_by_its_label_and_its_serial_number_is_optional():
-    saved = _put(FIELDWORK={"cameras": [{"label": " North  gate ", "camera_id": " ", "research_project": "DONA"}, {"label": "north gate", "research_project": "DONA"},
+    saved = _put(FIELDWORK={"cameras": [{"label": " North  gate ", "camera_id": " ", "research_project": "DONA"}, {"label": "North gate", "research_project": "DONA"},
                                         {"label": "Ridge", "camera_id": "P800 1", "research_project": "DONA"}]})
 
     assert [(c["label"], c["camera_id"]) for c in saved["FIELDWORK"]["cameras"]] == [("North gate", None), ("Ridge", "P800 1")]  # one label, once
@@ -476,12 +476,13 @@ def test_a_camera_and_an_sd_card_are_marked_as_not_available_by_what_the_visit_s
     body["FIELDWORK"]["sd_cards"] = [{"label": "1B", "research_project": "DONA"}]
     assert _client().put("/api/settings", json=body).status_code == 200
 
-    camera = _client().post("/api/settings/field-item-status", json={"research_project_id": "DONA", "kind": "cameras", "key": "br5071050724", "status": "stolen", "status_date": "2026-10-29", "status_note": "Stolen"})
+    camera = _client().post("/api/settings/field-item-status", json={"research_project_id": "DONA", "kind": "cameras", "key": "BR5071050724", "status": "stolen", "status_date": "2026-10-29", "status_note": "Stolen"})
     card = _client().post("/api/settings/field-item-status", json={"research_project_id": "DONA", "kind": "sd_cards", "key": "1B", "status": "stolen", "status_date": "2026-10-29"})
     nobody = _client().post("/api/settings/field-item-status", json={"research_project_id": "DONA", "kind": "cameras", "key": "nobody", "status": "stolen"})
+    other_case = _client().post("/api/settings/field-item-status", json={"research_project_id": "DONA", "kind": "sd_cards", "key": "1b", "status": "stolen"})   # 1b is not 1B
     shown = _client().get("/api/settings").json()["FIELDWORK"]
 
-    assert camera.json() == {"updated": True} and card.json() == {"updated": True} and nobody.json() == {"updated": False}
+    assert camera.json() == {"updated": True} and card.json() == {"updated": True} and nobody.json() == {"updated": False} and other_case.json() == {"updated": False}
     assert {c["label"]: (c["status"], c["archive_reason"], c["status_date"]) for c in shown["cameras"]} == {"CAM-001": ("archived", "stolen", "2026-10-29"), "CAM-002": ("ready", None, None)}
     assert (shown["sd_cards"][0]["status"], shown["sd_cards"][0]["archive_reason"]) == ("archived", "stolen")
 

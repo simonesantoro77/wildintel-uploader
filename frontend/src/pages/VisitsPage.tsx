@@ -694,7 +694,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const guidedKey = guidedActions?.join('+')
   // What a theft takes: the camera at the site, and the card that was left in it — which are marked as not available when the visit is kept.
   const theft = guided && !noCamera && seeCamera === 'stolen' && siteCamera ? siteCamera.camera : null
-  const stolenCamera = theft ? (allCameras.find((c) => cameraKey(c).toLowerCase() === theft.toLowerCase() || c.label.toLowerCase() === theft.toLowerCase())?.label ?? theft) : null
+  const stolenCamera = theft ? (allCameras.find((c) => cameraKey(c) === theft || c.label === theft)?.label ?? theft) : null
   const stolenCard = theft && allVisits
     ? [...allVisits].filter((v) => v.location_id.toLowerCase() === visit.site.trim().toLowerCase() && v.sd && `${v.date}T${v.time}` < (visit.when || '9999-12-31T23:59:59') && v.actions.some((a) => a === 'Installation' || a === 'Revision'))
         .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))[0]?.sd ?? null
@@ -707,8 +707,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       if (v.actions.join('+') === actions.join('+')) return v
       const next = withoutWhatIsNotAsked({ ...v, actions, calibration: fieldsFor(actions).calibration !== 'off' ? v.calibration ?? false : null })
       // The camera of a visit that installs another is not the one at the site: the stolen one must not stay chosen.
-      const there = siteCamera?.camera.toLowerCase()
-      return actions.includes('Installation') && there && (next.details.camera_id ?? '').toLowerCase() === there ? { ...next, details: { ...next.details, camera_id: null, camera_model: null } } : next
+      const there = siteCamera?.camera
+      return actions.includes('Installation') && there && (next.details.camera_id ?? '') === there ? { ...next, details: { ...next.details, camera_id: null, camera_model: null } } : next
     })
   }, [guidedKey, visit.actions.join('+')]) // eslint-disable-line react-hooks/exhaustive-deps
   // The visit that could not be made says so with its status; any other answer takes it away.
@@ -791,7 +791,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     // the options of what is created start all marked in the WildINTEL CSV, where the form says everything but the timezone; in a custom CSV creating asks for more columns, so they start off
     const on = source === 'wildintel-new'
     setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvDefaults(on ? { timezone: 'UTC', daylight_saving: 'no' } : {})
-    setCsvClose(on); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(on)
+    setCsvClose(true); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(on)   // closing the revision before starts on in both: a revision left open for sites that were skipped is found weeks later
   }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
@@ -1115,8 +1115,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       try {
         await api.setFieldItemStatus(project.acronym, 'cameras', theft, 'stolen', day, 'Stolen')
         if (stolenCard) await api.setFieldItemStatus(project.acronym, 'sd_cards', stolenCard, 'stolen', day, 'Stolen with the camera')
-        setCameras((list) => list.map((c) => (cameraKey(c).toLowerCase() === theft.toLowerCase() || c.label.toLowerCase() === theft.toLowerCase() ? { ...c, status: 'archived' as const, archive_reason: 'stolen' as const, status_date: day } : c)))
-        if (stolenCard) setSdCards((list) => list.map((c) => (c.label.toLowerCase() === stolenCard.toLowerCase() ? { ...c, status: 'archived' as const, archive_reason: 'stolen' as const, status_date: day } : c)))
+        setCameras((list) => list.map((c) => (cameraKey(c) === theft || c.label === theft ? { ...c, status: 'archived' as const, archive_reason: 'stolen' as const, status_date: day } : c)))
+        if (stolenCard) setSdCards((list) => list.map((c) => (c.label === stolenCard ? { ...c, status: 'archived' as const, archive_reason: 'stolen' as const, status_date: day } : c)))
       } catch (e) {
         setSaveError(e instanceof Error ? `The visit is kept, but the camera or the card could not be marked as stolen: ${e.message}` : 'The visit is kept, but the camera or the card could not be marked as stolen.')
       }
@@ -1217,11 +1217,11 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             <FormCard title="Who" tag={<CamtrapDpTag />} description="The trappers kept in the settings.">
               {(() => {
                 const chosen = namesOf(visit.trappers)
-                const picked = new Set(trappers.filter((t) => chosen.some((n) => n.toLowerCase() === t.name.toLowerCase())).map((t) => t.name))
+                const picked = new Set(trappers.filter((t) => chosen.some((n) => n === t.name)).map((t) => t.name))
                 // what the list picks replaces the names of the list that are on the visit; a name that is not in it — typed in a file — is left as it is
                 const pick = (next: Set<string>) => {
-                  const listed = new Set(trappers.map((t) => t.name.toLowerCase()))
-                  const outside = chosen.filter((n) => !listed.has(n.toLowerCase()))
+                  const listed = new Set(trappers.map((t) => t.name))
+                  const outside = chosen.filter((n) => !listed.has(n))
                   set('trappers', [...outside, ...trappers.filter((t) => next.has(t.name)).map((t) => t.name)].join(', '))
                 }
                 return (
@@ -1452,7 +1452,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                   <div>
                     <ControlRow id="visit-sd" label="SD card left in the camera" ask={asked.sdLeft}>
                     <Combobox
-                      id="visit-sd" options={sdCards.filter((c) => !stolenCard || !visit.actions.includes('Installation') || c.label.toLowerCase() !== stolenCard.toLowerCase()).map((c) => ({ value: c.label, label: [c.label, [c.brand, c.capacity].filter(Boolean).join(' ')].filter(Boolean).join(' — ') }))}
+                      id="visit-sd" options={sdCards.filter((c) => !stolenCard || !visit.actions.includes('Installation') || c.label !== stolenCard).map((c) => ({ value: c.label, label: [c.label, [c.brand, c.capacity].filter(Boolean).join(' ')].filter(Boolean).join(' — ') }))}
                       value={visit.sd} onChange={(label) => set('sd', label)} invalid={asked.sdLeft === 'required' && !visit.sd.trim()}
                       placeholder={sdCards.length === 0 ? 'No SD cards yet' : 'Select an SD card…'} clearLabel="Clear SD card"
                     />
@@ -1486,7 +1486,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       <CamtrapDpTag />
                     </div>
                     <Combobox
-                      id="visit-camera" options={cameras.filter((c) => !theft || !visit.actions.includes('Installation') || (cameraKey(c).toLowerCase() !== theft.toLowerCase() && c.label.toLowerCase() !== theft.toLowerCase())).filter((c) => !ofTheSiteCamera || cameraKey(c).toLowerCase() === siteCamera!.camera.toLowerCase() || c.label.toLowerCase() === siteCamera!.camera.toLowerCase()).map((c) => ({ value: c.label, label: c.camera_model ? `${c.label} — ${c.camera_model}` : c.label }))}
+                      id="visit-camera" options={cameras.filter((c) => !theft || !visit.actions.includes('Installation') || (cameraKey(c) !== theft && c.label !== theft)).filter((c) => !ofTheSiteCamera || cameraKey(c) === siteCamera!.camera || c.label === siteCamera!.camera).map((c) => ({ value: c.label, label: c.camera_model ? `${c.label} — ${c.camera_model}` : c.label }))}
                       value={cameras.find((c) => cameraKey(c) === visit.details.camera_id)?.label ?? ''} onChange={pickCamera} invalid={asked.camera === 'required' && !visit.details.camera_id}
                       placeholder={cameras.length === 0 ? 'No cameras yet' : 'Select a camera…'} clearLabel="Clear camera"
                     />

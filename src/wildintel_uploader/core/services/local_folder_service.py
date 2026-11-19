@@ -17,7 +17,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from wildintel_uploader.core import config, storage
+from wildintel_uploader.core import config, identity, storage
 from wildintel_uploader.core.config import migrate_gear
 from wildintel_uploader.core.services import audit, ids, visit_rules, visit_time
 
@@ -469,17 +469,17 @@ def write_field_items(root: Path, research_project_id: str, kind: str, items: li
     _require_modifiable(root, research_project_id)
     require_research_project(root, research_project_id)
     if by_hand and kind in ("cameras", "sd_cards"):
-        before = {str(i.get("label") or "").strip().lower(): i for i in list_field_items(root, research_project_id, kind)}
+        before = {str(i.get("label") or "").strip(): i for i in list_field_items(root, research_project_id, kind)}   # as written: 7b and 7B are two
         before_id = {i["id"]: i for i in before.values() if i.get("id")}
         visits = None
         for item in items:
-            old = before_id.get(item.get("id")) or before.get(str(item.get("label") or "").strip().lower())
+            old = before_id.get(item.get("id")) or before.get(str(item.get("label") or "").strip())
             if old is not None and item.get("status") and item["status"] != old.get("status"):
                 visits = list_visits(root, research_project_id) if visits is None else visits
                 why = (_camera_status_refusal if kind == "cameras" else _card_status_refusal)(old, item["status"], visits)
                 if why:
                     raise LocalFolderError(why)
-    _kept_list(root, research_project_id, kind, items, lambda i: str(i.get("label") or "").strip().lower())
+    _kept_list(root, research_project_id, kind, items, lambda i: str(i.get("label") or "").strip())
 
 
 # ── The roles of a research project ─────────────────────────────────────────────────────────────────────────────
@@ -625,7 +625,7 @@ class _Refs:
             self.by_id[kind][record["id"]] = record
         for label in labels:
             if label:
-                self.by_label[kind].setdefault(str(label).strip().lower(), record)
+                self.by_label[kind].setdefault(identity.key(kind, label), record)
 
 
 # What a visit says of what it points to — (told as, kept as an id in, kind): told by what it is called, kept by the id. What cannot be found (a card nobody registered) is kept as it was said.
@@ -658,13 +658,13 @@ def _linked(visit: dict, refs: _Refs) -> dict:
     out = dict(visit)
     for told, kept, kind in _POINTS_TO:
         text = out.get(told)
-        record = refs.by_label[kind].get(str(text).strip().lower()) if text not in (None, "") else None
+        record = refs.by_label[kind].get(identity.key(kind, text)) if text not in (None, "") else None
         if record is not None and record.get("id"):
             out[kept] = record["id"]
             out.pop(told, None)
     names = [n.strip() for n in str(out.get("trappers") or "").split(",") if n.strip()]
     if names:
-        found = [refs.by_label["trapper"].get(n.lower()) for n in names]
+        found = [refs.by_label["trapper"].get(identity.key("trapper", n)) for n in names]
         known = [*(out.get("trapper_refs") or []), *[r["id"] for r in found if r is not None and r.get("id")]]
         if known:
             out["trapper_refs"] = list(dict.fromkeys(known))

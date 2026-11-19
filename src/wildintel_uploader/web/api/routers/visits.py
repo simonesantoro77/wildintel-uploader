@@ -115,8 +115,8 @@ def _apply_to_entities(root, research_project_id: str, new: list[dict], before: 
         changed = False
         for visit, change in wanted:
             for item in items:
-                names = {str(item.get("label") or "").strip().lower()} | ({str(item.get("camera_id") or "").strip().lower()} if kind == "cameras" else set())
-                if change["name"].strip().lower() not in names or item.get("status") == "archived" or item.get("status") == change["status"]:
+                names = {str(item.get("label") or "").strip()} | ({str(item.get("camera_id") or "").strip()} if kind == "cameras" else set())   # as written: 7b and 7B are two
+                if change["name"].strip() not in names or item.get("status") == "archived" or item.get("status") == change["status"]:
                     continue
                 item["status"] = change["status"]
                 if change["status"] == "archived":
@@ -177,17 +177,17 @@ def _not_entities(root, research_project_id: str, old: dict | None, visit: dict)
     """What a visit says that is not an entity: a camera or an SD card that is not one of the research project's, a trapper that is not in the settings. Only what
     changed from `old` is said — what the visit already had stays, as it may have been kept without being listed."""
     reasons = []
-    cameras = {str(x).lower() for c in local_folder_service.list_field_items(root, research_project_id, "cameras") if c.get("status") != "planned" for x in (c.get("camera_id"), c.get("label")) if x}
-    cards = {str(c.get("label")).lower() for c in local_folder_service.list_field_items(root, research_project_id, "sd_cards") if c.get("status") != "planned"}
-    trappers = {t["name"].lower() for t in local_folder_service.list_trappers(config.collections_dir())}
+    cameras = {str(x) for c in local_folder_service.list_field_items(root, research_project_id, "cameras") if c.get("status") != "planned" for x in (c.get("camera_id"), c.get("label")) if x}
+    cards = {str(c.get("label")) for c in local_folder_service.list_field_items(root, research_project_id, "sd_cards") if c.get("status") != "planned"}
+    trappers = {t["name"] for t in local_folder_service.list_trappers(config.collections_dir())}
     names = lambda text: [n.strip() for n in str(text or "").split(",") if n.strip()]  # noqa: E731
     camera, card = visit.get("camera_id"), visit.get("sd")
-    if camera and str(camera).lower() not in cameras and str(camera).lower() != str((old or {}).get("camera_id") or "").lower():
+    if camera and str(camera) not in cameras and str(camera) != str((old or {}).get("camera_id") or ""):
         reasons.append(f"The camera {camera} is not one of the cameras of {research_project_id}.")
-    if card and str(card).lower() not in cards and str(card).lower() != str((old or {}).get("sd") or "").lower():
+    if card and str(card) not in cards and str(card) != str((old or {}).get("sd") or ""):
         reasons.append(f"The SD card {card} is not one of the SD cards of {research_project_id}.")
-    before = {n.lower() for n in names((old or {}).get("trappers"))}
-    reasons += [f"{n} is not one of the trappers." for n in names(visit.get("trappers")) if n.lower() not in trappers and n.lower() not in before]
+    before = set(names((old or {}).get("trappers")))
+    reasons += [f"{n} is not one of the trappers." for n in names(visit.get("trappers")) if n not in trappers and n not in before]
     return reasons
 
 

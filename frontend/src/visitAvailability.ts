@@ -9,6 +9,8 @@ import type { Visit } from './pages/VisitsPage'
 export interface Whereabouts { site: string; date: string }
 
 const same = (a: string | null | undefined, b: string | null | undefined) => (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase()
+/** A camera or an SD card is the same one only when written the same: 7b and 7B are two. */
+const sameGear = (a: string | null | undefined, b: string | null | undefined) => (a ?? '').trim() === (b ?? '').trim()
 const stamp = (v: { date: string; time: string }) => `${v.date}T${v.time}`
 
 /** The visits before a moment, oldest first. */
@@ -24,7 +26,7 @@ const collectsCard = (v: StoredVisit) => takesAway(v) || (v.actions.includes('Re
 export function cameraAt(visits: StoredVisit[], cameraId: string, when: string): Whereabouts | null {
   let at: Whereabouts | null = null
   for (const v of before(visits, when)) {
-    if (!same(v.camera_id, cameraId)) continue
+    if (!sameGear(v.camera_id, cameraId)) continue
     if (takesAway(v)) at = null
     else if (v.actions.includes('Installation') || v.actions.includes('Revision')) at = { site: v.location_id, date: v.date }
   }
@@ -51,7 +53,7 @@ export function cardAt(visits: StoredVisit[], label: string, when: string): Wher
     if (collectsCard(v)) inSite.delete(site)
     if (v.sd && (v.actions.includes('Installation') || v.actions.includes('Revision'))) inSite.set(site, { label: v.sd, date: v.date, site: v.location_id })
   }
-  for (const card of inSite.values()) if (same(card.label, label)) return { site: card.site, date: card.date }
+  for (const card of inSite.values()) if (sameGear(card.label, label)) return { site: card.site, date: card.date }
   return null
 }
 
@@ -80,7 +82,7 @@ export function cardBlock(kept: StoredVisit[], label: string, visit: Visit, opti
   const site = visit.site.trim()
   const collects = revises || visit.actions.includes('Desinstallation') || visit.actions.includes('Stolen')
 
-  const settings = options.cards?.find((c) => same(c.label, card))
+  const settings = options.cards?.find((c) => sameGear(c.label, card))
   if (settings?.status === 'archived' && (!settings.status_date || settings.status_date <= when.slice(0, 10))) {
     return `SD card ${card} is not available${settings.status_date ? ` since ${settings.status_date}` : ''}: it is archived${settings.archive_reason ? ` (${settings.archive_reason})` : ''}.`
   }
@@ -88,7 +90,7 @@ export function cardBlock(kept: StoredVisit[], label: string, visit: Visit, opti
   if (there && collects && same(there.site, site)) return `SD card ${card} is the one this visit collects (left on ${there.date}): the card left in the camera has to be another.`
   if (there) return `SD card ${card} is in the camera at ${there.site} (left on ${there.date}): it has to be collected before it is left here.`
   if (options.session) {
-    const taken = kept.find((w) => w.session === options.session && collectsCard(w) && same(cardAtSite(kept, w.location_id, stamp(w))?.label, card))
+    const taken = kept.find((w) => w.session === options.session && collectsCard(w) && sameGear(cardAtSite(kept, w.location_id, stamp(w))?.label, card))
     if (taken) return `SD card ${card} was collected at ${taken.location_id} in this revision (${options.session}): it cannot be left again in the same revision.`
   }
   return undefined
@@ -108,7 +110,7 @@ export function availabilityErrors(kept: StoredVisit[], visit: Visit, options: C
   // A visit that does not put a camera up — a Revision, a Desinstallation, a Stolen camera — is of the camera that is at the site.
   if (camera && !installs && collects) {
     const there = cameraAtSite(kept, site, when)
-    if (there && !same(there.camera, camera)) {
+    if (there && !sameGear(there.camera, camera)) {
       errors.camera = `The camera at ${site} is ${there.camera} (since ${there.date}): a ${visit.actions.join(' + ')} is of that camera. If it was replaced, add an Installation to the visit.`
     }
   }

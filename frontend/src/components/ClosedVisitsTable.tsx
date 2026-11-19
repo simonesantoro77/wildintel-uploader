@@ -115,7 +115,7 @@ export default function ClosedVisitsTable({ visits, selectedKey = '', onSelect, 
       optionLabel={(c) => { const [session, site, left, status, card, collected, photos] = cellsOf(c); return `${left} · ${site} · ${session} · ${status}${card !== '—' ? ` · card ${card}` : ''} · collected on ${collected}${photos !== '—' ? ` (${photos} photos)` : ''}` }}
       searchPlaceholder="Search by revision, location, status, SD card…" empty="No closed visit matches." filters={filters} total={total} />
     {details && <VisitDetails closed={details} onClose={() => setDetails(null)} />}
-    {card && <SdCardDetails label={card} card={sdCards?.find((c) => c.label.toLowerCase() === card.toLowerCase())} onClose={() => setCard(null)}
+    {card && <SdCardDetails label={card} card={sdCards?.find((c) => c.label === card)} onClose={() => setCard(null)}
       onOpenInSettings={onOpenSdCard ? () => { setCard(null); onOpenSdCard(card) } : undefined} />}
     {site && <LocationDetails site={site} location={locations?.find((l) => l.location_id.toLowerCase() === site.toLowerCase())} onClose={() => setSite(null)}
       onOpenInSettings={onOpenSite ? () => { setSite(null); onOpenSite(site) } : undefined} />}

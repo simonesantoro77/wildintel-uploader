@@ -9,8 +9,8 @@ import pytest
 from wildintel_uploader.core import config
 from wildintel_uploader.core.services import backup_service, ids, local_folder_service as svc
 
-VISIT = {"location_id": "dona_01", "session": "R0001", "date": "2026-06-10", "time": "09:00:00", "actions": ["Installation"], "camera_id": "BR1", "sd": "a13",
-         "trappers": "Pedro Pérez, Luis", "setup_by": "pedro pérez", "num_photos": None}
+VISIT = {"location_id": "dona_01", "session": "R0001", "date": "2026-06-10", "time": "09:00:00", "actions": ["Installation"], "camera_id": "BR1", "sd": "A13",
+         "trappers": "Pedro Pérez, Luis", "setup_by": "Pedro Pérez", "num_photos": None}
 
 
 @pytest.fixture

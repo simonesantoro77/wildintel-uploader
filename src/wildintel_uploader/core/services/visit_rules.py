@@ -11,6 +11,7 @@ in both. The only thing a file is excused is what cannot be checked because the 
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 
@@ -29,6 +30,16 @@ _ASKED = {
     "Archive": {},  # the location is given up: nothing else is asked
 }
 _LABELS = {"camera": "The camera", "sd": "The SD card left in the camera", "photos": "The photos on the card collected", "camera_status": "The status of the camera"}
+def unusual_card_id(label: str) -> bool:
+    """Whether the id of an SD card is out of the ordinary: it has spaces or signs — `84 (10)`, `85(78)`, `38_B` — where ids are letters and digits, like `A13`, `47b` or `693`. It is said, not refused:
+    the label on a card is whatever was written on it."""
+    return re.fullmatch(r"[A-Za-z0-9]+", str(label).strip()) is None
+
+
+def unusual_card_message(label: str) -> str:
+    return f"The SD card '{label}' has an unusual id, with spaces or signs: ids are usually letters and digits, like A13, 47b or 693. Check that it is written as it is on the card; it is kept as written."
+
+
 NOT_REVISED = ("not revised", "no revisada", "no revisado")
 # The status of the camera a visit may say ("Knocked down" and "Damaged" are no longer accepted: what was kept with them is still read): how it was found, Stolen when it was gone, Not revised when the visit could not be made, and what the field form says of a site that is
 # new or was inactive (a camera is put up there).
@@ -55,7 +66,13 @@ def _reason(code: str, text: str) -> Reason:
 
 
 def _same(a, b) -> bool:
+    """The same site: read whatever its case (it is the name of a folder, and Trapper keeps its ids in lower case)."""
     return str(a or "").strip().lower() == str(b or "").strip().lower()
+
+
+def _same_gear(a, b) -> bool:
+    """The same camera or SD card: as written — `7b` and `7B` are two."""
+    return str(a or "").strip() == str(b or "").strip()
 
 
 # How the batteries and the SD card were, each in a field of its own: the batteries are OK or there were none (NoBatteries), the card is OK or was full (CardFull).
@@ -200,7 +217,7 @@ def camera_at(visits: list[dict], camera: str, when: str, unknown: list[dict] | 
             here[site] = None
         if _leaves_camera(v) and v.get("camera_id"):
             here[site] = {"camera": v["camera_id"], "site": v["location_id"], "date": v["date"], "session": v.get("session")}
-    at = next(({"site": h["site"], "date": h["date"], "session": h["session"]} for h in here.values() if h and _same(h["camera"], camera)), None)
+    at = next(({"site": h["site"], "date": h["date"], "session": h["session"]} for h in here.values() if h and _same_gear(h["camera"], camera)), None)
     return None if at is None or _stale(at, at["site"], unknown, number) else at
 
 
@@ -242,7 +259,7 @@ def card_at(visits: list[dict], label: str, when: str, unknown: list[dict] | Non
             in_site.pop(site, None)
         if v.get("sd") and _leaves_card(v):
             in_site[site] = {"label": v["sd"], "date": v["date"], "site": v["location_id"], "session": v.get("session")}
-    found = next(({"site": c["site"], "date": c["date"], "session": c["session"]} for c in in_site.values() if _same(c["label"], label)), None)
+    found = next(({"site": c["site"], "date": c["date"], "session": c["session"]} for c in in_site.values() if _same_gear(c["label"], label)), None)
     return None if found and _stale(found, found["site"], unknown, number) else found
 
 
@@ -269,7 +286,7 @@ def card_block(kept: list[dict], visit: dict, cards: list[dict] | None = None, u
     when = _stamp(visit)
     site = str(visit["location_id"]).strip()
     collects = revises or "Desinstallation" in actions or "Stolen" in actions
-    settings = next((c for c in cards or [] if _same(c.get("label"), card)), None)
+    settings = next((c for c in cards or [] if _same_gear(c.get("label"), card)), None)
     if settings and settings.get("status") == "archived" and (not settings.get("status_date") or str(settings["status_date"]) <= str(visit.get("date"))):
         since = f" since {settings['status_date']}" if settings.get("status_date") else ""
         reason = f" ({settings['archive_reason']})" if settings.get("archive_reason") else ""
@@ -285,7 +302,7 @@ def card_block(kept: list[dict], visit: dict, cards: list[dict] | None = None, u
         for w in kept:
             if w is not visit and w.get("session") == session and _collects_card(w):
                 held = card_at_site(kept, w["location_id"], _stamp(w), unknown, _session_number(w.get("session")))
-                if held and _same(held["label"], card):
+                if held and _same_gear(held["label"], card):
                     return _reason("card_collected_in_revision", f"SD card {card} was collected at {w['location_id']} in this revision ({session}): it cannot be left again in the same revision.")
     return None
 
@@ -305,7 +322,7 @@ def availability_errors(kept: list[dict], visit: dict, cards: list[dict] | None 
     # A visit that does not put a camera up — a Revision, a Desinstallation, a Stolen camera — is of the camera that is at the site.
     if camera and not installs and (collects or revises):
         there = camera_at_site(kept, site, when, unknown, number)
-        if there and not _same(there["camera"], camera):
+        if there and not _same_gear(there["camera"], camera):
             what = " + ".join(x for x in actions if x in ACTIONS)
             errors["camera"] = _reason("camera_not_at_the_site", f"The camera at {site} is {there['camera']} (since {there['date']}): a {what} is of that camera. If it was replaced, add a Desinstallation and an Installation to the visit.")
     if installs and camera:
@@ -325,7 +342,7 @@ def availability_errors(kept: list[dict], visit: dict, cards: list[dict] | None 
     # A site has one camera at a time: another cannot be put up where one is, unless this visit takes it away (a Desinstallation, or a Stolen camera).
     if installs and not {"Desinstallation", "Stolen"} & set(actions) and "camera" not in errors:
         here = camera_at_site(kept, site, when, unknown, number)
-        if here and not _same(here["camera"], camera) and not (revises and _same(here["camera"], camera)):
+        if here and not _same_gear(here["camera"], camera) and not (revises and _same_gear(here["camera"], camera)):
             errors["camera"] = _reason("site_has_a_camera", f"{site} already has a camera: {here['camera']} (since {here['date']}). It has to be taken away — a Desinstallation, or a Stolen visit — before another is put up.")
     sd = card_block(kept, visit, cards, unknown)
     if sd:
@@ -354,7 +371,7 @@ def entity_changes(visit: dict, before: list[dict]) -> list[dict]:
         put("cameras", old, "archived", "stolen")
         put("sd_cards", held["label"] if held else None, "archived", "stolen")
     else:
-        if {"Desinstallation"} & actions or ("Installation" in actions and old and not _same(old, visit.get("camera_id"))):
+        if {"Desinstallation"} & actions or ("Installation" in actions and old and not _same_gear(old, visit.get("camera_id"))):
             put("cameras", old, "ready")
         if held and ({"Revision", "Desinstallation"} & actions):
             put("sd_cards", held["label"], "ready")
@@ -423,7 +440,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
             value = v.get(key)
             if value in (None, ""):
                 continue
-            by.setdefault((v["session"], str(value).strip().lower(), str(value).strip()), []).append(v)
+            by.setdefault((v["session"], str(value).strip(), str(value).strip()), []).append(v)   # as written: 7b and 7B are two
         for (session, _, shown), of in sorted(by.items(), key=lambda kv: kv[0]):
             sites = {v["location_id"] for v in of}
             if len(sites) > 1:
@@ -562,7 +579,7 @@ def _replay(visit: dict, others: list[dict], locations: list[dict], cards: list[
     # the visits it touches — to its site, with its camera or with its card — are checked again with it where it is, those after it and those before it too: one that
     # was after it may be before it now, and has lost what it needed
     for other in sorted(others, key=_stamp):
-        if not ({str(other["location_id"]).lower(), str(other.get("camera_id") or "").lower(), str(other.get("sd") or "").lower()} - {""}) & touched:
+        if not ({str(other["location_id"]).lower(), str(other.get("camera_id") or ""), str(other.get("sd") or "")} - {""}) & touched:
             continue
         earlier = [v for v in [*others, visit] if v is not other and _stamp(v) < _stamp(other)]
         key = (str(other["location_id"]).lower(), str(other.get("session") or "").upper())
@@ -575,7 +592,8 @@ def edit_errors(old: dict | None, new: dict, others: list[dict], locations: list
     """What stops a visit from being edited — or, with no `old`, from filling the place of an unknown one — to `new`, among the other visits `others`: it has to pass
     the rules of a visit where it will be, and the visits after it that it touches have to pass them with it there. What was wrong already, in `old` and in the
     visits after it, is not said again: only what the edit makes wrong."""
-    touched = {str(x).lower() for v in (old, new) if v for x in (v.get("location_id"), v.get("camera_id"), v.get("sd")) if x}
+    # the site is read whatever its case; a camera and an SD card as written (7b and 7B are two)
+    touched = {str(x).lower() for v in (old, new) if v for x in (v.get("location_id"),) if x} | {str(x) for v in (old, new) if v for x in (v.get("camera_id"), v.get("sd")) if x}
     now = _replay(new, others, locations, cards, unknown, touched)
     before = set(_replay(old, others, locations, cards, unknown, touched)) if old else set()
     return list(dict.fromkeys(why for key, why in now if (key, why) not in before))

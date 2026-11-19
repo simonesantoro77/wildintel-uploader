@@ -71,8 +71,8 @@ def _move_to_the_projects(settings: config.Settings) -> config.Settings:
             if not mine:
                 continue
             kept = local_folder_service.list_field_items(root, project, kind)
-            have = {str(i.get(label, "")).lower() for i in kept}
-            added = [i.model_dump(mode="json") for i in mine if i.label.lower() not in have]
+            have = {str(i.get(label, "")) for i in kept}   # as written: 7b and 7B are two
+            added = [i.model_dump(mode="json") for i in mine if i.label not in have]
             local_folder_service.write_field_items(root, project, kind, [*kept, *added])
         leftovers[kind] = [i for i in getattr(fieldwork, kind) if (i.research_project or "").lower() not in {p.lower() for p in projects}]
     # the roles too: a role of a project that is kept here goes to it
@@ -128,9 +128,9 @@ def save_settings(new: config.Settings) -> dict:
                 kept = local_folder_service.list_field_items(root, project, kind)
             except local_folder_service.LocalFolderError:
                 continue
-            archived = {str(k.get("label") or "").strip().lower(): model[kind].model_validate(k).model_dump(mode="json") for k in kept if k.get("status") == "archived"}
+            archived = {str(k.get("label") or "").strip(): model[kind].model_validate(k).model_dump(mode="json") for k in kept if k.get("status") == "archived"}
             for item in items:
-                before = archived.get(item.label.strip().lower()) if item.research_project == project else None
+                before = archived.get(item.label.strip()) if item.research_project == project else None
                 if before is not None and item.model_dump(mode="json") != before:
                     raise HTTPException(422, f"{'The camera' if kind == 'cameras' else 'The SD card'} {item.label} is archived for good: it can no longer be changed.")
         free = [i for i in items if not i.research_project]
@@ -227,10 +227,10 @@ def set_field_item_status(req: FieldItemStatusRequest) -> dict:
         items = local_folder_service.list_field_items(root, req.research_project_id, req.kind)
     except local_folder_service.LocalFolderError as exc:
         raise HTTPException(400, str(exc)) from exc
-    wanted = req.key.strip().lower()
+    wanted = req.key.strip()   # as written: 7b and 7B are two
     updated = False
     for item in items:
-        names = {str(item.get("label") or "").strip().lower()} | ({str(item.get("camera_id") or "").strip().lower()} if req.kind == "cameras" else set())
+        names = {str(item.get("label") or "").strip()} | ({str(item.get("camera_id") or "").strip()} if req.kind == "cameras" else set())
         if wanted and wanted in names and item.get("status") != "archived":
             item["status"], item["status_date"], item["status_note"] = "archived", req.status_date, req.status_note
             item["archive_reason"] = req.status if req.status != "archived" else "other"
