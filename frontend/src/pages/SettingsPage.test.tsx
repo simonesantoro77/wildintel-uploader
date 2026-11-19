@@ -1525,6 +1525,16 @@ describe('SettingsPage — Entities', () => {
       expect(mockedApi.listLocalLocations).toHaveBeenCalledWith('DONA')
     })
 
+    it('warns with a red label, in its line and in its form, when the time zone of a location is not UTC — and not when it is', async () => {
+      await openLocations([RIDGE, { ...RIDGE, location_id: 'DONA_02', name: 'Marsh', timezone: 'UTC' }])
+
+      const ridge = (await screen.findByText('DONA_01')).closest('li, div[class*="rounded"]') as HTMLElement
+      expect(within(ridge).getByText('Not UTC')).toHaveAttribute('title', 'The time zone is Europe/Madrid, not UTC')
+      expect(screen.getAllByText('Not UTC')).toHaveLength(1)                       // the one in UTC has none
+      await userEvent.click(screen.getByRole('button', { name: 'Edit DONA_01' }))
+      expect(await screen.findAllByText('Not UTC')).not.toHaveLength(0)            // and its form says it in its header
+    })
+
     it('adds one by hand, with its numbers as numbers, and will not let a wrong coordinate or timezone be done with', async () => {
       mockedApi.saveLocalLocation.mockImplementation(async (_rp, l) => l)
       await openLocations([])
