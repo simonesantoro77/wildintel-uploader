@@ -1,5 +1,7 @@
 import { useTrail } from '../components/Trail'
 import { ArrowIcon, LineIcon, MENU_ICONS as ICONS, taskCard } from '../components/TaskCard'
+import { PAGE_CLASS, PageTitle } from '../components/PageBar'
+import QuickGuide, { QuickGuideButton } from '../components/QuickGuide'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Task } from '../types'
@@ -32,11 +34,15 @@ interface Props {
 }
 
 /** The card of an action: its icon with its title beside it, a subtitle under the title, and under both a longer description. */
-function ActionCard({ icon, title, subtitle, description, onClick }: { icon: ReactNode; title: string; subtitle: string; description: string; onClick: () => void }) {
+function ActionCard({ number, icon, title, subtitle, description, onClick }: { number: number; icon: ReactNode; title: string; subtitle: string; description: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className={`${taskCard} flex flex-col items-stretch gap-4 p-5 text-left`}>
       <span className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"><LineIcon size={20}>{icon}</LineIcon></span>
+        {/* the step of the work it is, in a tab behind its icon */}
+        <span className="relative flex shrink-0 items-center">
+          <span aria-hidden="true" className="flex h-8 w-9 items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold text-white dark:bg-blue-700">{number}</span>
+          <span className="-ml-2 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 ring-2 ring-zinc-50 dark:bg-blue-950 dark:text-blue-300 dark:ring-zinc-900"><LineIcon size={20}>{icon}</LineIcon></span>
+        </span>
         <span className="min-w-0 flex-1">
           <strong className="block text-base text-zinc-900 dark:text-zinc-100">{title}</strong>
           <span className="block text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</span>
@@ -51,55 +57,43 @@ function ActionCard({ icon, title, subtitle, description, onClick }: { icon: Rea
 export default function MenuPage({ onAction, onDashboard, onChoose }: Props) {
   // the dashboards are folded away until the card is opened
   const [dashboardsOpen, setDashboardsOpen] = useState(false)
+  // the quick guide: the work from end to end, in a panel at the right
+  const [guideOpen, setGuideOpen] = useState(false)
   useTrail([{ label: 'Menu', icon: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> }])
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-1">What do you want to do?</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Choose one of the following.</p>
+    <div className={PAGE_CLASS}>
+      <PageTitle title="What do you want to do?" description="Choose one of the following." label="Menu actions"
+                 actions={<QuickGuideButton expanded={guideOpen} onClick={() => setGuideOpen(true)} />} />
+      {guideOpen && <QuickGuide onClose={() => setGuideOpen(false)} />}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {ACTIONS.map((t, i) => <ActionCard key={t.value} number={i + 1} icon={ICONS[t.icon]} title={t.title} subtitle={t.subtitle} description={t.description} onClick={() => onAction(t.value)} />)}
       </div>
-      <nav aria-label="Typical workflow" className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 px-4 py-3">
-        <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-950/50 px-4 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300">
-          <LineIcon><path d="M3 12h4l3-8 4 16 3-8h4" /></LineIcon>Typical workflow
-        </span>
-        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          {ACTIONS.map((a, i) => (
-            <li key={a.value} className="flex items-center gap-3">
-              {i > 0 && <span aria-hidden="true" className="text-zinc-400"><ArrowIcon /></span>}
-              <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/60 text-xs font-semibold text-blue-700 dark:text-blue-300">{i + 1}</span>
-              <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"><LineIcon size={16}>{ICONS[a.icon]}</LineIcon></span>
-              {a.title}
-            </li>
-          ))}
-        </ol>
-      </nav>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {ACTIONS.map((t) => <ActionCard key={t.value} icon={ICONS[t.icon]} title={t.title} subtitle={t.subtitle} description={t.description} onClick={() => onAction(t.value)} />)}
-        <section aria-label="Dashboards and statistics" className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-5">
-          <button type="button" aria-expanded={dashboardsOpen} onClick={() => setDashboardsOpen((o) => !o)} className="flex w-full flex-col items-stretch gap-4 text-left">
-            <span className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300"><LineIcon size={20}><path d="M18 20V10M12 20V4M6 20v-6" /></LineIcon></span>
-              <span className="min-w-0 flex-1">
-                <strong className="block text-base text-zinc-900 dark:text-zinc-100">Dashboards and statistics</strong>
-                <span className="block text-sm text-zinc-500 dark:text-zinc-400">How far everything is</span>
-              </span>
-              <span className={`text-zinc-500 dark:text-zinc-400 transition-transform ${dashboardsOpen ? 'rotate-90' : ''}`}><ArrowIcon /></span>
-            </span>
-            <span className="text-base leading-relaxed text-zinc-700 dark:text-zinc-300">The visits, the deployments and the uploads, with which are done and which are still to do, and the statistics that compare the deployments with the previous revisions.</span>
-          </button>
-          {dashboardsOpen && <ul className="mt-3 space-y-1 border-t border-zinc-200 dark:border-zinc-800 pt-3">
+      {/* the dashboards and the statistics, as the utilities below are: a bar of its own, full width, that opens the list of them under it */}
+      <section aria-label="Dashboards and statistics" className={`${taskCard} mt-4 w-full`}>
+        <button type="button" aria-expanded={dashboardsOpen} onClick={() => setDashboardsOpen((o) => !o)} className="flex w-full items-center gap-4 px-5 py-4 text-left">
+          <span className="w-10 h-10 flex items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 shrink-0"><LineIcon size={20}><path d="M18 20V10M12 20V4M6 20v-6" /></LineIcon></span>
+          <span className="flex-1 min-w-0">
+            <strong className="block text-sm text-zinc-900 dark:text-zinc-100">Dashboards and statistics</strong>
+            <span className="block text-xs text-zinc-500 dark:text-zinc-400">How far everything is: the visits, the deployments and the uploads, and the statistics that compare the deployments with the previous revisions.</span>
+          </span>
+          <span className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 text-sm font-medium text-zinc-800 dark:text-zinc-200 shrink-0">
+            {dashboardsOpen ? 'Hide dashboards' : 'Open dashboards'} <span className={`transition-transform ${dashboardsOpen ? 'rotate-90' : ''}`}><ArrowIcon /></span>
+          </span>
+        </button>
+        {dashboardsOpen && (
+          <ul className="space-y-1 border-t border-zinc-200 dark:border-zinc-800 px-5 pb-4 pt-3">
             {DASHBOARDS.map((d) => (
               <li key={d.value}>
-                <button type="button" title={d.description} onClick={() => onDashboard(d.value)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-800">
+                <button type="button" title={d.description} onClick={() => onDashboard(d.value)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
                   <span className="text-zinc-500 dark:text-zinc-400"><LineIcon>{d.icon}</LineIcon></span>
                   <span className="flex-1 font-medium">{d.title}</span>
                   <ArrowIcon />
                 </button>
               </li>
             ))}
-          </ul>}
-        </section>
-      </div>
+          </ul>
+        )}
+      </section>
       <button type="button" onClick={() => onChoose('utils')} className={`${taskCard} mt-4 w-full flex items-center gap-4 px-5 py-4 text-left`}>
         <span className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 shrink-0"><LineIcon>{ICONS.utils}</LineIcon></span>
         <span className="flex-1 min-w-0">
