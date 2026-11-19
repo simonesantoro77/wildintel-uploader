@@ -549,7 +549,7 @@ export interface ConfigInfo {
 
 export interface AppSettings {
   /** workers: how many images are validated or preprocessed at once; cpu_count: the CPUs this machine has (read-only). */
-  GENERAL: { log_level: LogLevel; workers: number; cpu_count: number; log_file: string; log_level_override: string | null; default_research_project?: string | null }
+  GENERAL: { log_level: LogLevel; workers: number; cpu_count: number; log_file: string; log_level_override: string | null; default_research_project?: string | null; show_welcome?: boolean }
   TRAPPER: { enabled: boolean; base_url: string | null; user_name: string | null; has_password: boolean; max_zip_mb: number }
   /** What an upload to Agouti needs — kept; nothing is uploaded to Agouti yet. */
   AGOUTI: { enabled: boolean; base_url: string | null; has_api_key: boolean; project_id: string | null }
@@ -575,7 +575,7 @@ export interface AppSettings {
 
 /** What the settings page saves. A blank password keeps the saved one. */
 export interface AppSettingsUpdate {
-  GENERAL: { log_level: LogLevel; workers: number; default_research_project: string | null }
+  GENERAL: { log_level: LogLevel; workers: number; default_research_project: string | null; show_welcome: boolean }
   TRAPPER: { enabled: boolean; base_url: string | null; user_name: string | null; user_password: string; max_zip_mb: number }
   AGOUTI: { enabled: boolean; base_url: string | null; api_key: string; project_id: string | null }
   EPICOLLECTCSV: { enabled: boolean }

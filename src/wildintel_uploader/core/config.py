@@ -87,6 +87,11 @@ class GeneralSettings(BaseModel):
         description="The acronym of the research project that comes filled in wherever one is asked for; it can still be changed there. (GENERAL.default_research_project)",
     )
 
+    show_welcome: bool = Field(
+        default=True,
+        description="Whether the welcome page is shown when the app opens: off, the app opens on what comes after it (the menu). (GENERAL.show_welcome)",
+    )
+
     @field_validator("default_research_project")
     @classmethod
     def _default_research_project(cls, value: Optional[str]) -> Optional[str]:

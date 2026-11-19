@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Upcoming release
 
 ### Added
+- **Welcome page** (#118): a tick, **Do not show this page again**, that makes the app open on what comes after it — the menu, the runs left unfinished or, with no research project, the initial setup —, and the option for it in **Settings › General** (`GENERAL.show_welcome`, on by default; `PUT /api/settings/show-welcome`), where it is turned on again.
 - **Research project selector** (#116): the list of the research projects of the header ends, after a line, with **+ Create a new research project**, which opens the **Initial setup** of the utilities from any page.
 - **Locations** (#117): a location whose time zone is **not UTC** has a **red label** (*Not UTC*), as the ones of the state of a visit: in its line of the list of the locations of the settings, in its form, and in the panel at the right that opens when a site is pressed.
 - **Visit dashboard** (#105): in the details of a visit the **location** and the **camera** are links, underlined with dots, that open their own panel over the visit — the new **camera details** panel (serial number, model, status, connectivity, power source…) and the one of the location —, with a way on to the settings.

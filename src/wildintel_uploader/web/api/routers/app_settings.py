@@ -178,6 +178,19 @@ def set_default_research_project(req: DefaultResearchProjectRequest) -> dict:
     return {"default_research_project": found}
 
 
+class ShowWelcomeRequest(BaseModel):
+    show: bool
+
+
+@router.put("/show-welcome")
+def set_show_welcome(req: ShowWelcomeRequest) -> dict:
+    """Changes only whether the welcome page is shown when the app opens — what its tick does."""
+    settings = config.load_settings()
+    settings.GENERAL.show_welcome = req.show
+    config.save_settings(settings)
+    return {"show_welcome": req.show}
+
+
 @router.get("/log")
 def download_log() -> FileResponse:
     """The current log file — to attach to a bug report."""

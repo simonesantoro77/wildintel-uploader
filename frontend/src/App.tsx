@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Navbar from './components/Navbar'
 import { DEFAULT_PROJECT_CHANGED } from './components/DefaultResearchProject'
 import { TrailProvider } from './components/Trail'
@@ -44,6 +44,9 @@ export default function App() {
   function openSettings(section?: 'general' | 'epicollect' | 'projects' | 'trappers' | 'sdcards' | 'cameras' | 'locations', researchProjectId?: string, item?: string) { setSettingsSection(section); setSettingsProject(researchProjectId); setSettingsItem(item); setSettingsOpen(true) }
   // Back on the welcome screen by the title: it is shown ahead of anything else until "Get Started" is pressed again.
   const [home, setHome] = useState(false)
+  // Whether the welcome page is turned off in the settings (null until it is known): the app then opens on what comes after it.
+  const [welcomeOff, setWelcomeOff] = useState<boolean | null>(null)
+  const openedOnWelcome = useRef(false)
   // Where the upload page starts from, when it is reached from a finished import.
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null)
   // The visit Import deployment starts from, when it is reached from the visits page, right after one was closed.
@@ -83,6 +86,12 @@ export default function App() {
       .catch(() => {})
   }, [])
 
+  // read again when the settings are closed: the option may have been changed there
+  useEffect(() => {
+    if (settingsOpen) return
+    Promise.resolve().then(() => api.getSettings()).then((s) => setWelcomeOff(s?.GENERAL?.show_welcome === false)).catch(() => setWelcomeOff(false))
+  }, [settingsOpen])
+
   useEffect(() => {
     api.listSessions()
       .then((sessions) => setUnfinishedSessions(sessions))
@@ -90,6 +99,7 @@ export default function App() {
   }, [])
 
   function goHome() {
+    if (welcomeOff) { goMenu(); setMenuShown(true); return }   // no welcome page to go back to: the menu
     setSettingsOpen(false); setTask(null); setResumeSession(null); setUploadTarget(null); setClosedVisitTarget(null); setImportProjectId(null); setDeploymentsView(null); setUploadsView(null); setDeploymentFocus(undefined); setStatisticsFocus(undefined); setUploadSearch(undefined); setVisitFocus(undefined); setUtilStart(undefined); setVisitBook(false); setMenuShown(false); setHome(true)
   }
 
@@ -116,6 +126,13 @@ export default function App() {
     if (none) { setUtilStart('setup'); setMenuShown(true); setTask('utils'); return }
     if (!unfinishedSessions?.length) setMenuShown(true)
   }
+
+  // With the welcome page turned off, the app opens on what comes after it — once, as the sessions it needs to tell are known.
+  useEffect(() => {
+    if (!welcomeOff || openedOnWelcome.current || unfinishedSessions === null) return
+    openedOnWelcome.current = true
+    void start()
+  }, [welcomeOff, unfinishedSessions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function goToImportOfVisit(target: ClosedVisitTarget) {
     setClosedVisitTarget(target); setDeploymentsView('import'); setTask('deployment')
@@ -217,7 +234,7 @@ export default function App() {
                 )
                 : menuShown
                   ? menuPage
-                  : <WelcomePage onStart={() => void start()} onNewProject={startSetup} />}
+                  : welcomeOff === false ? <WelcomePage onStart={() => void start()} onNewProject={startSetup} /> : null}
         </div>
       </main>
       <Footer />
