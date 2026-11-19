@@ -269,7 +269,7 @@ test one and the real one) or two sets of authorship. Each can be downloaded, an
 
 ## 3. The task menu
 
-Once it is configured, the menu is where you choose what you want to do. The three actions — register the visits, create the deployments and upload them — are in **three columns**, in the order of the work; under them, the **dashboards and statistics** and the **utils** are a bar each, full width, with its button (*Open dashboards*, *Open utilities*) at the right:
+Once it is configured, the menu is where you choose what you want to do. The three actions — register the visits, create the deployments and upload them — are in **three columns**, numbered 1 to 3 in the order of the work; under them, the **dashboards and statistics** and the **utils** are a bar each, full width, with its button (*Open dashboards*, *Open utilities*) at the right:
 
 | Task | What it's for |
 |---|---|
@@ -281,7 +281,7 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 
 ![The task menu](img/screenshots/menu.png)
 
-A bar at the top of the menu shows the **typical workflow**: **Register visits**, then **Create deployments** — which takes the location, the camera and the dates from the visits — and then **Upload deployment**. *Sync* is for when
+The numbers of the cards are the **typical workflow**: **1 Register visits**, then **2 Create deployments** — which takes the location, the camera and the dates from the visits — and then **3 Upload deployment**. *Sync* is for when
 Trapper already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this

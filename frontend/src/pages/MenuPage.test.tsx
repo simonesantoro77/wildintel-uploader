@@ -28,12 +28,13 @@ describe('MenuPage', () => {
     expect(screen.queryByRole('button', { name: /import collection/i })).not.toBeInTheDocument()
   })
 
-  it('shows the typical workflow: register visits, create deployments and upload deployment, in that order', () => {
+  it('numbers the three actions in the order of the work, 1 to 3, in a tab behind their icon — and has no bar of the typical workflow', () => {
     renderMenu()
-    const workflow = screen.getByRole('navigation', { name: 'Typical workflow' })
 
-    expect(workflow).toHaveTextContent('Typical workflow')
-    expect(within(workflow).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['1Register visits', '2Create deployments', '3Upload deployment'])
+    expect(screen.queryByRole('navigation', { name: 'Typical workflow' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Typical workflow')).not.toBeInTheDocument()
+    const cards = ['Register visits', 'Create deployments', 'Upload deployment'].map((name) => screen.getByRole('button', { name: new RegExp(`^${name}`) }))
+    expect(cards.map((c) => c.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['1', '2', '3'])
     expect(screen.getByText(/Who went, when, to which site and what was done\./)).toBeInTheDocument()   // the visits are not said to be by hand or from a file
     expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
   })

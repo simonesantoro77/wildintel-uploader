@@ -33,11 +33,15 @@ interface Props {
 }
 
 /** The card of an action: its icon with its title beside it, a subtitle under the title, and under both a longer description. */
-function ActionCard({ icon, title, subtitle, description, onClick }: { icon: ReactNode; title: string; subtitle: string; description: string; onClick: () => void }) {
+function ActionCard({ number, icon, title, subtitle, description, onClick }: { number: number; icon: ReactNode; title: string; subtitle: string; description: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className={`${taskCard} flex flex-col items-stretch gap-4 p-5 text-left`}>
       <span className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"><LineIcon size={20}>{icon}</LineIcon></span>
+        {/* the step of the work it is, in a tab behind its icon */}
+        <span className="relative flex shrink-0 items-center">
+          <span aria-hidden="true" className="flex h-8 w-9 items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold text-white dark:bg-blue-700">{number}</span>
+          <span className="-ml-2 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 ring-2 ring-zinc-50 dark:bg-blue-950 dark:text-blue-300 dark:ring-zinc-900"><LineIcon size={20}>{icon}</LineIcon></span>
+        </span>
         <span className="min-w-0 flex-1">
           <strong className="block text-base text-zinc-900 dark:text-zinc-100">{title}</strong>
           <span className="block text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</span>
@@ -56,23 +60,8 @@ export default function MenuPage({ onAction, onDashboard, onChoose }: Props) {
   return (
     <div className={PAGE_CLASS}>
       <PageTitle title="What do you want to do?" description="Choose one of the following." />
-      <nav aria-label="Typical workflow" className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 px-4 py-3">
-        <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-950/50 px-4 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300">
-          <LineIcon><path d="M3 12h4l3-8 4 16 3-8h4" /></LineIcon>Typical workflow
-        </span>
-        <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          {ACTIONS.map((a, i) => (
-            <li key={a.value} className="flex items-center gap-3">
-              {i > 0 && <span aria-hidden="true" className="text-zinc-400"><ArrowIcon /></span>}
-              <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/60 text-xs font-semibold text-blue-700 dark:text-blue-300">{i + 1}</span>
-              <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"><LineIcon size={16}>{ICONS[a.icon]}</LineIcon></span>
-              {a.title}
-            </li>
-          ))}
-        </ol>
-      </nav>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {ACTIONS.map((t) => <ActionCard key={t.value} icon={ICONS[t.icon]} title={t.title} subtitle={t.subtitle} description={t.description} onClick={() => onAction(t.value)} />)}
+        {ACTIONS.map((t, i) => <ActionCard key={t.value} number={i + 1} icon={ICONS[t.icon]} title={t.title} subtitle={t.subtitle} description={t.description} onClick={() => onAction(t.value)} />)}
       </div>
       {/* the dashboards and the statistics, as the utilities below are: a bar of its own, full width, that opens the list of them under it */}
       <section aria-label="Dashboards and statistics" className={`${taskCard} mt-4 w-full`}>
