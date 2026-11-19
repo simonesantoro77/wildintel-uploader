@@ -425,6 +425,7 @@ Any spreadsheet with a row per visit. Press **Register visits › Custom CSV**; 
    When the rows of a revision are refused because the revision before is not finished — *R0043 cannot start: R0042 is not finished, 3 location(s) still to be visited in it: …* —, a notice above the metrics says which revision and which locations, and has the button **Mark them as not visited and read again**: those locations get a visit *Not revised*, the revision before is closed — it cannot be changed afterwards —, and the file is read again. The other way out is to correct the file and read it again. The switch of the second step, *Close the revision before when it has locations still planned*, does the same beforehand.
 
    An SD card whose id has spaces or signs (*84 (10)*, *38_B*) is told among what is odd — it is kept as written, not refused; the ids of the cards are never upper-cased.
+
    *Worth knowing* is collapsed: open it to read it. **Continue to the review** goes on to step 4.
 4. **Review and confirm.** It says **what is going to be saved** — the visits, the revisions and sites, and the locations, cameras, SD cards and trappers that are created —, warns that the visits cannot be changed once they are created, and has the button **Add N visits**. Once they are added the same step turns green (*Visits saved*), has **What was saved** collapsed — open it for the summary —, the deployments that can now be created and what to do next.
 
