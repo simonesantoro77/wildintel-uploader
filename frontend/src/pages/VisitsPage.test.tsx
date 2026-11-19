@@ -138,11 +138,15 @@ describe('VisitsPage', () => {
   it('first asks where the visits come from: by hand, Custom CSV, WildINTEL Epicollect CSV', () => {
     render(<VisitsPage onBack={vi.fn()} />)
 
-    const titles = within(screen.getByText('Where do the visits come from?').closest('section')!).getAllByRole('button').map((b) => b.textContent ?? '')
+    const buttons = within(screen.getByText('Where do the visits come from?').closest('section')!).getAllByRole('button')
+    const titles = buttons.map((b) => b.textContent ?? '')
     expect(titles.findIndex((t) => /^By hand/.test(t))).toBe(0)
     expect(titles.findIndex((t) => /^Custom CSV/.test(t))).toBe(1)
     expect(titles.findIndex((t) => /^WildINTEL Epicollect CSV/.test(t))).toBe(2)
     expect(titles.some((t) => /Legacy/.test(t))).toBe(false) // the old form is not a source any more
+    const grid = buttons[0].parentElement
+    expect(grid).toHaveClass('grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3')
+    expect(buttons.every((button) => button.parentElement === grid)).toBe(true)
   })
 
   it('marks the step done with the source chosen, and lets it be changed', async () => {
@@ -1915,4 +1919,3 @@ describe('By hand: do you see the camera?', () => {
     expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent)).toEqual(['TATR_0001 — Ridge'])
   })
 })
-
