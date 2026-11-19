@@ -281,7 +281,7 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 
 ![The task menu](img/screenshots/menu.png)
 
-The numbers of the cards are the **typical workflow**: **1 Register visits**, then **2 Create deployments** — which takes the location, the camera and the dates from the visits — and then **3 Upload deployment**. *Sync* is for when
+The **Quick guide** button, at the right of the title, opens a panel with the work from end to end: the research project and then the three steps, and where to follow the progress and to fix dates and files. The numbers of the cards are the **typical workflow**: **1 Register visits**, then **2 Create deployments** — which takes the location, the camera and the dates from the visits — and then **3 Upload deployment**. *Sync* is for when
 Trapper already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this

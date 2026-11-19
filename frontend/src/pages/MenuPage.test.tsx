@@ -39,6 +39,29 @@ describe('MenuPage', () => {
     expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
   })
 
+  it('has a Quick guide button at the right of the title that opens a panel with the work from end to end — and shuts with its cross or Escape', async () => {
+    renderMenu()
+    const header = screen.getByRole('heading', { name: 'What do you want to do?' }).closest('header')!
+    const button = within(header).getByRole('button', { name: 'Quick guide' })                    // in the header of the title, at the right
+    expect(header.lastElementChild).toContainElement(button)
+    expect(screen.queryByRole('dialog', { name: 'Quick guide' })).not.toBeInTheDocument()
+
+    await userEvent.click(button)
+    const panel = within(screen.getByRole('dialog', { name: 'Quick guide' }))
+    expect(panel.getByText('End-to-end workflow')).toBeInTheDocument()
+    expect(panel.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Create a research project', 'Register visits', 'Create deployments', 'Upload deployment'])
+    expect(panel.getByText('Define trappers, sites, cameras and SD cards once, or switch anytime from the top bar.')).toBeInTheDocument()
+    expect(panel.getByText('Send curated local deployments to your remote repository (e.g., TRAPPER).')).toBeInTheDocument()
+    expect(panel.getByText('Dashboards')).toBeInTheDocument()
+    expect(panel.getByText('Utils')).toBeInTheDocument()
+
+    await userEvent.click(panel.getByRole('button', { name: 'Close the quick guide' }))
+    expect(screen.queryByRole('dialog', { name: 'Quick guide' })).not.toBeInTheDocument()
+    await userEvent.click(button)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Quick guide' })).not.toBeInTheDocument()
+  })
+
   it('has its title at 22 px, semibold, with what it says under it and a subtle line after', () => {
     renderMenu()
     const title = screen.getByRole('heading', { name: 'What do you want to do?' })

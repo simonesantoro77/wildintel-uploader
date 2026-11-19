@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Upcoming release
 
 ### Added
+- **Menu** (#122): a **Quick guide** button at the right of the title opens a panel with the work from end to end — create a research project, 1 register visits, 2 create deployments, 3 upload deployment, on a line —, and where to monitor the progress (*Dashboards*) and to fix dates and local files (*Utils*).
 - **Welcome page** (#118): a tick, **Do not show this page again**, that makes the app open on what comes after it — the menu, the runs left unfinished or, with no research project, the initial setup —, and the option for it in **Settings › General** (`GENERAL.show_welcome`, on by default; `PUT /api/settings/show-welcome`), where it is turned on again.
 - **Research project selector** (#116): the list of the research projects of the header ends, after a line, with **+ Create a new research project**, which opens the **Initial setup** of the utilities from any page.
 - **Locations** (#117): a location whose time zone is **not UTC** has a **red label** (*Not UTC*), as the ones of the state of a visit: in its line of the list of the locations of the settings, in its form, and in the panel at the right that opens when a site is pressed.
