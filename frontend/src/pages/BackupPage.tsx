@@ -11,6 +11,7 @@ import { defaultResearchProject } from '../defaultResearchProject'
 import { formatInstant } from '../dateFormat'
 import type { BackupManifest, BackupProjectInfo, BackupRead, LocalResearchProject, RestoreSummary } from '../types'
 import { SmallSpinner, btnOutline, btnPrimary, hintClass } from './ImportDeploymentPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 type Mode = 'backup' | 'restore'
 
@@ -214,7 +215,7 @@ export default function BackupPage({ onBack, settingsOpen }: Props) {
   )
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <PageHeader icon={UTIL_ICONS.backup} title="Backup and restore" parent="Utilities" onParent={onBack}
         description="Keep the settings and the data of a research project — its visits and the deployments you choose, with or without their images — in a file, and restore them from it." />
 

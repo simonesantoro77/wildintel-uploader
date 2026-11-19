@@ -9,6 +9,7 @@ import type { TrapperRoleName } from '../types'
 import { isUtcZone } from '../deploymentValidation'
 import { validateResearchProject } from '../researchProjectValidation'
 import { btnOutline, btnPrimary, hintClass, inputClass, labelClass } from './ImportDeploymentPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 const ROLES: { value: TrapperRoleName; label: string }[] = [
   { value: 'principalInvestigator', label: 'Principal investigator' },
@@ -235,7 +236,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
   const chips = <T,>(list: T[], label: (x: T) => string) => list.map((x) => ({ key: label(x), label: label(x) }))
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-3">
+    <div className={PAGE_CLASS}>
       <datalist id="setup-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
       <PageHeader icon={UTIL_ICONS.setup} title="Initial setup" parent="Utilities" onParent={onBack}
         description="A guide that asks, step by step, for the research project, its trappers and their roles, its sites, its cameras and its SD cards." />

@@ -2,7 +2,6 @@ import { inTheApp, listWorking } from '../researchProjects'
 import { TABLE, TableCard } from '../components/DashboardParts'
 import CheckResultsTable from '../components/CheckResultsTable'
 import ValidationDashboard, { formatRun } from '../components/ValidationDashboard'
-import TimezoneCombobox from '../components/TimezoneCombobox'
 import WizardStep from '../components/WizardStep'
 import { formatDay, formatLocal, formatVisitWhen } from '../dateFormat'
 import TrapperAccountNotice, { trapperAccountReady } from '../components/TrapperAccountNotice'
@@ -28,18 +27,20 @@ import type { Option } from '../components/OptionCards'
 import { EMPTY_DEPLOYMENT_FIELDS, EMPTY_RESEARCH_PROJECT } from '../types'
 import type { ClosedVisit, ClosedVisitTarget, FieldworkVisits, LogEntry, SdCard, StoredVisit } from '../types'
 import { applyEntry, entryLabel, entryPeriod } from '../epicollectImport'
-import DateSourcePicker from '../components/DateSourcePicker'
+import RecordingPeriod from '../components/RecordingPeriod'
+import PrefilledDetails from '../components/PrefilledDetails'
 import TimeFixPage from './TimeFixPage'
 import Notice, { BadgeIcon, Mark, mark, StatusIcon } from '../components/Notice'
-import type { DateSource, Period, SourceOption } from '../components/DateSourcePicker'
+import type { DateSource, Period } from '../components/DateSourcePicker'
 import type { EpicollectEntry } from '../epicollectImport'
 import { RESEARCH_PROJECT_LIMITS, shownProjectErrors, validateResearchProject } from '../researchProjectValidation'
-import { isValidTimezone, knownTimezones, shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
+import { shownErrors, stampTimezone, validateDeployment } from '../deploymentValidation'
 import type {
   Report, AppSettings, CameraGroup, CollectionPath, PreprocessingOptions, SimilarityMethod, StatisticCheck, StatisticsParams, ExifField, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
-  FeatureType, GuessedDetails, ImageCheck, ImportEvent, Location, LocalLocation, LocalResearchProject, PreviousDeployment, ResearchProject, ScanResult,
+  FeatureType, GuessedDetails, ImageCheck, ImportEvent, LocalLocation, LocalResearchProject, PreviousDeployment, ResearchProject, ScanResult,
   SessionSummary, UploadTarget, ValidationResult,
 } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 export const inputClass = 'w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono'
 export const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
@@ -572,6 +573,9 @@ export const ORIGIN_SOURCE_OPTIONS: Option<OriginSource>[] = [
   { value: 'manual', emoji: '✍️', title: 'By hand', description: 'Fill in the form yourself.', available: true },
 ]
 
+/** The postvalidation checks that must pass by default: photos outside the dates of the deployment are an error, not a warning — the user can set it to Warn. */
+export const DEFAULT_REQUIRED_DEPLOYMENT_CHECKS: DeploymentCheck[] = ['time_range', 'sd_card']
+
 export const IMAGE_CHECK_OPTIONS: { value: ImageCheck; label: string }[] = [
   { value: 'corrupted', label: 'Corrupted images' },
   { value: 'sequence', label: 'Shooting order vs. filename sequence' },
@@ -862,10 +866,13 @@ function DetailCard({ title, icon, tone, children }: { title: string; icon: Reac
 /** A section of the details — shut until it is opened, with how much of it is filled in on its header: "3 of 7". */
 /** True while the details are shown as they were taken from a source, not to be edited: the fields of every card in it are disabled. */
 export const LockedDetailsContext = createContext(false)
+/** Where the details of the sections of the card come from — said in their line, with the lock. */
+export const DetailsFromContext = createContext<string | null>(null)
 
 export function SectionCard({ title, icon, filled, total, summary, optional = false, missing = 0, children }: { title: string; icon: ReactNode; filled: number; total: number; summary?: string; optional?: boolean; missing?: number; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const locked = useContext(LockedDetailsContext)
+  const from = useContext(DetailsFromContext)
   return (
     <section className="rounded-lg border border-zinc-200 dark:border-zinc-700 mb-3" aria-label={title}>
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
@@ -873,9 +880,10 @@ export function SectionCard({ title, icon, filled, total, summary, optional = fa
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400">{icon}</svg>
         <span className="min-w-0">
           <span className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">{title}{optional && <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">optional</span>}</span>
-          {!open && summary && <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{summary}</span>}
+          {!open && (summary || (locked && from)) && <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">{[summary, locked && from && `From ${from}`].filter(Boolean).join(' · ')}</span>}
         </span>
-        <span className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${missing > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : filled > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{filled} of {total} filled{missing > 0 && ` · ${missing} required missing`}</span>
+        {locked && <svg role="img" aria-label="Locked" viewBox="0 0 24 24" className="ml-auto h-4 w-4 shrink-0 fill-none stroke-zinc-500 dark:stroke-zinc-400" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 118 0v3" /></svg>}
+        <span className={`${locked ? '' : 'ml-auto '}shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${missing > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : filled > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{filled} of {total} filled{missing > 0 && ` · ${missing} required missing`}</span>
       </button>
       {/* a line between the header and what is under it, while it is open */}
       {open && <div className="border-t border-zinc-200 dark:border-zinc-700 px-4 pt-4 pb-4"><fieldset disabled={locked} className="contents">{children}</fieldset></div>}
@@ -1449,6 +1457,17 @@ export function fillFromPreviousRevision(current: DeploymentFields, previous: De
   }
 }
 
+/** Whether a visit says anything of the camera and the site: one that could not be made — not revised — or that is only a record of an unknown revision has nothing to say. */
+export const visitApplies = (v: StoredVisit) => !['not revised', 'no revisada', 'no revisado'].includes(String(v.camera_status ?? '').toLowerCase()) && (v.actions ?? []).length > 0
+
+/** The details of a deployment as its sources say them together: what the **previous deployment** of the location says first, overwritten with what the **visit** says — only the values that
+ * are not empty —. A visit that does not apply (not visited, unknown) says nothing. The dates, the id and the location are the deployment's own. */
+export function mergedDetails(d: DeploymentFields, previous: DeploymentFields | null, closed: ClosedVisit | null): DeploymentFields {
+  const emptied: DeploymentFields = { ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) }
+  const withPrevious = previous ? fillFromPreviousRevision(emptied, previous) : emptied
+  return closed && visitApplies(closed.visit) ? fillFromClosedVisit(withPrevious, closed) : withPrevious
+}
+
 /** The groups of fields a deployment's details are made of, as a source can fill them in. */
 const DETAIL_GROUPS: { label: string; keys: (keyof DeploymentFields)[] }[] = [
   { label: 'the camera', keys: ['camera_id', 'camera_model'] }, { label: 'who set it up', keys: ['setup_by'] },
@@ -1489,12 +1508,24 @@ interface Props {
   /** Once a deployment is saved: back to the menu of the deployments, and back to the main menu. */
   onDeploymentsMenu?: () => void
   onMainMenu?: () => void
+  /** Goes to Register visits on a research project: what is done when there is no visit to link the deployment to. */
+  onRegisterVisits?: (researchProjectId: string) => void
+  /** This is one of several deployments imported one after another: where it is in the queue, and what to do to go on, skip it or stop. */
+  queue?: DeploymentQueue
+}
+
+/** The deployments of a queue, imported one after another: this is `index` of `total` (from 0); `next` is the one after it, if there is one. The folder of the images
+ * of the one before gives where to look for this one: `parentFolder`, which is told with `onFolder` when a folder is scanned. */
+export interface DeploymentQueue {
+  index: number; total: number; current: string; next: string | null
+  parentFolder: string | null; onFolder: (folder: string) => void
+  onNext: () => void; onSkip: () => void; onStop: () => void
 }
 
 // Blank credentials: the backend uses the ones saved in the settings.
 export const NO_CREDENTIALS: TrapperCredentials = {}
 
-export default function ImportDeploymentPage({ resumeSession, closedVisit, researchProject, onUpload, onOpenSettings, settingsOpen = false, onBack, onDeploymentsMenu, onMainMenu }: Props) {
+export default function ImportDeploymentPage({ resumeSession, closedVisit, researchProject, queue, onUpload, onOpenSettings, settingsOpen = false, onBack, onDeploymentsMenu, onMainMenu, onRegisterVisits }: Props) {
   const [step, setStep] = useState(0)
 
   // The Trapper account is the one saved in the settings: nothing is asked for here, and the backend
@@ -1560,14 +1591,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [linkedVisit, setLinkedVisit] = useState<ClosedVisit | null>(null)
   // Fix dates and times, opened over the wizard from the results of the checks — the wizard stays as it is under it.
   const [fixingDates, setFixingDates] = useState(false)
-  const [addingLocation, setAddingLocation] = useState(false)
-  const [locationSource, setLocationSource] = useState<OriginSource | null>(null)
-  const [locationDraft, setLocationDraft] = useState(EMPTY_LOCATION_DRAFT)
-  const [trapperLocationProjectPk, setTrapperLocationProjectPk] = useState('')
-  const [trapperLocations, setTrapperLocations] = useState<Location[]>([])
-  const [trapperLocationPks, setTrapperLocationPks] = useState<string[]>([])
-  const [loadingTrapperLocations, setLoadingTrapperLocations] = useState(false)
-  const [savingLocation, setSavingLocation] = useState(false)
   const [originError, setOriginError] = useState<string | null>(null)
 
   // Step "checks"/"import": where the deployment's collection is kept locally by
@@ -1622,7 +1645,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [exiftool, setExiftool] = useState<boolean | null>(null) // whether ExifTool is installed; null until known
   // The deployment's row in its collection's FileTimestampLog, written on leaving the details.
   const [timestampLogError, setTimestampLogError] = useState<string | null>(null)
-  const [requiredDeploymentChecks, setRequiredDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set())
+  const [requiredDeploymentChecks, setRequiredDeploymentChecks] = useState<Set<DeploymentCheck>>(new Set(DEFAULT_REQUIRED_DEPLOYMENT_CHECKS))
   const [checkingDeployment, setCheckingDeployment] = useState(false)
   const [deploymentCheck, setDeploymentCheck] = useState<DeploymentCheckResult | null>(null)
   const [deploymentCheckError, setDeploymentCheckError] = useState<string | null>(null)
@@ -1637,6 +1660,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [resultsDone, setResultsDone] = useState(false)
   const [preprocessError, setPreprocessError] = useState<string | null>(null)
   const [preprocessed, setPreprocessed] = useState<ImportEvent | null>(null)
+  const [savedOpen, setSavedOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [events, setEvents] = useState<ImportEvent[]>([])
   const [importError, setImportError] = useState<string | null>(null)
@@ -1817,6 +1841,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     try {
       const result = await api.scanFolder(dir)
       setScan(result)
+      queue?.onFolder(dir.replace(/[\\/][^\\/]*[\\/]*$/, ''))   // the next deployment of the queue is looked for beside this one
       setGuess(null); guessedFor.current = null  // the details are read from the images when they are asked for
       try {
         const session = await api.saveScan(dir, result, taskId ?? undefined)
@@ -1882,19 +1907,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
   // The deployment needs coordinates (Camtrap DP requires them) — they come with the location.
   const locationLacksCoordinates = Boolean(selectedLocation) && (selectedLocation!.latitude == null || selectedLocation!.longitude == null)
-  const originReady = Boolean(selectedProjectId && origin.locationId.trim()) && !locationLacksCoordinates && !addingProject && !addingLocation
-  const locationErrors = {
-    location_id: locationDraft.location_id.trim() ? undefined : 'Required',
-    timezone: !locationDraft.timezone.trim() ? 'Required' : !isValidTimezone(locationDraft.timezone) ? 'Not a known IANA timezone (e.g. Europe/Madrid).' : undefined,
-    ignore_dst: locationDraft.ignore_dst ? undefined : 'Required',
-    latitude: rangeError(locationDraft.latitude, -90, 90, true),
-    longitude: rangeError(locationDraft.longitude, -180, 180, true),
-    coordinate_uncertainty: locationDraft.coordinate_uncertainty.trim() === ''
-      ? undefined
-      : (Number.isInteger(Number(locationDraft.coordinate_uncertainty)) && Number(locationDraft.coordinate_uncertainty) >= 1 ? undefined : 'Must be a whole number, 1 or more.'),
-  }
+  const originReady = Boolean(selectedProjectId && origin.locationId.trim()) && !locationLacksCoordinates && !addingProject
   const canSaveProject = projectSource !== null && Object.keys(projectErrors).length === 0 && !savingProject
-  const canSaveLocation = locationSource === 'manual' && Object.values(locationErrors).every((e) => !e) && !savingLocation
   const accountReady = trapperAccountReady(account)
 
   async function handleTestConnection() {
@@ -1909,8 +1923,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     }
   }
 
-  // Adding a research project or a location from Trapper connects, with the account of the settings, as soon as it is asked for.
-  const wantsTrapper = (addingProject && projectSource === 'trapper') || (addingLocation && locationSource === 'trapper')
+  // Adding a research project from Trapper connects, with the account of the settings, as soon as it is asked for.
+  const wantsTrapper = addingProject && projectSource === 'trapper'
   useEffect(() => {
     if (wantsTrapper && accountReady && conn.status === 'idle') void handleTestConnection()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1920,10 +1934,9 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     setOrigin({ researchProject: '', locationId: '', locationName: '', timezone: '' })
     setSelectedProjectId(''); setAddingProject(false); setProjectSource(null); setProjectDraft(EMPTY_RESEARCH_PROJECT)
     setTrapperProjectPks([])
-    setLocalLocations([]); setSelectedLocationId(''); setAddingLocation(false); setLocationSource(null)
+    setLocalLocations([]); setSelectedLocationId('')
     setClosedVisits(null); setLinkedVisit(null)
-    setLocationDraft(EMPTY_LOCATION_DRAFT)
-    setTrapperLocationProjectPk(''); setTrapperLocations([]); setTrapperLocationPks([]); setOriginError(null)
+    setOriginError(null)
     setDeployment((d) => ({ ...d, location_id: '', location_name: null }))
   }
 
@@ -1958,7 +1971,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
   function selectProject(project: LocalResearchProject | undefined) {
     setSelectedProjectId(project?.acronym ?? '')
-    setSelectedLocationId(''); setAddingLocation(false); setOriginError(null); setLinkedVisit(null); setSdCard('')
+    setSelectedLocationId(''); setOriginError(null); setLinkedVisit(null); setSdCard('')
     setOrigin({ researchProject: project ? `${project.acronym} — ${project.name}` : '', locationId: '', locationName: '', timezone: '' })
     applyOriginLocation(undefined)
   }
@@ -2055,7 +2068,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     const wanted = visitKey({ visit: closedVisit.visit, end: closedVisit.visit })
     const found = closedVisits.find((c) => visitKey(c) === wanted)
     closedVisitApplied.current = true
-    if (found) selectClosedVisit(found)
+    // the revision and the visit are given: the origin is done, and it goes on to the images
+    if (found) { selectClosedVisit(found); setStep(1) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closedVisit, selectedProjectId, closedVisits, localLocations])
 
@@ -2080,89 +2094,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     fillFromVisits(closed)
     const revision = revisionOfVisit(closed)
     if (revision) { revisionTouched.current = true; setRevisionHint(null); applyRevision(String(revision)) }
-  }
-
-  function startAddingLocation() {
-    setAddingLocation(true); setLocationSource(null); setLocationDraft(EMPTY_LOCATION_DRAFT)
-    setTrapperLocationProjectPk(''); setTrapperLocations([]); setTrapperLocationPks([]); setOriginError(null)
-  }
-
-  function handleLocationSourceChange(source: OriginSource) {
-    setLocationSource(source); setLocationDraft(EMPTY_LOCATION_DRAFT)
-    setTrapperLocationPks([])
-  }
-
-  /** From Trapper: the locations of the chosen Trapper research project. */
-  async function handleTrapperLocationProjectChange(pk: string) {
-    setTrapperLocationProjectPk(pk)
-    setTrapperLocations([]); setTrapperLocationPks([]); setOriginError(null)
-    if (!pk) return
-    setLoadingTrapperLocations(true)
-    try {
-      const { results } = await api.trapperLocations(NO_CREDENTIALS, Number(pk))
-      setTrapperLocations(results)
-    } catch (e) {
-      setOriginError(e instanceof Error ? e.message : "Could not load the research project's locations.")
-    } finally {
-      setLoadingTrapperLocations(false)
-    }
-  }
-
-  /** Keeps a location in the research project's folder and picks it. */
-  async function addLocation(location: LocalLocation) {
-    setSavingLocation(true); setOriginError(null)
-    try {
-      const saved = await api.saveLocalLocation(selectedProjectId, location)
-      setLocalLocations((list) => [...list, saved])
-      setAddingLocation(false)
-      selectLocation(saved)
-    } catch (e) {
-      setOriginError(e instanceof Error ? e.message : 'Could not save the location.')
-    } finally {
-      setSavingLocation(false)
-    }
-  }
-
-  function handleSaveLocation() {
-    return addLocation({
-      location_id: locationDraft.location_id.trim(), name: locationDraft.name.trim() || null,
-      timezone: locationDraft.timezone.trim(), ignore_dst: locationDraft.ignore_dst === 'yes', trapper_pk: null,
-      latitude: Number(locationDraft.latitude), longitude: Number(locationDraft.longitude),
-      coordinate_uncertainty: locationDraft.coordinate_uncertainty.trim() ? Number(locationDraft.coordinate_uncertainty) : null,
-    })
-  }
-
-  /** From Trapper: the locations ticked there are simply added — no form, as many as are ticked. One
-   * already kept here is just picked. The first is the one marked by default afterwards. */
-  async function handleAddTrapperLocations() {
-    setSavingLocation(true); setOriginError(null)
-    const problems: string[] = []
-    const chosen: LocalLocation[] = []
-    const added: LocalLocation[] = []
-    for (const pk of trapperLocationPks) {
-      const loc = trapperLocations.find((l) => String(l.pk) === pk)
-      if (!loc) continue
-      const already = localLocations.find((l) => l.location_id.toLowerCase() === loc.location_id.toLowerCase())
-      if (already) { chosen.push(already); continue }
-      if (loc.latitude == null || loc.longitude == null) {
-        problems.push(`“${loc.location_id}” has no coordinates in Trapper, and a deployment needs them. Add it by hand instead.`)
-        continue
-      }
-      try {
-        const saved = await api.saveLocalLocation(selectedProjectId, {
-          location_id: loc.location_id, name: loc.name || null,
-          timezone: loc.timezone && isValidTimezone(loc.timezone) ? loc.timezone : null, ignore_dst: loc.ignore_dst ?? null, trapper_pk: loc.pk,
-          latitude: loc.latitude, longitude: loc.longitude, coordinate_uncertainty: null,
-        })
-        added.push(saved); chosen.push(saved)
-      } catch (e) {
-        problems.push(`“${loc.location_id}”: ${e instanceof Error ? e.message : 'could not be saved.'}`)
-      }
-    }
-    if (added.length) setLocalLocations((list) => [...list, ...added])
-    setSavingLocation(false)
-    if (chosen.length) { setAddingLocation(false); selectLocation(chosen[0]) }
-    if (problems.length) setOriginError(problems.join(' '))
   }
 
   /** Sets the timezone and re-stamps both dates with the designator it
@@ -2367,13 +2298,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     setEpicollectMessage({ kind: 'info', text: `Filled in from “${entryLabel(entry)}” — check the camera, site and notes in More details.` })
   }
 
-  function handleFillFromPrevious() {
-    if (!previousRevision) return
-    setDeployment((d) => fillFromPreviousRevision(d, previousRevision.deployment))
-    setFilledFrom(previousRevision.deployment_id)
-    setDetailsPick('previous')
-  }
-
   // The research projects kept in the collections folder — read each time the origin step is shown.
   useEffect(() => {
     if (stepKey !== 'origin') return
@@ -2415,13 +2339,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
       .catch(() => { if (!cancelled) setClosedVisits([]) })
     return () => { cancelled = true }
   }, [selectedProjectId])
-
-  // Adding a location from Trapper: start from the Trapper research project this one was filled in from.
-  useEffect(() => {
-    if (locationSource !== 'trapper' || conn.status !== 'ok' || trapperLocationProjectPk || !selectedProject?.trapper_pk) return
-    void handleTrapperLocationProjectChange(String(selectedProject.trapper_pk))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationSource, conn.status, trapperLocationProjectPk, selectedProject])
 
   const canImport = Boolean(plannedCollection) && Boolean(researchProjectId) && deploymentConforms
 
@@ -2520,7 +2437,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   }
 
   function handleStartOver() {
-    setStep(0); setImagesOpen(1); setImagesReached(1); setOriginOpen(1); setOriginReached(1)
+    setSavedOpen(false); setStep(0); setImagesOpen(1); setImagesReached(1); setOriginOpen(1); setOriginReached(1)
     setSourceDir(''); setScan(null); setScanError(null); setValidation(null); setValidationError(null)
     setGuess(null); guessedFor.current = null; sourcePicked.current = false; setDateSource(undefined)
     setImageChecks(new Set(['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates'])); setRequiredImageChecks(new Set())
@@ -2532,7 +2449,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     setDeploymentCheck(null); setDeploymentCheckError(null)
     preprocessTouched.current = false
     setRevision(''); revisionTouched.current = false; setRevisionHint(null)
-    setDeploymentChecks(new Set(ALL_DEPLOYMENT_CHECKS)); setRequiredDeploymentChecks(new Set())
+    setDeploymentChecks(new Set(ALL_DEPLOYMENT_CHECKS)); setRequiredDeploymentChecks(new Set(DEFAULT_REQUIRED_DEPLOYMENT_CHECKS))
     setTimestampLogError(null)
     setSdCard('')
     setEvents([]); setImportError(null); setDestDir(null); setCopied(false)
@@ -2542,29 +2459,17 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
   /** Takes back what was copied from the previous revision: the optional details start empty again. */
   // The sources to pick the details from are shown when there are two to choose from, by hand included.
-  const logDetails = logEntry?.fieldwork?.details ?? null
-  const pickable = Boolean(linkedVisit || previousRevision || logDetails)
-  const detailsSource: 'visit' | 'previous' | 'log' | 'manual' = detailsPick ?? (linkedVisit ? 'visit' : 'manual')
-  const visitFound = detailsFound(linkedVisit ? fillFromClosedVisit(EMPTY_DEPLOYMENT_FIELDS, linkedVisit) : EMPTY_DEPLOYMENT_FIELDS)
-  const logFound = detailsFound(logDetails ? { ...EMPTY_DEPLOYMENT_FIELDS, ...logDetails } : EMPTY_DEPLOYMENT_FIELDS)
+  // The details are what the previous deployment says, overwritten with what the visit says, and locked until Edit details.
+  const pickable = Boolean(linkedVisit || previousRevision)
+  const detailsSource: 'merge' | 'manual' = detailsPick === 'manual' ? 'manual' : pickable ? 'merge' : 'manual'
+  const visitSays = linkedVisit && visitApplies(linkedVisit.visit) ? linkedVisit : null
+  const visitFound = detailsFound(visitSays ? fillFromClosedVisit(EMPTY_DEPLOYMENT_FIELDS, visitSays) : EMPTY_DEPLOYMENT_FIELDS)
   const previousFound = detailsFound(previousRevision ? fillFromPreviousRevision(EMPTY_DEPLOYMENT_FIELDS, previousRevision.deployment) : EMPTY_DEPLOYMENT_FIELDS)
-
-  /** The camera, the site and the notes as a source says them: what the visit or the previous deployment do not say is left empty. */
-  function pickDetailsSource(source: 'visit' | 'previous' | 'log' | 'manual') {
-    setDetailsPick(source)
-    if (source === 'manual') return
-    const emptied = (d: DeploymentFields): DeploymentFields => ({ ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) })
-    if (source === 'visit' && linkedVisit) {
-      setDeployment((d) => fillFromClosedVisit(emptied(d), linkedVisit))
-      setFilledFrom(`the visit ${linkedVisit.visit.session}`)
-    } else if (source === 'log' && logDetails) {
-      setDeployment((d) => ({ ...emptied(d), ...logDetails, start_date: d.start_date, end_date: d.end_date }))
-      setFilledFrom(`the logs of ${logEntry!.collection}`)
-    } else if (source === 'previous' && previousRevision) {
-      setDeployment((d) => fillFromPreviousRevision(emptied(d), previousRevision.deployment))
-      setFilledFrom(previousRevision.deployment_id)
-    }
-  }
+  useEffect(() => {
+    if (detailsSource !== 'merge') return
+    setDeployment((d) => mergedDetails(d, previousRevision?.deployment ?? null, linkedVisit))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailsSource, linkedVisit, previousRevision])
 
   function handleStartEmpty() {
     setDeployment((d) => ({ ...d, ...Object.fromEntries(FILLED_FROM_PREVIOUS.map((k) => [k, EMPTY_DEPLOYMENT_FIELDS[k]])) }))
@@ -2582,9 +2487,22 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
     {fixingDates && (
       <TimeFixPage initial={{ folder: sourceDir, researchProjectId: selectedProjectId, visit: linkedVisit?.visit }} onBack={() => setFixingDates(false)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} parent="Import deployment" />
     )}
-    <div className={fixingDates ? 'hidden' : 'mx-auto max-w-[1100px] px-4 py-8'}>
+    <div className={fixingDates ? 'hidden' : PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
-        parent="Manage deployments" onParent={onBack} />
+        parent="Menu" onParent={onBack} />
+
+      {queue && (
+        <div role="status" aria-label="The deployment in the queue" className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 px-5 py-3 text-sm text-blue-900 dark:text-blue-100">
+          <span className="font-semibold">Deployment {queue.index + 1} of {queue.total}</span>
+          <span className="font-mono">{queue.current}</span>
+          {!destDir && (
+            <span className="ml-auto flex items-center gap-2">
+              <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={queue.onSkip}>Skip this one</button>
+              <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={queue.onStop}>Stop here</button>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Step indicator */}
       <div className="flex items-start mb-10">
@@ -2677,6 +2595,12 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 </button>
               </div>
               {browseError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{browseError}</p>}
+              {queue?.parentFolder && !sourceDir.trim() && !scanning && (
+                <p className={`${hintClass} mt-2`}>
+                  Beside the one before:{' '}
+                  <button type="button" className="font-mono underline text-blue-700 dark:text-blue-300" onClick={() => { const dir = `${queue.parentFolder}/${queue.current}`; setSourceDir(dir); void handleScan(dir) }}>{`${queue.parentFolder}/${queue.current}`}</button>
+                </p>
+              )}
             </div>
             )}
             {scanError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{scanError}</p>}
@@ -2955,105 +2879,11 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           )}
 
           {selectedProjectId && !addingProject && closedVisits !== null && closedVisits.length === 0 && (
-            <FormCard title="Location" description={`Locations of ${selectedProjectId}, found in the collections folder.`}>
-              {!addingLocation ? (
-                <>
-                  <label className={labelClass} htmlFor="origin-location">Location</label>
-                  <Combobox
-                    id="origin-location" options={localLocations.map((l) => ({ value: l.location_id, label: `${l.location_id}${l.name ? ` — ${l.name}` : ''}` }))}
-                    value={selectedLocationId} onChange={(id) => selectLocation(localLocations.find((l) => l.location_id === id))}
-                    placeholder={localLocations.length === 0 ? 'No locations yet' : 'Select a location…'}
-                    clearLabel="Clear location"
-                  />
-                  {localLocations.length === 0 && <p className={hintClass}>{selectedProjectId} has no locations yet — add the first one.</p>}
-                  {locationLacksCoordinates && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{selectedLocationId} has no coordinates, and a deployment needs them — pick another location.</p>
-                  )}
-                  <div className="mt-3">
-                    <button type="button" className={btnOutline} onClick={startAddingLocation}>➕ Add a new location</button>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-1">New location</p>
-                  <p className={`${hintClass} mb-3`}>Create a new location linked to the research project {selectedProjectId}.</p>
-                  <OptionCards options={ORIGIN_SOURCE_OPTIONS} selected={locationSource} onChoose={handleLocationSourceChange} />
-
-                  {locationSource === 'trapper' && (
-                    <div className="mt-4">
-                      {conn.status !== 'ok' ? connectionForm : (
-                        <>
-                          <div className="mb-4">
-                            <label className={labelClass} htmlFor="trapper-location-project">Trapper research project</label>
-                            <Combobox
-                              id="trapper-location-project" options={researchProjects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
-                              value={trapperLocationProjectPk} onChange={handleTrapperLocationProjectChange}
-                              placeholder={researchProjects.length === 0 ? 'No research projects found' : 'Select a research project…'}
-                              clearLabel="Clear Trapper research project"
-                            />
-                          </div>
-                          {trapperLocationProjectPk && (
-                            <div>
-                              <p className={labelClass}>Trapper locations</p>
-                              <CheckboxList
-                                filterLabel="Filter Trapper locations" emptyText={loadingTrapperLocations ? 'Loading locations…' : 'No locations found.'}
-                                disabled={loadingTrapperLocations || savingLocation}
-                                options={trapperLocations.map((l) => ({ value: String(l.pk), label: `${l.location_id}${l.name ? ` — ${l.name}` : ''}` }))}
-                                selected={trapperLocationPks} onChange={setTrapperLocationPks}
-                              />
-                              <p className={hintClass}>Tick one or more — they are added to {selectedProjectId} as they are, and the first one is picked.</p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {locationSource === 'manual' && (
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <Field label="Location id" required placeholder="e.g. DONA_01" hint={DESCRIPTIONS.locationID} value={locationDraft.location_id}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, location_id: v }))} />
-                      <Field label="Location name" placeholder="e.g. Doñana site 1" hint={DESCRIPTIONS.locationName} value={locationDraft.name}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, name: v }))} />
-                      <Field label="Latitude" type="number" required min={-90} max={90} step="any" placeholder="e.g. 52.70442"
-                             hint={DESCRIPTIONS.latitude} error={locationDraft.latitude ? locationErrors.latitude : undefined} value={locationDraft.latitude}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, latitude: v }))} />
-                      <Field label="Longitude" type="number" required min={-180} max={180} step="any" placeholder="e.g. 23.84995"
-                             hint={DESCRIPTIONS.longitude} error={locationDraft.longitude ? locationErrors.longitude : undefined} value={locationDraft.longitude}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, longitude: v }))} />
-                      <Field label="Coordinate uncertainty (m)" type="number" min={1} step={1} placeholder="e.g. 100"
-                             hint={DESCRIPTIONS.coordinateUncertainty} error={locationErrors.coordinate_uncertainty} value={locationDraft.coordinate_uncertainty}
-                             onChange={(v) => setLocationDraft((d) => ({ ...d, coordinate_uncertainty: v }))} />
-                      <div>
-                        <FieldLabel id="location-timezone" label="Timezone (IANA)" required />
-                        <TimezoneCombobox id="location-timezone" value={locationDraft.timezone} invalid={!locationDraft.timezone} onChange={(v) => setLocationDraft((d) => ({ ...d, timezone: v }))} />
-                        <p className={hintClass}>The location's own — every deployment there is read in it.</p>
-                      </div>
-                      <DstSelect value={locationDraft.ignore_dst} error={locationDraft.ignore_dst ? undefined : locationErrors.ignore_dst} onChange={(v) => setLocationDraft((d) => ({ ...d, ignore_dst: v }))} />
-                      <datalist id="timezone-options">
-                        {knownTimezones().map((tz) => <option key={tz} value={tz} />)}
-                      </datalist>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 mt-4">
-                    {locationSource === 'manual' && (
-                      <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!canSaveLocation} onClick={handleSaveLocation}>
-                        {savingLocation && <SmallSpinner />}
-                        Save location
-                      </button>
-                    )}
-                    {locationSource === 'trapper' && conn.status === 'ok' && (
-                      <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={trapperLocationPks.length === 0 || savingLocation} onClick={handleAddTrapperLocations}>
-                        {savingLocation && <SmallSpinner />}
-                        {`Add ${trapperLocationPks.length} location${trapperLocationPks.length === 1 ? '' : 's'}`}
-                      </button>
-                    )}
-                    <button type="button" className={btnOutline} onClick={() => { setAddingLocation(false); setOriginError(null) }}>Cancel</button>
-                  </div>
-                </div>
-              )}
-            </FormCard>
+            <Notice kind="warning" role="status" className="!items-start"
+                    action={onRegisterVisits && <button type="button" className={btnPrimary} onClick={() => onRegisterVisits(selectedProjectId)}>Register the visits</button>}>
+              <strong>There is no closed visit without a deployment in {selectedProjectId}.</strong> A deployment is always linked to a visit — the one that left the camera, closed by the one that collected its
+              card —: its dates, its SD card and the photos counted on it are the visit's. Register the visits first, by hand or from a file with their history.
+            </Notice>
           )}
 
           {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
@@ -3072,7 +2902,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                       summary={deployment.start_date && <>{deployment.deployment_id}<br />{formatLocal(deployment.start_date, timezone)} → {deployment.end_date ? formatLocal(deployment.end_date, timezone) : '…'}</>}>
             {guessing && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">Reading the dates and the camera from the images…</p>}
               {/* With a visit chosen the revision, and so the id of the deployment, are the visit's: nothing is asked, and the card is only there for what has to be said */}
-              {(!linkedVisit || previousRevision || (epicollectEntry && !epicollectImported) || (epicollectDone && epicollectMissing !== null && !epicollectMessage) || epicollectMessage || existingFolder || fieldErrors.deployment_id) && (
+              {(!linkedVisit || (epicollectEntry && !epicollectImported) || (epicollectDone && epicollectMissing !== null && !epicollectMessage) || epicollectMessage || existingFolder || fieldErrors.deployment_id) && (
               <FormCard title={linkedVisit ? undefined : 'Which revision is this?'}>
                 {!linkedVisit && <div className="flex items-end gap-6 flex-wrap">
                   <div>
@@ -3101,17 +2931,6 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 {revision.trim() !== '' && !revisionValid && <p className="text-xs text-red-600 dark:text-red-400 mt-2">Must be a whole number between 1 and 9999.</p>}
                 {fieldErrors.deployment_id && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.deployment_id}</p>}
                 {!linkedVisit && <p className={hintClass}>{`1 for the first visit to this location, 2 for the second, and so on.${revisionHint ? ` ${revisionHint}` : ''}`}</p>}
-                {previousRevision && (
-                  <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
-                    <span className="flex-1 min-w-[14rem]">
-                      Revision {previousRevision.revision} is on file for <strong>{deployment.location_id}</strong> (<span className="font-mono">{previousRevision.deployment_id}</span>).
-                      Copy its camera, site and notes? Dates are never copied — each revision has its own.
-                      {filledFrom && <span role="status" className="block mt-1 text-xs text-blue-800 dark:text-blue-300">Filled in from {filledFrom} — check the camera, site and notes in More details.</span>}
-                    </span>
-                    <button type="button" className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={handleFillFromPrevious}>Copy from revision {previousRevision.revision}</button>
-                  </div>
-                )}
                 {epicollectEntry && !epicollectImported && (
                   <div className="mt-4 flex items-center gap-4 flex-wrap rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/50 px-5 py-4 text-sm text-blue-900 dark:text-blue-100">
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current text-blue-600 dark:text-blue-300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
@@ -3144,23 +2963,14 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               </FormCard>
               )}
 
-              <FormCard title="Period">
-                <DateSourcePicker
-                  name={deployment.deployment_id || 'deployment'} value={dateSource} onPick={pickSource} start={deployment.start_date || null} end={deployment.end_date ?? null} timezone={timezone}
-                  options={[
-                    ...(linkedVisit ? [{ source: 'visit' as const, title: 'Visits of the field work', period: periodOf('visit'),
-                      hint: `From the visit ${linkedVisit.visit.session} (${formatVisitWhen(linkedVisit.visit)}), where the card was left, to ${linkedVisit.end.session} (${formatVisitWhen(linkedVisit.end)}), where it was collected — in the timezone of the location. You can change the dates here; the visits are not changed.` }] : []),
-                    ...(logEntry?.timestamps ? [{ source: 'log' as const, title: 'Log files', period: periodOf('log'),
-                      hint: `From the FileTimestampLog of ${logEntry.collection}, which has a row for ${deployment.deployment_id}: the camera's wall-clock time, in the timezone of the location.` }] : []),
-                    { source: 'exif', title: 'Camera data in the photos', period: periodOf('exif'),
-                      hint: `First and last photo of the deployment.${scan && periodOf('exif') ? ` ${scan.image_count.toLocaleString('en-US')} ${scan.image_count === 1 ? 'photo' : 'photos'}, read from their EXIF data.` : ''}` },
-                    { source: 'manual', title: 'Manual entry', period: null, hint: 'Type the start and the end yourself.' },
-                  ] satisfies SourceOption[]}
-                  manualForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
-              </FormCard>
+              <RecordingPeriod
+                visits={linkedVisit ? { left: linkedVisit.visit.session, collected: linkedVisit.end.session } : null} fromVisits={dateSource === 'visit'}
+                start={deployment.start_date || null} end={deployment.end_date ?? null} timezone={timezone}
+                onEdit={() => pickSource('manual')} onRestore={() => pickSource('visit')}
+                editForm={<DeploymentFormBody collapsible periodOnly deployment={deployment} timezone={timezone} errors={fieldErrors} onField={updateField} datesGuessed={false} />} />
               <div className="flex justify-between items-center mt-4">
                 <button type="button" className={btnOutline} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
-                <button type="button" aria-label="Continue to more details" className={btnPrimary} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
+                <button type="button" aria-label="Continue to more details" className={btnPrimary} disabled={!newDetailsReady} onClick={() => { setOriginOpen(3); setOriginReached(3) }}>Continue<span aria-hidden="true"> →</span></button>
               </div>
           </WizardStep>
 
@@ -3171,39 +2981,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                       description="Everything here is optional. Fill in what you know now — you can add the rest later."
                       summary={moreFilled > 0 ? `${moreFilled} ${moreFilled === 1 ? 'detail' : 'details'} filled in` : 'Nothing filled in yet'}>
             {pickable && (
-              <FormCard title="Where do they come from?" description="Pick one. Each option shows what it found, and you can change anything afterwards by filling them in by hand.">
-                <div role="radiogroup" aria-label="Source of the details" className="space-y-2">
-                  {([
-                    { source: 'visit' as const, title: 'What the field sheet says', found: linkedVisit ? visitFound : null, available: Boolean(linkedVisit),
-                      hint: linkedVisit ? `From the visit ${linkedVisit.visit.session} (${formatVisitWhen(linkedVisit.visit)}), as it was written in the field${visitFound.parts ? `: ${visitFound.parts}` : ''}. The visits (the field sheet) are not changed.`
-                        : 'No visit is linked to this deployment: choose a closed visit in the origin.' },
-                    { source: 'previous' as const, title: 'What the previous deployment says', found: previousRevision ? previousFound : null, available: Boolean(previousRevision),
-                      hint: previousRevision ? `From ${previousRevision.deployment_id}, the previous deployment at this location${previousFound.parts ? `: ${previousFound.parts}` : ''}. Dates are never copied.`
-                        : `No earlier revision of ${deployment.location_id || 'this location'} is on file.` },
-                    { source: 'log' as const, title: 'Log files', found: logDetails ? logFound : null, available: Boolean(logDetails),
-                      hint: logDetails ? `From the FieldworkLog of ${logEntry!.collection}, which has a row for ${deployment.deployment_id}${logFound.parts ? `: ${logFound.parts}` : ''}. Dates are never copied.`
-                        : `The FieldworkLog of this collection has no row for ${deployment.deployment_id || 'this deployment'}.` },
-                    { source: 'manual' as const, title: 'Fill in by hand', found: null, available: true, hint: 'Type them yourself, starting from the values the last source gave.' },
-                  ]).map((o) => (
-                    <label key={o.source} className={`block rounded-xl border px-4 py-3 ${o.available ? 'cursor-pointer' : 'opacity-60'} ${detailsSource === o.source ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700'}`}>
-                      <span className="flex items-start gap-3">
-                        <input type="radio" className="mt-1" name="details-source" aria-label={o.title} disabled={!o.available} checked={detailsSource === o.source} onChange={() => pickDetailsSource(o.source)} />
-                        <span className="flex-1 min-w-0">
-                          <span className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{o.title}</span>
-                            {(o.found || !o.available) && (
-                              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${o.found && o.found.count > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
-                                {o.found && o.found.count > 0 ? `${o.found.count} ${o.found.count === 1 ? 'field' : 'fields'} found` : 'Nothing found'}
-                              </span>
-                            )}
-                          </span>
-                          <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{o.hint}</span>
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </FormCard>
+              <PrefilledDetails
+                previous={previousRevision ? { id: previousRevision.deployment_id, fields: previousFound.count } : null}
+                visit={visitSays ? { session: visitSays.visit.session, when: formatVisitWhen(visitSays.visit), fields: visitFound.count } : null}
+                locked={detailsSource === 'merge'} onEdit={() => setDetailsPick('manual')} onRestore={() => setDetailsPick(null)} />
             )}
             {filledFrom && !pickable && (
               <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-5 py-4 text-sm text-emerald-900 dark:text-emerald-100">
@@ -3212,8 +2993,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 <button type="button" className="rounded-lg border border-emerald-400 dark:border-emerald-800 px-4 py-2 text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40" onClick={handleStartEmpty}>Start empty</button>
               </div>
             )}
-            <LockedDetailsContext.Provider value={pickable && detailsSource !== 'manual'}>
-              <MoreDetailsForm deployment={deployment} errors={fieldErrors} onField={updateField} />
+            <LockedDetailsContext.Provider value={pickable && detailsSource === 'merge'}>
+              <DetailsFromContext.Provider value={[visitSays && `Visit ${visitSays.visit.session}`, previousRevision?.deployment_id].filter(Boolean).join(' & ') || null}>
+                <MoreDetailsForm deployment={deployment} errors={fieldErrors} onField={updateField} />
+              </DetailsFromContext.Provider>
             </LockedDetailsContext.Provider>
           </WizardStep>
           )}
@@ -3508,12 +3291,18 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               )}
             </WizardStep>
 
-            <WizardStep n={3} title="Save to your collection" status={destDir ? 'locked' : prepStatus2} canEdit={false} onEdit={() => {}} badge={importing ? 'Saving…' : undefined}
-                        summary={destDir ? <>{deployment.deployment_id} saved in your collection</> : undefined}
-                        description={destDir ? 'Locked: the deployment is saved and sealed.' : 'Available once the images are prepared.'}>
+            <WizardStep n={3} title="Review and save" status={destDir ? 'open' : prepStatus2} canEdit={false} onEdit={() => {}} badge={importing ? 'Saving…' : undefined}
+                        description={destDir ? 'What was saved, and what to do with it.' : 'Available once the images are prepared.'}>
+              {!destDir && (
+              <>
               <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4">
                 Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to Trapper yet.
               </p>
+              <section aria-label="What is going to be saved" className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5">
+              <h6 className="mb-4 flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+                What is going to be saved
+              </h6>
               {(() => {
                 const done = preprocessed?.type === 'done' ? preprocessed : null
                 const savedLocation = localLocations.find((l) => l.location_id === deployment.location_id)
@@ -3526,7 +3315,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   ['Saved to', plannedCollection ? <span className="font-mono break-all">{`${plannedCollection.path}/${deployment.deployment_id}`}</span> : ''],
                 ]
                 return (
-                  <dl className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-6 divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
+                  <dl className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
                     {rows.map(([term, value]) => (
                       <div key={term} className="grid grid-cols-[7rem_1fr] gap-4 py-4">
                         <dt className="text-zinc-500 dark:text-zinc-400">{term}</dt>
@@ -3536,25 +3325,29 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   </dl>
                 )
               })()}
+              </section>
               <div role="note" className="mb-4 flex items-start gap-4 rounded-2xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-6 py-5 text-amber-900 dark:text-amber-200">
                 <span className="mt-0.5 text-amber-500"><Glyph className="h-6 w-6"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Glyph></span>
                 <div>
                   <p className="text-lg font-semibold">Saving seals the deployment</p>
+                  <p className="text-base leading-relaxed">Do you want to save the deployment <strong>{deployment.deployment_id}</strong>{selectedProject?.acronym ? <> in <strong>{selectedProject.acronym}</strong></> : null}?</p>
                   <p className="text-base leading-relaxed">Its metadata is written and it can&rsquo;t be modified afterwards. The app notices if an image or its details change. Once saved, it can be uploaded.</p>
                 </div>
               </div>
               {importError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{importError}</p>}
               {!destDir && (
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <button type="button" className={`${btnOutline} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={importing} onClick={handleBack}>
+                    <Glyph className="h-5 w-5"><path d="M19 12H5M11 6l-6 6 6 6" /></Glyph>Back
+                  </button>
                   {preprocessed?.type !== 'done' && !preprocessing && <p className="text-xs text-amber-600 dark:text-amber-400">Prepare the images to save.</p>}
                   <button type="button" className={`${btnPrimary} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={preprocessed?.type !== 'done' || !resultsDone || !canImport || importing || preprocessing} onClick={handleImport}>
                     {importing ? <SmallSpinner /> : <Glyph className="h-5 w-5"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 3v5h7V3M7 21v-7h10v7" /></Glyph>}{importing ? 'Saving…' : 'Save to my collection'}
                   </button>
                 </div>
               )}
-            </WizardStep>
-            <WizardStep n={4} title="Review and upload" status={destDir ? 'open' : 'locked'} canEdit={false} onEdit={() => {}}
-                        description="What was saved, and what to do with it.">
+              </>
+              )}
               {destDir && (
                 <div className="space-y-4">
                   <div role="status" className="rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
@@ -3566,11 +3359,13 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   </div>
 
                   <section aria-label="What was saved" className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5">
-                    <h6 className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100">
-                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 3v5h7V3M7 21v-7h10v7" /></svg>
+                    <button type="button" aria-expanded={savedOpen} onClick={() => setSavedOpen((o) => !o)}
+                            className={`flex w-full items-center gap-2 text-left text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100 ${savedOpen ? 'border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4' : ''}`}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
                       What was saved
-                    </h6>
-                    {(() => {
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className={`ml-auto h-4 w-4 fill-none stroke-current transition-transform ${savedOpen ? '' : '-rotate-90'}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {savedOpen && (() => {
                       const done = preprocessed?.type === 'done' ? preprocessed : null
                       const did = [effectivePreprocessSteps.has('rename') && 'renamed', effectivePreprocessSteps.has('resize') && 'resized', effectivePreprocessSteps.has('metadata') && 'tagged'].filter(Boolean) as string[]
                       const path = plannedCollection ? `${plannedCollection.path}/${deployment.deployment_id}` : destDir
@@ -3613,15 +3408,21 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                             <Glyph className="h-5 w-5">{ICON_PATHS.upload}</Glyph>Upload to Trapper
                           </button>
                         )}
-                        <button type="button" className={`${onUpload && selectedProjectId && plannedCollection ? btnOutline : btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`} onClick={handleStartOver}>
-                          <Glyph className="h-5 w-5"><path d="M12 5v14M5 12h14" /></Glyph>Add another deployment
-                        </button>
+                        {queue ? (
+                          <button type="button" className={`${onUpload && selectedProjectId && plannedCollection ? btnOutline : btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`} onClick={queue.next ? queue.onNext : queue.onStop}>
+                            <Glyph className="h-5 w-5"><path d="M5 12h14M13 6l6 6-6 6" /></Glyph>{queue.next ? `Next: ${queue.next} (${queue.index + 2} of ${queue.total})` : 'Finish'}
+                          </button>
+                        ) : (
+                          <button type="button" className={`${onUpload && selectedProjectId && plannedCollection ? btnOutline : btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`} onClick={handleStartOver}>
+                            <Glyph className="h-5 w-5"><path d="M12 5v14M5 12h14" /></Glyph>Add another deployment
+                          </button>
+                        )}
                       </div>
                     </section>
                     {((onDeploymentsMenu ?? onBack) || onMainMenu) && (
                       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
                         <span>Or go back to</span>
-                        {(onDeploymentsMenu ?? onBack) && <button type="button" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onDeploymentsMenu ?? onBack}><span aria-hidden="true">← </span>Deployments menu</button>}
+                        {(onDeploymentsMenu ?? onBack) && <button type="button" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onDeploymentsMenu ?? onBack}><span aria-hidden="true">← </span>{onDeploymentsMenu ? 'Deployments menu' : 'Menu'}</button>}
                         {onMainMenu && <button type="button" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onMainMenu}><span aria-hidden="true">← </span>Main menu</button>}
                       </div>
                     )}
@@ -3645,7 +3446,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           <button type="button" className={btnOutline} onClick={() => setOriginOpen(2)}><span aria-hidden="true">← </span>Back</button>
         ) : stepKey === 'images' && imagesOpen === 2 ? (
           <div />  // its own Back is in the step
-        ) : step > 0 && !(stepKey === 'prepare' && !preprocessing && !resultsDone && (preprocessed?.type === 'done' || preprocessError)) && !(stepKey === 'images' && imagesOpen === 3) ? (
+        ) : step > 0 && !(stepKey === 'prepare' && !preprocessing && !resultsDone && (preprocessed?.type === 'done' || preprocessError)) && !(stepKey === 'prepare' && resultsDone && !destDir) && !(stepKey === 'images' && imagesOpen === 3) ? (
           <button type="button" className={btnOutline} disabled={importing || preprocessing} onClick={handleBack}><span aria-hidden="true">← </span>Back</button>
         ) : stepKey === 'images' && imagesOpen === 3 ? (
           <button type="button" className={btnOutline} disabled={validating} onClick={() => setImagesOpen(2)}><span aria-hidden="true">← </span>Back</button>
@@ -3653,13 +3454,13 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           <div />
         )}
 
-        {!destDir && stepKey === 'images' && (
+        {!destDir && stepKey === 'images' && (imagesOpen === 3 || (imagesOpen === 2 && runnableImageChecks.length === 0)) && (      // only when the results are the step open — or there is nothing to run —: before, the step open has its own button; and not active while the checks run
           <div className="flex flex-col items-end gap-1">
-            {scan && !requiredImageChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={!scan || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
+            {scan && !validating && !requiredImageChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
+            <button type="button" className={btnPrimary} disabled={!scan || validating || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
-        {!destDir && stepKey === 'dates' && (
+        {!destDir && stepKey === 'dates' && originOpen === 3 && (      // only when step 3, More details, is the one open: before it, the step open has its own Continue
           <div className="flex flex-col items-end gap-1 max-w-md">
             {timestampLogError && <p className="text-xs text-red-600 dark:text-red-400 text-right">{timestampLogError}</p>}
             <button type="button" className={`${btnPrimary} flex items-center gap-2`} disabled={!originReady || !newDetailsReady || savingDetails} onClick={handleContinueFromDeployment}>
@@ -3668,10 +3469,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             </button>
           </div>
         )}
-        {!destDir && stepKey === 'checks' && (
+        {!destDir && stepKey === 'checks' && (checksOpen === 2 || runnableDeploymentChecks.length === 0) && (      // likewise: the results are open, or there is nothing to run
           <div className="flex flex-col items-end gap-1">
-            {!requiredDeploymentChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={!requiredDeploymentChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
+            {!checkingDeployment && !requiredDeploymentChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
+            <button type="button" className={btnPrimary} disabled={checkingDeployment || !requiredDeploymentChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
       </div>

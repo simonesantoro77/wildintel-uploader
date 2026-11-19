@@ -20,6 +20,7 @@ import { readDeployment } from '../deploymentDetails'
 import { Glyph } from '../components/ViewSwitch'
 import { RevisionSelection } from '../components/DashboardParts'
 import type { AccessCheck, ClassificationProject, DeploymentFields, FieldDeployment, LocalResearchProject, UploadCollection, UploadTarget, UploadDeploymentInfo, UploadEvent, UploadMode, UploadStep } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 const btnPrimary = 'px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 const btnOutline = 'px-4 py-2 text-sm border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50'
@@ -145,7 +146,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
   // the deployments as a table, as labels or only the search field that picks from a list
 
   useEffect(() => {
-    if (initial) chooseProject(initial.researchProjectId, initial.collection)
+    if (initial) chooseProject(initial.researchProjectId, initial.collection, initial.deployments)
     listWorking().then(async ({ results }) => {
       setProjects(results)
       // Opened with no research project: the default of the general settings comes filled in.
@@ -157,13 +158,13 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
     api.trapperGetConfig().then(setTrapper).catch(() => setTrapper(null))
   }, [])
 
-  async function loadCollections(id: string, pick?: string) {
+  async function loadCollections(id: string, pick?: string, ticked?: string[]) {
     setCollections([]); setCollectionName(''); setSelected(new Set()); setLoadError(null)
     if (!id) return
     try {
       const { results } = await api.uploadCollections(id)
       setCollections(results)
-      if (pick) selectCollection(pick, results)
+      if (pick) selectCollection(pick, results, ticked)
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not read the revisions.')
     }
@@ -182,11 +183,11 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
     }
   }
 
-  function chooseProject(id: string, pick?: string) {
+  function chooseProject(id: string, pick?: string, ticked?: string[]) {
     setProjectId(id)
     setPrepared(null)
     setRuns({}); setOrder([]); setFinished(false)
-    void loadCollections(id, pick)
+    void loadCollections(id, pick, ticked)
   }
 
   function chooseCollection(name: string) {
@@ -195,11 +196,12 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
     selectCollection(name, collections)
   }
 
-  function selectCollection(name: string, from: UploadCollection[]) {
+  function selectCollection(name: string, from: UploadCollection[], ticked?: string[]) {
     setCollectionName(name)
     const found = from.find((c) => c.name === name)
     // What is left to send: preprocessed, and not sent before.
-    setSelected(new Set((found?.deployments ?? []).filter((d) => canUpload(d) && !d.uploaded_at).map((d) => d.deployment_id)))
+    // the ones ticked in the deployments dashboard, when it comes from there
+    setSelected(new Set((found?.deployments ?? []).filter((d) => canUpload(d) && !d.uploaded_at && (!ticked || ticked.includes(d.deployment_id))).map((d) => d.deployment_id)))
   }
 
 
@@ -359,9 +361,9 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.upload} title="Upload deployment to Trapper" description="Sends the deployments of a revision to Trapper. Anything missing there is created, then the images are sent for Trapper to process."
-        parent="Manage uploads" onParent={onBack} />
+        parent="Menu" onParent={onBack} />
 
       {trapper === null ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Reading the settings…</p>

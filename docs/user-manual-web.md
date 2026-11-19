@@ -27,7 +27,7 @@ first. Part of what the web app does can also be done from a terminal: see the
 [Install](user-manual.md#1-installation) the app and run it with no arguments. It starts a small server on your computer
 and opens the app in your default browser (<http://127.0.0.1:8769>, or the next free port). **Keep the window it
 opened until you finish** — closing it stops the app. Everything stays on your machine: the only thing the app talks to is
-the Trapper server you configure. The welcome screen says what it does; press **Get Started**.
+the Trapper server you configure. The welcome screen says what it does — *from the field to a curated, standard dataset* — and gives four points: the data is **Validated**, **Traceable** (each deployment is sealed with the checks it passed and a SHA-256 fingerprint of every image), **Standard** (Camtrap DP fields, all times in UTC) and **Organized** (research project › collection › deployment). With **no research project** it has one button, **Get started**, that goes straight to the initial setup; with one, it has **Continue with** the default research project — the menu, or the runs that were left unfinished — with an arrow at its right that lists the research projects, to **pick another** to go on with (it becomes the default one), and, beside it, **+ Create a new research project**, which starts the initial setup. In the **header** of the pages, the **Research project** button lists them too, to change the default one, and ends — after a line — with **+ Create a new research project**, which opens the initial setup from wherever you are.
 
 ![Welcome](img/screenshots/welcome.png)
 
@@ -119,6 +119,7 @@ dot marks a section with an invalid value.
 - **Data folder** — where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
   `Documents/wildintel-uploader`; a path must be absolute (or start with `~`).
 - **Collections folder**, **Reports folder** and **Packages folder** — where the collections, the reports of the checks and the packages made to upload to Trapper are kept. Blank, each is a folder (`collections`, `reports`, `packages`) inside the data folder; set one to keep it somewhere else, on another disk for instance. A path must be absolute (or start with `~`). What is already kept in the old place is not moved: do it by hand.
+- **Welcome page** — on by default: the page that says what the app does is shown when it opens. Turn it off to open straight on the menu (or on the runs left unfinished); the tick **Do not show this page again** of the welcome page does the same. The title of the header then goes to the menu.
 - **Workers** — how many images are validated and preprocessed at once. Up to the number of
   processors of your machine pays off; the default is that number, up to 4.
 - **Log level** — how much the app logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
@@ -159,6 +160,7 @@ The places the visits of a research project can be taken from, besides entering 
 The visits are read from the **CSV file downloaded from the new WildINTEL Epicollect project**, the form of the field flow (*Register visits › WildINTEL Epicollect CSV*). The columns are found by the label of their question: there is nothing to say about them.
 
 - **The time of a visit** — the form has no date or time to read: a visit happened when its entry was created (`created_at`, UTC), and it is told in the timezone of its location.
+- **What is created** — the box *Create what does not exist yet* has the options to create the locations, cameras, SD cards and trappers the file names that are not kept, and three more (*The photos were not counted*, *Use the coordinates of the location…* and *Close the revision before…*). **They are all marked at first** — a switch at the right of the title, with how many are marked (*7 / 7*), marks or clears them all at once. With **Create the locations** on, the same card asks the **timezone of the new locations** — the form does not say it —, to pick from all of them (**UTC** by default), and, only when it is not UTC, whether **their cameras follow summer time**. In a custom CSV they start cleared, because creating asks for more columns.
 
 #### Custom CSV
 
@@ -219,7 +221,7 @@ switch each step off.
 
 ![Settings › Entities](img/screenshots/settings-entities.png)
 
-The things the visits and the deployments refer to, one tab each: **Research projects**, **Trappers**, **Roles**, **Locations**, **Cameras** and **SD cards**.
+The things the visits and the deployments refer to, one tab each: **Research projects**, **Trappers**, **Roles**, **Locations**, **Cameras** and **SD cards**. A location whose **time zone is not UTC** has a red **Not UTC** label — in its line, in its form and in the panel at the right that opens when a site is pressed.
 Each can be added one at a time, taken from Trapper (research projects and locations) or loaded from a CSV with **Import CSV** (there are
 examples in `examples/entities_example/wicp_02`, explained in `examples/CSV.md`). Locations, cameras, SD cards and roles belong to a research project: pick it first. The **trappers**, the people, belong to none: they are the same whatever the project, and what each is in a project is its **role**. The page of each location, SD card and camera shows its **QR code** (it says `wildintel:<camera|sdcard|location>:<research project>:<id>`), with a button to download it as an SVG to print on a label.
 A location's **time zone** (UTC unless you say another) and whether its cameras ignore summer time are chosen when it is created and **cannot be changed afterwards**: the instant of every visit to it was worked out with them. The **locations**, **cameras**, **SD cards** and **roles** belong to a research project and are kept in its folder of the collections folder (`<research project>/locations.json`, `cameras.json`, `sd_cards.json` and `roles.json`, beside its `visits.json`), so they travel with its collections. The **trappers**, the people, are kept beside the folders of the research projects (`trappers.json` in the collections folder), not in the settings. Cameras, cards, roles and trappers kept in the settings file by an earlier version are moved to where they belong the first time they are needed. A camera or a card can be *active* or not; the visits only offer the ones in use.
@@ -267,18 +269,19 @@ test one and the real one) or two sets of authorship. Each can be downloaded, an
 
 ## 3. The task menu
 
-Once it is configured, the menu is where you choose what you want to do:
+Once it is configured, the menu is where you choose what you want to do. The three actions — register the visits, create the deployments and upload them — are in **three columns**, numbered 1 to 3 in the order of the work; under them, the **dashboards and statistics** and the **utils** are a bar each, full width, with its button (*Open dashboards*, *Open utilities*) at the right:
 
 | Task | What it's for |
 |---|---|
-| 📋 **Manage visits** | **Register visits** to the camera traps — who went, when, to which site and what was done — or the **visit dashboard**. The deployments are worked out from the visits. |
-| 📷 **Manage deployments** | **Import deployment** — check one folder of images and organize it in the collections folder —, **Import deployments** — one or several closed visits — or **show the status of the deployments** or their **statistics**. |
-| ☁️ **Manage uploads** | **Upload deployment to Trapper** — send deployments already kept locally — or **show the status of the uploads**: each revision with how many of its deployments are on Trapper, and the deployments still to be uploaded. |
+| 📋 **Register visits** | Record the visits to the camera traps: who went, when, to which site and what was done — one by one, or in batch mode from files. |
+| 📷 **Create deployments** | Import the images collected in a visit: pick the closed visits whose images you have and create their deployments — one, several at once, or one after another. |
+| ☁️ **Upload deployment** | Upload deployments to public repositories: send a deployment already kept locally to a repository, such as Trapper. |
+| 📊 **Dashboards and statistics** | A bar that opens, under it, the list with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on Trapper — and the **statistics**. |
 | 🧰 **Utils** | *Check and fix dates and times* compares the dates of a folder's images with the period of the visit, when the camera clock went wrong, and shifts or removes the ones that cannot be trusted (every fix is written down). Maintenance of the local collections: *Sync local collections* brings the collections folder up to date with what Trapper already has, and *Repair local deployments* checks which deployments are still valid and writes the metadata files of the others again from their folders. |
 
 ![The task menu](img/screenshots/menu.png)
 
-The usual order is **Register visits** first, then **Import** (or **Import deployments**) — which take the location, the camera and the dates from the visits — and then **Upload**. *Sync* is for when
+The **Quick guide** button, at the right of the title, opens a panel with the work from end to end: the research project and then the three steps, and where to follow the progress and to fix dates and files. The numbers of the cards are the **typical workflow**: **1 Register visits**, then **2 Create deployments** — which takes the location, the camera and the dates from the visits — and then **3 Upload deployment**. *Sync* is for when
 Trapper already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this
@@ -307,6 +310,8 @@ Press **📋 Manage visits**: it offers **Register visits** and **Visit dashboar
 The dashboard is of the **default research project** (the one set in Settings › General). Its head has the title, a line of buttons under it and, at the far right, the **research project** card — its label, its acronym and name, and a gear that goes to the settings where it is changed:
 
 - **Export visits (CSV)** — downloads the visits kept as a CSV that [Register visits › Custom CSV](#custom-csv) reads back as they are (it is there when the project has visits).
+- **Register visits** — goes to [Register visits](#5-manage-visits) without going back to the menu.
+- **Select visits and create their deployments** — each row has a box (and one in the header selects the page). Once visits are ticked a bar appears over the table: *N selected*, **Select all N matching**, **Clear** and **Create deployments →**. The button is only active when the card of every visit ticked was **collected** (*Collected*), they have no deployment yet and they are of **one revision**; the bar says why when it is not. With one visit it goes to Import deployment; with several, to Import deployments, with those visits ticked.
 - **Create the next revision** — plans the next trip: the visit book gets the next revision (`R0003` after `R0002`) with a **planned visit to each location that can be visited** — the ones that are not archived and not only planned in the settings, that is, *ready* or *active* —, and opens on it. A revision is one visit to every location, so the one before has to be **finished** for visits to be made in the new one: if it is not, a message says which locations are still to be visited in it and that no visit can be made in the new revision until it is finished — make those visits, or press **Mark them as not visited** (it asks again before it does it: the visit book of that revision is then consolidated and cannot be modified). That message is not only for the moment the revision is created: **whenever the book has a planned revision with no visit and the revision before it is not finished, it is shown**, with its button, so the revision before can be finished from there. The next revision is not planned again until the one planned has its first visit — the button then says why, and the message about the revision before stays beside it. With no visits yet it plans the first, `R0001`.
 - **Help & Legend** — opens a panel at the right with the legend: the *overall progress*, the *visit states*, the *data states* and the *filters and search*. It closes with its cross, with **Got it, close**, by pressing the background or with Escape.
 
@@ -324,7 +329,7 @@ Besides the visits made, the table has a row — status **Planned**, with no day
 
 A visit is one row: its **Revision**, **Where** (the site), **When**, the **Actions**, its **Status** — *Planned* (not made yet), *Deployed* (it left a camera that is still out), *Collected* (a later visit collected the card it left), *Stolen* (the camera it left was stolen: its deployment is closed with no images, and there is nothing to create), *Not visited* (the visit could not be made) and *Unknown*; nothing for a visit that left no camera — and **Images**: a tick once the deployment is made and its images are stored, which opens [Deployments dashboard](#deployments-dashboard) on that deployment; a grey crossed circle when they are not stored, because the card was not collected or the camera was stolen.
 
-**The details of a visit.** The **chevron** at the left of a row opens its details, and the row is marked with a blue band while they are open; press the chevron — now pointing down — to close them. The eye button in the row does the same. The details show everything the visit says: the actions, who went, the camera and its model, the **SD card left** and the **SD card collected** — the one the visit before it left at the site, with the photos it holds; when no visit before it is known (the revisions before are unknown) it says so —, the status of the camera, the card and the batteries, the coordinates, the notes and its instant in UTC.
+**The details of a visit.** The **chevron** at the left of a row opens its details, and the row is marked with a blue band while they are open; press the chevron — now pointing down — to close them. The eye button in the row does the same. The details show everything the visit says: the actions, who went, the camera and its model, the **SD card left** and the **SD card collected** — the one the visit before it left at the site, with the photos it holds; when no visit before it is known (the revisions before are unknown) it says so —, the status of the camera, the card and the batteries, the coordinates, the notes and its instant in UTC. The details of a visit show, on a line, **the earlier visit that left the SD card this visit collects** and then **this visit** — with the photos it holds, and the state of the camera, the batteries and the card —, and the revisions between them that say nothing (not made, not visited or unknown) as dots on the line. When the closest earlier visit left no camera, or there is no earlier visit, it says *There is no earlier revision in which the card was left* and shows just the visit. The **location** and the **camera** are underlined with dots, as the other links are: each opens its own **panel over the details of the visit** — the data of the location, and the data of the camera (serial number, model, status, connectivity, power source…) — with a button to open it in the settings; Escape shuts the one on top.
 
 **The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the visit of the revision **before** and the one **after**, to the same site; **edit** the visit; **fill in** an unknown visit; **create the visit** that was planned; **view** its details; and **create the deployment** — it opens [Import deployment](#import-a-deployment) with the research project and that visit already chosen — on a *collected* visit that has none yet.
 
@@ -411,15 +416,21 @@ The camera and the SD card are picked from those of the research project, and wh
 Any spreadsheet with a row per visit. Press **Register visits › Custom CSV**; the research project is the default one. The steps:
 
 1. **Choose the spreadsheet file.** When Epicollect is turned on in the settings, first say **where the CSV is**: *A file on this computer* or *Epicollect5 project* — with the latter, **Download the entries** reads them from the project of the settings and goes on as a file does. Pick the CSV. Choosing the file does **not** move on: the step stays open with **Create what does not exist yet** — switches for the **locations**, the **cameras** and the **SD cards** the file names that are not in the project, each created with the visits; each asks for more fields in the matching, where a default can also be given (a location is created with **its own coordinates**, `location_latitude` and `location_longitude`, which are not those of the visit) — and the buttons **Back** (to the research project) and **Continue**.
-2. **Match the columns.** For each field of a visit, the column of the file that gives it. The fields are in groups, as in the form of a visit by hand — *Who*, *Where*, *When*, *The visit*, *SD card*, *Camera*, *Site*, and *Grouping and notes* —, each with an example from the file. Each group is a card with a **chevron at the left** that folds it away, and says how many of its fields are matched (*3 of 5 matched*). What has the name of a field (`location_id`, `session`, `date`, `time`, `actions`, `trappers`, `camera_id`, `sd`, `num_photos`…) is matched by itself; pick the rest, or give a **default** for a field the file has no column for. The site, the actions and the **coordinates of the visit** (`latitude` and `longitude`: where the trapper was when the visit was noted) are required — every row gives them, by a column or a default; the time is a date and a time, or — when the file has it — the instant of an entry (`created_at`), as the *visit sources* setting says. Dates may be written day first. A visit with no revision gets the next one of its site. Press **Read the visits**.
-3. **Check and add the visits.** What the file says, before it is kept: *N visits to add · N already kept · N rows with a problem*, the new sites, what is worth knowing and what is odd. Then the **rows** of the file, laid out like a dashboard:
+2. **Match the columns.** For each field of a visit, the column of the file that gives it. The fields are in groups, as in the form of a visit by hand — *Who*, *Where*, *When*, *The visit*, *SD card*, *Camera*, *Site*, and *Grouping and notes* —, each with an example from the file. Each group is a card with a **chevron at the left** that folds it away, and says how many of its fields are matched (*3 of 5 matched*). What has the name of a field (`location_id`, `session`, `date`, `time`, `actions`, `trappers`, `camera_id`, `sd`, `num_photos`…) is matched by itself; pick the rest, or give a **default** for a field the file has no column for. The site and the actions are required — every row gives them, by a column or a default. The **coordinates of the visit** (`latitude` and `longitude`: where the trapper was when the visit was noted) are required of a visit, but the file need not have them: a row gives them by a column or a default and, when it gives none, takes those of its **location** (a note says how many rows did) — the switch *Use the coordinates of the location when a row has none*, on by default, in the options of the second step; with it off, a row with none is refused —; one of the two alone is refused; the time is a date and a time, or — when the file has it — the instant of an entry (`created_at`), as the *visit sources* setting says. Dates may be written day first. A visit with no revision gets the next one of its site. Press **Read the visits**.
+3. **Check the visits of the file.** The check starts when you press **Continue** in the step of the file, not before. While it runs nothing is shown but that the file is being checked (a long history can take some minutes): a bar that moves — it does not say how far the check is — and the number of the step turns like a clock. Then what the file says, before it is kept: *N visits to add · N already kept · N rows with a problem*, the new sites, what is worth knowing and what is odd. Then the **rows** of the file, laid out like a dashboard:
    - **Revision selection** — a card for *All revisions* and one for each revision the file has (the five most recent as cards, the older ones in the **Older revisions** list, for a file with many). Picking one narrows what is below to its rows.
    - **Status metrics & filters** — the **Progress** card and a card for *Rows read*, *Ready* (new visits), *Skipped / Existing* (already kept, or ignored) and *With problems*. Pressing one shows only those rows; pressing it again shows them all.
-   - **The table** — the search (by row, site, visit, action…), **Group by** — *Row* or *Error* — and **Reset**, with a line of the **active filters**. Grouped **by row**, each row of the file has its **Row**, **Visit**, **Site ID**, **Actions**, **When** and **Status** (*Add*, *Add · to check*, *Skipped / Existing*, *Skipped / Ignored* or *Error*); the **chevron** at the left of every row opens its details — what is wrong with it, when something is, and what it says when it is fine — and marks the row with a blue band while they are open; the **eye** button shows what the row says, field by field. Grouped **by error**, each kind of error is a row with how many rows have it, and its chevron opens those rows.
+   - **The table** — the search (by row, site, visit, action…), **Group by** — *Row* or *Error* — and **Reset**, with a line of the **active filters**. Grouped **by row**, each row of the file has its **Row**, **Visit**, **Site ID**, **Actions**, **When** and **Status** (*Add*, *Add · to check*, *Skipped / Existing*, *Skipped / Ignored* or *Error*); the **chevron** at the left is only in the rows with something wrong, and opens the errors under the row — a row that is fine has none —, and the row is marked with a blue band while they are open; the **eye** button opens a **panel at the right** with what the row says, field by field, and what is wrong with it when something is (Escape or **Close** shuts it). Grouped **by error**, each kind of error is a row with how many rows have it, and its chevron opens those rows.
 
    When the rows of a revision are refused because the revision before is not finished — *R0043 cannot start: R0042 is not finished, 3 location(s) still to be visited in it: …* —, a notice above the metrics says which revision and which locations, and has the button **Mark them as not visited and read again**: those locations get a visit *Not revised*, the revision before is closed — it cannot be changed afterwards —, and the file is read again. The other way out is to correct the file and read it again. The switch of the second step, *Close the revision before when it has locations still planned*, does the same beforehand.
 
    An SD card whose id has spaces or signs (*84 (10)*, *38_B*) is told among what is odd — it is kept as written, not refused; the ids of the cards are never upper-cased.
+   *Worth knowing* is collapsed: open it to read it. **Continue to the review** goes on to step 4.
+4. **Review and confirm.** It says **what is going to be saved** — the visits, the revisions and sites, and the locations, cameras, SD cards and trappers that are created —, warns that the visits cannot be changed once they are created, and has the button **Add N visits**. Once they are added the same step turns green (*Visits saved*), has **What was saved** collapsed — open it for the summary —, the deployments that can now be created and what to do next.
+
+   **The trappers must be registered first** — in Settings › Trappers —, or the rows that say them are refused (*Luis Gómez is not one of the trappers*), and with them every revision after. Turn on **Create the trappers that do not exist**, in the options of the second step, to make them from the file: each person a row says went — *who went* and *set up by* — who is not a trapper yet is made as the row calls them, the username is worked out from the name (`Ana Pérez` is `ana.perez`, `ana.perez2` if that one is taken) and a note says it; complete them in Settings › Trappers. Only the people of the rows that are kept are made.
+
+   **An old datasheet with no count of the photos.** A Revision or a Desinstallation needs the photos counted on the card, and a file that has none is refused. Turn on **The photos were not counted**, in the options of the second step, to accept those rows as they are: the count stays empty — **no number is invented** — and a note says how many visits have none. The photos of their deployments are then not checked against a count they do not have (as for a card that was full); a made-up count would only say that photos are missing.
 
    Press **Add N visits** to keep them.
 
@@ -454,6 +465,8 @@ The chevron at the left of the first two blocks folds them away, to leave only t
 A deployment is one row: the **deployment** (`R0003-DONA_01`), **where**, **when** — the visit that started it (a link that opens the [visit dashboard](#visit-dashboard) on that visit, with its details) and the period —, its **SD card and photos**, its **Creation** (*Planned*, *Created* or *Not created*) and its **Upload**. The chevron at the left of a row opens its details, and the eye button does the same.
 
 **The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the deployment of the revision **before** and the one **after**, to the same site; **show its statistics** — on a created one: it opens [Statistics](#statistics) on its revision, with it isolated —; **view** its details; **create the deployment** — a *planned* one, whose card was already collected: it opens [Import deployment](#import-a-deployment) with the research project and the visit that left the camera already chosen —; and **upload** — on a created deployment not uploaded yet (it opens the upload page on its revision). In the **Upload** column an uploaded one has a tick (the platform and the day, in its tip) that opens the uploads dashboard on its uploads. The camera still out or the card not imported is the state of the *visit*, not of the deployment. The **Show image details** button of a visit of the visit dashboard opens it on that deployment.
+
+**Select deployments and upload them** — each row has a box (and one in the header selects the page). Once deployments are ticked a bar appears over the table: *N selected*, **Select all N matching**, **Clear** and **Upload deployments**. The button is only active when every deployment ticked is **created** (its images are stored), is **not on Trapper yet** and they are all of **one revision**. It goes to [Upload a deployment to Trapper](#8-upload-a-deployment-to-trapper) on that revision with those deployments ticked, instead of all that are left to send.
 
 ![The status of the deployments](img/screenshots/deployments-status.png)
 
@@ -505,12 +518,7 @@ Where the images were taken, which tells the app what the deployment is **of**. 
 
 If you start from a visit — from [Register visits](#5-manage-visits), or with **Create the deployment** of the [Deployments dashboard](#deployments-dashboard) — the project and the visit are already chosen.
 
-**When the project has no closed visit** the step is **Where was it taken?**, and you pick the **location** yourself — one of those of the project, kept in the collections folder — and everything else is asked by hand. A new location can be added:
-
-- **By hand** — a location's id, name, latitude, longitude, coordinate uncertainty, **timezone** and whether its cameras ignore summer
-  time. A new location is **UTC, following summer time**, unless you say otherwise: the cameras' clocks are taken as UTC, and
-  the time of a field visit is read in the timezone of its location.
-- **From Trapper** — pick the project, or its locations, from your Trapper account and they are copied here, with their coordinates and timezone.
+**When the project has no closed visit** there is nothing to import yet: **a deployment is always linked to a visit** — the one that left the camera and the one that collected its card — so the step says there is no closed visit without a deployment in the project and offers **Register the visits**, by hand or from a file with their history. Once they are registered the visits are offered here. The app also refuses, before touching any image, a deployment that is not of a visit of its research project.
 
 ### Stage 2 — Images
 
@@ -552,7 +560,9 @@ of a visit, the card is checked against the one the visit left — see [Check de
 
 For each check you choose **how strict** it is: **Skip** doesn't run it, **Warn** shows the problems but lets you
 continue, **Must pass** stops you from going on while it fails. The ones that are turned off in the
-[settings](#validation) are not shown. Press **Run checks**.
+[settings](#validation) are not shown. Press **Run checks**: the **Continue** of the page is there once the results are open, and it is not active while the checks run.
+
+In the checks of the deployment, **Image dates fit the deployment** and **The SD card is the one the visit left** are **Must pass** by default: images out of the range of dates of the deployment, or that come from another card than the one the visit left, are an error, and the step does not go on until they fit — or you set the check to **Warn** to accept them.
 
 **3. Results.** When it was last run, with the download of its [report](#reports), and then two blocks like those of the dashboards, each of which folds away:
 
@@ -587,18 +597,7 @@ deployment is kept, a notice offers to **copy from it** its camera, site and not
 collections folder you are told, and the import would be refused as it would mix two sets of images: choose another revision or location, or move that
 folder away.
 
-Then the **period**: when the camera started and stopped recording, as the clock of the location's timezone. The dates are not typed from scratch — the app looks for
-them in several **sources**, and shows **what each one found** so you can compare them and **pick one**:
-
-| Source | Where the dates come from |
-|---|---|
-| **Visits of the field work** | Only if the deployment is of a visit: from the visit where the card was left to the one where it was collected, in the timezone of the location. You can change the dates here; **the visits (the field sheet) are not changed**. |
-| **Camera data in the photos** | The first and the last photo of the folder: the earliest and the latest capture date in their EXIF data. |
-| **Manual entry** | You type the start and the end yourself. It is the only one that lets you edit them. |
-
-Each option says **Found** — with the start and end it found — or **Nothing found**. Below them, **Recording period** shows the dates taken, which source they are
-**from**, and the **duration**. The app picks for you the first source that has dates: **the visits, then the photos**; by hand only when neither has found anything. A better
-source that turns up later replaces the one taken — until you pick one yourself.
+Then the **period**: when the camera started and stopped recording, as the clock of the location's timezone. **The dates always come from the visits**: from the visit where the card was left to the one where it was collected. The card **Recording period** shows them **locked** — *Locked · Field work (R0002 → R0003)* —, the start and the end each with its visit, the **duration** and the timezone. **Edit dates** unlocks them: the form to type the start and the end appears, marked *Unlocked · Custom override*, with **Cancel**, **Apply changes** and **Restore from Visits of the field work**, which gives the dates of the visits back. The visits are never changed.
 
 If the deployment's collection has a `<COLLECTION>_FileTimestampLog.csv` (the file wildintel-tools asks for), going on from *More details*
 **adds the deployment's row to that file**. A log that is already there is used for the dates in an [*Import deployments*](#7-import-deployments).
@@ -616,18 +615,7 @@ fields as Trapper's own deployment form. Each section is a card that says how ma
 | **Site** | Feature type (road, trail, burrow, water source…), habitat, set up by, bait used, timestamp issues. |
 | **Grouping and notes** | Deployment groups, tags, comments. |
 
-**Where do they come from?** When the deployment is of a visit, or an earlier revision is kept, a card asks which source gives these details — *What the field sheet says*, *What the previous deployment says*, *Log files* and *Fill in by hand* — and each option says
-**how many fields it found** and which parts of the form they are:
-
-| Source | What it gives |
-|---|---|
-| **What the field sheet says** | What the **two visits** of the deployment — the one that left the camera and the one that collected its card — wrote down in the field, mixed as the [FieldworkLog](#5-manage-visits) mixes them: who set it up and the habitat as `Setup: … \| Retrieval: …` when they differ, the tags and groups of both, the setup's number or yes/no, and both visits' notes as `Setup: … \| Retrieval: …`. The visits are not changed. |
-| **What the previous deployment says** | The camera, the site and the notes of the previous revision of the location (never its dates). Not available — *Nothing found* — when there is none. |
-| **Log files** | What the `FieldworkLog` of the deployment's collection says of it: its camera, the site and the notes. Not available — *Nothing found* — when the log has no row for the deployment. |
-| **Fill in by hand** | You type them, **starting from the values the last source gave**. |
-
-With the field sheet or the previous deployment picked, the fields are shown **as that source says them, and cannot be edited**; pick *Fill in by hand* and they
-open for editing without losing the values. Picking a source again restores its values (what you changed by hand is lost). What a source does not say is left empty.
+**Pre-filled details.** The details are **what the previous deployment of the location says, overwritten with what its visit says** — only the values that are not empty; a visit that was not made, or that is unknown, says nothing. The card **Pre-filled details** says it: *Locked · Previous deployment (R0001-DONA_06) & Visit R0002*, a sentence with where the data comes from — *Data comes from previous deployment **R0001-DONA_06** and field work visit **R0002** (16 Nov 2020, 14:24 UTC). Original records are never modified.* — and a chip for each source with **how many fields it gave**. Under it the sections — **Camera**, **Site** and **Grouping and notes** — are **locked**: each has its padlock, its line says which source gave its values (*From Visit R0002 & R0001-DONA_06*) and how many fields are filled. **Edit details** unlocks them: the fields open for editing without losing the values, and **Restore the pre-filled details** gives back what the sources say (what you changed by hand is lost).
 When Epicollect5 [is turned on](#epicollect) and has an entry, a notice under the revision also offers **Import from Epicollect5**, which fills the camera, the site and the notes
 from it (and leaves the form to be edited by hand); the location's own data are never taken from the entry.
 
@@ -700,11 +688,11 @@ simply redone.
 **2. Processing results.** The images processed and skipped, a status for each step and, opened from it, the skipped
 images as thumbnails. The [report](#reports) says what was done to each image. **Continue to save** goes on.
 
-**3. Save to your collection.**
+**3. Review and save.**
 
 ![Stage 5 — Saved](img/screenshots/step-import.png)
 
-The images are ready, so this step **consolidates** the deployment: a note says that *saving seals the deployment*, and **Save to my collection** — under it, at the right — writes its
+The images are ready, so this step **consolidates** the deployment: it says what is going to be saved, in a card (the deployment, where it was taken, its period, the images and where it is kept), a box with a lock says that *saving seals the deployment* and asks *Do you want to save the deployment … in …?*, and, at the foot, **Back** at the left and **Save to my collection** at the right — as when the visits are saved — writes its
 `deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — the app notices if an image
 or its details change — and it can be uploaded.
 
@@ -712,10 +700,10 @@ Until you save, the images are prepared in a hidden `.staging` folder inside the
 what an interrupted preparation leaves there is cleared when the deployment is prepared again. Saving moves the folder with a single rename, so it is instant however many images there are.
 On Windows, if another program has one of its files open for a moment (the antivirus, a viewer), the move is tried again for a few seconds before it gives up.
 
-Once it is saved, the steps before are **locked** (they show a padlock) and a fourth step, **Review and upload**, opens. It has:
+Once it is saved, the steps before are **locked** (they show a padlock) and the same step turns into what was saved and what to do next. It has:
 
 - a **Deployment saved** notice with the id of the deployment;
-- **What was saved**: how many images and what was done to them, that its metadata is written and sealed, and where it is kept, with **Open folder** and **Copy path**;
+- **What was saved**, collapsed — open it to see it —: how many images and what was done to them, that its metadata is written and sealed, and where it is kept, with **Open folder** and **Copy path**;
 - **Upload**: *Not uploaded yet*, with **Upload to Trapper** — straight to [the upload page](#8-upload-a-deployment-to-trapper) with the research project and the collection already chosen — and **Add another deployment**, which starts again at stage 1;
 - and, below, the way back to the **Deployments menu** and the **Main menu**.
 - **Back to the deployments menu** and **Back to the main menu**, as when visits are registered.
@@ -735,10 +723,12 @@ whoever edits the files on purpose could seal them again.
 
 ## 7. Import deployments
 
-Press **📷 Manage deployments**, then **Import deployments**. It works from the **visits**: first the **research project** — the default one of the settings, with a link to change it —, then a **revision** — a square for each one (*All revisions*, *R0003*…) with how many closed visits without a deployment it has — and then you tick the **visits** of that revision whose images you have.
+Press **📷 Manage deployments**, then **Import deployments**. It works from the **visits** of the research project — the default one of the settings, which is not asked —: a **revision** — a square for each one (*All revisions*, *R0003*…) with how many closed visits without a deployment it has — and the **visits** of it whose images you have. **The latest revision is picked, with all its visits ticked**; picking another ticks its visits, and you take off the ones you do not have. The visits are in the same **table as the dashboards**, filtered by *Collected*, with a box in each row. With **no visit whose card was collected** it says so and offers **Register the visits**: a deployment is always of a visit.
 
 - **One visit:** it works as [Import deployment](#import-a-deployment): the folder is the deployment's, with its images in it (no subfolders), and it is linked to the one visit. Only its SD card is asked beside it.
-- **Several visits:** the folder is a **collection**: a folder with **one subfolder per visit**, as follows. A **collection** is a folder with **one subfolder per deployment** — the
+- **Several visits:** a card **How do you want to import them?** asks for **All at once** or **One after another**.
+  - **One after another** (*Start with the first*) runs [Import deployment](#import-a-deployment) for each visit, the first, then the second…: *Deployment 3 of 38* is at the top, with **Skip this one** and **Stop here**, and when one is saved the button is **Next: R0001-DONA_0007 (4 of 38)** — **Finish** on the last. The folder of the images of the first is told to the next: *Beside the one before* proposes `<the folder above>/<the deployment>`. Stopping leaves the visits that were not imported as they were: they are closed visits without a deployment, and they are offered again.
+  - **All at once:** the folder is a **collection**: a folder with **one subfolder per visit**, as follows. A **collection** is a folder with **one subfolder per deployment** — the
 usual way a field trip's images come home. The revision, the checks and the preprocessing are the
 same for all; the location, dates and camera are asked for each deployment.
 
@@ -776,20 +766,7 @@ When it ends, **Upload to Trapper** goes to the upload page with the collection 
 
 ![Session — When was each one collected?](img/screenshots/session-details.png)
 
-Each deployment has its own period and its own **source**. Open its row to see what **every source found** for it, as in a
-single deployment, and pick one. There are four, and a session adds the **timestamp log**:
-
-| Source | Where the dates come from |
-|---|---|
-| **Visits of the field work** | When the deployment is of a visit: from the visit where the card was left to the one where it was collected. You can change the dates; the visits are not changed. |
-| **Timestamp log file** | The row of that deployment in the `<COLLECTION>_FileTimestampLog.csv` found in the session folder — the file wildintel-tools asks for beside a collection's deployments —, with the set-up and pick-up times someone wrote down. The row is found by the folder's name or by the id the log gives (`R0003-DONA_02`). |
-| **Camera data in the photos** | The first and the last photo of that deployment's folder. They are read in the background, a folder after another, so a row may say *Reading the images…* for a moment. |
-| **Manual entry** | You type the start and the end. |
-
-Each deployment takes **the first source that has its dates, in this order: the visits, the timestamp log, the photos** — by
-hand only if none does — and a better one found later replaces it, unless you picked one yourself for that deployment. So in a
-session some deployments may come from the visits, others from the log and others from the photos, each row saying which.
-A notice above the list says how many of the deployments the log gave dates to.
+Each deployment has its own period, **the one its visits say**, in the same card **Recording period**: locked, with **Edit dates** to unlock it, **Cancel**, **Apply changes** and **Restore from Visits of the field work**, as in a single deployment.
 
 ![A deployment whose dates come from the timestamp log](img/screenshots/session-dates-log.png)
 

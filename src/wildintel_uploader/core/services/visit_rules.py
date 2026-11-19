@@ -172,8 +172,9 @@ def asked(actions: list[str]) -> dict[str, str]:
     return out
 
 
-def required_errors(visit: dict) -> dict[str, str]:
-    """What a visit lacks of what its actions ask of it, by field (camera, sd, photos, camera_status) — nothing when it is complete."""
+def required_errors(visit: dict, photos_optional: bool = False) -> dict[str, str]:
+    """What a visit lacks of what its actions ask of it, by field (camera, sd, photos, camera_status) — nothing when it is complete. With `photos_optional` the count of the photos is not asked:
+    what an old datasheet never had — the deployment is then not checked against it."""
     errors = {}
     if is_not_revised(visit):
         return errors  # nothing was done at it: nothing is asked
@@ -182,7 +183,7 @@ def required_errors(visit: dict) -> dict[str, str]:
     # With the card full the photos are not counted: the count is not asked (it may still be given).
     full_card = visit.get("card_status") == "CardFull"
     for field, how in asked(actions).items():
-        if field == "photos" and full_card:
+        if field == "photos" and (full_card or photos_optional):
             continue
         if how == "required" and (value[field] is None or str(value[field]).strip() == ""):
             by = " + ".join(a for a in actions if _ASKED.get(a, {}).get(field) == "required")
@@ -380,7 +381,7 @@ def entity_changes(visit: dict, before: list[dict]) -> list[dict]:
     return out
 
 
-def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] | None = None, unknown: list[dict] | None = None) -> list[tuple[str, list[dict]]]:
+def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] | None = None, unknown: list[dict] | None = None, photos_optional: bool = False) -> list[tuple[str, list[dict]]]:
     """What is odd in the visits of a file, among them and with the ones already kept — each said once, with the session and the site, and with the visits of the
     file that it is about (the ones that make it odd). They are questions for the one who knows the field, not reasons to refuse a visit."""
     items: dict[str, list[dict]] = {}
@@ -412,7 +413,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
             say(f"{label(v)}: the visit time {v['date']} {v['time']} is not after the visit of {older[0].get('session')} ({older[0]['date']} {older[0]['time']}).", v)
         if "Revision" in v["actions"] and v.get("num_photos") is not None and v["num_photos"] <= 0:
             say(f"{label(v)}: Revision with 0 photos; no deployment will be produced for it.", v)
-        for message in required_errors(v).values():
+        for message in required_errors(v, photos_optional).values():
             say(f"{label(v)}: {message}", v)
         # Where its camera and its card are, with what came before it — the visits of the file included.
         for message in availability_errors(before, v, cards, unknown).values():
@@ -489,7 +490,7 @@ def new_site(site: str, visits: list[dict], known: list[dict]) -> dict:
 
 
 def refusals(visit: dict, kept: list[dict], locations: list[dict], cards: list[dict] | None = None, unknown: list[dict] | None = None,
-             gate: bool = True, first_may_be_any: bool = False) -> list[str]:
+             gate: bool = True, first_may_be_any: bool = False, photos_optional: bool = False) -> list[str]:
     """Why a visit made by hand cannot be kept (the same rules apply to the visits of a file; `gate` off leaves the check of the revision before to the caller, and
     `first_may_be_any` lets the first visit to a site in a revision after R0001 be any: what came before is unknown, so it cannot be told that the camera was not put up): its site is not a location of the research project, it is already kept (the same site, day and time),
     it is the first to its site and not an Installation, it lacks what its actions ask, or its camera or card are not where it says. Empty when it can be kept."""
@@ -504,7 +505,7 @@ def refusals(visit: dict, kept: list[dict], locations: list[dict], cards: list[d
     if not unknown_before and not is_not_revised(visit) and not any(_same(v["location_id"], visit["location_id"]) and _stamp(v) < _stamp(visit) for v in kept) and not (visit.get("actions") and set(visit["actions"]) <= {"Installation", SITE_START}):
         reasons.append(_reason("first_visit_not_installation", f"The first visit to {visit['location_id']} can only be an Installation."))
     reasons += site_start_errors(visit, kept)
-    reasons += required_errors(visit).values()
+    reasons += required_errors(visit, photos_optional).values()
     reasons += availability_errors(kept, visit, cards, unknown).values()
     reasons += archive_errors(visit, kept, next((l for l in locations if _same(l.get("location_id"), visit["location_id"])), None), unknown)
     if gate:
@@ -682,15 +683,31 @@ def revision_order_conflicts(new: list[dict], kept: list[dict]) -> list[tuple[di
     return out
 
 
+def _camera_out_before(visits: list[dict], site: str, number: int) -> bool:
+    """Whether the camera of a site was out there when the revision `number` came: what its last visit before that revision left — a camera put up, or looked at and left —, not
+    taken away nor stolen."""
+    out = False
+    before = [v for v in visits if _same(v["location_id"], site) and (_session_number(v.get("session")) or 0) < number and not is_not_revised(v)]
+    for v in sorted(before, key=_stamp):
+        if _takes_away(v):
+            out = False
+        if _leaves_camera(v):
+            out = True
+    return out
+
+
 def unknown_installation_warnings(new: list[dict], kept: list[dict], unknown: list[dict] | None) -> list[str]:
     """A warning for each site that has no visit in a revision the file gives — it is still unknown there: the site had no visit in it — and whose visit in the next
-    revision does not put a camera up. The revision before it says nothing of the site, so the camera has to be put up in that one (an Installation)."""
+    revision does not put a camera up. The revision before it says nothing of the site, so the camera has to be put up in that one (an Installation) — unless the site had a camera
+    out before the gap: a revision after a site was skipped is fine while its deployment is still open."""
     given = {n for n in (_session_number(v.get("session")) for v in new) if n is not None}
     everything = [*kept, *new]
     said = []
     for u in sorted(unknown or [], key=lambda u: (str(u["session"]), str(u["location_id"]).lower())):
         number = _session_number(u.get("session"))
         if number not in given or any(_same(v["location_id"], u["location_id"]) and _session_number(v.get("session")) == number for v in new):
+            continue
+        if _camera_out_before(everything, u["location_id"], number):
             continue
         for after in (v for v in everything if _same(v["location_id"], u["location_id"]) and _session_number(v.get("session")) == number + 1):
             if "Installation" not in (after.get("actions") or []) and not is_not_revised(after):
@@ -768,7 +785,9 @@ def history_notes(new: list[dict], kept: list[dict]) -> list[str]:
     everything = [*kept, *new]
     for session in sorted({n for n in (_session_number(v.get("session")) for v in new) if n is not None}):
         here = {str(v["location_id"]).lower() for v in everything if _session_number(v.get("session")) == session}
-        before = {str(v["location_id"]) for v in everything if _session_number(v.get("session")) == session - 1}
+        # a site that was archived, or whose camera was taken away or stolen, in the trip before has nothing left out in the field: it is not waited for
+        before = {str(v["location_id"]) for v in everything if _session_number(v.get("session")) == session - 1
+                  and not ({"Archive"} & set(v.get("actions") or []) or _takes_away(v))}
         missing = sorted(s for s in before if s.lower() not in here)
         if missing:
             plural = len(missing) > 1

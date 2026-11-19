@@ -11,6 +11,8 @@ interface Props {
   onHome: () => void
   onOpenSettings: () => void
   settingsOpen: boolean
+  /** Creates a new research project — the last option of the list of the research projects. */
+  onCreateProject?: () => void
 }
 
 /** The published documentation (docs/, see mkdocs.yml's site_url). */
@@ -21,7 +23,7 @@ export const REPO_URL = 'https://github.com/wildintelproject/wildintel-uploader'
 
 const btnOutline = 'px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors'
 
-export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }: Props) {
+export default function Navbar({ version, onHome, onOpenSettings, settingsOpen, onCreateProject }: Props) {
   const { t } = useTranslation()
   const trail = useCurrentTrail()
   const [dark, setDark] = useState(true)
@@ -34,8 +36,8 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
     <nav className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:hidden">
       <div className="max-w-screen-2xl mx-auto px-4 py-2 flex items-center gap-3">
         <button type="button" aria-label={t('navbar.home')} title={t('navbar.home')} onClick={onHome}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 hover:opacity-80 transition-opacity">
-          <Icon className="h-6 w-6" path={<><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.450 5.110 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.450-6.890A2 2 0 0 0 16.760 4H7.240a2 2 0 0 0-1.790 1.110z" /></>} />
+                className="flex h-12 w-12 shrink-0 overflow-hidden rounded-xl hover:opacity-80 transition-opacity">
+          <img src="/logo.svg" alt="" width={48} height={48} className="h-full w-full" />
         </button>
         <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5">
           <div className="flex items-center gap-2">
@@ -70,7 +72,7 @@ export default function Navbar({ version, onHome, onOpenSettings, settingsOpen }
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {trail && <ResearchProjectSelect />}
+          {trail && <ResearchProjectSelect onCreate={onCreateProject} />}
           <a
             className={`${btnOutline} no-underline`}
             href={DOCS_URL} target="_blank" rel="noopener noreferrer"

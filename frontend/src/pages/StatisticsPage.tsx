@@ -15,6 +15,7 @@ import { compact, dayBins, daysOfMonth, formatDuration, monthsOf, perDay, sizeBi
 import type { DayTotal } from '../statistics'
 import type { FieldDeployment, RepairCollection, StatisticsRow } from '../types'
 import { btnOutline, btnPrimary } from './ImportDeploymentPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 interface Props {
   onBack: () => void
@@ -295,13 +296,13 @@ export default function StatisticsPage({ onBack, settingsOpen, focus }: Props) {
   const meanAt = totals.meanPerDay !== null && days.edge > 0 ? Math.min(Math.max(totals.meanPerDay / days.edge, 0), 1) : null
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8 print:max-w-none print:px-0 print:py-0">
+    <div className={`${PAGE_CLASS} print:max-w-none print:px-0 print:py-0`}>
             {/* what the paper starts with: the report's own head */}
       <div className="mb-5 hidden border-b border-zinc-300 pb-3 print:block">
         <p className="text-xl font-semibold">Statistics report — {project?.acronym ?? defaultAcronym}{collectionName ? ` · Revision ${collectionName}` : ''}</p>
         <p className="text-xs text-zinc-600">{isolated ? `Figures of ${isolated} alone` : `Figures of the ${all.length} deployments of the revision`} · {formatInstant(new Date().toISOString())} · WildINTEL Uploader</p>
       </div>
-      <div className="print:hidden"><DashboardHeader parent="Manage deployments" onParent={onBack} icon={<path d="M3 3v18h18M7 15l4-4 3 3 5-6" />} title="Statistics" description="Each deployment of a revision against the previous revisions of its location."
+      <div className="print:hidden"><DashboardHeader parent="Menu" onParent={onBack} icon={<path d="M3 3v18h18M7 15l4-4 3 3 5-6" />} title="Statistics" description="Each deployment of a revision against the previous revisions of its location."
         actions={<>
           <HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />
           <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} disabled={!rows || rows.length === 0 || printing} title="Print the report of the revision, or save it as a PDF" onClick={() => setPrinting(true)}>

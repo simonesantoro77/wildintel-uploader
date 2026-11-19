@@ -17,6 +17,12 @@ One deployment is the images of one camera at one site: a folder of JPG files. T
 
 `3000` and `3000_faulty` are made by `tools/make_example_deployment.py` (`--faulty` for the second); run it again to rebuild them.
 
+## The deployments of DONA
+
+The images of the **38 deployments of the first revision of DONA** — the camera that each site was left with in `R0001` and whose card was collected in `R0002` — for the
+visits and the entities in [`visits_example/wildintel_csv/dona`](../visits_example/wildintel_csv/dona) and [`entities_example/dona`](../entities_example/dona). **They are not in the
+repository** (they are 42218 images): they are made with `tools/make_dona_deployments.py`, and [`DONA`](DONA) says how.
+
 ## How to try them
 
 1. **Import deployment** → pick the folder (any of them) → follow the steps. A good one goes through with nothing to say; the others make

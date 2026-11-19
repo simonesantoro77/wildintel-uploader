@@ -1,52 +1,106 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MenuPage from './MenuPage'
 
+const renderMenu = () => {
+  const props = { onAction: vi.fn(), onDashboard: vi.fn(), onChoose: vi.fn() }
+  render(<MenuPage {...props} />)
+  return props
+}
+
 describe('MenuPage', () => {
-  it('offers Manage deployments, and no Import collection of its own', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
+  it('offers the actions one click away: register visits, create deployments and upload a deployment', async () => {
+    const { onAction } = renderMenu()
 
-    const deploymentButton = screen.getByRole('button', { name: /manage deployments/i })
-    expect(deploymentButton).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: /register visits/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create deployments/i }))
+    await userEvent.click(screen.getByRole('button', { name: /upload deployment/i }))
+    expect(onAction.mock.calls.map((c) => c[0])).toEqual(['register', 'import', 'upload'])
+  })
+
+  it('offers the actions in that order, and no longer the three Manage menus', () => {
+    renderMenu()
+
+    const titles = screen.getAllByRole('button').map((b) => b.textContent ?? '').map((t) => t.match(/Register visits|Create deployments|Upload deployment/)?.[0]).filter(Boolean)
+    expect(titles).toEqual(['Register visits', 'Create deployments', 'Upload deployment'])
+    for (const old of [/manage visits/i, /manage deployments/i, /manage uploads/i]) expect(screen.queryByRole('button', { name: old })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /import collection/i })).not.toBeInTheDocument()
-
-    await userEvent.click(deploymentButton)
-    expect(onChoose).toHaveBeenCalledWith('deployment')
   })
 
-  it('offers to manage the visits', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
+  it('numbers the three actions in the order of the work, 1 to 3, in a tab behind their icon — and has no bar of the typical workflow', () => {
+    renderMenu()
 
-    await userEvent.click(screen.getByRole('button', { name: /manage visits/i }))
-    expect(onChoose).toHaveBeenCalledWith('visits')
+    expect(screen.queryByRole('navigation', { name: 'Typical workflow' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Typical workflow')).not.toBeInTheDocument()
+    const cards = ['Register visits', 'Create deployments', 'Upload deployment'].map((name) => screen.getByRole('button', { name: new RegExp(`^${name}`) }))
+    expect(cards.map((c) => c.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['1', '2', '3'])
+    expect(screen.getByText(/Who went, when, to which site and what was done\./)).toBeInTheDocument()   // the visits are not said to be by hand or from a file
+    expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
   })
 
-  it('offers to upload a deployment to a repository', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
+  it('has a Quick guide button at the right of the title that opens a panel with the work from end to end — and shuts with its cross or Escape', async () => {
+    renderMenu()
+    const header = screen.getByRole('heading', { name: 'What do you want to do?' }).closest('header')!
+    const button = within(header).getByRole('button', { name: 'Quick guide' })                    // in the header of the title, at the right
+    expect(header.lastElementChild).toContainElement(button)
+    expect(screen.queryByRole('dialog', { name: 'Quick guide' })).not.toBeInTheDocument()
 
-    const uploadButton = screen.getByRole('button', { name: /manage uploads/i })
-    expect(uploadButton).toBeEnabled()
-    expect(screen.getByText(/which deployments and revisions are in a repository/i)).toBeInTheDocument()
+    await userEvent.click(button)
+    const panel = within(screen.getByRole('dialog', { name: 'Quick guide' }))
+    expect(panel.getByText('End-to-end workflow')).toBeInTheDocument()
+    expect(panel.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Create a research project', 'Register visits', 'Create deployments', 'Upload deployment'])
+    expect(panel.getByText('Define trappers, sites, cameras and SD cards once, or switch anytime from the top bar.')).toBeInTheDocument()
+    expect(panel.getByText('Send curated local deployments to your remote repository (e.g., TRAPPER).')).toBeInTheDocument()
+    expect(panel.getByText('Dashboards')).toBeInTheDocument()
+    expect(panel.getByText('Utils')).toBeInTheDocument()
 
-    await userEvent.click(uploadButton)
-    expect(onChoose).toHaveBeenCalledWith('upload')
+    await userEvent.click(panel.getByRole('button', { name: 'Close the quick guide' }))
+    expect(screen.queryByRole('dialog', { name: 'Quick guide' })).not.toBeInTheDocument()
+    await userEvent.click(button)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Quick guide' })).not.toBeInTheDocument()
   })
 
-  it('offers the tasks in the order manage visits, manage deployments, manage uploads', () => {
-    render(<MenuPage onChoose={vi.fn()} />)
+  it('has its title at 22 px, semibold, with what it says under it and a subtle line after', () => {
+    renderMenu()
+    const title = screen.getByRole('heading', { name: 'What do you want to do?' })
+    expect(title).toHaveClass('text-[22px]', 'font-semibold')
+    expect(title.nextElementSibling).toHaveTextContent('Choose one of the following.')
+    expect(title.closest('header')).toHaveClass('border-b')                                        // the line under the heading
+  })
 
-    const titles = screen.getAllByRole('button').map((b) => b.textContent ?? '').filter((t) => /Manage visits|Manage deployments|Manage uploads/.test(t))
-    expect(titles.map((t) => t.match(/Manage visits|Manage deployments|Manage uploads/)![0])).toEqual(['Manage visits', 'Manage deployments', 'Manage uploads'])
-    expect(screen.queryByRole('button', { name: /upload session to trapper/i })).not.toBeInTheDocument()
+  it('has the three actions in three columns, and the dashboards under them as a bar of their own, as the utilities are', async () => {
+    renderMenu()
+    const actions = screen.getByRole('button', { name: /^Register visits/ }).parentElement!
+    expect(actions).toHaveClass('md:grid-cols-3')                                                  // the three in a row
+    expect([...actions.children].map((c) => c.querySelector('strong')?.textContent)).toEqual(['Register visits', 'Create deployments', 'Upload deployment'])
+
+    const bar = screen.getByRole('region', { name: 'Dashboards and statistics' })
+    expect(actions.contains(bar)).toBe(false)                                                      // not one of the cards: under them, full width
+    expect(actions.nextElementSibling).toBe(bar)
+    expect(bar).toHaveClass('w-full')
+    expect(within(bar).getByText('Open dashboards')).toBeInTheDocument()                           // with its button at the right, as Open utilities
+    expect(screen.getByRole('button', { name: /Open utilities/ })).toBeInTheDocument()
+    await userEvent.click(within(bar).getByRole('button', { name: /Dashboards and statistics/ }))
+    expect(within(bar).getByText('Hide dashboards')).toBeInTheDocument()
+  })
+
+  it('has a card with the dashboards and the statistics', async () => {
+    const { onDashboard } = renderMenu()
+    const card = screen.getByRole('region', { name: 'Dashboards and statistics' })
+    const toggle = within(card).getByRole('button', { name: /Dashboards and statistics/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')                                       // folded away at first
+    expect(within(card).queryByRole('button', { name: /^Visit dashboard/ })).not.toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    for (const name of ['Visit dashboard', 'Deployments dashboard', 'Uploads dashboard', 'Statistics']) await userEvent.click(within(card).getByRole('button', { name: new RegExp(`^${name}`) }))
+    expect(onDashboard.mock.calls.map((c) => c[0])).toEqual(['visits', 'deployments', 'uploads', 'statistics'])
   })
 
   it('offers the utilities, with the repair and the sync inside them rather than in the menu', async () => {
-    const onChoose = vi.fn()
-    render(<MenuPage onChoose={onChoose} />)
+    const { onChoose } = renderMenu()
 
     expect(screen.queryByRole('button', { name: /^🛠️/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^🔄/ })).not.toBeInTheDocument()

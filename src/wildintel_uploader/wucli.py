@@ -39,7 +39,7 @@ DIST_DIR      = ROOT_DIR / "dist"
 MKDOCS_CFG    = ROOT_DIR / "mkdocs.yml"
 SPEC_FILE     = ROOT_DIR / "wildintel-uploader.spec"
 VERSION_FILE  = PACKAGE_DIR / "_version.py"
-ICON          = ROOT_DIR / "docs" / "img" / "WildINTEL_onlyCircle_25.png"
+ICON          = ROOT_DIR / "docs" / "img" / "wildintel-uploader-icon.png"
 APP_NAME      = "wildintel-uploader"
 FRONTEND_PORT = 5176
 # El clon local de wildintel-trapper-sdk (ver [tool.uv.sources] en

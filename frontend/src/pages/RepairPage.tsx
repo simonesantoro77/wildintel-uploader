@@ -10,6 +10,7 @@ import { PageHeader, UTIL_ICONS } from '../components/TaskCard'
 import WizardStep from '../components/WizardStep'
 import { SmallSpinner, btnOutline, btnPrimary } from './ImportDeploymentPage'
 import type { FieldDeployment, LocalResearchProject, RepairCollection, RepairEvent, RepairState, RepairStep } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
 
@@ -161,7 +162,7 @@ export default function RepairPage({ onBack }: { onBack?: () => void; onOpenSett
   const validCount = checkedList.length - notValid.length
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className={PAGE_CLASS}>
       <PageHeader icon={UTIL_ICONS.repair} title="Repair local deployments" parent="Utilities" onParent={onBack}
         description="Checks the deployments of a revision and repairs the ones that are not valid." />
 

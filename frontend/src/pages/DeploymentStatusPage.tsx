@@ -7,6 +7,7 @@ import { readDeployment } from '../deploymentDetails'
 import type { ClosedVisitTarget, FieldDeployment, SdCard, UploadTarget } from '../types'
 import { btnOutline } from './ImportDeploymentPage'
 import type { VisitFocus } from './VisitBookPage'
+import { PAGE_CLASS } from '../components/PageBar'
 
 interface Props {
   onBack: () => void
@@ -78,12 +79,12 @@ export default function DeploymentStatusPage({ onBack, onOpenSettings, settingsO
   }, [project?.acronym]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <DashboardHeader parent="Manage deployments" onParent={onBack} icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
+    <div className={PAGE_CLASS}>
+      <DashboardHeader parent="Menu" onParent={onBack} icon={<path d="M18 20V10M12 20V4M6 20v-6" />} title="Deployments dashboard" description="The deployments indicated by the visits and their current status."
         actions={<HelpButton expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {project && (deployments === null ? <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p> : <FieldDeployments researchProjectId={project.acronym} deployments={deployments} loadVisits={loadVisits} sdCards={sdCards} onCreate={onImportImages ? (d) => void create(d) : undefined} helpOpen={helpOpen} onCloseHelp={() => setHelpOpen(false)} onShowSd={onOpenSettings && ((label) => onOpenSettings('sdcards', project.acronym, label))} onShowLocation={onOpenSettings && ((site) => onOpenSettings('locations', project.acronym, site))} onShowUploads={onShowUploads} onShowStatistics={onShowStatistics} highlight={focus} onShowVisit={onShowVisit} loadDetails={(id) => readDeployment(project.acronym, id)} onUpload={onUpload && ((d) => onUpload({ researchProjectId: project.acronym, collection: d.collection }))} />)}
+      {project && (deployments === null ? <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the deployments…</p> : <FieldDeployments researchProjectId={project.acronym} deployments={deployments} loadVisits={loadVisits} sdCards={sdCards} onCreate={onImportImages ? (d) => void create(d) : undefined} helpOpen={helpOpen} onCloseHelp={() => setHelpOpen(false)} onShowSd={onOpenSettings && ((label) => onOpenSettings('sdcards', project.acronym, label))} onShowLocation={onOpenSettings && ((site) => onOpenSettings('locations', project.acronym, site))} onShowUploads={onShowUploads} onShowStatistics={onShowStatistics} highlight={focus} onShowVisit={onShowVisit} loadDetails={(id) => readDeployment(project.acronym, id)} onUpload={onUpload && ((d) => onUpload({ researchProjectId: project.acronym, collection: d.collection }))} onUploadMany={onUpload && ((ds) => onUpload({ researchProjectId: project.acronym, collection: ds[0].collection, deployments: ds.map((d) => d.deployment_id) }))} />)}
 
       <div className="mt-10">
         <button type="button" className={btnOutline} onClick={onBack}><span aria-hidden="true">← </span>Back</button>

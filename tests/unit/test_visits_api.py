@@ -34,7 +34,8 @@ def entities_unchecked(request, monkeypatch):
 
     def parse(*a, **k):
         options = dict(a[4] if len(a) > 4 and a[4] else {})
-        options["defaults"] = {"latitude": "37.0", "longitude": "-6.4", **(options.get("defaults") or {})}
+        if not request.node.get_closest_marker("no_default_coordinates"):
+            options["defaults"] = {"latitude": "37.0", "longitude": "-6.4", **(options.get("defaults") or {})}
         if not entities:
             options["check_entities"] = False
         return real(*a[:4], options)
@@ -298,7 +299,7 @@ def test_the_columns_of_a_csv_are_offered_with_the_fields_and_the_column_that_mo
 
     assert body["columns"] == ["Site", "Date", "Time", "Action", "Sd", "Whatever"] and body["sample"] == [["A", "2026-10-02", "08:00", "Revision", "B2", "1"]]
     assert body["mapping"] == {"location_id": "Site", "date": "Date", "time": "Time", "actions": "Action", "sd": "Sd"}
-    assert [f["field"] for f in body["fields"] if f["required"]] == ["location_id", "actions", "latitude", "longitude"]
+    assert [f["field"] for f in body["fields"] if f["required"]] == ["location_id", "actions"]
     assert empty.status_code == 400
 
 
@@ -1415,6 +1416,83 @@ def test_the_locations_as_the_visits_of_a_file_leave_them():
     assert sites[1]["status"] == "active"                                                      # the locations that were given are not changed
 
 
+def _read_file(rows: list[str], save: bool = False, close: bool = True) -> dict:
+    text = "location_id,session,date,time,actions,num_photos\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": close, "save": save}).json()
+
+
+def test_a_site_whose_camera_was_stolen_and_given_up_is_out_of_use_in_the_revisions_after_it_in_the_file(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Stolen + Archive,",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _read_file(rows)
+
+    assert answer["problems"] == [] and answer["closed"] == []
+
+
+def test_a_site_given_up_late_in_the_file_is_not_marked_as_not_visited_before_it_either_its_earlier_gap_is_unknown(tmp_path: Path):
+    """The site is out of use *from* the revision that gives it up. Before it the file has no visit of it, but a visit of it comes later, so what the revision before has of it is unknown — not a false
+    "not visited" — as it is without this fix; and after it nothing is waited for."""
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_02,R0014,2026-03-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _read_file(rows)
+
+    assert answer["problems"] == []
+    assert answer["closed"] == []                                                                       # no "not visited" in R0013, R0014 (it gave it up) nor R0015
+    assert any("R0013 is created, but there is no data of its visits to DONA_02" in n for n in answer["notes"])
+
+
+def test_a_site_given_up_in_the_file_does_not_stop_the_revisions_after_it_from_starting_when_the_revision_is_not_closed_by_the_file(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        answer = _read_file(rows, close=False)
+
+    assert answer["problems"] == []                        # R0013 is finished — DONA_02 is given up, not waited for — so R0014 can start
+
+
+def test_what_is_kept_of_a_site_given_up_in_the_file_is_the_visits_and_no_false_not_visited_ones(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Revision + Desinstallation + Archive,5",
+            "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        saved = _read_file(rows, save=True)
+        kept = _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"]
+
+    assert saved["problems"] == []
+    assert not [v for v in kept if v.get("camera_status") == "Not revised"]
+    assert sorted((v["location_id"], v["session"]) for v in kept if v["session"] in ("R0013", "R0014", "R0015")) == [
+        ("DONA_01", "R0013"), ("DONA_01", "R0014"), ("DONA_01", "R0015"), ("DONA_02", "R0013")]
+
+
+def test_the_locations_as_the_visits_of_a_file_leave_them():
+    from wildintel_uploader.core.services.visits_csv import _archived_by
+
+    sites = [{"location_id": "DONA_01", "status": "active"}, {"location_id": "DONA_02", "status": "active"}, {"location_id": "DONA_03", "status": "archived", "status_date": "2026-01-01"},
+             {"location_id": "DONA_04", "status": "archived", "status_date": "2026-05-01"}]
+    visits = [{"location_id": "dona_02", "date": "2026-03-01", "actions": ["Archive"]}, {"location_id": "DONA_02", "date": "2026-02-01", "actions": ["Revision", "Archive"]},
+              {"location_id": "DONA_01", "date": "2026-02-01", "actions": ["Revision"]}, {"location_id": "DONA_03", "date": "2026-06-01", "actions": ["Archive"]},
+              {"location_id": "DONA_04", "date": "2026-03-01", "actions": ["Archive"]}]
+
+    left = {l["location_id"]: l for l in _archived_by(sites, visits)}
+
+    assert left["DONA_01"] is sites[0]                                                         # a visit that does not archive changes nothing
+    assert (left["DONA_02"]["status"], left["DONA_02"]["status_date"]) == ("archived", "2026-02-01")   # the earliest of its visits, whatever the case of the id
+    assert left["DONA_03"] is sites[2]                                                         # archived before: as it was
+    assert left["DONA_04"]["status_date"] == "2026-03-01"                                      # archived later than the file says it was given up: the earlier day is the one
+    assert sites[1]["status"] == "active"                                                      # the locations that were given are not changed
+
+
 def test_only_one_save_of_visits_runs_at_a_time_for_a_research_project(tmp_path: Path):
     """Pressing Add again while the visits are being saved does not start a second save that would keep them twice: it is refused, and reading is not."""
     from wildintel_uploader.web.api.routers import visits as router
@@ -1636,6 +1714,59 @@ def test_the_id_of_an_sd_card_is_kept_as_written_in_the_cards_the_visits_and_the
     assert saved["problems"] == [] and saved["saved"] == 2
     assert cards == ["47b", "52c"] and sorted(kept) == ["47b", "52c"]                      # never upper-cased
     assert ",47b," in logs and ",52c," in logs and "47B" not in logs and "52C" not in logs
+
+@pytest.mark.no_default_coordinates
+def test_a_row_with_no_coordinates_takes_those_of_its_location_unless_the_import_says_not_to(tmp_path: Path):
+    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0013,2026-02-01,08:00,Revision,5\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        taken = _client().post("/api/visits/import-csv", json=body).json()
+        refused = _client().post("/api/visits/import-csv", json={**body, "coordinates_from_location": False}).json()
+
+    assert taken["problems"] == [] and (taken["visits"][0]["latitude"], taken["visits"][0]["longitude"]) == (37.01, -6.5)       # DONA_01 is where its location is
+    assert any("no coordinates of the visit" in n for n in taken["notes"])
+    assert refused["visits"] == [] and "needs the coordinates of the visit" in refused["problems"][0]["message"]
+
+
+@pytest.mark.entities
+def test_the_trappers_a_file_says_are_created_when_asked_and_the_visits_are_kept_with_them(tmp_path: Path):
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    text = "location_id,session,date,time,actions,num_photos,who\nDONA_01,R0013,2026-02-01,08:00,Revision,5,\"Luis Gómez, Ana Pérez\"\n"
+    mapping = {"location_id": "location_id", "session": "session", "date": "date", "time": "time", "actions": "actions", "num_photos": "num_photos", "trappers": "who"}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        lfs.write_trappers(tmp_path, [{"username": "ana", "name": "Ana", "status": "active"}, {"username": "luis", "name": "Luis", "status": "active"}, {"username": "ana.perez", "name": "Ana Pérez", "status": "active"}])
+        lfs.write_field_items(tmp_path, "DONA", "cameras", [{"label": "12"}, {"label": "C2"}])
+        lfs.write_field_items(tmp_path, "DONA", "sd_cards", [{"label": "S1"}, {"label": "S2"}])
+        _installed((1, 2))
+        refused = _client().post("/api/visits/import-csv", json=body).json()
+        saved = _client().post("/api/visits/import-csv", json={**body, "create": {"trappers": True}, "save": True}).json()
+        people = {t["username"]: t["name"] for t in lfs.list_trappers(tmp_path)}
+        kept = [v["trappers"] for v in _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"] if v["session"] == "R0013"]
+
+    assert refused["visits"] == [] and "Luis Gómez is not one of the trappers" in refused["problems"][0]["message"]
+    assert saved["problems"] == [] and saved["saved"] == 1
+    assert people == {"ana": "Ana", "luis": "Luis", "ana.perez": "Ana Pérez", "luis.gomez": "Luis Gómez"}                      # only the one that did not exist is made
+    assert kept == ["Luis Gómez, Ana Pérez"]
+
+
+def test_a_revision_with_no_count_of_the_photos_is_kept_without_it_when_the_import_says_they_were_not_counted(tmp_path: Path):
+    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0013,2026-02-01,08:00,Revision,\nDONA_02,R0013,2026-02-01,09:00,Revision,\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))
+        strict = _client().post("/api/visits/import-csv", json=body).json()
+        loose = _client().post("/api/visits/import-csv", json={**body, "photos_not_counted": True, "save": True}).json()
+        kept = [v["num_photos"] for v in _client().post("/api/visits/list", json={"research_project_id": "DONA"}).json()["results"] if v["session"] == "R0013"]
+
+    assert strict["visits"] == [] and len(strict["problems"]) == 2
+    assert loose["problems"] == [] and loose["saved"] == 2 and kept == [None, None]            # no number is invented
 
 
 def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut_at_20_characters():

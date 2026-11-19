@@ -3,6 +3,7 @@ import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { Glyph } from '../components/ViewSwitch'
 import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
 import { useEffect, useRef, useState } from 'react'
+import TimezoneCombobox from '../components/TimezoneCombobox'
 import { api } from '../api'
 import BackButton from '../components/BackButton'
 import PickTable, { LabelFrame, PickedTick } from '../components/PickTable'
@@ -23,6 +24,7 @@ import { shownErrors, validateDeployment } from '../deploymentValidation'
 import { availabilityErrors, cameraAtSite, cardBlock, nextRevision, unfinishedRevision } from '../visitAvailability'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
 import type { Camera, DeploymentFields, LocalLocation, LocalResearchProject, SdCard, StoredVisit, Trapper, ClosedVisit, ClosedVisitTarget, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, CsvCreate, ImportCsvOptions } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 export type VisitSource = 'manual' | 'wildintel-new' | 'csv'
 
@@ -355,6 +357,45 @@ export function wallClockAgo(timezone: string | null | undefined, minutes: numbe
 }
 
 /** The cards of the step that tells what was kept, as the one of Import deployment has them. */
+/** The summary of what a file of visits does: a row for each thing, and the first visits of it. */
+function SummaryTable({ lines, visits }: { lines: [string, ReactNode][]; visits: { session: string; location_id: string; date: string; time: string; actions: string[] }[] }) {
+  const shown = visits.slice(0, 10)
+  return (
+    <>
+      <table aria-label="Summary" className="w-full text-sm">
+        <tbody>
+          {lines.map(([label, value]) => (
+            <tr key={label} className="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0">
+              <th scope="row" className="py-2 pr-4 text-left font-medium text-zinc-500 dark:text-zinc-400">{label}</th>
+              <td className="py-2 font-mono text-zinc-900 dark:text-zinc-100">{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {shown.length > 0 && (
+        <div className="mt-4 overflow-x-auto">
+          <table aria-label="Visits added" className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-zinc-500 dark:text-zinc-400">
+                <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th><th className="pr-3 font-medium">Site</th><th className="font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((v) => (
+                <tr key={`${v.session}|${v.location_id}|${v.date}|${v.time}`} className="border-t border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200">
+                  <td className="pr-3 py-1.5">{v.session}</td><td className="pr-3">{formatVisitWhen(v as never)}</td><td className="pr-3">{v.location_id}</td>
+                  <td>{v.actions.length === 0 ? 'Not visited' : actionsText(v.actions as never)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {visits.length > shown.length && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">…and {visits.length - shown.length} more.</p>}
+        </div>
+      )}
+    </>
+  )
+}
+
 const REVIEW_CARD = 'rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5'
 const REVIEW_HEAD = 'flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100'
 
@@ -560,6 +601,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvName, setCsvName] = useState<string | null>(null)
   // The file step stays open — with what it can create — until Continue: choosing the file does not move on.
   const [fileConfirmed, setFileConfirmed] = useState(false)
+  // The file is read, and ready to be checked: the check waits for Continue — it is what opens the step that checks.
+  const [fileReady, setFileReady] = useState(false)
   // The groups of the matching that are folded away, as there are many fields.
   const [foldedGroups, setFoldedGroups] = useState<string[]>([])
   // Custom CSV: where the file is — on this computer, or in the Epicollect5 project of the settings.
@@ -576,14 +619,18 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvColumns, setCsvColumns] = useState<VisitsCsvColumns | null>(null)
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({})
   // What to create when the file names a location, a camera or an SD card that does not exist, and the value of a field the file has no column for.
-  const [csvCreate, setCsvCreate] = useState<CsvCreate>({ locations: false, cameras: false, sd_cards: false })
+  const [csvCreate, setCsvCreate] = useState<CsvCreate>({ locations: false, cameras: false, sd_cards: false, trappers: false })
   const [csvDefaults, setCsvDefaults] = useState<Record<string, string>>({})
   // The revision before the ones of the file is closed when it has locations still planned: they are marked as not visited, as when a visit by hand asks for it.
   const [csvClose, setCsvClose] = useState(false)
+  // A row with no coordinates of the visit takes those of its location: on, unless it is turned off.
+  const [csvLocationCoordinates, setCsvLocationCoordinates] = useState(true)
+  // The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted as it is.
+  const [csvPhotosNotCounted, setCsvPhotosNotCounted] = useState(false)
   const [closeAndRead, setCloseAndRead] = useState(false)   // the revision before is to be closed and the file read again, once the option is on
   // A location that is created starts as UTC, following summer time, unless the file or the defaults say otherwise.
   useEffect(() => {
-    if (csvCreate.locations) setCsvDefaults((d) => ({ timezone: 'UTC', daylight_saving: 'yes', ...Object.fromEntries(Object.entries(d).filter(([, v]) => v !== '')) }))
+    if (csvCreate.locations) setCsvDefaults((d) => ({ timezone: 'UTC', daylight_saving: 'no', ...Object.fromEntries(Object.entries(d).filter(([, v]) => v !== '')) }))
   }, [csvCreate.locations]) // eslint-disable-line react-hooks/exhaustive-deps
   const csvFormat: VisitsCsvFormat = source === 'wildintel-new' ? 'epicollect-csv' : 'mapped'
   const chosen = SOURCE_OPTIONS.find((o) => o.value === source)
@@ -739,22 +786,35 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   // Another way to read the visits starts again from the file.
-  useEffect(() => { forgetCsv(); setCsvName(null); setCsvCreate({ locations: false, cameras: false, sd_cards: false }); setCsvDefaults({}); setCsvClose(false) }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    forgetCsv(); setCsvName(null)
+    // the options of what is created start all marked in the WildINTEL CSV, where the form says everything but the timezone; in a custom CSV creating asks for more columns, so they start off
+    const on = source === 'wildintel-new'
+    setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvDefaults(on ? { timezone: 'UTC', daylight_saving: 'no' } : {})
+    setCsvClose(on); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(on)
+  }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
-  const defaultsGiven = Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
-  const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose)
-    ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true } : {}) } : undefined
+  // (in the WildINTEL CSV the defaults are the timezone of the new locations: nothing is said of it when no location is created)
+  const defaultsGiven = source === 'wildintel-new' && !csvCreate.locations ? {} : Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
+  const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose || !csvLocationCoordinates || csvPhotosNotCounted)
+    ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }), ...(csvPhotosNotCounted ? { photos_not_counted: true } : {}) } : undefined
   // What follows the mapping in the call that reads the file: the options, when there are any (so none is sent when none is given)
   const readTail: [options?: ImportCsvOptions] = csvOptions ? [csvOptions] : []
   const csvReading = useRef(0)
   // the options the file shown was read with
   const readWith = useRef<string | null>(null)
+  // the file is being read: nothing of an earlier reading is shown meanwhile
+  const [checking, setChecking] = useState(false)
+  // the visits are to be confirmed: the step that says what is going to be done
+  const [savedOpen, setSavedOpen] = useState(false)
+  // the visits are to be reviewed and confirmed: the step after the check
+  const [csvConfirming, setCsvConfirming] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
   function forgetCsv() {
     csvReading.current++ // what an older file is still being answered is left out
-    setCsvResult(null); setCsvError(null); setCsvSaved(null); setCsvColumns(null); setCsvMapping({}); setFileConfirmed(false)
-    // what to create and the defaults go with the columns they are for, and the columns are those of a custom CSV
-    if (source !== 'csv') { setCsvCreate({ locations: false, cameras: false, sd_cards: false }); setCsvDefaults({}) }
+    setChecking(false); setSavedOpen(false); setCsvConfirming(false); setNotesOpen(false)
+    setCsvResult(null); setCsvError(null); setCsvSaved(null); setCsvColumns(null); setCsvMapping({}); setFileConfirmed(false); setFileReady(false)
   }
 
   async function readCsv(file: File | undefined) {
@@ -766,17 +826,31 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       const text = await file.text()
       if (reading !== csvReading.current) return
       setCsvText(text)
+      // the file of another CSV has its columns matched next; the others are checked when Continue is pressed
       if (source === 'csv') {
         const found = await api.visitsCsvColumns(text)
         if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping) }
-      } else {
-        readWith.current = JSON.stringify(csvOptions ?? null)
-        const tail: [mapping?: Record<string, string>, options?: ImportCsvOptions] = csvOptions ? [undefined, csvOptions] : []
-        const result = await api.importVisitsCsv(project.acronym, text, false, csvFormat, ...tail)
-        if (reading === csvReading.current) setCsvResult(result)
       }
+      if (reading === csvReading.current) setFileReady(true)
+    } catch (e) {
+      if (reading === csvReading.current) { setCsvError(e instanceof Error ? e.message : 'Could not read the file.'); setChecking(false) }
+    }
+  }
+
+  /** Checks the file chosen — what Continue of the step of the file does for the ones that have no columns to match. */
+  async function checkFile() {
+    if (!project || !csvText) return
+    const reading = ++csvReading.current
+    readWith.current = JSON.stringify(csvOptions ?? null)
+    const tail: [mapping?: Record<string, string>, options?: ImportCsvOptions] = csvOptions ? [undefined, csvOptions] : []
+    setCsvResult(null); setCsvError(null); setChecking(true)
+    try {
+      const result = await api.importVisitsCsv(project.acronym, csvText, false, csvFormat, ...tail)
+      if (reading === csvReading.current) setCsvResult(result)
     } catch (e) {
       if (reading === csvReading.current) setCsvError(e instanceof Error ? e.message : 'Could not read the file.')
+    } finally {
+      if (reading === csvReading.current) setChecking(false)
     }
   }
 
@@ -791,7 +865,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       if (reading !== csvReading.current) return
       setCsvText(csv)
       const found = await api.visitsCsvColumns(csv)
-      if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping) }
+      if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping); setFileReady(true) }
     } catch (e) {
       if (reading === csvReading.current) setCsvError(e instanceof Error ? e.message : 'Could not read Epicollect5.')
     } finally { setDownloading(false) }
@@ -834,16 +908,19 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   useEffect(() => {
     if (source !== 'wildintel-new' || !csvText || !csvResult) return
     if (readWith.current !== JSON.stringify(csvOptions ?? null)) void recheckCsv()
-  }, [csvCreate, csvDefaults, csvClose]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [csvCreate, csvDefaults, csvClose, csvLocationCoordinates, csvPhotosNotCounted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** From another CSV file: reads the visits with the columns as they are mapped. */
   async function readMapped() {
     if (!project) return
     setCsvError(null)
+    setChecking(true)
     try {
       setCsvResult(await api.importVisitsCsv(project.acronym, csvText, false, 'mapped', csvMapping, ...readTail))
     } catch (e) {
       setCsvError(e instanceof Error ? e.message : 'Could not read the file.')
+    } finally {
+      setChecking(false)
     }
   }
 
@@ -869,15 +946,51 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // The fields that are asked: those of an entity only when it is created.
   const fieldsShown = (csvColumns?.fields ?? []).filter((f) => f.field !== 'setup_by' && (!f.entity || csvCreate[f.entity])) // who set up is who went: one field
   const createdNeeds = (csvColumns?.fields ?? []).filter((f) => (f.required_with ?? []).some((e) => csvCreate[e]))
+  // every option of the box, marked or cleared together
+  const optionsOn = [...Object.values(csvCreate), csvPhotosNotCounted, csvLocationCoordinates, csvClose].filter(Boolean).length
+  const everyOption = optionsOn === 7
+  const allOptions = (on: boolean) => { setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvPhotosNotCounted(on); setCsvLocationCoordinates(on); setCsvClose(on) }
   const createSwitches = (
     <div className="space-y-2">
       {([
         ['locations', 'Create the locations that do not exist', 'Needs its coordinates (latitude and longitude) and its timezone; its name is optional.'],
         ['cameras', 'Create the cameras that do not exist', 'Needs the camera id and its model.'],
         ['sd_cards', 'Create the SD cards that do not exist', 'Needs the SD card id and its brand; its capacity is optional.'],
-      ] as const).map(([entity, label, hint]) => (
-        <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={(on) => setCsvCreate((c) => ({ ...c, [entity]: on }))} />
-      ))}
+        ['trappers', 'Create the trappers that do not exist', 'Each person a row says went, who is not a trapper yet, is made as the row calls them: their username is worked out from the name, and the rest is completed in Settings › Trappers.'],
+      ] as const).map(([entity, label, hint]) => {
+        const withZone = entity === 'locations' && source === 'wildintel-new' && csvCreate.locations
+        const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
+        if (!withZone) return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
+        const utc = (csvDefaults.timezone ?? 'UTC').trim().toUpperCase() === 'UTC'
+        // the timezone and summer time of the new locations are in the card of the switch: summer time is asked only when the zone is not UTC
+        return (
+          <div key={entity} className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-5">
+            <SwitchRow plain label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 border-t border-zinc-200 dark:border-zinc-700 py-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="epicollect-timezone" className={labelClass}>Timezone of the new locations</label>
+                <TimezoneCombobox id="epicollect-timezone" value={csvDefaults.timezone ?? 'UTC'}
+                                  onChange={(timezone) => setCsvDefaults((d) => ({ ...d, timezone, daylight_saving: timezone.trim().toUpperCase() === 'UTC' ? 'no' : ((d.timezone ?? 'UTC').trim().toUpperCase() === 'UTC' ? 'yes' : d.daylight_saving ?? 'yes') }))} />
+                <p className={hintClass}>The form does not say it. The coordinates of a new location are the ones of its first visit.</p>
+              </div>
+              {!utc && (
+                <div>
+                  <span id="epicollect-dst-label" className={labelClass}>Their cameras follow summer time</span>
+                  <div role="group" aria-labelledby="epicollect-dst-label" className="inline-flex w-full gap-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900/60 p-1">
+                    {(['yes', 'no'] as const).map((v) => (
+                      <button key={v} type="button" aria-pressed={(csvDefaults.daylight_saving ?? 'yes') === v} onClick={() => setCsvDefaults((d) => ({ ...d, daylight_saving: v }))}
+                              className={`flex-1 px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${(csvDefaults.daylight_saving ?? 'yes') === v ? 'bg-blue-600 text-white shadow' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'}`}>{v === 'yes' ? 'Yes' : 'No'}</button>
+                    ))}
+                  </div>
+                  <p className={hintClass}>Enable if camera clocks shift +1h during daylight saving time.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+      <SwitchRow label="The photos were not counted" hint="For an old datasheet that has no count of the photos on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the photos of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
+      <SwitchRow label="Use the coordinates of the location when a row has none" hint="The coordinates of a visit are required: a row that gives them by a column or a default keeps them, and one that gives none takes those of its location. With this off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
       <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision starts when the one before it is finished. With this on, the locations still planned in it are marked as not visited, so the file can add the revision after it. An unknown revision is not closed: nothing is known of it." checked={csvClose} onChange={setCsvClose} />
     </div>
   )
@@ -1033,10 +1146,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Manage visits" onParent={onBack} />
+    <div className={PAGE_CLASS}>
+      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Menu" onParent={onBack} />
       <WizardStep
-        n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} canEdit={!justAdded} onEdit={() => setSource(null)} lockedSummary
+        n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary
         description="Enter them by hand, or read them from a file."
         summary={chosen?.title}
       >
@@ -1513,7 +1626,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     </section>
                     <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
                       <span>Or go back to</span>
-                      <button type="button" aria-label="Back to the visits menu" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onBack}><span aria-hidden="true">← </span>Visits menu</button>
+                      <button type="button" aria-label={onMainMenu ? 'Back to the visits menu' : 'Back to the menu'} className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onBack}><span aria-hidden="true">← </span>{onMainMenu ? 'Visits menu' : 'Menu'}</button>
                       {onMainMenu && <button type="button" aria-label="Back to the main menu" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onMainMenu}><span aria-hidden="true">← </span>Main menu</button>}
                     </div>
                   </div>
@@ -1529,7 +1642,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {/* the file is of the default research project: nothing to pick — the step is only for when there is none */}
           {!defaultProject && (
             <WizardStep
-              n={2} title="Which research project?" status={project ? 'done' : 'open'} canEdit onEdit={() => { setProject(undefined); forgetCsv(); setCsvName(null) }}
+              n={2} title="Which research project?" status={project ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { setProject(undefined); forgetCsv(); setCsvName(null) }}
               description="The visits are kept in the visits file of a research project of the collections folder; the sites of the file must be its locations."
               summary={project?.acronym}
             >
@@ -1538,7 +1651,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           )}
 
           <WizardStep
-            n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns) && fileConfirmed ? 'done' : 'open'} canEdit onEdit={() => { forgetCsv(); setCsvName(null) }}
+            n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
             description={source === 'wildintel-new' ? 'The CSV downloaded from the new WildINTEL Epicollect project: a row is a visit. Its columns are found by the label of their question, whatever the case or the number in front. A visit happened when its entry was created (the form has no date or time). A visit that says New site makes its site, at the place of the visit, in the timezone UTC unless the switch below gives another.'
               : 'Any spreadsheet file with a row per visit. Next, you say which column gives each field of a visit.'}
             summary={csvName}
@@ -1576,38 +1689,33 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             )}
             {(source === 'csv' || source === 'wildintel-new') && (
               <fieldset className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 mt-4">
-                <legend className="px-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">Create what does not exist yet <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">optional</span></legend>
+                <legend className="sr-only">Create what does not exist yet</legend>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h5 className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Create what does not exist <span className="rounded-full bg-zinc-200 dark:bg-zinc-700 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">optional</span></h5>
+                  <div className="flex items-center gap-3">
+                    <span aria-label="Options marked" className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{optionsOn} / 7</span>
+                    <button type="button" role="switch" aria-checked={everyOption} aria-label="Mark all the options" onClick={() => allOptions(!everyOption)}
+                            className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${everyOption ? 'bg-blue-600' : optionsOn > 0 ? 'bg-blue-400/60' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${everyOption || optionsOn > 0 ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                </div>
                 {source === 'csv'
                   ? <p className={`${hintClass} mb-3`}>When a visit names a location, a camera or an SD card that is not in {project?.acronym ?? 'the research project'}, it is created with the visits. Each one asks for more fields in the matching of the columns, where a default value can also be given for a field the file has no column for. After changing it, check the file again.</p>
                   : <p className={`${hintClass} mb-3`}>When an entry names a location, a camera or an SD card that is not in {project?.acronym ?? 'the research project'}, it is created with the visits. The coordinates of a location, the camera and the card are those of the entry; what the form does not have is asked here, once for all of them. After changing it, check the file again.</p>}
                 {createSwitches}
-                {source === 'wildintel-new' && csvCreate.locations && (
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="epicollect-timezone" className={labelClass}>Timezone of the new locations</label>
-                      <input id="epicollect-timezone" className={inputClass} value={csvDefaults.timezone ?? ''} placeholder="Europe/Madrid" onChange={(e) => setCsvDefaults((d) => ({ ...d, timezone: e.target.value }))} />
-                      <p className={hintClass}>The form does not say it. The coordinates of a new location are the ones of its first visit.</p>
-                    </div>
-                    <div>
-                      <label htmlFor="epicollect-dst" className={labelClass}>Their cameras follow summer time</label>
-                      <select id="epicollect-dst" className={inputClass} value={csvDefaults.daylight_saving ?? 'yes'} onChange={(e) => setCsvDefaults((d) => ({ ...d, daylight_saving: e.target.value }))}>
-                        <option value="yes">Yes</option><option value="no">No</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
               </fieldset>
             )}
             {csvError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{csvError}</p>}
             <div className="flex justify-between items-center mt-4">
               <button type="button" className={btnOutline} onClick={() => { forgetCsv(); setCsvName(null); if (defaultProject) setSource(null); else setProject(undefined) }}><span aria-hidden="true">← </span>Back</button>
-              <button type="button" aria-label="Continue" className={btnPrimary} disabled={!(csvResult || csvColumns) || downloading} onClick={() => setFileConfirmed(true)}>Continue<span aria-hidden="true"> →</span></button>
+              <button type="button" aria-label="Continue" className={btnPrimary} disabled={!fileReady || downloading || checking} onClick={() => { setFileConfirmed(true); if (source !== 'csv') void checkFile() }}>Continue<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
 
           {source === 'csv' && (
             <WizardStep
-              n={defaultProject ? 3 : 4} title="Match the columns" status={!csvColumns || !fileConfirmed ? 'locked' : csvResult ? 'done' : 'open'} canEdit onEdit={() => { setCsvResult(null); setCsvSaved(null) }}
+              n={defaultProject ? 3 : 4} title="Match the columns" status={!csvColumns || !fileConfirmed ? 'locked' : csvResult ? 'done' : 'open'} sealed={csvSaved !== null} summary={csvSaved !== null ? 'The columns of the file' : undefined} canEdit={csvSaved === null} onEdit={() => { setCsvResult(null); setCsvSaved(null) }}
               description="For each field of a visit, the column of the file that gives it. What the file has by the names a visit uses is already matched; leave a field with no column if the file does not have it."
             >
               {csvColumns && (
@@ -1672,15 +1780,24 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             </WizardStep>
           )}
 
-          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check and add the visits" status={csvResult && fileConfirmed && csvSaved === null ? 'open' : 'locked'} lockedSummary summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : undefined} canEdit={false} onEdit={() => {}} description="What the file says, before it is kept."
-                      action={csvResult && csvSaved == null && (
+          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="What the file says, before it is kept."
+                      action={csvResult && csvSaved == null && fileConfirmed && !csvConfirming && (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={rechecking} onClick={() => void recheckCsv()}
                                 title="Check the file again against what is kept now: the visits, the locations and the settings">
                           <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current ${rechecking ? 'animate-spin' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12a8 8 0 11-2.3-5.7M20 4v5h-5" /></svg>
                           {rechecking ? 'Checking…' : 'Check again'}
                         </button>
                       )}>
-            {csvResult && (
+            {csvSaved === null && (checking || rechecking) && (
+              <div>
+                <p role="status" className="text-base text-zinc-600 dark:text-zinc-300">Checking the file… this can take some minutes for a long history.</p>
+                {/* the check is one request that does not say how far it is: the bar moves, with no end */}
+                <div role="progressbar" aria-label="Checking the file" aria-busy="true" className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <div className="h-full w-1/3 rounded-full bg-blue-500 animate-indeterminate motion-reduce:animate-none" />
+                </div>
+              </div>
+            )}
+            {csvSaved === null && csvResult && !checking && !rechecking && (
               <>
                 <p className="text-base">
                   <strong>{csvResult.visits.length}</strong> {csvResult.visits.length === 1 ? 'visit' : 'visits'} to add
@@ -1698,24 +1815,15 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     {listedProblems.map((p) => <li key={p.row}>Row {p.row}: {p.message}</li>)}
                   </ul>
                 )}
-                {csvResult.create && (csvResult.create.locations.length + csvResult.create.cameras.length + csvResult.create.sd_cards.length) > 0 && (
-                  <Notice kind="info" className="mt-3 !items-start" role="status">
-                    <div>
-                      <strong className="font-semibold">Adding the visits also creates</strong>
-                      <ul aria-label="What is created" className="mt-1 list-disc pl-6">
-                        {csvResult.create.locations.length > 0 && <li>{csvResult.create.locations.length === 1 ? '1 location' : `${csvResult.create.locations.length} locations`}: {csvResult.create.locations.map((l) => String(l.location_id)).join(', ')}</li>}
-                        {csvResult.create.cameras.length > 0 && <li>{csvResult.create.cameras.length === 1 ? '1 camera' : `${csvResult.create.cameras.length} cameras`}: {csvResult.create.cameras.map((c) => String(c.camera_id)).join(', ')}</li>}
-                        {csvResult.create.sd_cards.length > 0 && <li>{csvResult.create.sd_cards.length === 1 ? '1 SD card' : `${csvResult.create.sd_cards.length} SD cards`}: {csvResult.create.sd_cards.map((c) => String(c.label)).join(', ')}</li>}
-                      </ul>
-                    </div>
-                  </Notice>
-                )}
                 {(csvResult.rows?.length ?? 0) > 0 && <FileRowResults rows={csvResult.rows!} labels={Object.fromEntries((csvColumns?.fields ?? []).map((f) => [f.field, f.label.replace(/\s*\(.*$/, '')]))} />}
                 {(csvResult.notes?.length ?? 0) > 0 && (
                   <Notice kind="info" className="mt-3 !items-start !rounded-2xl !px-6 !py-5 !text-base leading-relaxed" role="status">
                     <div>
-                      <strong className="font-semibold">Worth knowing.</strong>
-                      <ul aria-label="Notes on the visits" className="mt-2 list-disc pl-6 space-y-1">{csvResult.notes!.map((n) => <li key={n}>{n}</li>)}</ul>
+                      <button type="button" aria-expanded={notesOpen} onClick={() => setNotesOpen((o) => !o)} className="flex items-center gap-2 font-semibold">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current transition-transform ${notesOpen ? '' : '-rotate-90'}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                        Worth knowing ({csvResult.notes!.length})
+                      </button>
+                      {notesOpen && <ul aria-label="Notes on the visits" className="mt-2 list-disc pl-6 space-y-1">{csvResult.notes!.map((n) => <li key={n}>{n}</li>)}</ul>}
                     </div>
                   </Notice>
                 )}
@@ -1746,41 +1854,64 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     )}
                   </Notice>
                 )}
-                {csvSaved === null && (
-                  <div className="mt-4 flex justify-end">
-                    <button type="button" className={`${btnPrimary} inline-flex items-center gap-2`} disabled={csvResult.visits.length === 0 || csvSaving} aria-busy={csvSaving} onClick={() => void addCsvVisits()}>
-                      {csvSaving && <span aria-hidden="true" className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none" />}
-                      {csvSaving
-                        ? `Saving ${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'}… this can take some minutes`
-                        : `Add ${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'}`}
-                    </button>
-                  </div>
-                )}
+                <div className="mt-4 flex justify-end">
+                  <button type="button" className={btnPrimary} disabled={csvResult.visits.length === 0} onClick={() => setCsvConfirming(true)}>Continue to the review<span aria-hidden="true"> →</span></button>
+                </div>
               </>
             )}
           </WizardStep>
-
-          {csvSaved !== null && csvResult && (() => {
+          {(csvConfirming || csvSaved !== null) && csvResult && (() => {
             const added = csvResult.visits
             const sessions = [...new Set(added.map((v) => v.session))].sort()
             const sites = [...new Set(added.map((v) => v.location_id))]
             const made = csvResult.create
-            const madeLine = (kind: 'locations' | 'cameras' | 'sd_cards', key: string) => (made?.[kind] ?? []).map((e) => String(e[key])).join(', ')
+            const madeLine = (kind: 'locations' | 'cameras' | 'sd_cards' | 'trappers', key: string) => (made?.[kind] ?? []).map((e) => String(e[key])).join(', ')
             const lines: [string, ReactNode][] = [
-              ['Visits added', csvSaved],
+              [csvSaved === null ? 'Visits to add' : 'Visits added', csvSaved ?? added.length],
               ['Revisions', sessions.join(', ') || '—'],
               ['Sites', `${sites.length}${sites.length > 0 && sites.length <= 6 ? ` · ${sites.join(', ')}` : ''}`],
               ...(csvResult.skipped > 0 ? [['Already kept — left as they are', csvResult.skipped] as [string, ReactNode]] : []),
               ...((csvResult.closed?.length ?? 0) > 0 ? [['Marked as not visited — to close the revision before', csvResult.closed!.map((m) => `${m.location_id} (${m.session})`).join(', ')] as [string, ReactNode]] : []),
               ...(csvResult.problems.length > 0 ? [['Rows with a problem — not added', csvResult.problems.length] as [string, ReactNode]] : []),
-              ...((made?.locations.length ?? 0) > 0 ? [['Locations created', madeLine('locations', 'location_id')] as [string, ReactNode]] : []),
-              ...((made?.cameras.length ?? 0) > 0 ? [['Cameras created', madeLine('cameras', 'camera_id')] as [string, ReactNode]] : []),
-              ...((made?.sd_cards.length ?? 0) > 0 ? [['SD cards created', madeLine('sd_cards', 'label')] as [string, ReactNode]] : []),
-              ...(justClosed.length > 0 ? [['Visits closed — their deployment can be created', justClosed.length] as [string, ReactNode]] : []),
+              ...((made?.locations.length ?? 0) > 0 ? [[csvSaved === null ? 'Locations to create' : 'Locations created', madeLine('locations', 'location_id')] as [string, ReactNode]] : []),
+              ...((made?.cameras.length ?? 0) > 0 ? [[csvSaved === null ? 'Cameras to create' : 'Cameras created', madeLine('cameras', 'camera_id')] as [string, ReactNode]] : []),
+              ...((made?.sd_cards.length ?? 0) > 0 ? [[csvSaved === null ? 'SD cards to create' : 'SD cards created', madeLine('sd_cards', 'label')] as [string, ReactNode]] : []),
+              ...((made?.trappers?.length ?? 0) > 0 ? [[csvSaved === null ? 'Trappers to create' : 'Trappers created', madeLine('trappers', 'name')] as [string, ReactNode]] : []),
+              ...(csvSaved !== null && justClosed.length > 0 ? [['Visits closed — their deployment can be created', justClosed.length] as [string, ReactNode]] : []),
             ]
             const shownVisits = added.slice(0, 10)
             return (
-              <WizardStep n={(source === 'csv' ? 6 : 5) - (defaultProject ? 1 : 0)} title="Review and continue" status="open" canEdit={false} onEdit={() => {}} description="What was saved, and what to do next.">
+              <WizardStep n={(source === 'csv' ? 6 : 5) - (defaultProject ? 1 : 0)} title={csvSaved === null ? 'Review and confirm' : 'Review and continue'} status="open" canEdit={false} onEdit={() => {}} description={csvSaved === null ? 'What is going to be saved, before it is.' : 'What was saved, and what to do next.'}>
+                {csvSaved === null ? (
+                  <>
+                    <section aria-label="What is going to be saved" className={REVIEW_CARD}>
+                      <h6 className={REVIEW_HEAD}>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+                        What is going to be saved
+                      </h6>
+                      <SummaryTable lines={lines} visits={added} />
+                    </section>
+                    <div role="status" className="mt-4 mb-4 flex items-start gap-4 rounded-2xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-6 py-5 text-amber-900 dark:text-amber-200">
+                      <span className="mt-0.5 text-amber-500"><Glyph className="h-6 w-6"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Glyph></span>
+                      <div>
+                        <p className="text-lg font-semibold">The visits cannot be changed once they are created</p>
+                        <p className="text-base leading-relaxed">Do you want to save {added.length === 1 ? '1 visit' : `${added.length} visits`} in <strong>{project?.acronym}</strong>?</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <button type="button" className={`${btnOutline} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={csvSaving} onClick={() => setCsvConfirming(false)}>
+                        <Glyph className="h-5 w-5"><path d="M19 12H5M11 6l-6 6 6 6" /></Glyph>Back
+                      </button>
+                      <button type="button" className={`${btnPrimary} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={added.length === 0 || csvSaving} aria-busy={csvSaving} onClick={() => void addCsvVisits()}>
+                        {csvSaving
+                          ? <span aria-hidden="true" className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none" />
+                          : <Glyph className="h-5 w-5"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 3v5h7V3M7 21v-7h10v7" /></Glyph>}
+                        {csvSaving ? `Saving ${added.length === 1 ? '1 visit' : `${added.length} visits`}… this can take some minutes` : `Add ${added.length === 1 ? '1 visit' : `${added.length} visits`}`}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 <div className="space-y-4">
                   <div role="status" className="rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
                     <p className="text-lg font-semibold">{csvSaved === 1 ? 'Visit saved' : 'Visits saved'}</p>
@@ -1790,10 +1921,12 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                   </div>
 
                   <section aria-label="What was saved" className={REVIEW_CARD}>
-                    <h6 className={REVIEW_HEAD}>
+                    <button type="button" aria-expanded={savedOpen} onClick={() => setSavedOpen((o) => !o)} className={`${REVIEW_HEAD} w-full text-left !mb-0 ${savedOpen ? '!pb-3 !mb-4' : '!border-b-0 !pb-0'}`}>
                       <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
                       What was saved
-                    </h6>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className={`ml-auto h-4 w-4 fill-none stroke-current transition-transform ${savedOpen ? '' : '-rotate-90'}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {savedOpen && <>
                     <table aria-label="Summary" className="w-full text-sm">
                       <tbody>
                         {lines.map(([label, value]) => (
@@ -1825,6 +1958,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       </div>
                     )}
                     {csvResult.report && <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">The report of the import is with the other reports: <a className="font-medium underline" href={api.reportUrl(csvResult.report, 'csv')} download>Download report</a>.</p>}
+                    </>}
                   </section>
 
                   {justClosed.length > 0 && (
@@ -1839,8 +1973,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
                         As a result of {csvSaved === 1 ? 'this new visit' : 'these new visits'}, {justClosed.length} other {justClosed.length === 1 ? 'visit is' : 'visits are'} now closed: their card was collected. Create {justClosed.length === 1 ? 'its deployment' : 'their deployments'} now — {justClosed.length === 1 ? 'its images are' : 'their images are'} imported —, or do it later from the deployments menu.
                       </p>
-                      {onImportImagesOf && project && (
-                        <button type="button" className={`${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`} onClick={() => onImportImagesOf(project.acronym)}>
+                      {/* one deployment goes to Import deployment, with its visit chosen; several go to Import deployments, all at once or one after another */}
+                      {project && (justClosed.length === 1 ? onImportImages : onImportImagesOf) && (
+                        <button type="button" className={`${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`}
+                                onClick={() => (justClosed.length === 1 && onImportImages ? onImportImages({ researchProjectId: project.acronym, visit: justClosed[0].visit }) : onImportImagesOf?.(project.acronym))}>
                           <Glyph className="h-5 w-5">{MENU_ICONS.deployment}</Glyph>Create {justClosed.length === 1 ? 'deployment' : 'deployments'}
                         </button>
                       )}
@@ -1860,19 +1996,22 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     </section>
                     <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
                       <span>Or go back to</span>
-                      <button type="button" aria-label="Back to the visits menu" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onBack}><span aria-hidden="true">← </span>Visits menu</button>
+                      <button type="button" aria-label={onMainMenu ? 'Back to the visits menu' : 'Back to the menu'} className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onBack}><span aria-hidden="true">← </span>{onMainMenu ? 'Visits menu' : 'Menu'}</button>
                       {onMainMenu && <button type="button" aria-label="Back to the main menu" className="text-zinc-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400" onClick={onMainMenu}><span aria-hidden="true">← </span>Main menu</button>}
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
               </WizardStep>
             )
           })()}
+
         </>
       )}
 
       {/* once the visits are kept the step of the end has its own way back: "Or go back to" */}
-      {!justAdded && csvSaved === null && (
+      {!justAdded && csvSaved === null && !csvConfirming && (
         <div className="mt-6">
           <BackButton onClick={onBack} disabled={csvSaving} />
         </div>

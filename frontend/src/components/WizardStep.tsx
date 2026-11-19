@@ -6,7 +6,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
  * other). A step that runs has two more: running (a spinner, "In progress")
  * and error (a cross, "Error" — or the badge given). The content stays
  * mounted once reached, so closing a step keeps its choices. */
-export default function WizardStep({ n, title, description, status, summary, canEdit, onEdit, badge, action, expanded = false, lockedSummary = false, children }: {
+export default function WizardStep({ n, title, description, status, summary, canEdit, onEdit, badge, action, expanded = false, lockedSummary = false, sealed = false, children }: {
   n: number
   title: string
   description: ReactNode
@@ -22,6 +22,8 @@ export default function WizardStep({ n, title, description, status, summary, can
   expanded?: boolean
   /** A locked step that tells its summary, with its padlock — a step that was done and can no longer be changed — instead of its description. */
   lockedSummary?: boolean
+  /** A done step that can no longer be changed: it keeps its green check and has a padlock instead of the pencil. */
+  sealed?: boolean
   children?: ReactNode
 }) {
   const locked = status === 'locked'
@@ -80,7 +82,13 @@ export default function WizardStep({ n, title, description, status, summary, can
             Open
           </button>
         )}
-        {status === 'done' && !expanded && (
+        {status === 'done' && !expanded && sealed && (
+          <svg role="img" aria-label="Locked" className="w-5 h-5 mt-1 text-zinc-500 dark:text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <rect x="5" y="11" width="14" height="9" rx="2" />
+            <path strokeLinecap="round" d="M8 11V8a4 4 0 118 0v3" />
+          </svg>
+        )}
+        {status === 'done' && !expanded && !sealed && (
           <button
             type="button" disabled={!canEdit} onClick={onEdit} aria-label={`Edit ${title}`} title="Edit"
             className="w-10 h-10 flex items-center justify-center flex-shrink-0 rounded-xl border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"

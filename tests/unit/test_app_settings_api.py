@@ -714,3 +714,18 @@ def test_the_default_research_project_is_changed_alone_to_one_of_the_collections
 def test_a_default_research_project_that_is_not_in_the_collections_folder_is_refused():
     assert _client().put("/api/settings/default-research-project", json={"acronym": "GONE"}).status_code == 404
     assert config.load_settings().GENERAL.default_research_project is None
+
+
+def test_the_welcome_page_is_shown_by_default_and_the_tick_turns_it_off_and_on_changing_nothing_else():
+    _put(TRAPPER={"enabled": False, "base_url": "https://trapper.example", "user_name": "ana@example.org", "user_password": "", "max_zip_mb": 100})
+    assert config.load_settings().GENERAL.show_welcome is True
+    assert _client().get("/api/settings").json()["GENERAL"]["show_welcome"] is True
+
+    response = _client().put("/api/settings/show-welcome", json={"show": False})
+
+    assert response.status_code == 200 and response.json() == {"show_welcome": False}
+    saved = config.load_settings()
+    assert saved.GENERAL.show_welcome is False
+    assert saved.TRAPPER.base_url == "https://trapper.example"   # nothing else is touched
+    assert _client().put("/api/settings/show-welcome", json={"show": True}).json() == {"show_welcome": True}
+    assert config.load_settings().GENERAL.show_welcome is True

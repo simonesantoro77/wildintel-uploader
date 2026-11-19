@@ -9,6 +9,7 @@ import { PageHeader, UTIL_ICONS } from '../components/TaskCard'
 import { HELP_ICONS, HelpButton, HelpCard, HelpDrawer } from '../components/DashboardParts'
 import { SmallSpinner, btnOutline, btnPrimary, visitKey, visitLabel } from './ImportDeploymentPage'
 import type { ClosedVisit, StoredVisit, TimeFixTarget, TimeSegment, Timeline } from '../types'
+import { PAGE_CLASS } from '../components/PageBar'
 
 const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-zinc-300'
 const inputClass = 'rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60'
@@ -195,7 +196,7 @@ export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
   const runCount = first ? (last ? names.indexOf(last) - names.indexOf(first) + 1 : names.length - names.indexOf(first)) : 0
 
   return (
-    <div className="max-w-[1100px] mx-auto px-4 py-8 space-y-6">
+    <div className={`${PAGE_CLASS} space-y-6`}>
       <PageHeader icon={UTIL_ICONS.timefix} title="Check and fix dates and times" parent={parent} onParent={onBack}
         description="For the images of a card copied to a folder whose camera clock went wrong: see where the time jumps, shift the dates and remove the images that can’t be trusted."
         actions={<HelpButton label="Help" expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />

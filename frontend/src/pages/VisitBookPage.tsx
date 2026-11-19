@@ -18,13 +18,14 @@ import { useDefaultResearchProject } from '../components/DefaultResearchProject'
 import type { BookVisit, ClosedVisitTarget, LocalLocation, RevisionCreated, VisitState } from '../types'
 import { btnOutline, btnPrimary } from './ImportDeploymentPage'
 import { download } from '../csvFile'
+import { PAGE_CLASS } from '../components/PageBar'
 
 interface Props {
   onBack: () => void
   /** Goes to Import deployment for a closed visit: its research project, and the visit whose card was collected — the deployment is of it. */
   onImportImages?: (target: ClosedVisitTarget) => void
   /** Opens the settings, on the section given — where the default research project is changed. */
-  onOpenSettings?: (section?: 'general' | 'locations', researchProjectId?: string, item?: string) => void
+  onOpenSettings?: (section?: 'general' | 'cameras' | 'locations', researchProjectId?: string, item?: string) => void
   /** Whether the settings are open: the default research project is read again when they are closed, as it may have been changed. */
   settingsOpen?: boolean
   /** Goes to the status of the deployments, on one of them: the link of the tick of the images stored. */
@@ -33,6 +34,10 @@ interface Props {
   focus?: VisitFocus
   /** Goes to register the visit of a location that is planned: its research project and the location. */
   onCreateVisit?: (target: { researchProjectId: string; site: string }) => void
+  /** Goes to Register visits — the button in the header of the dashboard. */
+  onRegisterVisits?: () => void
+  /** Goes to Import deployments for several closed visits ticked: their research project and the visits whose cards were collected — the deployments are of them. */
+  onCreateDeployments?: (targets: ClosedVisitTarget[]) => void
 }
 
 
@@ -87,7 +92,7 @@ const PER_PAGE = 10
 const LABELS = 6
 
 /** The visit book of a research project: the visits kept to it, and the deployments they say — closed, and the ones whose camera is still out — with the logs of their collections. */
-export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, settingsOpen, onShowDeployment, focus, onCreateVisit }: Props) {
+export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, settingsOpen, onShowDeployment, focus, onCreateVisit, onRegisterVisits, onCreateDeployments }: Props) {
   // The legend and the help: a panel at the right, marked from the header.
   const [helpOpen, setHelpOpen] = useState(false)
   // The revisions and the status cards fold away, to leave the table alone.
@@ -108,6 +113,8 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   }
   const [visits, setVisits] = useState<BookVisit[] | null>(null)
   const [marked, setMarked] = useState<string | null>(null)
+  // The visits ticked, to do an action on all of them — and the action chosen.
+  const [picked, setPicked] = useState<Set<string>>(new Set())
   // the marked row is scrolled to when a visit is brought into view — from the map or a link — and not when a row is pressed: the page would move under the pointer
   const bringIntoView = useRef(false)
   // pressing a row marks it, and pressing the marked one again clears it — a button or a link in it only does what it does: it may bring another visit into view, and that one is the marked
@@ -293,13 +300,14 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
     .filter((w) => !w.not_done && w.location_id.toLowerCase() === v.location_id.toLowerCase() && w.session > v.session)
     .sort((a, b) => a.session.localeCompare(b.session) || `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0]
   // the visit that collected the card of a row — the closest later one that was made: the revisions not made, not visited or unknown say nothing and are left between, as dots —
+  // What the panel of a visit shows: the earlier visit that left the card this one collects — the closest one that was made, when it left a camera — and then this one; the revisions between that say nothing (not made, not visited or unknown) are dots on the line. When the closest earlier visit left no camera (or there is none) there is no card to collect: it is said, and the visit is shown alone.
   const closedOf = (v: BookVisit) => {
-    if (v.deployment_status !== 'closed') return { visit: v, end: null }
-    const later = everyRow.filter((w) => w.location_id.toLowerCase() === v.location_id.toLowerCase() && w.session > v.session).sort((a, b) => a.session.localeCompare(b.session))
-    const end = later.find((w) => !w.not_done && !w.not_visited && !w.unknown)
-    if (!end) return { visit: v, end: null }
+    const earlier = everyRow.filter((w) => w.location_id.toLowerCase() === v.location_id.toLowerCase() && w.session < v.session).sort((a, b) => b.session.localeCompare(a.session))
+    const left = earlier.find((w) => !w.not_done && !w.not_visited && !w.unknown)
+    const leftACamera = left !== undefined && ['deployed', 'collected', 'stolen'].includes(phaseOf(left) ?? '')
+    if (!left || !leftACamera) return { visit: v, end: null, opened: v, noEarlier: true }
     const label = (w: BookVisit) => (w.unknown ? 'Unknown' : w.not_visited ? 'Not visited' : 'Not made')
-    return { visit: v, end, between: later.filter((w) => w.session < end.session).map((w) => ({ session: w.session, label: label(w) })) }
+    return { visit: left, end: v, opened: v, between: earlier.filter((w) => w.session > left.session).sort((a, b) => a.session.localeCompare(b.session)).map((w) => ({ session: w.session, label: label(w) })) }
   }
   // the visit that was made to the same location in the closest revision before the one of a row
   const previousOf = (v: BookVisit) => everyRow
@@ -355,6 +363,21 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   const pages = Math.max(1, Math.ceil(shown.length / perPage))
   const current = Math.min(page, pages)
   const onPage = shown.slice((current - 1) * perPage, current * perPage)
+  // The ticked visits can make their deployments when the card of each was collected and has no deployment yet — all of one revision, which is what Import deployments takes.
+  const pickedVisits = (visits ?? []).filter((v) => picked.has(keyOf(v)))
+  const collectable = (v: BookVisit) => phaseOf(v) === 'collected' && !v.deployment_id && v.deployment_status === 'closed' && !v.deployment_no_images
+  const createReason = pickedVisits.length === 0 ? 'Tick the visits first.'
+    : !pickedVisits.every(collectable) ? 'Only visits whose card was collected, and have no deployment yet, can create their deployments.'
+    : new Set(pickedVisits.map((v) => v.session)).size > 1 ? 'Tick the visits of one revision.' : null
+  const togglePicked = (key: string) => setPicked((p) => { const next = new Set(p); if (next.has(key)) next.delete(key); else next.add(key); return next })
+  const pagePicked = onPage.length > 0 && onPage.every((v) => picked.has(keyOf(v)))
+  const togglePage = () => setPicked((p) => { const next = new Set(p); for (const v of onPage) { if (pagePicked) next.delete(keyOf(v)); else next.add(keyOf(v)) } return next })
+  function runAction() {
+    if (createReason || !project) return
+    const targets = pickedVisits.map((v) => ({ researchProjectId: project.acronym, visit: v }))
+    if (targets.length === 1 && onImportImages) onImportImages(targets[0])
+    else onCreateDeployments?.(targets)
+  }
 
 
   // What a visit says of its state, its images and what can be done with it: as the table and the labels both show them.
@@ -418,11 +441,17 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-3">
-      <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Manage visits" onParent={onBack}
+    <div className={PAGE_CLASS}>
+      <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Menu" onParent={onBack}
         actions={<>
           {project && visits !== null && visits.length > 0 && (
             <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>
+          )}
+          {onRegisterVisits && (
+            <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} title="Register the visits to the camera traps" onClick={onRegisterVisits}>
+              <Icon path={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} className="h-4 w-4" />
+              Register visits
+            </button>
           )}
           {project && visits !== null && (
             <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} disabled={creating} title="Plans the next revision: a visit to each location that is ready, planned"
@@ -511,6 +540,22 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
             <ActiveFilters filters={[{ label: `Revision: ${revision || 'All'}`, tone: 'blue' }, { label: `Status: ${statusFilter ? PHASE_LABEL[statusFilter] : 'All'}`, tone: 'green' }]} summary={`${shown.length} of ${everyRow.length} visits match`} />
           )}
 
+          {visits !== null && view !== 'map' && picked.size > 0 && (
+            <div role="group" aria-label="Action on the selected visits" className="m-3 flex flex-wrap items-center gap-3 rounded-xl border border-blue-300 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 text-sm">
+              <span role="status" className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white">{picked.size} selected</span>
+              {picked.size < shown.length && (
+                <button type="button" className="text-blue-700 dark:text-blue-300 underline hover:no-underline" onClick={() => setPicked(new Set(shown.map(keyOf)))}>Select all {shown.length} matching</button>
+              )}
+              <button type="button" className={btnOutline} onClick={() => setPicked(new Set())}>Clear</button>
+              <span className="ml-auto flex flex-wrap items-center gap-2">
+                <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={createReason !== null || !onImportImages} title={createReason ?? 'Create the deployments of the selected visits'} onClick={runAction}>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{MENU_ICONS.deployment}</svg>Create deployments
+                </button>
+              </span>
+            </div>
+          )}
+
           {(
             visits === null ? <p className="text-sm text-zinc-500 dark:text-zinc-400">Reading the visits…</p> : (
               <>
@@ -519,6 +564,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                 <table className={TABLE.table} aria-label="Visits">
                   <thead className={TABLE.head}>
                     <tr>
+                      <th scope="col" className="w-10 pl-4 py-3"><input type="checkbox" aria-label="Select all the visits of the page" checked={pagePicked} ref={(el) => { if (el) el.indeterminate = !pagePicked && onPage.some((v) => picked.has(keyOf(v))) }} onChange={togglePage} /></th>
                       {COLUMNS.map(([key, label]) => (
                         <th key={key} scope="col" aria-sort={sort?.key === key ? (sort.descending ? 'descending' : 'ascending') : 'none'} className={TABLE.th}>
                           <button type="button" className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => { setSort(sort?.key === key ? { key, descending: !sort.descending } : { key, descending: false }); setPage(1); setMarked(null) }}>
@@ -538,7 +584,10 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                       return (
                         <Fragment key={key}>
                           <tr aria-current={marked === key ? 'true' : undefined} onClick={(e) => pressRow(key, e)} className={`cursor-pointer ${marked === key ? 'row-flash bg-blue-100/80 dark:bg-blue-950/50 transition-colors' : TABLE.row(false)}`}>
-                            <td className={`border-l-4 px-4 py-3 font-mono font-semibold text-zinc-900 dark:text-zinc-200 ${marked === key ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+                            <td className={`border-l-4 pl-3 py-3 ${marked === key ? 'border-l-blue-500' : 'border-l-transparent'}`} onClick={(e) => e.stopPropagation()}>
+                              <input type="checkbox" aria-label={`Select the visit ${v.session} to ${v.location_id}`} checked={picked.has(key)} onChange={() => togglePicked(key)} />
+                            </td>
+                            <td className={`px-4 py-3 font-mono font-semibold text-zinc-900 dark:text-zinc-200`}>
                               {marked === key && <svg data-marker aria-hidden="true" viewBox="0 0 24 24" className="mr-1 inline-block h-4 w-4 -translate-y-px fill-none stroke-blue-600 dark:stroke-sky-400" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 5l8 7-8 7" /></svg>}
                               {v.session}
                             </td>
@@ -556,7 +605,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
                         </Fragment>
                       )
                     })}
-                    {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">{visits.length === 0 ? 'No visit has been registered to this research project yet.' : 'No visit matches.'}</td></tr>}
+                    {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-3 text-zinc-500 dark:text-zinc-400">{visits.length === 0 ? 'No visit has been registered to this research project yet.' : 'No visit matches.'}</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -564,7 +613,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
               {view === 'map' && (
                 <>
                   {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
-                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" />
+                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" markedKey={marked ? marked.split('|')[1]?.toLowerCase() ?? null : null} />
                 </>
               )}
               {view === 'labels' && (
@@ -601,7 +650,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
 
       {siteError && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{siteError}</p>}
       {panelVisit && (
-        <VisitDetails onClose={() => setPanelVisit(null)} closed={closedOf(panelVisit)} />
+        <VisitDetails onClose={() => setPanelVisit(null)} closed={closedOf(panelVisit)} researchProjectId={project?.acronym} onOpenSettings={onOpenSettings} />
       )}
       {sitePanel && (
         <LocationDetails site={sitePanel.site} location={sitePanel.location} onClose={() => setSitePanel(null)}

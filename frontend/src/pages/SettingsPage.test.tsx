@@ -131,7 +131,18 @@ describe('SettingsPage', () => {
       }
     })
 
-    it('sets the log level, and shows where the log file is', async () => {
+  it('has, in General, the option to show the welcome page — on by default — and saves it turned off', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      await screen.findByLabelText('Level')
+      expect(screen.getByRole('switch', { name: 'Welcome page' })).toBeChecked()
+
+      await userEvent.click(screen.getByRole('switch', { name: 'Welcome page' }))
+      expect(screen.getByRole('switch', { name: 'Welcome page' })).not.toBeChecked()
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(mockedApi.saveSettings.mock.calls[0][0].GENERAL.show_welcome).toBe(false)
+    })
+
+  it('sets the log level, and shows where the log file is', async () => {
       render(<SettingsPage onClose={vi.fn()} />)
       await screen.findByLabelText('Level')
       expect(screen.getByText(APP_SETTINGS.GENERAL.log_file)).toBeInTheDocument()
@@ -141,7 +152,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('radio', { name: /Everything/ })).toHaveAttribute('aria-checked', 'true')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(mockedApi.saveSettings.mock.calls[0][0].GENERAL).toEqual({ log_level: 'DEBUG', workers: 4, default_research_project: null })
+      expect(mockedApi.saveSettings.mock.calls[0][0].GENERAL).toEqual({ log_level: 'DEBUG', workers: 4, default_research_project: null, show_welcome: true })
     })
 
     it('says when the environment overrides the log level', async () => {
@@ -801,7 +812,7 @@ describe('SettingsPage', () => {
 
     expect(mockedApi.saveSettings).toHaveBeenCalledTimes(1)
     const update = mockedApi.saveSettings.mock.calls[0][0]
-    expect(update.GENERAL).toEqual({ log_level: 'WARNING', workers: 4, default_research_project: null })
+    expect(update.GENERAL).toEqual({ log_level: 'WARNING', workers: 4, default_research_project: null, show_welcome: true })
     expect(update.TRAPPER.base_url).toBe('https://other.example.org')
     expect(update.VALIDATION.duplicates).toBe(false)
     expect(update.POSTVALIDATION.camera).toBe(false)
@@ -1523,6 +1534,16 @@ describe('SettingsPage — Entities', () => {
       expect(screen.getByText('Ridge')).toBeInTheDocument()
       expect(await screen.findByText('37.1, -6.4 · Europe/Madrid · No visits yet')).toBeInTheDocument()
       expect(mockedApi.listLocalLocations).toHaveBeenCalledWith('DONA')
+    })
+
+    it('warns with a red label, in its line and in its form, when the time zone of a location is not UTC — and not when it is', async () => {
+      await openLocations([RIDGE, { ...RIDGE, location_id: 'DONA_02', name: 'Marsh', timezone: 'UTC' }])
+
+      const ridge = (await screen.findByText('DONA_01')).closest('li, div[class*="rounded"]') as HTMLElement
+      expect(within(ridge).getByText('Not UTC')).toHaveAttribute('title', 'The time zone is Europe/Madrid, not UTC')
+      expect(screen.getAllByText('Not UTC')).toHaveLength(1)                       // the one in UTC has none
+      await userEvent.click(screen.getByRole('button', { name: 'Edit DONA_01' }))
+      expect(await screen.findAllByText('Not UTC')).not.toHaveLength(0)            // and its form says it in its header
     })
 
     it('adds one by hand, with its numbers as numbers, and will not let a wrong coordinate or timezone be done with', async () => {

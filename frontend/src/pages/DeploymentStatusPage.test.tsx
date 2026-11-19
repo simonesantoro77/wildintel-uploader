@@ -86,14 +86,14 @@ describe('DeploymentStatusPage', () => {
 
     await userEvent.click(within(revisions).getByRole('button', { name: /^R0003/ }))
     const table = within(region).getByRole('table', { name: 'Deployments' })
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Deployment', 'Visit', 'SD and photos', 'Creation', 'Upload', 'What to do'])
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', 'Deployment', 'Visit', 'SD and photos', 'Creation', 'Upload', 'What to do'])
     const first = within(table).getAllByRole('row')[1]
-    expect(within(first).getAllByRole('cell').map((c) => c.textContent)).toEqual(['R0003-TATR_0001', 'R0003 · TATR_00014 Sep 2024, 09:00 → 12 Oct 2024, 09:30', 'SD A13 · 241 photos', 'Created', '', ''])
+    expect(within(first).getAllByRole('cell').slice(1).map((c) => c.textContent)).toEqual(['R0003-TATR_0001', 'R0003 · TATR_00014 Sep 2024, 09:00 → 12 Oct 2024, 09:30', 'SD A13 · 241 photos', 'Created', '', ''])
     expect(within(first).getByRole('button', { name: 'View the deployment R0003-TATR_0001' })).toBeInTheDocument()
     expect(within(first).getByRole('img', { name: 'Uploaded' })).toBeInTheDocument() // it was uploaded: a tick
 
     await userEvent.click(square(/^Created/))
-    expect(within(table).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[0].textContent)).toEqual(['R0003-TATR_0001', 'R0003-TATR_0002'])   // both have their images stored — what was uploaded is another state
+    expect(within(table).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[1].textContent)).toEqual(['R0003-TATR_0001', 'R0003-TATR_0002'])   // both have their images stored — what was uploaded is another state
   })
 
   it('shows the deployments as labels, with their options, or only the search field that lists what matches as it is written and goes to the one picked', async () => {
@@ -262,6 +262,17 @@ describe('DeploymentStatusPage', () => {
 
   const place = (location_id: string, name: string, latitude: number | null, longitude: number | null) => ({ location_id, name, latitude, longitude, timezone: null, coordinate_uncertainty: null, trapper_pk: null })
 
+  it('keeps the marked deployment when the view changes to the map: its site is the chosen point, with its card open', async () => {
+    mockedApi.listLocalLocations.mockResolvedValue({ results: [place('TATR_0001', 'Ridge', 49.2, 20.1), place('TATR_0002', 'Stream', 49.25, 20.2), place('TATR_0003', 'Pond', 49.22, 20.3)] } as never)
+    render(<DeploymentStatusPage onBack={vi.fn()} focus="R0003-TATR_0002" />)                          // the one a link goes to: marked in the table
+    await userEvent.click(await screen.findByRole('button', { name: 'Show the deployments on a map' }))
+
+    const map = await screen.findByRole('group', { name: 'Deployments on a map' })
+    expect(await within(map).findByRole('button', { name: /^TATR_0002/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(map).getByRole('region', { name: 'Details of TATR_0002' })).toBeInTheDocument()
+    expect(within(map).getByRole('button', { name: /^TATR_0001/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('shows the deployments on a map — a point for each site, coloured by its state, with a tick when it was uploaded — whose card has the buttons of its row', async () => {
     mockedApi.listLocalLocations.mockResolvedValue({ results: [place('TATR_0001', 'Ridge', 49.2, 20.1), place('TATR_0002', 'Stream', 49.25, 20.2), place('TATR_0003', 'Pond', 49.22, 20.3)] } as never)
     const onShowStatistics = vi.fn()
@@ -350,6 +361,32 @@ describe('DeploymentStatusPage', () => {
     expect(within(table).queryByRole('button', { name: /^Show the (previous|next) deployment/ })).not.toBeInTheDocument()
   })
 
+  it('ticks deployments, and a bar over the table uploads them — active only when each is created and not on Trapper yet, and they are of one revision', async () => {
+    const onUpload = vi.fn()
+    const states = (trapper: 'planned' | 'done' | 'failed') => [{ destination: 'trapper', state: trapper, kind: trapper === 'done' ? 'uploaded' : null, uploaded_at: trapper === 'done' ? '2024-10-20T10:00:00+00:00' : null, note: null }]
+    mockedApi.fieldDeployments.mockResolvedValue({ results: [
+      deployment({ deployment_id: 'R0003-TATR_0001', site: 'TATR_0001', upload_states: states('planned') }),
+      deployment({ deployment_id: 'R0003-TATR_0002', site: 'TATR_0002', upload_states: states('failed') }),
+      deployment({ deployment_id: 'R0003-TATR_0003', site: 'TATR_0003', upload_states: states('done') }),
+    ] })
+    render(<DeploymentStatusPage onBack={vi.fn()} onUpload={onUpload} />)
+    const table = await screen.findByRole('table', { name: 'Deployments' })
+
+    expect(screen.queryByRole('group', { name: 'Action on the selected deployments' })).not.toBeInTheDocument()
+    await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the deployment R0003-TATR_0001' }))
+    await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the deployment R0003-TATR_0002' }))
+    const bar = screen.getByRole('group', { name: 'Action on the selected deployments' })
+    expect(within(bar).getByText('2 selected')).toBeInTheDocument()
+    await userEvent.click(within(bar).getByRole('button', { name: 'Upload deployments' }))
+    expect(onUpload).toHaveBeenCalledWith({ researchProjectId: expect.any(String), collection: 'R0003', deployments: ['R0003-TATR_0001', 'R0003-TATR_0002'] })
+
+    await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the deployment R0003-TATR_0003' }))     // already on Trapper
+    expect(within(bar).getByRole('button', { name: 'Upload deployments' })).toBeDisabled()
+    expect(bar).not.toHaveTextContent('Only deployments')
+    await userEvent.click(within(bar).getByRole('button', { name: 'Clear' }))
+    expect(screen.queryByRole('group', { name: 'Action on the selected deployments' })).not.toBeInTheDocument()
+  })
+
   it('has, in the Upload column, a tick when the deployment was uploaded — it goes to its uploads — and a cross when it was not, and the button to upload its images', async () => {
     const onUpload = vi.fn()
     const onShowUploads = vi.fn()
@@ -362,8 +399,8 @@ describe('DeploymentStatusPage', () => {
     ] })
     render(<DeploymentStatusPage onBack={vi.fn()} onUpload={onUpload} onShowUploads={onShowUploads} />)
     const table = await screen.findByRole('table', { name: 'Deployments' })
-    const rowOf = (site: string) => within(table).getAllByRole('row').find((r) => within(r).queryAllByRole('cell')[0]?.textContent?.endsWith(`-${site}`))!
-    const uploadCell = (site: string) => within(rowOf(site)).getAllByRole('cell')[4]
+    const rowOf = (site: string) => within(table).getAllByRole('row').find((r) => within(r).queryAllByRole('cell')[1]?.textContent?.endsWith(`-${site}`))!
+    const uploadCell = (site: string) => within(rowOf(site)).getAllByRole('cell')[5]
 
     // uploaded: a tick that goes to the uploads of the deployment
     await userEvent.click(within(uploadCell('TATR_0001')).getByRole('button', { name: 'Show the uploads of the deployment R0003-TATR_0001' }))

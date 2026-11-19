@@ -347,11 +347,13 @@ def _import_visits_csv(req: ImportVisitsCsvRequest) -> dict:
         # the form of Epicollect5 lets a site be made on the spot (New site): its timezone is the one asked for, UTC when none was
         from_epicollect = req.format in ("epicollect-csv", "epicollect-api")
         defaults = {"timezone": "UTC", "daylight_saving": "no", **(req.defaults or {})} if from_epicollect else req.defaults
-        result = visits_csv.parse_visits(text, locations, kept, mapping, {"time_source": time_source, "cards": cards, "cameras": cameras, "create": req.create, "close_revisions": req.close_revisions, "defaults": defaults, "new_site_makes_location": from_epicollect, "trappers": _trapper_names(),
+        result = visits_csv.parse_visits(text, locations, kept, mapping, {"time_source": time_source, "cards": cards, "cameras": cameras, "create": req.create, "close_revisions": req.close_revisions, "coordinates_from_location": req.coordinates_from_location, "photos_not_counted": req.photos_not_counted, "defaults": defaults, "new_site_makes_location": from_epicollect, "trappers": _trapper_names(), "trapper_usernames": [t.get("username", "") for t in local_folder_service.list_trappers(root)],
                                                                                                                                   "unknown": local_folder_service.list_unknown(root, req.research_project_id)})
         saved = field_logs = report = None
         if req.save:
-            # what the visits need is created first: their locations, cameras and SD cards
+            # what the visits need is created first: the trappers who went, their locations, cameras and SD cards
+            if result["create"]["trappers"]:
+                local_folder_service.write_trappers(root, [*local_folder_service.list_trappers(root), *result["create"]["trappers"]])
             for location in result["create"]["locations"]:
                 local_folder_service.write_location(root, req.research_project_id, location)
             for kind, kept_items in (("cameras", cameras), ("sd_cards", cards)):

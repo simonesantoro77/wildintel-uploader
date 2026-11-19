@@ -7,6 +7,7 @@ import csv
 import datetime as dt
 import io
 import re
+import unicodedata
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -75,8 +76,8 @@ FIELDS: tuple[tuple[str, str, bool], ...] = (
     ("camera_model", "Camera model", False),
     ("comments", "Notes", False),
     ("setup_by", "Set up by", False),
-    ("latitude", "Latitude of the visit (where the trapper was when it was noted)", True),
-    ("longitude", "Longitude of the visit (where the trapper was when it was noted)", True),
+    ("latitude", "Latitude of the visit (where the trapper was when it was noted; the location's when the file has none)", False),
+    ("longitude", "Longitude of the visit (where the trapper was when it was noted; the location's when the file has none)", False),
     ("camera_interval", "Camera delay (s)", False),
     ("camera_height", "Camera height (m)", False),
     ("camera_depth", "Camera depth (m)", False),
@@ -103,11 +104,13 @@ FIELDS: tuple[tuple[str, str, bool], ...] = (
 REQUIRED = tuple(f for f, _, required in FIELDS if required)
 # What the import can create when a visit names a location, a camera or an SD card that does not exist: each one's fields that a row must give — by a column or
 # by a default — and the ones that are only asked for when it is created. The fields of the visit that appear here (camera_id, camera_model, sd) become required
-# when it is; the coordinates of the location are its own (location_latitude, location_longitude), apart from those of the visit, which every row gives.
+# when it is; the coordinates of the location are its own (location_latitude, location_longitude), apart from those of the visit, which a row gives or, when it has none, are those of its location.
 CREATABLE: dict[str, dict] = {
     "locations": {"required": ["location_latitude", "location_longitude", "timezone", "daylight_saving"], "extra": ["location_name", "coordinate_uncertainty"]},
     "cameras": {"required": ["camera_id"], "extra": ["camera_model"]},
     "sd_cards": {"required": ["sd"], "extra": ["sd_brand", "sd_capacity"]},
+    # the people who went are what the visits say they are called (who went, who set up): nothing else is asked of them — their username is worked out from the name
+    "trappers": {"required": [], "extra": []},
 }
 # The fields that are not a visit's but an entity's.
 ENTITY_ONLY = {f: entity for entity, spec in CREATABLE.items() for f in [*spec["required"], *spec["extra"]] if f in ("location_name", "location_latitude", "location_longitude", "timezone", "daylight_saving", "coordinate_uncertainty", "sd_brand", "sd_capacity")}
@@ -486,6 +489,8 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     skipped = 0
     held: dict[str, list[dict]] = {}  # the visits to sites that are not locations of the research project, by site
     row_warnings: list[tuple[int, str]] = []  # what is odd in a row by itself: its row, and what
+    took_location_coordinates: list[int] = []  # the rows that have no coordinates of the visit: they take those of their location
+    from_location = options.get("coordinates_from_location", True)   # a row with none takes its location's — unless the import is asked not to
     # A revision is one visit to each site: the session and the site of a visit already kept are taken, whatever its camera or its actions
     in_file: dict[tuple[str, str], int] = {}
     same_visit = {(str(v.get("session") or "").upper(), str(v.get("location_id", "")).lower()) for v in kept if v.get("session")}
@@ -524,8 +529,16 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             report[n] |= {"date": date, "time": time[:5]}
             # what the cells say of the visit — each one read as its field takes it, or refused with the code of what is wrong
             cells = CsvVisit.model_validate(row)
-            if cells.latitude is None or cells.longitude is None:
-                raise RowError("coordinates_missing", "The row needs the coordinates of the visit: a latitude and a longitude.")
+            # the coordinates of a visit are required, but a file need not have them: a row that has none takes those of its location (said once, in a note) unless the import is asked not to. One of the two is not enough.
+            if cells.latitude is None and cells.longitude is None:
+                if not from_location:
+                    raise RowError("coordinates_missing", "The row needs the coordinates of the visit: a latitude and a longitude.")
+                if location.get("latitude") is None or location.get("longitude") is None:
+                    raise RowError("coordinates_missing", "The row has no coordinates of the visit (a latitude and a longitude), and its location has none to take instead.")
+                cells.latitude, cells.longitude = float(location["latitude"]), float(location["longitude"])
+                took_location_coordinates.append(n)
+            elif cells.latitude is None or cells.longitude is None:
+                raise RowError("coordinates_missing", "The row has only one of the coordinates of the visit: it needs a latitude and a longitude" + (", or none (then those of its location are used)." if from_location else "."))
             actions = cells.actions
             # a visit that says New site and makes its site is where the site starts — the form has no action for it, so it is said here
             if says_new_site and made["locations"] and "SiteStart" not in actions:
@@ -658,7 +671,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         if fills:
             reasons += visit_rules.edit_errors(None, visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown])
         else:
-            reasons += visit_rules.refusals(visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown], gate=False, first_may_be_any=True)
+            reasons += visit_rules.refusals(visit, accepted, all_locations, options.get("cards"), [*unknown_kept, *unknown], gate=False, first_may_be_any=True, photos_optional=bool(options.get("photos_not_counted")))
         # what the visit says that is not an entity (a camera, a card, a trapper) is refused, as in the form, unless the import creates it
         camera, card = str(visit.get("camera_id") or "").lower(), str(visit.get("sd") or "").lower()
         check = options.get("check_entities", True)
@@ -666,7 +679,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             reasons.append(visit_rules._reason("camera_unknown", f"The camera {visit['camera_id']} is not one of the cameras of the research project."))
         if check and card and options.get("cards") is not None and card not in cards_known and not create.get("sd_cards"):
             reasons.append(visit_rules._reason("card_unknown", f"The SD card {visit['sd']} is not one of the SD cards of the research project."))
-        if check and options.get("trappers") is not None:
+        if check and options.get("trappers") is not None and not create.get("trappers"):
             known_trappers = {str(t).lower() for t in options["trappers"]}
             reasons += [visit_rules._reason("trapper_unknown", f"{t} is not one of the trappers.") for t in (x.strip() for x in str(visit.get("trappers") or "").split(",")) if t and t.lower() not in known_trappers]
         if reasons:
@@ -680,10 +693,18 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     new_sites = [visit_rules.new_site(site, records, locations) for site, records in sorted(held.items())]
     # what is odd and still kept, said once and told in the rows it is about: the visits that make it odd are rows of the file
     said: list[tuple[str, list[int]]] = [(message, [n]) for n, message in row_warnings]
-    for message, about in [*visit_rules.session_jump_items(visits, kept), *visit_rules.history_warning_items(visits, kept, options.get("cards"), [*unknown_kept, *unknown])]:
+    for message, about in [*visit_rules.session_jump_items(visits, kept), *visit_rules.history_warning_items(visits, kept, options.get("cards"), [*unknown_kept, *unknown], bool(options.get("photos_not_counted")))]:
         said.append((message, sorted({row_of[id(v)] for v in about if id(v) in row_of})))
     warnings = list(dict.fromkeys(message for message, _ in said))
     notes = visit_rules.history_notes(visits, kept)
+    if options.get("photos_not_counted"):
+        uncounted = [v for v in visits if {"Revision", "Desinstallation"} & set(v["actions"]) and v.get("num_photos") is None and v.get("card_status") != "CardFull" and str(v.get("camera_status") or "").lower() not in visit_rules.NOT_REVISED]
+        if uncounted:
+            notes.append(f"{len(uncounted)} {'visit has' if len(uncounted) == 1 else 'visits have'} no count of the photos on the card, kept as the file says: the photos of their deployments are not checked against a count.")
+    took = sorted(n for n in took_location_coordinates if n in row_of.values() and any(row_of.get(id(v)) == n for v in visits))
+    if took:
+        shown = ", ".join(str(n) for n in took[:8]) + (f" and {len(took) - 8} more" if len(took) > 8 else "")
+        notes.append(f"{len(took)} {'row has' if len(took) == 1 else 'rows have'} no coordinates of the visit (row {shown}): the coordinates of their location are used.")
     made_here = {l["location_id"].lower() for l in create_out_locations(new_locations, visits)}
     for location in by_new_site:
         if location["location_id"].lower() in made_here:
@@ -714,7 +735,23 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     # what is created is what the visits that are kept need: a location, a camera or an SD card that only a refused visit named is not
     kept_rows = {row_of[id(v)] for v in visits}
     sites = {v["location_id"].lower() for v in visits}
-    create_out: dict[str, list[dict]] = {"locations": [l for site, l in new_locations.items() if site in sites], "cameras": [], "sd_cards": []}
+    create_out: dict[str, list[dict]] = {"locations": [l for site, l in new_locations.items() if site in sites], "cameras": [], "sd_cards": [], "trappers": []}
+    # the people the visits that are kept say went, who are not trappers yet: made as they are called, when the import is asked to
+    trapper_rows: dict[int, list[str]] = {}
+    if create.get("trappers") and options.get("trappers") is not None:
+        have = {str(t).lower() for t in options["trappers"]}
+        taken = {str(u).lower() for u in options.get("trapper_usernames") or []}
+        for visit in visits:
+            for who in (x.strip() for x in str(visit.get("trappers") or "").split(",")):
+                if who and who.lower() not in have:
+                    username = _username_of(who, taken)
+                    taken.add(username.lower()); have.add(who.lower())
+                    create_out["trappers"].append({"username": username, "name": who, "status": "active"})
+                if who and who.lower() in {t["name"].lower() for t in create_out["trappers"]}:
+                    trapper_rows.setdefault(row_of[id(visit)], []).append(who)
+        if create_out["trappers"]:
+            notes.append(f"The trappers {', '.join(t['name'] for t in create_out['trappers'])} {'is' if len(create_out['trappers']) == 1 else 'are'} created as the visits say {'it' if len(create_out['trappers']) == 1 else 'them'}: "
+                         f"their username is worked out from the name ({', '.join(t['username'] for t in create_out['trappers'])}); complete them in Settings › Trappers.")
     for n in sorted(kept_rows):
         for kind in ("cameras", "sd_cards"):
             for entity in made_by_row.get(n, {}).get(kind, []):
@@ -735,6 +772,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         names = [f"the location {l['location_id']}" for l in made_by_row.get(n, {}).get("locations", [])]
         names += [f"the camera {c['camera_id']}" for c in made_by_row.get(n, {}).get("cameras", [])]
         names += [f"the SD card {c['label']}" for c in made_by_row.get(n, {}).get("sd_cards", [])]
+        names += [f"the trapper {w}" for w in dict.fromkeys(trapper_rows.get(n, []))]
         if names and n in report and report[n]["result"] == "ok":
             report[n]["message"] = f"The visit is added, and creates {', '.join(names)}."
     return {"visits": visits, "problems": problems, "rows": [report[n] for n in sorted(report)], "skipped": skipped, "new_sites": new_sites,
@@ -774,6 +812,18 @@ def create_out_locations(new_locations: dict[str, dict], visits: list[dict]) -> 
     """The locations a file makes that a visit kept needs."""
     sites = {v["location_id"].lower() for v in visits}
     return [l for site, l in new_locations.items() if site in sites]
+
+
+def _username_of(name: str, taken: set[str]) -> str:
+    """The username of a trapper made from the name a visit says: the name without accents, in lower case, with a dot between its words (`Ana Pérez` is `ana.perez`) — another number
+    when it is taken (`ana.perez2`). It is what the trapper is called in the app: it can be changed in the settings."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    base = re.sub(r"[^a-z0-9]+", ".", ascii_name.lower()).strip(".") or "trapper"
+    username, n = base, 1
+    while username.lower() in taken:
+        n += 1
+        username = f"{base}{n}"
+    return username
 
 
 def _new_location(site: str, row: dict[str, str]) -> dict:

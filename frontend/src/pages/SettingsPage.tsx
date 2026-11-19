@@ -158,6 +158,8 @@ interface Draft {
   workers: string
   /** The acronym of the research project that comes filled in; blank for none. */
   defaultResearchProject: string
+  /** Whether the welcome page is shown when the app opens. */
+  showWelcome: boolean
   dataDir: string
   collectionsDir: string
   reportsDir: string
@@ -237,6 +239,7 @@ function toDraft(s: AppSettings): Draft {
     logLevel: s.GENERAL.log_level,
     workers: String(s.GENERAL.workers),
     defaultResearchProject: s.GENERAL.default_research_project ?? '',
+    showWelcome: s.GENERAL.show_welcome ?? true,
     dataDir: s.DATA.dir,
     collectionsDir: s.DATA.collections_dir ?? '',
     reportsDir: s.DATA.reports_dir ?? '',
@@ -304,7 +307,7 @@ function sectionValid(d: Draft, id: SectionId): boolean {
 function toUpdate(d: Draft): AppSettingsUpdate | null {
   if (!SECTIONS.every((s) => sectionValid(d, s.id))) return null
   return {
-    GENERAL: { log_level: d.logLevel, workers: Number(d.workers), default_research_project: d.defaultResearchProject.trim() || null },
+    GENERAL: { log_level: d.logLevel, workers: Number(d.workers), default_research_project: d.defaultResearchProject.trim() || null, show_welcome: d.showWelcome },
     TRAPPER: { enabled: d.trapperEnabled, base_url: d.trapperUrl.trim() || null, user_name: d.trapperUser.trim() || null, user_password: d.trapperPassword, max_zip_mb: Number(d.maxZipMb) },
     EPICOLLECT5: { enabled: d.epicollectEnabled, unmapped_to_comments: d.epicollectUnmappedToComments, project_slug: d.epicollectSlug.trim() || null, client_id: d.epicollectClientId.trim() || null, client_secret: d.epicollectClientSecret, mapping: d.epicollectMapping },
     AGOUTI: { enabled: d.agoutiEnabled, base_url: d.agoutiUrl.trim() || null, api_key: d.agoutiKey, project_id: d.agoutiProject.trim() || null },
@@ -646,6 +649,8 @@ const statusBadge = (status: string | null | undefined, date?: string | null, no
   hint: [date && `since ${date}`, note].filter(Boolean).join(' — ') || undefined,
 })
 /** Where a research project or a location came from: Trapper's are read-only here. */
+/** The warning of a site whose time zone is not UTC: a red label, as the ones of the state of a visit. */
+const notUtcBadge = (timezone: string | null | undefined): BadgeSpec[] => (timezone && !isUtcZone(timezone) ? [{ text: 'Not UTC', tone: 'red', hint: `The time zone is ${timezone}, not UTC` }] : [])
 const originBadge = (trapperPk: number | null | undefined): BadgeSpec => (trapperPk != null ? { text: 'From Trapper', tone: 'blue', lock: true } : { text: 'Created here', tone: 'zinc' })
 
 function Badge({ text, tone, lock, hint }: BadgeSpec) {
@@ -1662,7 +1667,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
         {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <ItemForm<LocationDraft>
           noun="location" styled qr={editing.isNew ? undefined : qrPayload('location', project.acronym, editing.item.location_id)} backLabel={`Locations of ${project.acronym}`} fields={LOCATION_FIELDS} item={editing.item} others={editing.isNew ? locations.map(locationDraft) : []} isNew={editing.isNew} lockFirst={!editing.isNew} confirmArchive
-          badges={editing.isNew ? undefined : [...unusualStatus(editing.item), ...(stored?.trapper_pk != null ? [originBadge(stored.trapper_pk)] : [])]} readOnly={stored?.trapper_pk != null || stored?.status === 'archived'}
+          badges={editing.isNew ? undefined : [...notUtcBadge(editing.item.timezone), ...unusualStatus(editing.item), ...(stored?.trapper_pk != null ? [originBadge(stored.trapper_pk)] : [])]} readOnly={stored?.trapper_pk != null || stored?.status === 'archived'}
           notice={stored?.trapper_pk != null ? <TrapperNotice noun="location" /> : stored?.status === 'archived' ? <Notice kind="info">This location is archived for good: it never goes back to active, and it can no longer be changed.</Notice> : undefined}
           onChange={(patch) => setEditing((e) => (e ? { ...e, item: { ...e.item, ...patch } } : e))} onClose={() => { setEditing(null); setError(null) }} onDone={() => void done()} doneLabel={editing.isNew ? 'Add' : 'Save changes'}
           onRemove={editing.isNew ? undefined : () => setDeleting(editing.item.location_id)}
@@ -1710,7 +1715,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
         {locations.length === 0 && <p className={hintClass}>{project.acronym} has no locations yet.</p>}
         {locations.length > 0 && shown.length === 0 && <p className={hintClass}>Nothing matches “{search}”.</p>}
         {shown.map((l) => (
-          <ItemCard key={l.location_id} icon={<PinIcon />} title={l.location_id} badges={[...unusualStatus(l), ...(l.trapper_pk != null ? [originBadge(l.trapper_pk)] : [])]} subtitle={l.name ?? ''} meta={meta(locationDraft(l))} readOnly={l.trapper_pk != null || l.status === 'archived'} editLabel={`Edit ${l.location_id}`}
+          <ItemCard key={l.location_id} icon={<PinIcon />} title={l.location_id} badges={[...notUtcBadge(l.timezone), ...unusualStatus(l), ...(l.trapper_pk != null ? [originBadge(l.trapper_pk)] : [])]} subtitle={l.name ?? ''} meta={meta(locationDraft(l))} readOnly={l.trapper_pk != null || l.status === 'archived'} editLabel={`Edit ${l.location_id}`}
                     onEdit={() => setEditing({ item: locationDraft(l), isNew: false })}
                     onDelete={l.trapper_pk != null ? undefined : () => setDeleting(l.location_id)} deleteDisabled={used?.(l.location_id) ? used(l.location_id)! > 0 : false} />
         ))}
@@ -2421,6 +2426,8 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 placeholder={projectChoices.length === 0 ? 'No research projects yet' : 'None — pick one each time'} clearLabel="Clear the default research project"
               />
             </GroupCard>
+            <ToggleCard title="Welcome page" checked={draft.showWelcome} onChange={(v) => set('showWelcome', v)}
+                        description="Shown when the app opens, to say what it does. Turn it off to open straight on the menu — the tick of the welcome page does the same." />
             <GroupCard title="Parallel work" description="How many images are checked or prepared at the same time. More at once finishes sooner, up to what this computer can do.">
               <div className="max-w-xs"><NumberBox label="Images at once" value={draft.workers} limits={WORKERS} onChange={(v) => set('workers', v)} unit="at once" /></div>
               <p className={hintClass}>

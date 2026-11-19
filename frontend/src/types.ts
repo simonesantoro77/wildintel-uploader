@@ -396,6 +396,8 @@ export type SyncEvent = { type: 'progress'; message: string } | ({ type: 'done' 
 export interface UploadTarget {
   researchProjectId: string
   collection: string
+  /** The deployments of the collection to have ticked, when it comes from the ones ticked in the deployments dashboard (instead of all that are left to send). */
+  deployments?: string[]
 }
 
 export interface SelectedResearchProject {
@@ -547,7 +549,7 @@ export interface ConfigInfo {
 
 export interface AppSettings {
   /** workers: how many images are validated or preprocessed at once; cpu_count: the CPUs this machine has (read-only). */
-  GENERAL: { log_level: LogLevel; workers: number; cpu_count: number; log_file: string; log_level_override: string | null; default_research_project?: string | null }
+  GENERAL: { log_level: LogLevel; workers: number; cpu_count: number; log_file: string; log_level_override: string | null; default_research_project?: string | null; show_welcome?: boolean }
   TRAPPER: { enabled: boolean; base_url: string | null; user_name: string | null; has_password: boolean; max_zip_mb: number }
   /** What an upload to Agouti needs — kept; nothing is uploaded to Agouti yet. */
   AGOUTI: { enabled: boolean; base_url: string | null; has_api_key: boolean; project_id: string | null }
@@ -573,7 +575,7 @@ export interface AppSettings {
 
 /** What the settings page saves. A blank password keeps the saved one. */
 export interface AppSettingsUpdate {
-  GENERAL: { log_level: LogLevel; workers: number; default_research_project: string | null }
+  GENERAL: { log_level: LogLevel; workers: number; default_research_project: string | null; show_welcome: boolean }
   TRAPPER: { enabled: boolean; base_url: string | null; user_name: string | null; user_password: string; max_zip_mb: number }
   AGOUTI: { enabled: boolean; base_url: string | null; api_key: string; project_id: string | null }
   EPICOLLECTCSV: { enabled: boolean }
@@ -829,10 +831,10 @@ export interface VisitsCsvColumns {
 }
 
 /** What the import of visits can create when a visit names one that does not exist. */
-export type CsvEntity = 'locations' | 'cameras' | 'sd_cards'
+export type CsvEntity = 'locations' | 'cameras' | 'sd_cards' | 'trappers'
 export type CsvCreate = Record<CsvEntity, boolean>
-/** What is asked of the import besides the file: the entities to create, and the value of the fields the file has no column for. */
-export interface ImportCsvOptions { create?: CsvCreate; defaults?: Record<string, string>; close_revisions?: boolean }
+/** What is asked of the import besides the file: the entities to create, the value of the fields the file has no column for, and whether a row with no coordinates takes those of its location (it does, unless it is turned off). */
+export interface ImportCsvOptions { create?: CsvCreate; defaults?: Record<string, string>; close_revisions?: boolean; coordinates_from_location?: boolean; photos_not_counted?: boolean }
 
 /** What reading a CSV file of visits gave: the visits that can be kept, the rows that cannot (numbered as in the file, the header being 1),
  * those already kept, and how many were kept when asked to. */
@@ -841,7 +843,7 @@ export interface VisitsCsvResult {
   problems: { row: number; message: string; }[]
   skipped: number
   /** What the visits to add create: the locations, cameras and SD cards that do not exist and the file was asked to create. */
-  create?: Record<CsvEntity, Record<string, unknown>[]>
+  create?: Record<CsvEntity, Record<string, unknown>[]>   // `trappers` is missing from an answer of an older server
   /** What became of each row of the file, numbered as in it: kept to add (ok), a problem, already kept, held for a site that is not a location, or ignored. */
   rows?: { row: number; site: string; session?: string; date?: string; time?: string; actions?: string; result: 'ok' | 'problem' | 'already_kept' | 'new_site' | 'ignored'; label?: string; message: string; warnings?: string[]; data?: Record<string, string> }[]
   /** What is worth knowing of the visits, without being wrong (the sites of the trip before not visited on this one…). */
@@ -1286,3 +1288,7 @@ export interface RevisionCreated {
   planned: string[]
   previous: { session: string; missing: string[] } | null
 }
+
+/** What Import deployments and the deployment pages show, and what the uploads show: the page the menu opened. */
+export type DeploymentsView = 'import' | 'many' | 'status' | 'statistics'
+export type UploadsView = 'upload' | 'status'
