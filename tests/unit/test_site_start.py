@@ -103,3 +103,15 @@ def test_a_pending_site_is_not_waited_for_until_a_visit_to_it_is_known():
 
     kept.append(visit("DONA_03", 2, ["Revision"]))                                                              # a visit to it is known: it is in play
     assert "DONA_03" in visit_rules.revision_missing(3, [*kept, visit("DONA_01", 3, ["Revision"])], locations)
+
+
+def test_new_site_explicitly_says_start_regardless_of_location_status():
+    new = visit("DONA_03", 5, ["Installation"], camera_status="  new SITE ")
+    for location in (None, {"location_id": "DONA_03"}, *({**PENDING, "status": s} for s in ("pending", "ready", "active"))):
+        started = visit_rules.with_site_start(new, [], location)
+        assert started["actions"] == ["SiteStart", "Installation"]
+        assert visit_rules.with_site_start(started, [], location) is started
+
+    prior = visit("DONA_03", 4, ["Installation"])
+    started = visit_rules.with_site_start(new, [prior], PENDING)
+    assert any(getattr(e, "code", "") == "site_start_not_first" for e in visit_rules.site_start_errors(started, [prior]))

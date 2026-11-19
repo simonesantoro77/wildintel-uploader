@@ -540,10 +540,6 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             elif cells.latitude is None or cells.longitude is None:
                 raise RowError("coordinates_missing", "The row has only one of the coordinates of the visit: it needs a latitude and a longitude" + (", or none (then those of its location are used)." if from_location else "."))
             actions = cells.actions
-            # a visit that says New site and makes its site is where the site starts — the form has no action for it, so it is said here
-            if says_new_site and made["locations"] and "SiteStart" not in actions:
-                actions = ["SiteStart", *actions]
-            report[n]["actions"] = " + ".join(actions)  # as the dashboard of visits says them
             # a camera and an SD card are what their cell says, stripped; the ones that exist are found ignoring the case
             if create.get("cameras") and cells.camera_id and cells.camera_id not in cameras_known:
                 made["cameras"].append(_new_camera(cells.camera_id, row))
@@ -566,6 +562,8 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             visit.setdefault("session", "R0000")  # worked out below, when the order of the visits is known
             record = VisitRecord.model_validate(visit).model_dump(mode="json")
             record["when"] = visit_time.to_when(record["date"], record["time"], location)
+            record = visit_rules.with_site_start(record, kept, None)
+            report[n]["actions"] = " + ".join(record["actions"])
         except RowError as exc:
             problem(n, str(exc), exc.code)
             continue
@@ -619,13 +617,14 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             record["session"] = f"R{count[loc] + 1:04d}"
         count[loc] += 1
         visits.append(record)
-    # the first camera put up at a site that is pending — in the app, not started — is where the site starts: the visit says so, as the form says it
+    # The first camera put up at a pending site starts it.
     seen_sites = {str(v.get("location_id", "")).lower() for v in kept}
     by_site = {str(l.get("location_id", "")).lower(): l for l in [*locations, *new_locations.values()]}
     for record in sorted(visits, key=visit_rules._stamp):
         site = record["location_id"].lower()
         if site not in seen_sites:
             record["actions"] = visit_rules.with_site_start(record, [], by_site.get(site))["actions"]
+            report[row_of[id(record)]]["actions"] = " + ".join(record["actions"])
             seen_sites.add(site)
     # every visit of a revision is after those of the revisions before it and before those of the revisions after it, whichever the site
     disordered = visit_rules.revision_order_conflicts(visits, kept)

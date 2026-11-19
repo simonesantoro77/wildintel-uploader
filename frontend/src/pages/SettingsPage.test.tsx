@@ -1691,7 +1691,9 @@ describe('SettingsPage — Entities', () => {
       expect(panel.getByRole('status')).toHaveTextContent('DONA_01 is already there.')
       expect(panel.getByRole('status')).toHaveTextContent('“DONA_08” has no coordinates in Trapper')
       expect(mockedApi.trapperLocations).toHaveBeenCalledWith({}, 2)
-      expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_07', latitude: 37.3, longitude: -6.2, timezone: 'Europe/Madrid', trapper_pk: 12 }))
+      expect(mockedApi.saveLocalLocation).toHaveBeenCalledTimes(1)
+      expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_07', latitude: 37.3, longitude: -6.2, timezone: 'Europe/Madrid', trapper_pk: 12, status: 'pending' }))
+      expect(mockedApi.updateLocalLocation).not.toHaveBeenCalled()
     })
 
     it('cannot take them from Trapper for a research project that was not taken from there', async () => {

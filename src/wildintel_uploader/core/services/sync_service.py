@@ -222,7 +222,7 @@ def sync_stream(
             continue
         record = {k: location.get(k) for k in ("location_id", "name", "timezone", "ignore_dst", "latitude", "longitude")}
         # Trapper keeps the ids in lower case; here they are written as the wizard does, in upper case.
-        local_folder_service.write_location(root, project_id, {**record, "location_id": location["location_id"].upper(), "coordinate_uncertainty": None, "trapper_pk": location["pk"]})
+        local_folder_service.write_location(root, project_id, {**record, "location_id": location["location_id"].upper(), "coordinate_uncertainty": None, "trapper_pk": location["pk"], "status": "pending"})
         created["locations"].append(location["location_id"].upper())
     yield say(f"Locations: {len(created['locations'])} created, {len(kept['locations'])} already there.")
 
