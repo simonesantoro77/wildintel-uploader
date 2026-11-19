@@ -558,7 +558,7 @@ of a visit, the card is checked against the one the visit left — see [Check de
 
 For each check you choose **how strict** it is: **Skip** doesn't run it, **Warn** shows the problems but lets you
 continue, **Must pass** stops you from going on while it fails. The ones that are turned off in the
-[settings](#validation) are not shown. Press **Run checks**.
+[settings](#validation) are not shown. Press **Run checks**: the **Continue** of the page is there once the results are open, and it is not active while the checks run.
 
 In the checks of the deployment, **Image dates fit the deployment** and **The SD card is the one the visit left** are **Must pass** by default: images out of the range of dates of the deployment, or that come from another card than the one the visit left, are an error, and the step does not go on until they fit — or you set the check to **Warn** to accept them.
 
