@@ -950,8 +950,29 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
+    if (option.test('custom csv')) {   // closing the revision before starts on: most of these tests are of what happens when it is not
+      const close = await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })
+      if (close.getAttribute('aria-checked') === 'true') await userEvent.click(close)
+    }
     await continueFromTheFile()
   }
+
+  it('has \'Close the revision before when it has locations still planned\' on by default, and sends it: a revision left open for sites that were skipped is found weeks later', async () => {
+    mockedApi.visitsCsvColumns.mockResolvedValue(COLUMNS)
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /custom csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), file)
+    expect(await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })).toBeChecked()
+    await continueFromTheFile()
+    await screen.findByLabelText('Site (a location of the research project)')
+    await userEvent.selectOptions(screen.getByLabelText('Photos on the card collected'), 'Fotos')
+    await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
+
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING, { close_revisions: true }))
+  })
 
   it('shows the columns of the file with the ones that match already picked, and an example of each', async () => {
     await start()
@@ -1044,6 +1065,7 @@ describe('VisitsPage from a CSV file', () => {
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING_WITHOUT_PHOTOS, {
       create: { locations: true, cameras: true, sd_cards: false, trappers: false },
       defaults: { latitude: '40.1', longitude: '-3.2', timezone: 'UTC', daylight_saving: 'no' },
+      close_revisions: true,   // starts on
     }))
   })
 

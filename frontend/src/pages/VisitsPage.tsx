@@ -791,7 +791,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     // the options of what is created start all marked in the WildINTEL CSV, where the form says everything but the timezone; in a custom CSV creating asks for more columns, so they start off
     const on = source === 'wildintel-new'
     setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvDefaults(on ? { timezone: 'UTC', daylight_saving: 'no' } : {})
-    setCsvClose(on); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(on)
+    setCsvClose(true); setCsvLocationCoordinates(true); setCsvPhotosNotCounted(on)   // closing the revision before starts on in both: a revision left open for sites that were skipped is found weeks later
   }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
