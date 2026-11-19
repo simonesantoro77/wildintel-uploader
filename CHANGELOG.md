@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Upcoming release
 
 ### Added
+- **Entities in the settings** (#127): the **More** button of each tab — research projects, trappers, locations, cameras, SD cards — has **CSV template** beside **Import CSV** and **Export CSV**: the columns that Import CSV reads, with no rows, as the initial setup offers.
 - **Register visits › CSV**: an SD card whose id has spaces or signs — `84 (10)`, `85(78)`, `38_B` — where ids are letters and digits (`A13`, `47b`, `693`) is said in the check of the file, once for the card and in the rows it is in; it is not refused: the label on a card is what was written on it. A card that is kept already was accepted as it is and is not said. The id of an SD card is kept as written — in the cards, the visits and the FieldworkLog — and never upper-cased (a test says so).
 - **Menu** (#122): a **Quick guide** button at the right of the title opens a panel with the work from end to end — create a research project, 1 register visits, 2 create deployments, 3 upload deployment, on a line —, and where to monitor the progress (*Dashboards*) and to fix dates and local files (*Utils*).
 - **Welcome page** (#118): a tick, **Do not show this page again**, that makes the app open on what comes after it — the menu, the runs left unfinished or, with no research project, the initial setup —, and the option for it in **Settings › General** (`GENERAL.show_welcome`, on by default; `PUT /api/settings/show-welcome`), where it is turned on again.
