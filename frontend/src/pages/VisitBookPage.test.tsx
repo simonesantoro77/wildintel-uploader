@@ -283,6 +283,7 @@ describe('VisitBookPage', () => {
     expect(mockedApi.listLocalLocations).toHaveBeenCalledWith('TATR')
     expect(panel.getByRole('heading', { name: 'TATR_0001' })).toBeInTheDocument()
     expect(panel.getByText('Ridge')).toBeInTheDocument()
+    expect(panel.getByText('Not UTC')).toBeInTheDocument()         // Europe/Warsaw: the time zone is not UTC, a red label says it
     expect(onOpenSettings).not.toHaveBeenCalled()                 // it goes to the settings from the panel, not at once
     await userEvent.click(panel.getByRole('button', { name: 'Open it in the settings' }))
     expect(onOpenSettings).toHaveBeenCalledWith('locations', 'TATR', 'TATR_0001')
