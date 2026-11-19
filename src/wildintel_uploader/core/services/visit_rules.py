@@ -101,10 +101,13 @@ def card_status_code(value) -> str | None:
 
 
 def with_site_start(visit: dict, kept: list[dict], location: dict | None) -> dict:
-    """The visit as it is kept: the first visit that puts a camera up where the site is *pending* — in the app, not started — is where the site starts, so it says so. A site that is not
-    pending was started before (or its start is not known), and what is not an Installation, or not the first visit, says nothing of a start."""
+    """A New site explicitly starts the site; otherwise its first Installation starts it only when it is pending."""
     actions = list(visit.get("actions") or [])
-    if not location or location.get("status") != "pending" or SITE_START in actions or "Installation" not in actions or is_not_revised(visit):
+    if SITE_START in actions:
+        return visit
+    if camera_status_code(visit.get("camera_status")) == "New site":
+        return {**visit, "actions": [SITE_START, *actions]}
+    if not location or location.get("status") != "pending" or "Installation" not in actions or is_not_revised(visit):
         return visit
     if any(_same(v.get("location_id"), visit["location_id"]) for v in kept):
         return visit

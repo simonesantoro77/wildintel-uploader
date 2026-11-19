@@ -1648,6 +1648,58 @@ def test_a_pending_site_starts_with_its_first_camera_and_is_ready_or_active_by_w
     assert result == {4: "active", 5: "ready"}
 
 
+@pytest.mark.parametrize("status", [None, "ready", "active", "pending"])
+def test_new_site_in_a_manual_visit_starts_the_site_regardless_of_status(tmp_path: Path, status: str | None):
+    from wildintel_uploader.core.services import local_folder_service
+
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        location = {"location_id": "DONA_04", "timezone": "UTC", "ignore_dst": False, "latitude": 37.0, "longitude": -6.5}
+        if status is not None:
+            location["status"] = status
+        local_folder_service.write_location(tmp_path, "DONA", location)
+        result = _save({**VISIT, "location_id": "DONA_04", "session": "R0004", "date": "2026-04-10",
+                        "actions": ["Installation"], "camera_status": "New site", "num_photos": None, "sd": "S4", "camera_id": "C4"})
+        site = local_folder_service.list_locations(tmp_path, "DONA")[0]
+
+    assert result.status_code == 200, result.text
+    assert result.json()["actions"] == ["SiteStart", "Installation"]
+    assert site["status"] == "active"
+
+
+def test_new_site_in_an_import_is_saved_for_a_trapper_location_without_a_status(tmp_path: Path):
+    from wildintel_uploader.core.services import local_folder_service
+
+    text = "location_id,session,date,time,actions,camera_status,camera_id,sd\nDONA_04,R0004,2026-04-10,09:00,Installation,New site,C4,S4\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "camera_status", "camera_id", "sd")}
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        local_folder_service.write_location(tmp_path, "DONA", {"location_id": "DONA_04", "timezone": "UTC", "ignore_dst": False,
+                                                               "latitude": 37.0, "longitude": -6.5, "trapper_pk": 4})
+        response = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "save": True})
+        visits = local_folder_service.list_visits(tmp_path, "DONA")
+        unknown = local_folder_service.list_unknown(tmp_path, "DONA")
+        site = local_folder_service.list_locations(tmp_path, "DONA")[0]
+
+    assert response.status_code == 200 and response.json()["saved"] == 1, response.text
+    assert visits[0]["actions"] == ["SiteStart", "Installation"]
+    assert unknown == []
+    assert site["status"] == "active"
+
+
+def test_editing_a_first_visit_to_say_new_site_marks_its_start(tmp_path: Path):
+    with _in(tmp_path):
+        _project(archived=(2, 3))
+        visit = {**VISIT, "session": "R0004", "date": "2026-04-10", "actions": ["Installation"],
+                 "num_photos": None, "sd": "S1", "camera_id": "C1"}
+        saved = _save(visit)
+        edited = _client().post("/api/visits/update", json={"research_project_id": "DONA", "location_id": "DONA_01",
+                                                            "session": "R0004", "visit": {**visit, "camera_status": "New site"}})
+
+    assert saved.status_code == 200 and edited.status_code == 200, edited.text
+    assert edited.json()["actions"] == ["SiteStart", "Installation"]
+
+
 def test_knocked_down_and_damaged_are_not_accepted_as_the_status_of_a_camera_but_what_was_kept_with_them_is_still_read(tmp_path: Path):
     old = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2026-01-10", "session": "R0001"}
     with _in(tmp_path):

@@ -437,7 +437,7 @@ Any spreadsheet with a row per visit. Press **Register visits › Custom CSV**; 
 
 When the visits are kept, the end says how many were added and, if they **closed other visits** — a visit closes the one that left the camera whose card it collects —, how many: **pick their revision and import their images** is a link to [Import deployment](#import-a-deployment) on the research project. A **report** of the import is written with the other reports.
 
-The rows are read as their fields take them: *a date that is not a date*, *actions that are not Site start, Installation, Revision, Desinstallation, Stolen or Archive* (*New site* as the status of the camera of the Epicollect form, with a location that did not exist, is a Site start), a card code that is not OK, Card full, No batteries or Card full and no batteries, or photos that are not a whole number, are rows with a problem, and none of them is kept. The visits are then checked with [the rules of a visit](#the-rules-of-a-visit), in the order of their instants, each against the ones kept and the ones of the file before it. The visits of a file that fill unknown revisions of the visits kept are checked together, with the ones after them that they touch.
+The rows are read as their fields take them: *a date that is not a date*, *actions that are not Site start, Installation, Revision, Desinstallation, Stolen or Archive* (*New site* as the status of the camera says Site start, even when the location already exists), a card code that is not OK, Card full, No batteries or Card full and no batteries, or photos that are not a whole number, are rows with a problem, and none of them is kept. The visits are then checked with [the rules of a visit](#the-rules-of-a-visit), in the order of their instants, each against the ones kept and the ones of the file before it. The visits of a file that fill unknown revisions of the visits kept are checked together, with the ones after them that they touch.
 
 There are example files of every case — all correct, three revisions, a revision that starts before the one before is finished, unknown sites, rows that cannot be read, a card that is left where it cannot be, a theft and a site given up, columns to match by hand — in [`examples/visits_example`](https://github.com/wildintelproject/wildintel-uploader/tree/main/examples/visits_example), in folders by the option they are for — `custom_csv/wicp_02` and `wildintel_csv/wicp_02` —, made for the entities of the research project `WICP_02`.
 
@@ -887,6 +887,8 @@ What is already in the folder is **left as it is**, whatever Trapper says. **Not
 Trapper**, and **no image is downloaded unless you ask for it** — so there is no `preprocessing.json`, and the size,
 pixels and hashes are missing from `images.json`, which is marked `"source": "trapper"`. A
 deployment synced this way is *read-only* for the app: what Trapper holds isn't modified here.
+New locations synced from Trapper are *pending* until a visit starts them; the status of an existing
+location is left unchanged.
 
 #### Downloading the images
 

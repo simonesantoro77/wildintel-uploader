@@ -181,7 +181,7 @@ export default function LocationPicker({ researchProjectId, trapperPk, value, on
         const saved = await api.saveLocalLocation(researchProjectId, {
           location_id: loc.location_id, name: loc.name || null,
           timezone: loc.timezone && isValidTimezone(loc.timezone) ? loc.timezone : 'UTC', ignore_dst: loc.ignore_dst ?? false, trapper_pk: loc.pk,
-          latitude: loc.latitude, longitude: loc.longitude, coordinate_uncertainty: null,
+          latitude: loc.latitude, longitude: loc.longitude, coordinate_uncertainty: null, status: 'pending',
         })
         added.push(saved); chosen.push(saved)
       } catch (e) {

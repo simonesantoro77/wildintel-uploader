@@ -60,7 +60,9 @@ def test_creates_the_expected_structure(tmp_path: Path):
 
     folder = tmp_path / "DONA"
     assert json.loads((folder / "research_project.json").read_text(encoding="utf-8"))["trapper_pk"] == 2
-    assert [l["location_id"] for l in json.loads((folder / "locations.json").read_text(encoding="utf-8"))] == ["DONA_01", "DONA_02"]
+    locations = json.loads((folder / "locations.json").read_text(encoding="utf-8"))
+    assert [l["location_id"] for l in locations] == ["DONA_01", "DONA_02"]
+    assert [l["status"] for l in locations] == ["pending", "pending"]
     assert json.loads((folder / "R0003" / "collection.json").read_text(encoding="utf-8"))["name"] == "R0003"
     assert (folder / "R0003" / "R0003-DONA_01" / "deployment.json").is_file()
     assert (folder / "R0003" / "R0003-DONA_02" / "deployment.json").is_file()
@@ -84,6 +86,7 @@ def test_creates_the_expected_structure(tmp_path: Path):
 
 def test_leaves_what_is_already_there_as_it_is(tmp_path: Path):
     _run(tmp_path)
+    local_folder_service.update_location(tmp_path, "DONA", "DONA_01", {"status": "ready"})
     deployment = tmp_path / "DONA" / "R0003" / "R0003-DONA_01" / "deployment.json"
     deployment.write_text('{"edited": true}', encoding="utf-8")
 
@@ -93,6 +96,7 @@ def test_leaves_what_is_already_there_as_it_is(tmp_path: Path):
     assert again["created"] == {key: [] for key in again["created"]}
     assert again["kept"]["images"] == ["R0003-DONA_01", "R0003-DONA_02", "R0003-DONA_03"]
     assert again["kept"]["deployments"] == ["R0003-DONA_01", "R0003-DONA_02", "R0003-DONA_03"] and again["kept"]["locations"] == ["DONA_01", "DONA_02"]
+    assert [l["status"] for l in local_folder_service.list_locations(tmp_path, "DONA")] == ["ready", "pending"]
 
 
 def test_the_endpoint_syncs_the_collections_folder(tmp_path: Path):

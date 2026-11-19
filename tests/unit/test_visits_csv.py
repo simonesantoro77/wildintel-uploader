@@ -49,6 +49,67 @@ def test_every_row_says_what_became_of_it():
     assert "already kept" in by_row[2]["message"] and "Flying" in by_row[3]["message"] and by_row[4]["site"] == "WICP_0009"
 
 
+def test_new_site_starts_existing_locations_and_does_not_create_unknown_visits_before_the_start():
+    from wildintel_uploader.core.services import visit_rules, visits_csv
+
+    locations = [{"location_id": f"WICP_000{n}", "timezone": "UTC", **({"status": status} if status else {})}
+                 for n, status in enumerate((None, "ready", "active", "pending"), start=1)]
+    text = ("site,what,day,hour,session,cam,sd,status\n"
+            "WICP_0001,Installation,2026-04-01,09:00,R0004,C1,S1,New site\n"
+            "WICP_0002,Installation,2026-04-01,10:00,R0004,C2,S2,new site\n"
+            "WICP_0003,Installation,2026-04-01,11:00,R0004,C3,S3,New site\n"
+            "WICP_0004,Installation,2026-04-01,12:00,R0004,C4,S4,New site\n")
+    mapping = {"location_id": "site", "actions": "what", "date": "day", "time": "hour", "session": "session", "camera_id": "cam", "sd": "sd", "camera_status": "status"}
+    result = _parse(text, locations, [], mapping)
+
+    assert result["problems"] == []
+    assert len(result["visits"]) == 4
+    assert all(v["actions"] == ["SiteStart", "Installation"] for v in result["visits"])
+    assert all(row["actions"] == "SiteStart + Installation" for row in result["rows"])
+    assert result["unknown"] == []
+    assert visit_rules.revision_missing(3, result["visits"], locations) == []
+    assert visit_rules.not_visited_records(3, result["visits"], locations, on="2026-03-01") == []
+
+
+def test_new_site_in_a_history_is_not_expected_in_earlier_revisions():
+    from wildintel_uploader.core.services import visit_deployments, visit_rules
+
+    locations = [{"location_id": "WICP_0001", "timezone": "UTC", "status": "active"},
+                 {"location_id": "WICP_0002", "timezone": "UTC", "trapper_pk": 12}]
+    text = ("site,what,day,hour,session,cam,sd,status,photos\n"
+            "WICP_0001,Installation,2026-01-01,09:00,R0001,C1,S1,,\n"
+            "WICP_0001,Revision,2026-02-01,09:00,R0002,,S2,OK,5\n"
+            "WICP_0001,Revision,2026-03-01,09:00,R0003,,S1,OK,5\n"
+            "WICP_0001,Revision,2026-04-01,09:00,R0004,,S2,OK,5\n"
+            "WICP_0002,Installation,2026-04-01,10:00,R0004,C2,S3,New site,\n"
+            "WICP_0001,Revision,2026-05-01,09:00,R0005,,S1,OK,5\n"
+            "WICP_0002,Revision,2026-05-01,10:00,R0005,,S4,OK,5\n")
+    mapping = {"location_id": "site", "actions": "what", "date": "day", "time": "hour", "session": "session", "camera_id": "cam",
+               "sd": "sd", "camera_status": "status", "num_photos": "photos"}
+    result = _parse(text, locations, [], mapping)
+
+    assert result["problems"] == []
+    assert len(result["visits"]) == 7
+    assert result["unknown"] == []
+    for revision in range(1, 5):
+        assert visit_rules.revision_missing(revision, result["visits"], locations) == []
+    book = visit_deployments.visit_book(result["visits"], locations=locations, unknown=result["unknown"])
+    assert [r["session"] for r in book if r["location_id"] == "WICP_0002"] == ["R0004", "R0005"]
+
+
+def test_new_site_does_not_allow_a_site_to_start_twice():
+    locations = [{"location_id": "WICP_0001", "timezone": "UTC", "status": "active"}]
+    text = ("site,what,day,hour,session,cam,sd,status\n"
+            "WICP_0001,Installation,2026-01-01,09:00,R0001,C1,S1,New site\n"
+            "WICP_0001,Installation,2026-02-01,09:00,R0002,C2,S2,New site\n")
+    mapping = {"location_id": "site", "actions": "what", "date": "day", "time": "hour", "session": "session", "camera_id": "cam", "sd": "sd", "camera_status": "status"}
+    result = _parse(text, locations, [], mapping)
+
+    assert len(result["visits"]) == 1
+    assert result["visits"][0]["actions"] == ["SiteStart", "Installation"]
+    assert any("has started already" in p["message"] for p in result["problems"])
+
+
 def test_a_visit_of_a_session_and_site_already_kept_is_not_imported_and_a_closed_revision_takes_nothing_new():
     from wildintel_uploader.core.services import visits_csv
     locations = [{"location_id": "WICP_0001", "timezone": "UTC"}, {"location_id": "WICP_0002", "timezone": "UTC"}]
