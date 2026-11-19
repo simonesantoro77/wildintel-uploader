@@ -1153,7 +1153,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         description="Enter them by hand, or read them from a file."
         summary={chosen?.title}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {SOURCE_OPTIONS.filter((o) => (o.value === 'wildintel-new' ? sourcesUsed.wildintelNew : true)).map((o) => <TaskCard key={o.value} icon={o.icon} title={o.title} description={o.description} selected={source === o.value} onClick={() => setSource(o.value)} />)}
         </div>
       </WizardStep>
