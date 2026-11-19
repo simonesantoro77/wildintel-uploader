@@ -607,6 +607,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [foldedGroups, setFoldedGroups] = useState<string[]>([])
   // Custom CSV: where the file is — on this computer, or in the Epicollect5 project of the settings.
   const [csvOrigin, setCsvOrigin] = useState<'file' | 'epicollect'>('file')
+  const [importRulesOpen, setImportRulesOpen] = useState(false)
+  const [draggingCsv, setDraggingCsv] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [csvText, setCsvText] = useState('')
   // Whether the file is being checked again — with the visits kept now, the locations now, the settings now.
@@ -788,6 +790,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // Another way to read the visits starts again from the file.
   useEffect(() => {
     forgetCsv(); setCsvName(null)
+    setImportRulesOpen(false)
     // the options of what is created start all marked in the WildINTEL CSV, where the form says everything but the timezone; in a custom CSV creating asks for more columns, so they start off
     const on = source === 'wildintel-new'
     setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvDefaults(on ? { timezone: 'UTC', daylight_saving: 'no' } : {})
@@ -821,6 +824,11 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     forgetCsv()
     const reading = ++csvReading.current
     if (!file || !project) { setCsvName(null); return }
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setCsvName(null)
+      setCsvError('Choose a CSV file.')
+      return
+    }
     setCsvName(file.name)
     try {
       const text = await file.text()
@@ -950,45 +958,45 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const optionsOn = [...Object.values(csvCreate), csvPhotosNotCounted, csvLocationCoordinates, csvClose].filter(Boolean).length
   const everyOption = optionsOn === 7
   const allOptions = (on: boolean) => { setCsvCreate({ locations: on, cameras: on, sd_cards: on, trappers: on }); setCsvPhotosNotCounted(on); setCsvLocationCoordinates(on); setCsvClose(on) }
+  const defaultOptions = source === 'wildintel-new' ? everyOption : optionsOn === 2 && !Object.values(csvCreate).some(Boolean) && !csvPhotosNotCounted && csvLocationCoordinates && csvClose
+  const defaultTimezone = !csvCreate.locations || source !== 'wildintel-new' || ((csvDefaults.timezone ?? 'UTC') === 'UTC' && (csvDefaults.daylight_saving ?? 'no') === 'no')
   const createSwitches = (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {source === 'wildintel-new' && csvCreate.locations && (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 border-b border-zinc-200 dark:border-zinc-700 pb-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="epicollect-timezone" className={labelClass}>Timezone of the new locations</label>
+            <p className={hintClass}>The form does not say it. The coordinates of a new location are the ones of its first visit.</p>
+          </div>
+          <div>
+            <TimezoneCombobox id="epicollect-timezone" value={csvDefaults.timezone ?? 'UTC'}
+                              onChange={(timezone) => setCsvDefaults((d) => ({ ...d, timezone, daylight_saving: timezone.trim().toUpperCase() === 'UTC' ? 'no' : ((d.timezone ?? 'UTC').trim().toUpperCase() === 'UTC' ? 'yes' : d.daylight_saving ?? 'yes') }))} />
+            {(csvDefaults.timezone ?? 'UTC').trim().toUpperCase() !== 'UTC' && (
+              <div className="mt-4">
+                <span id="epicollect-dst-label" className={labelClass}>Their cameras follow summer time</span>
+                <div role="group" aria-labelledby="epicollect-dst-label" className="inline-flex w-full gap-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900/60 p-1">
+                  {(['yes', 'no'] as const).map((v) => (
+                    <button key={v} type="button" aria-pressed={(csvDefaults.daylight_saving ?? 'yes') === v} onClick={() => setCsvDefaults((d) => ({ ...d, daylight_saving: v }))}
+                            className={`flex-1 px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${(csvDefaults.daylight_saving ?? 'yes') === v ? 'bg-blue-600 text-white shadow' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'}`}>{v === 'yes' ? 'Yes' : 'No'}</button>
+                  ))}
+                </div>
+                <p className={hintClass}>Enable if camera clocks shift +1h during daylight saving time.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Auto-create missing entities (4)</h6>
       {([
         ['locations', 'Create the locations that do not exist', 'Needs its coordinates (latitude and longitude) and its timezone; its name is optional.'],
         ['cameras', 'Create the cameras that do not exist', 'Needs the camera id and its model.'],
         ['sd_cards', 'Create the SD cards that do not exist', 'Needs the SD card id and its brand; its capacity is optional.'],
         ['trappers', 'Create the trappers that do not exist', 'Each person a row says went, who is not a trapper yet, is made as the row calls them: their username is worked out from the name, and the rest is completed in Settings › Trappers.'],
       ] as const).map(([entity, label, hint]) => {
-        const withZone = entity === 'locations' && source === 'wildintel-new' && csvCreate.locations
         const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
-        if (!withZone) return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
-        const utc = (csvDefaults.timezone ?? 'UTC').trim().toUpperCase() === 'UTC'
-        // the timezone and summer time of the new locations are in the card of the switch: summer time is asked only when the zone is not UTC
-        return (
-          <div key={entity} className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-5">
-            <SwitchRow plain label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
-            <div className="grid grid-cols-1 gap-x-6 gap-y-4 border-t border-zinc-200 dark:border-zinc-700 py-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="epicollect-timezone" className={labelClass}>Timezone of the new locations</label>
-                <TimezoneCombobox id="epicollect-timezone" value={csvDefaults.timezone ?? 'UTC'}
-                                  onChange={(timezone) => setCsvDefaults((d) => ({ ...d, timezone, daylight_saving: timezone.trim().toUpperCase() === 'UTC' ? 'no' : ((d.timezone ?? 'UTC').trim().toUpperCase() === 'UTC' ? 'yes' : d.daylight_saving ?? 'yes') }))} />
-                <p className={hintClass}>The form does not say it. The coordinates of a new location are the ones of its first visit.</p>
-              </div>
-              {!utc && (
-                <div>
-                  <span id="epicollect-dst-label" className={labelClass}>Their cameras follow summer time</span>
-                  <div role="group" aria-labelledby="epicollect-dst-label" className="inline-flex w-full gap-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900/60 p-1">
-                    {(['yes', 'no'] as const).map((v) => (
-                      <button key={v} type="button" aria-pressed={(csvDefaults.daylight_saving ?? 'yes') === v} onClick={() => setCsvDefaults((d) => ({ ...d, daylight_saving: v }))}
-                              className={`flex-1 px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${(csvDefaults.daylight_saving ?? 'yes') === v ? 'bg-blue-600 text-white shadow' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'}`}>{v === 'yes' ? 'Yes' : 'No'}</button>
-                    ))}
-                  </div>
-                  <p className={hintClass}>Enable if camera clocks shift +1h during daylight saving time.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )
+        return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
       })}
+      <h6 className="pt-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Validation &amp; revision rules (3)</h6>
       <SwitchRow label="The photos were not counted" hint="For an old datasheet that has no count of the photos on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the photos of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="The coordinates of a visit are required: a row that gives them by a column or a default keeps them, and one that gives none takes those of its location. With this off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
       <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision starts when the one before it is finished. With this on, the locations still planned in it are marked as not visited, so the file can add the revision after it. An unknown revision is not closed: nothing is known of it." checked={csvClose} onChange={setCsvClose} />
@@ -1652,7 +1660,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
           <WizardStep
             n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
-            description={source === 'wildintel-new' ? 'The CSV downloaded from the new WildINTEL Epicollect project: a row is a visit. Its columns are found by the label of their question, whatever the case or the number in front. A visit happened when its entry was created (the form has no date or time). A visit that says New site makes its site, at the place of the visit, in the timezone UTC unless the switch below gives another.'
+            description={source === 'wildintel-new' ? 'Drop the CSV downloaded from Epicollect. Columns are matched automatically by question label.'
               : 'Any spreadsheet file with a row per visit. Next, you say which column gives each field of a visit.'}
             summary={csvName}
           >
@@ -1676,34 +1684,56 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             ) : (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 space-y-3">
               <h5 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Spreadsheet file</h5>
-              <div className="flex items-center gap-4 flex-wrap">
-                <label htmlFor="visits-csv" className={`inline-flex items-center gap-2 px-5 h-12 rounded-xl border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-800 dark:text-zinc-200 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer`}>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
-                  Choose file
-                </label>
+              <label htmlFor="visits-csv" aria-label="Drop CSV file" onDragOver={(e) => { e.preventDefault(); setDraggingCsv(true) }}
+                     onDragLeave={() => setDraggingCsv(false)}
+                     onDrop={(e) => {
+                       e.preventDefault(); setDraggingCsv(false)
+                       if (e.dataTransfer.files.length !== 1) {
+                         forgetCsv(); setCsvName(null); setCsvError('Drop one CSV file.')
+                       } else {
+                         void readCsv(e.dataTransfer.files[0])
+                       }
+                     }}
+                     className={`flex min-h-56 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${draggingCsv ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/40 hover:border-blue-400'}`}>
+                <span className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 text-zinc-600 dark:text-zinc-300">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
+                </span>
+                <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Drag &amp; drop your {source === 'wildintel-new' ? 'Epicollect ' : ''}.csv file here</span>
+                <span className="text-sm text-zinc-500 dark:text-zinc-400">or click to <span className="text-blue-600 dark:text-blue-400 underline">browse</span></span>
                 <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{csvName ?? 'No file chosen'}</span>
                 <input id="visits-csv" aria-label="CSV file" type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void readCsv(file) }} />
-              </div>
+              </label>
               <p className={hintClass}>Visits that do not have a number yet get the next one for their site. A visit that is already kept (the same revision and site, whatever the day) is left as it is; one with no number, if it has the same site, day and time.</p>
             </div>
             )}
             {(source === 'csv' || source === 'wildintel-new') && (
-              <fieldset className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 mt-4">
+              <fieldset className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 mt-4">
                 <legend className="sr-only">Create what does not exist yet</legend>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h5 className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Create what does not exist <span className="rounded-full bg-zinc-200 dark:bg-zinc-700 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">optional</span></h5>
-                  <div className="flex items-center gap-3">
-                    <span aria-label="Options marked" className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{optionsOn} / 7</span>
+                <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Create what does not exist</span>
+                      <span className="rounded-md border border-zinc-200 dark:border-zinc-700 px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400">{importRulesOpen ? 'Expanded' : defaultOptions && defaultTimezone ? 'Default preset' : 'Customized'}</span>
+                    </div>
+                    <h5 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Import &amp; auto-creation rules</h5>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400"><span aria-label="Options marked">Options enabled ({optionsOn} / 7)</span>{source === 'wildintel-new' && csvCreate.locations && <> · Timezone: {csvDefaults.timezone || 'UTC'}</>}</p>
+                  </div>
+                  <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} aria-expanded={importRulesOpen} aria-controls="visit-import-rules" onClick={() => setImportRulesOpen((open) => !open)}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 text-sky-500 dark:text-sky-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h7M15 6h5M4 12h3M11 12h9M4 18h9M17 18h3M11 4v4M7 10v4M13 16v4" /></svg>
+                    {importRulesOpen ? 'Done' : 'Customize'}
+                  </button>
+                </div>
+                {importRulesOpen && <div id="visit-import-rules" className="border-t border-zinc-200 dark:border-zinc-700 px-6 py-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">Mark or clear all options</span>
                     <button type="button" role="switch" aria-checked={everyOption} aria-label="Mark all the options" onClick={() => allOptions(!everyOption)}
                             className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${everyOption ? 'bg-blue-600' : optionsOn > 0 ? 'bg-blue-400/60' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${everyOption || optionsOn > 0 ? 'translate-x-5' : ''}`} />
                     </button>
                   </div>
-                </div>
-                {source === 'csv'
-                  ? <p className={`${hintClass} mb-3`}>When a visit names a location, a camera or an SD card that is not in {project?.acronym ?? 'the research project'}, it is created with the visits. Each one asks for more fields in the matching of the columns, where a default value can also be given for a field the file has no column for. After changing it, check the file again.</p>
-                  : <p className={`${hintClass} mb-3`}>When an entry names a location, a camera or an SD card that is not in {project?.acronym ?? 'the research project'}, it is created with the visits. The coordinates of a location, the camera and the card are those of the entry; what the form does not have is asked here, once for all of them. After changing it, check the file again.</p>}
-                {createSwitches}
+                  {source === 'csv' && <p className={`${hintClass} mb-3`}>Creating entities asks for more fields in the column matching, where defaults can also be given.</p>}
+                  {createSwitches}
+                </div>}
               </fieldset>
             )}
             {csvError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{csvError}</p>}
