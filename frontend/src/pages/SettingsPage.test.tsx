@@ -131,7 +131,18 @@ describe('SettingsPage', () => {
       }
     })
 
-    it('sets the log level, and shows where the log file is', async () => {
+  it('has, in General, the option to show the welcome page — on by default — and saves it turned off', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      await screen.findByLabelText('Level')
+      expect(screen.getByRole('switch', { name: 'Welcome page' })).toBeChecked()
+
+      await userEvent.click(screen.getByRole('switch', { name: 'Welcome page' }))
+      expect(screen.getByRole('switch', { name: 'Welcome page' })).not.toBeChecked()
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(mockedApi.saveSettings.mock.calls[0][0].GENERAL.show_welcome).toBe(false)
+    })
+
+  it('sets the log level, and shows where the log file is', async () => {
       render(<SettingsPage onClose={vi.fn()} />)
       await screen.findByLabelText('Level')
       expect(screen.getByText(APP_SETTINGS.GENERAL.log_file)).toBeInTheDocument()
@@ -141,7 +152,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('radio', { name: /Everything/ })).toHaveAttribute('aria-checked', 'true')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(mockedApi.saveSettings.mock.calls[0][0].GENERAL).toEqual({ log_level: 'DEBUG', workers: 4, default_research_project: null })
+      expect(mockedApi.saveSettings.mock.calls[0][0].GENERAL).toEqual({ log_level: 'DEBUG', workers: 4, default_research_project: null, show_welcome: true })
     })
 
     it('says when the environment overrides the log level', async () => {
@@ -801,7 +812,7 @@ describe('SettingsPage', () => {
 
     expect(mockedApi.saveSettings).toHaveBeenCalledTimes(1)
     const update = mockedApi.saveSettings.mock.calls[0][0]
-    expect(update.GENERAL).toEqual({ log_level: 'WARNING', workers: 4, default_research_project: null })
+    expect(update.GENERAL).toEqual({ log_level: 'WARNING', workers: 4, default_research_project: null, show_welcome: true })
     expect(update.TRAPPER.base_url).toBe('https://other.example.org')
     expect(update.VALIDATION.duplicates).toBe(false)
     expect(update.POSTVALIDATION.camera).toBe(false)

@@ -5,7 +5,7 @@ import { api } from '../api'
 import { APP_SETTINGS } from '../test/fixtures'
 import WelcomePage from './WelcomePage'
 
-vi.mock('../api', () => ({ api: { getSettings: vi.fn(), trapperTestConnection: vi.fn(), trapperGetConfig: vi.fn(), listResearchProjects: vi.fn(), setDefaultResearchProject: vi.fn() } }))
+vi.mock('../api', () => ({ api: { getSettings: vi.fn(), trapperTestConnection: vi.fn(), trapperGetConfig: vi.fn(), listResearchProjects: vi.fn(), setDefaultResearchProject: vi.fn(), setShowWelcome: vi.fn() } }))
 
 beforeEach(() => {
   vi.mocked(api.listResearchProjects).mockResolvedValue({ results: [{ acronym: 'WICP_01', name: 'Doñana' }] } as never)   // a research project is kept, unless a test says otherwise
@@ -28,6 +28,24 @@ describe('WelcomePage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Continue with WICP_01' }))
     expect(onStart).toHaveBeenCalled()
+  })
+
+  it('has a tick to not see the page again, that is kept in the settings — and says why when it cannot be kept', async () => {
+    vi.mocked(api.setShowWelcome).mockResolvedValue({ show_welcome: false })
+    render(<WelcomePage onStart={vi.fn()} onNewProject={vi.fn()} />)
+
+    const tick = await screen.findByRole('checkbox', { name: 'Do not show this page again' })
+    expect(tick).not.toBeChecked()
+    await userEvent.click(tick)
+    expect(vi.mocked(api.setShowWelcome)).toHaveBeenCalledWith(false)
+    expect(tick).toBeChecked()
+
+    await userEvent.click(tick)                                                    // and the tick is taken off: the page is shown again
+    expect(vi.mocked(api.setShowWelcome)).toHaveBeenLastCalledWith(true)
+    vi.mocked(api.setShowWelcome).mockRejectedValue(new Error('The settings could not be written.'))
+    await userEvent.click(tick)
+    expect(await screen.findByRole('alert')).toHaveTextContent('The settings could not be written.')
+    expect(tick).not.toBeChecked()                                                 // it was not kept: the tick goes back
   })
 
   it('has two buttons when there is a research project: to go on with the default one and to create a new one', async () => {

@@ -60,6 +60,18 @@ describe('App', () => {
     expect(await screen.findByText('visits — register')).toBeInTheDocument()
   })
 
+  it('opens on the menu, with no welcome page, when it is turned off in the settings — and the title goes to the menu', async () => {
+    mockedApi.getSettings.mockResolvedValue({ GENERAL: { show_welcome: false } } as never)
+    render(<App />)
+
+    expect(await screen.findByText('What do you want to do?')).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'Do not show this page again' })).not.toBeInTheDocument()
+
+    await userEvent.click(await screen.findByRole('button', { name: /^register visits/i }))
+    await userEvent.click(await title())
+    expect(await screen.findByText('What do you want to do?')).toBeInTheDocument()      // not the welcome page
+  })
+
   it('starts the initial setup from the welcome screen when there is a research project too, with the button that creates a new one', async () => {
     render(<App />)
     await userEvent.click(await screen.findByRole('button', { name: 'Create a new research project' }))

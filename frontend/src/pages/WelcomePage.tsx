@@ -42,6 +42,13 @@ export default function WelcomePage({ onStart, onNewProject }: Props) {
   const { host, project, setProject, projects } = useStanding()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // the tick that says the page is not shown again: kept in the settings (General), where it is turned on again
+  const [hide, setHide] = useState(false)
+  const [hideError, setHideError] = useState<string | null>(null)
+  async function hideNextTime(hidden: boolean) {
+    setHideError(null); setHide(hidden)
+    try { await api.setShowWelcome(!hidden) } catch (e) { setHide(!hidden); setHideError(e instanceof Error ? e.message : 'The setting could not be saved.') }
+  }
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -129,6 +136,12 @@ export default function WelcomePage({ onStart, onNewProject }: Props) {
           <button type="button" className={primary} onClick={projects !== 'unknown' ? onNewProject : onStart}>Get started{arrow}</button>
         )}
       </div>
+      {/* a tick, to open the next times on what comes after this page */}
+      <label className="mt-6 flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <input type="checkbox" checked={hide} onChange={(e) => void hideNextTime(e.target.checked)} className="h-4 w-4 rounded border-zinc-400" />
+        Do not show this page again
+      </label>
+      {hideError && <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">{hideError}</p>}
       {(host || project) && (
         <p role="status" className="mt-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400">
           {host && <><span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Connected to {host}</>}
