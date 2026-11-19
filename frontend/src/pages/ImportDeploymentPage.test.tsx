@@ -218,7 +218,14 @@ async function continueToDates() {
   await scanTheFolder()
   await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
   await screen.findByText('Choose the checks')
+  await runTheImageChecks()
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+}
+
+/** Runs the checks of the images, and waits for the results: the Continue of the page is there once they are. */
+async function runTheImageChecks() {
+  await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
 }
 
 /** Adds DONA and its location DONA_01 by hand to the empty collections
@@ -282,10 +289,9 @@ async function goToPostvalidation(revision = '1', fillDetails?: () => Promise<vo
 
 /** From the postvalidation → step "preprocessing" (the list of what is done to the images). */
 async function advanceToPreprocessing() {
-  if ((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled) {   // the dates check must pass by default: it is run first
-    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
-  }
+  const run = screen.queryByRole('button', { name: 'Run checks' })   // the Continue of the page is there once the checks are run
+  if (run) await userEvent.click(run)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
   await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
   await screen.findByText('Processing steps', { selector: 'h4' })
 }
@@ -330,6 +336,7 @@ describe('ImportDeploymentPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
     expect(await screen.findByText('Choose the checks')).toBeInTheDocument()
 
+    await runTheImageChecks()
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText('Dates of the deployment')).toBeInTheDocument()
 
@@ -616,6 +623,7 @@ describe('ImportDeploymentPage', () => {
         await scanTheFolder()
         await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
         await screen.findByText('Choose the checks')
+        await runTheImageChecks()
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
         await screen.findByText('Dates of the deployment')
         expect(screen.queryByLabelText('Revision')).not.toBeInTheDocument() // the visit gives it: it is not asked
@@ -690,6 +698,7 @@ describe('ImportDeploymentPage', () => {
           }
           await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
           await screen.findByText('Choose the checks')
+          await runTheImageChecks()
           await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
           await screen.findByText('Dates of the deployment')
           await waitFor(() => expect(screen.queryByText(/Reading the dates and the camera/)).not.toBeInTheDocument())
@@ -981,6 +990,7 @@ describe('ImportDeploymentPage', () => {
     expect(mockedApi.guessDetails).not.toHaveBeenCalled() // not through the origin, the scan or the validation
     await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
     await screen.findByText('Choose the checks')
+    await runTheImageChecks()
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
     await screen.findByText('Dates of the deployment')
     expect(await screen.findByText(/Locked · Field work/)).toBeInTheDocument()   // the visit says the dates, locked
@@ -1453,6 +1463,30 @@ describe('ImportDeploymentPage', () => {
       })
     })
 
+    it('has no Continue while the checks of the images run: it is the one of the results, and not active until they are done', async () => {
+      let finish: (value: unknown) => void = () => {}
+      mockedApi.validateImages.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+      await goToValidateStep()
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()      // the step open is the one that chooses the checks: it has its Run checks
+
+      await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+      expect(await screen.findByRole('button', { name: 'Continue' })).toBeDisabled()          // checking: not active
+      finish({ checked_count: 2, corrupted: [] })
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+    })
+
+    it('has no Continue in the checks of the deployment until they have been run, and not active while they run', async () => {
+      let finish: (value: unknown) => void = () => {}
+      mockedApi.validateDeployment.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }) as never)
+      await goToPostvalidation()
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()      // Choose the checks is the step open: the results are locked
+
+      await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+      expect(await screen.findByRole('button', { name: 'Continue' })).toBeDisabled()          // checking: not active
+      finish({ checked_count: 2, out_of_range: [], ...SD_OK })
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+    })
+
     it('blocks continuing until a required check has been run and passes', async () => {
       mockedApi.validateImages.mockResolvedValue({
         checked_count: 2, corrupted: [{ path: 'IMG_0002.jpg', error: 'cannot identify image file' }],
@@ -1460,7 +1494,7 @@ describe('ImportDeploymentPage', () => {
       await goToValidateStep()
 
       await chooseStrictness(0, 'Must pass')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()   // not run yet
 
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await screen.findByText(/1 corrupted image\(s\)/)
@@ -1473,18 +1507,12 @@ describe('ImportDeploymentPage', () => {
     })
 
     it('a check that must pass stops blocking once it is skipped or only warns', async () => {
+      mockedApi.validateImages.mockResolvedValue({ checked_count: 2, corrupted: [{ path: 'IMG_0002.jpg', error: 'cannot identify image file' }] })
       await goToValidateStep()
-      await chooseStrictness(0, 'Must pass')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-
       await chooseStrictness(0, 'Skip') // the check no longer runs, and no longer has to pass
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
       expect(strictness('Corrupted images', 'Skip')).toBeChecked()
-
-      await chooseStrictness(0, 'Must pass')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-      await chooseStrictness(0, 'Warn')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+      await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
     })
 
     it('tells, once the checks ran, whether the problems found stop you from continuing', async () => {
@@ -1676,12 +1704,13 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       expect(strictness('Image dates fit the deployment', 'Must pass')).toBeChecked()
       expect(strictness('The SD card is the one the visit left', 'Must pass')).toBeChecked()
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument() // not run yet: the Continue of the page is there once the checks have run
 
       await chooseDeploymentStrictness(4, 'Warn')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // the card is still a must
       await chooseStrictness('The SD card is the one the visit left', 'Warn')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled() // nothing is required then, even before running the checks
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument() // even then it is not there until the checks have run
+      await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()) // nothing is required then
     })
 
     it.each<[string, number, Partial<DeploymentCheckResult>, Partial<DeploymentCheckResult>, RegExp]>([
@@ -1691,7 +1720,7 @@ describe('ImportDeploymentPage', () => {
       mockedApi.validateDeployment.mockResolvedValue({ checked_count: 2, ...SD_OK, out_of_range: [], ...failing })
       await goToPostvalidation()
       await chooseDeploymentStrictness(index, 'Must pass')
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument() // not run yet: the Continue of the page is there once the checks have run
 
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await screen.findByText(message)
@@ -1869,7 +1898,7 @@ describe('ImportDeploymentPage', () => {
       mockedApi.validateImages.mockResolvedValue({ checked_count: 2, corrupted: [] })
       await goToValidateStep()
       await chooseStrictness(0, 'Must pass') // Corrupted images
-      expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled() // not run yet
+      expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument() // not run yet: the Continue of the page is there once the checks have run
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
 
@@ -1888,7 +1917,7 @@ describe('ImportDeploymentPage', () => {
 
       mockedApi.getSettings.mockResolvedValue(settings({ duplicates: false }))
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
 
       await waitFor(() => expect(screen.queryByLabelText('Duplicate images (same content)')).not.toBeInTheDocument())
     })
@@ -2411,6 +2440,7 @@ describe('ImportDeploymentPage', () => {
     expect(await screen.findByLabelText('Folder')).toHaveValue('/home/me/DONA_01') // its folder was kept, and scanned
     await userEvent.click(screen.getByRole('button', { name: /Continue to the checks/ }))
     await screen.findByText('Choose the checks')
+    await runTheImageChecks()
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
     await screen.findByText('Dates of the deployment')

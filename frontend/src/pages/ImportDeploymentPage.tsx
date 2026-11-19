@@ -3453,10 +3453,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           <div />
         )}
 
-        {!destDir && stepKey === 'images' && (
+        {!destDir && stepKey === 'images' && (imagesOpen === 3 || (imagesOpen === 2 && runnableImageChecks.length === 0)) && (      // only when the results are the step open — or there is nothing to run —: before, the step open has its own button; and not active while the checks run
           <div className="flex flex-col items-end gap-1">
-            {scan && !requiredImageChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={!scan || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
+            {scan && !validating && !requiredImageChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
+            <button type="button" className={btnPrimary} disabled={!scan || validating || !requiredImageChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
         {!destDir && stepKey === 'dates' && originOpen === 3 && (      // only when step 3, More details, is the one open: before it, the step open has its own Continue
@@ -3468,10 +3468,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             </button>
           </div>
         )}
-        {!destDir && stepKey === 'checks' && (
+        {!destDir && stepKey === 'checks' && (checksOpen === 2 || runnableDeploymentChecks.length === 0) && (      // likewise: the results are open, or there is nothing to run
           <div className="flex flex-col items-end gap-1">
-            {!requiredDeploymentChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
-            <button type="button" className={btnPrimary} disabled={!requiredDeploymentChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
+            {!checkingDeployment && !requiredDeploymentChecksOk && <p className="text-xs text-amber-600 dark:text-amber-400">Run the checks and resolve the ones set to Must pass to continue.</p>}
+            <button type="button" className={btnPrimary} disabled={checkingDeployment || !requiredDeploymentChecksOk} onClick={() => setStep((s) => s + 1)}>Continue<span aria-hidden="true"> →</span></button>
           </div>
         )}
       </div>
