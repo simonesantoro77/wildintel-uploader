@@ -959,6 +959,20 @@ describe('SettingsPage', () => {
       expect(await created[0].text()).toBe('username,name,affiliation,email,status\r\nana,Ana Pérez,University of Huelva,ana@uhu.es,active\r\nluis,Luis,,,active\r\n')
     })
 
+    it('has, in More, a CSV template with the columns that Import CSV reads and no rows — also when there are no trappers', async () => {
+      const created: Blob[] = []
+      URL.createObjectURL = vi.fn((b: Blob) => { created.push(b); return 'blob:x' })
+      URL.revokeObjectURL = vi.fn()
+      await open()                                                                       // none: Export CSV is not there to use, the template is
+
+      await userEvent.click(screen.getByRole('button', { name: 'More' }))
+      expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Import CSV', 'Export CSV', 'CSV template'])
+      await userEvent.click(screen.getByRole('menuitem', { name: 'CSV template' }))
+
+      expect(await created[0].text()).toBe('username,name,affiliation,email,status\r\n')
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()                          // the menu shuts
+    })
+
     it('has nothing to export when there are no trappers', async () => {
       await open()
 

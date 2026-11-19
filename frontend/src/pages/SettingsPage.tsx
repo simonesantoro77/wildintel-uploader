@@ -699,8 +699,10 @@ function ItemCard({ icon, plain = false, dim = false, title, badges = [], subtit
 }
 
 /** The line over a list of entities: its name and how many there are, and to import from Trapper, from or to a CSV file (under More), or add one. */
-function EntityHeader({ heading, count, noun, onFile, onExport, exportDisabled, onTrapper, onAdd, addDisabled }: {
+function EntityHeader({ heading, count, noun, onFile, onExport, onTemplate, exportDisabled, onTrapper, onAdd, addDisabled }: {
   heading: string; count: number; noun: string; onFile: (file: File | undefined) => void; onExport: () => void; exportDisabled: boolean
+  /** Downloads the CSV template: the columns that Import CSV reads, with no rows. */
+  onTemplate: () => void
   /** Without it there is no button to import from Trapper. */
   onTrapper?: () => void; onAdd: () => void; addDisabled?: boolean
 }) {
@@ -721,6 +723,8 @@ function EntityHeader({ heading, count, noun, onFile, onExport, exportDisabled, 
                       onMouseDown={(e) => e.preventDefault()} onClick={() => { input.current?.click(); setMenu(false) }}>Import CSV</button>
               <button type="button" role="menuitem" disabled={exportDisabled} className="block w-full text-left px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40"
                       onMouseDown={(e) => e.preventDefault()} onClick={() => { onExport(); setMenu(false) }}>Export CSV</button>
+              <button type="button" role="menuitem" className="block w-full text-left px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                      onMouseDown={(e) => e.preventDefault()} onClick={() => { onTemplate(); setMenu(false) }}>CSV template</button>
             </div>
           )}
           <input ref={input} type="file" accept=".csv,text/csv" className="sr-only" aria-label={`Import ${heading} from a CSV file`} disabled={addDisabled} tabIndex={-1}
@@ -1262,7 +1266,8 @@ function ItemsEditor<T extends object>({ same, caseSensitive = false, heading, n
     <div>
       <EntityHeader
         heading={heading} count={items.length} noun={noun} onFile={(f) => void importFile(f)} exportDisabled={items.length === 0}
-        onExport={() => download(`${fileName}.csv`, itemsToCsv(items, fields))} onAdd={() => setEditing({ index: null, item: blank })}
+        onExport={() => download(`${fileName}.csv`, itemsToCsv(items, fields))} onTemplate={() => download(`${fileName}_template.csv`, itemsToCsv<T>([], fields))}
+        onAdd={() => setEditing({ index: null, item: blank })}
       />
       {imported && (
         <div role="status" className="mb-3 text-sm">
@@ -1549,6 +1554,7 @@ function ProjectsTab({ projects, onChanged, onDetail, owned, openItem }: {
       <EntityHeader
         heading="Research projects" count={projects.length} noun="research project" onFile={(f) => void importFile(f)} exportDisabled={projects.length === 0} onTrapper={() => setTrapper(true)}
         onExport={() => download('research_projects.csv', itemsToCsv<ProjectDraft>(projects.map((p) => ({ acronym: p.acronym, name: p.name, description: p.description, keywords: p.keywords, status: p.status ?? 'active' })) as ProjectDraft[], PROJECT_FIELDS))}
+        onTemplate={() => download('research_projects_template.csv', itemsToCsv<ProjectDraft>([], PROJECT_FIELDS))}
         onAdd={() => setAdding({ ...BLANK_PROJECT })}
       />
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -1687,6 +1693,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
       <EntityHeader
         heading={`Locations of ${project.acronym}`} count={locations.length} noun="location" onFile={(f) => void importFile(f)} exportDisabled={locations.length === 0} onTrapper={() => setTrapper(true)}
         onExport={() => download(`${project.acronym}_locations.csv`, itemsToCsv(locations.map(locationDraft), LOCATION_FIELDS))}
+        onTemplate={() => download(`${project.acronym}_locations_template.csv`, itemsToCsv<LocationDraft>([], LOCATION_FIELDS))}
         onAdd={() => setEditing({ item: { ...BLANK_LOCATION, in_service: today() }, isNew: true })}
       />
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
