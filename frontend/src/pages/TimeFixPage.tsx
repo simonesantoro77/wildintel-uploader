@@ -221,7 +221,7 @@ export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
             <label className={labelClass} htmlFor="tf-revision">Revision</label>
             <Combobox id="tf-revision" options={revisions.map((r) => ({ value: r, label: r }))} value={revision}
                       onChange={(v) => { setRevision(v); setVisitId(''); setTimeline(null) }} disabled={busy || !projectId}
-                      placeholder={!projectId ? 'No default research project' : !revisions.length ? 'No closed visits' : 'Select…'} clearLabel="Clear revision" />
+                      placeholder={!projectId ? 'No default research project' : !revisions.length ? 'No collected visits' : 'Select…'} clearLabel="Clear revision" />
           </div>
           <div>
             <label className={labelClass} htmlFor="tf-visit">Visit that left the camera</label>
@@ -406,7 +406,7 @@ export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
                   <label className={labelClass} htmlFor="tf-ref-time">Was really taken at (cameras&rsquo; clock)</label>
                   <input id="tf-ref-time" type="datetime-local" step={1} className={`${inputClass} w-full`} value={refTime} onChange={(e) => setRefTime(e.target.value)} />
                 </div>
-                <p className={`${hintClass} sm:col-span-2`}>For instance the photo of the field team at the visit, whose real time you know.</p>
+                <p className={`${hintClass} sm:col-span-2`}>For instance the image of the field team at the visit, whose real time you know.</p>
               </div>
             )}
             <input className={`${inputClass} w-full`} placeholder="Why (written down with the fix)" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Why the dates are shifted" />
@@ -464,7 +464,7 @@ export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
             <p>Pick the run of images — <em>From image</em> and <em>To image</em>, up to the last one if none is said — and how far to move them:</p>
             <ul className="mt-1.5 list-disc space-y-1 pl-5">
               <li><strong>By an offset</strong>: forward or back, in days, hours, minutes and seconds.</li>
-              <li><strong>From an image whose real time I know</strong>: say one image and the time it was really taken (a photo of the field team, for one), and the shift is worked out from it.</li>
+              <li><strong>From an image whose real time I know</strong>: say one image and the time it was really taken (a image of the field team, for one), and the shift is worked out from it.</li>
             </ul>
             <p className="mt-1.5">Write <em>why</em>: it is kept with the fix.</p>
           </HelpCard>

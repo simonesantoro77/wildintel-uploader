@@ -477,7 +477,7 @@ class VisitRecord(BaseModel):
     def _no_photos_on_a_full_card(self):
         # with the card full its photos are not counted: their number is not given
         if self.card_status == "CardFull" and self.num_photos is not None:
-            raise ValueError("The photos on a full card are not counted: leave their number out.")
+            raise ValueError("The images on a full card are not counted: leave their number out.")
         return self
 
     @model_validator(mode="after")

@@ -41,7 +41,7 @@ function StateBadge({ state, repairing }: { state: RepairState | undefined; repa
   if (repairing) return <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"><SmallSpinner />Repairing…</span>
   const [text, tone] = !state ? ['Not checked', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400']
     : state.status === 'valid' ? [mark('success', 'Valid'), 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300']
-    : state.status === 'synced' ? ['From Trapper', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300']
+    : state.status === 'synced' ? ['From TRAPPER', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300']
     : state.status === 'unsealed' ? [mark('warning', 'Not sealed'), 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300']
     : [mark('warning', 'Not valid'), 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300']
   return <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{text}</span>

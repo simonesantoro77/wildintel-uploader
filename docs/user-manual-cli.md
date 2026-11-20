@@ -1,7 +1,7 @@
 # WildINTEL Uploader — User Manual (command line)
 
 The `wildintel-uploader` command does part of what the [web app](user-manual-web.md) does, from a
-terminal: test the connection to Trapper, find its ids, change the settings, and import a
+terminal: test the connection to TRAPPER, find its ids, change the settings, and import a
 deployment.
 
 The command line and the web app are two faces of one application: they share **the same
@@ -13,8 +13,8 @@ they are on your machine.
 !!! warning "The web app does more"
     The command line is the app's first, simpler flow. It **does not** run the validation and
     postvalidation checks, preprocess the images (rename, resize, metadata), seal the deployment,
-    import a session, upload the deployment's images, or sync collections. For anything beyond
-    a quick import into Trapper, use the [web app](user-manual-web.md).
+    import a collection, upload the deployment's images, or sync collections. For anything beyond
+    a quick import into TRAPPER, use the [web app](user-manual-web.md).
 
 ---
 
@@ -58,7 +58,7 @@ Every command has its `--help`: `wildintel-uploader import-deployment --help`.
 
 ## 2. Getting started
 
-Tell it where Trapper is and who you are — once. The values are saved in `settings.toml`, shared
+Tell it where TRAPPER is and who you are — once. The values are saved in `settings.toml`, shared
 with the web app:
 
 <div class="termy">
@@ -78,7 +78,7 @@ $ wildintel-uploader test-connection
 
 </div>
 
-The Trapper username is the **email** of your account — Trapper's import form only accepts that.
+The TRAPPER username is the **email** of your account — its import form only accepts that.
 
 ## 3. Settings
 
@@ -174,7 +174,7 @@ Locations
 
 </div>
 
-`--rp` is short for `--research-project`. A value that Trapper doesn't have shows as `—`.
+`--rp` is short for `--research-project`. A value that TRAPPER doesn't have shows as `—`.
 
 ## 5. Importing a deployment
 
@@ -224,7 +224,7 @@ Proceed? [Y/n]: y
 What it asks, in order:
 
 1. **Research project**, **classification project** (optional — pick *(none)*) and **location**,
-   from your Trapper account.
+   from your TRAPPER account.
 2. **Source images folder** — it reports how many files and images it found, then reads their
    capture dates and camera, and reports the date range and any warnings.
 3. **Revision number** — the deployment id (`R0003-DONA_01`) is built from it and the location.
@@ -237,7 +237,7 @@ What it asks, in order:
 
 Then the images are **copied** into the collections folder —
 `collections/<research project>/<R0003>/<deployment id>` — with `deployment.json` and the
-collection's own metadata beside them, and the deployment is **registered in Trapper**. The fields
+collection's own metadata beside them, and the deployment is **registered in TRAPPER**. The fields
 are validated as in the web app: dates in order, coordinates in range, height or depth but not
 both.
 
@@ -256,7 +256,7 @@ error, printed as `✘  …` on the standard error.
 |---|---|
 | `wildintel-uploader --version` | Shows the version. |
 | `wildintel-uploader -v …` | Any command, showing the log's messages as it works (otherwise only warnings). |
-| `test-connection` (`tc`) | Tests the connection to Trapper with the account in the settings. |
+| `test-connection` (`tc`) | Tests the connection to TRAPPER with the account in the settings. |
 | `config show` | Shows every setting. |
 | `config path` | Where the settings, the log and the data are. |
 | `config set KEY [VALUE]` | Changes one setting; asks for the value if it's left out. |
@@ -270,7 +270,7 @@ error, printed as `✘  …` on the standard error.
 ## 7. Troubleshooting
 
 **`✘  Missing Trapper username, password — …`**
-:   A Trapper setting is missing — it names which. Set the URL, the username and the password as in
+:   A TRAPPER setting is missing — it names which. Set the URL, the username and the password as in
     [Getting started](#2-getting-started).
 
 **`✘  Incorrect Trapper username or password.`**
@@ -284,10 +284,10 @@ error, printed as `✘  …` on the standard error.
 
 **`✘  Nothing to choose from.`**
 :   The account sees no research project, or the research project has no location. Create them in
-    Trapper first, or check the account's permissions.
+    TRAPPER first, or check the account's permissions.
 
-**A deployment was copied but Trapper refused it**
-:   Trapper refuses a deployment that already exists with that id. What was copied isn't undone: it
+**A deployment was copied but TRAPPER refused it**
+:   TRAPPER refuses a deployment that already exists with that id. What was copied isn't undone: it
     is in the collections folder, and importing the same revision again would be refused locally
     too — choose another revision or move the folder away.
 

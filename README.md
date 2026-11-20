@@ -2,34 +2,34 @@
 
 ![License](https://img.shields.io/badge/license-GPLv3-blue.svg)
 [![WildINTEL](https://img.shields.io/badge/WildINTEL-v1.0-blue)](https://wildintel.eu/)
-[![Trapper](https://img.shields.io/badge/Trapper-Server-green)](https://gitlab.com/trapper-project/trapper)
+[![TRAPPER](https://img.shields.io/badge/TRAPPER-Server-green)](https://gitlab.com/trapper-project/trapper)
 
 <hr>
 
-## Web tool to keep the field work of WildINTEL camera traps and upload its deployments to Trapper
+## Web tool to keep the field work of WildINTEL camera traps and upload its deployments to TRAPPER
 
 **wildintel-uploader** is an open-source application that takes the camera-trap work of the
-[WildINTEL](https://wildintel.eu/) project from the field to [Trapper](https://gitlab.com/trapper-project/trapper).
+[WildINTEL](https://wildintel.eu/) project from the field to [TRAPPER](https://gitlab.com/trapper-project/trapper).
 It keeps the **visits** to the cameras — who went, when and what was done —, and from the visits it works out the
 **deployments** of each revision: a camera is left with a card in a visit and its card is collected in the next one.
 
-Each deployment is then imported from a local folder of images (copied off the camera's memory card, which is never
+Each deployment is then imported from a local folder of images (copied off the camera's SD card, which is never
 touched): the images are validated, the details of the deployment are filled in from the visits, and the images are
 organized renamed, resized and tagged with authorship and license metadata. The deployments are finally uploaded to
-Trapper — creating the location and the deployment there if they are missing —, with a dry run first.
+TRAPPER — creating the location and the deployment there if they are missing —, with a dry run first.
 
 <table>
   <tr>
     <td align="center"><img src="docs/img/screenshots/welcome.png" alt="Welcome screen" width="100%"></td>
     <td align="center"><img src="docs/img/screenshots/visit-book.png" alt="Visit dashboard" width="100%"></td>
     <td align="center"><img src="docs/img/screenshots/deployments-status.png" alt="Deployments dashboard" width="100%"></td>
-    <td align="center"><img src="docs/img/screenshots/upload.png" alt="Upload to Trapper" width="100%"></td>
+    <td align="center"><img src="docs/img/screenshots/upload.png" alt="Upload to TRAPPER" width="100%"></td>
   </tr>
   <tr>
     <td align="center">Welcome screen</td>
     <td align="center">Visit dashboard</td>
     <td align="center">Deployments dashboard</td>
-    <td align="center">Upload to Trapper</td>
+    <td align="center">Upload to TRAPPER</td>
   </tr>
 </table>
 
@@ -47,6 +47,11 @@ Or, once packaged, download the executable for your platform from the
 [releases page](https://github.com/wildintelproject/wildintel-uploader/releases) — no
 installation needed.
 
+On the first launch, choose **Get started** and complete **Initial setup**: enter the research project's
+acronym and name, then optionally add its trappers, roles, sites, cameras and SD cards. Review and
+create the project; you can add or change the remaining details later in Settings. See the
+[web manual](docs/user-manual-web.md#initial-setup) for the next steps.
+
 ## ✨ Features
 
 **Field work**
@@ -60,20 +65,20 @@ breaks any of these controls:
 - a site is visited twice in a revision, a visit is not after the last one to its site, or a revision is out of order;
 - a revision starts before the one before it is finished (every location that is not archived has to have its visit), or is added to once it is closed;
 - the first visit to a site is not an Installation;
-- what its actions ask is missing: the camera and the card an Installation leaves, the photos a Revision or a Desinstallation collected (not when the card was full);
+- what its actions ask is missing: the camera and the card an Installation leaves, the images a Revision or a Desinstallation collected (not when the card was full);
 - the camera is not the one at the site, is put up where it already is, or is at another site; the camera or the SD card does not exist in the research project; the person who went is not in the settings;
 - the SD card left is archived, is the one the visit collects, is in the camera of another site, or was collected in the same revision;
 - a visit comes after the site was archived, or an archiving visit leaves a camera up.
 
-And it warns, keeping the visit, of what is only odd: a Revision with no photos, a camera or a card at two sites in a revision, a visit whose GPS is more than a kilometre from its site. What an unknown revision hides —
+And it warns, keeping the visit, of what is only odd: a Revision with no images, a camera or a card at two sites in a revision, a visit whose GPS is more than a kilometre from its site. What an unknown revision hides —
 one before the first visit kept to a site — is not checked, and a later visit takes its place.
 
-- Register visits by hand, or read them from a CSV file — with the columns matched by hand — or from the CSV of a WildINTEL Epicollect5 project, creating the locations, cameras and SD cards that do not exist (a *New site* makes its site on the spot)
+- Register the visits by hand, or read them from a CSV file — with the columns matched by hand — or from the CSV of a WildINTEL Epicollect5 project, creating the locations, cameras and SD cards that do not exist (a *New site* makes its site on the spot)
 - Visit dashboard by revision and state — planned, deployed, collected, stolen, not visited, unknown —, with a panel for each visit and the deployment it gives; the deployments are worked out from the visits
 
 **Deployments**
 
-The images go through a series of **quality controls** before anything is copied, to avoid the errors that a deployment carries from the field into Trapper. Each control can be run or not, and a required
+The images go through a series of **quality controls** before anything is copied, to avoid the errors that a deployment carries from the field into TRAPPER. Each control can be run or not, and a required
 one that does not pass stops the import:
 
 - *validation*, over the images alone: corrupted images, the shooting order against the order of the file names, the folder structure, one camera for all the images, the required EXIF fields and duplicates;
@@ -83,17 +88,17 @@ one that does not pass stops the import:
 The images are then **modified** in the copy kept in the collections folder — the source is never touched: the dates are read from the EXIF as the camera's local time and converted to UTC, the
 images are renamed after the deployment and resized, and **authorship metadata** — creator, owner, publisher, rights, license and coverage — is written into each one as XMP, with ExifTool. The deployment is sealed afterwards, so that any later change of an image or of its details is noticed.
 
-- Import a deployment, or a session of several at once, from a local folder, with the dates taken from the visits, the images or the timestamp log of the collection, and a form with the details Trapper's own deployment form asks
-- Dashboard of the deployments with their visit, card and images, and a browser of their photos; repair of the ones that are not valid any more
+- Import a deployment, or several at once, from a local folder, with the dates taken from the visits, the images or the timestamp log of the collection, and a form with the details TRAPPER's own deployment form asks
+- Dashboard of the deployments with their visit, card and images, and a browser of their images; repair of the ones that are not valid any more
 
-**Upload to Trapper**
+**Upload to TRAPPER**
 
-- Creates the location and the deployment in Trapper if they are missing and sends the images in zips, with a dry run and the progress of each deployment
+- Creates the location and the deployment in TRAPPER if they are missing and sends the images in zips, with a dry run and the progress of each deployment
 - Dashboard of the uploads by revision, with where each deployment is and what failed
 
 **General**
 
-- Utilities: sync the collections folder with what Trapper holds, backups that the browser downloads and their restoration, reports of every check and import
+- Utilities: sync the collections folder with what TRAPPER holds, backups that the browser downloads and their restoration, reports of every check and import
 - Settings for the entities of each research project — locations, cameras, SD cards and trappers — and for the checks
 - A guided web app and a smaller command line (`wucli`), on the same core and settings; a sibling of [wildintel-zooniverse](https://github.com/wildintelproject/wildintel-zooniverse), with the same architecture
 - One executable per platform, or a development mode with hot reload
@@ -114,7 +119,7 @@ images are renamed after the deployment and resized, and **authorship metadata**
 | Backend | [FastAPI](https://fastapi.tiangolo.com/) served by [Uvicorn](https://www.uvicorn.org/), [Pydantic](https://docs.pydantic.dev/) 2, [Dynaconf](https://www.dynaconf.com/) (settings), [HTTPX](https://www.python-httpx.org/) |
 | Command line | [Typer](https://typer.tiangolo.com/) and [Rich](https://rich.readthedocs.io/) |
 | Images and metadata | [Pillow](https://python-pillow.org/) (resize, fallback reader), [ExifTool](https://exiftool.org/) (camera id, XMP authorship) |
-| Integrations | WildINTEL's Trapper SDK (uploads to [Trapper](https://trapper-project.readthedocs.io/)), [pyepicollect](https://github.com/ybarge/pyEpiCollect) (Epicollect5 forms) |
+| Integrations | WildINTEL's Trapper SDK (uploads to [TRAPPER](https://trapper-project.readthedocs.io/)), [pyepicollect](https://github.com/ybarge/pyEpiCollect) (Epicollect5 forms) |
 | Frontend | [React](https://react.dev/) 19, [TypeScript](https://www.typescriptlang.org/), [Vite](https://vite.dev/), [Tailwind CSS](https://tailwindcss.com/) 4, [Leaflet](https://leafletjs.com/) (maps) |
 | Testing and quality | [pytest](https://pytest.org/), [Vitest](https://vitest.dev/) with Testing Library, [Playwright](https://playwright.dev/python/) (screenshots), [oxlint](https://oxc.rs/docs/guide/usage/linter) |
 | Packaging and docs | [PyInstaller](https://pyinstaller.org/) (executables), [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) with mike, GitHub Actions |

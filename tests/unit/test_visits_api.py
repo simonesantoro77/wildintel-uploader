@@ -436,7 +436,7 @@ def test_the_photos_of_a_revision_are_not_required_when_the_card_was_full(tmp_pa
         full_no_batteries = _save({**VISIT, "num_photos": None, "card_batteries_ok": "CarFullNoBatteries", "session": "R0014", "date": "2026-10-04"})
         written = _save({**VISIT, "session": "R0015", "num_photos": 12, "card_batteries_ok": "CarFull", "date": "2026-10-05"})   # the photos of a full card are not counted
 
-    assert counted.status_code == 422 and "photos" in counted.json()["detail"]
+    assert counted.status_code == 422 and "images" in counted.json()["detail"]
     assert full.status_code == full_no_batteries.status_code == 200                           # not asked
     assert written.status_code == 422 and "full card" in str(written.json()["detail"])             # and not given
 
@@ -451,7 +451,7 @@ def test_a_visit_by_hand_lacks_nothing_its_actions_ask(tmp_path: Path):
 
     assert "The camera is required for Installation" in no_camera.json()["detail"]
     assert "The SD card left in the camera is required for Installation" in no_card.json()["detail"]
-    assert "The photos on the card collected is required for Revision" in no_photos.json()["detail"]
+    assert "The number of images on the card collected is required for Revision" in no_photos.json()["detail"]
     assert complete.status_code == 200
 
 
@@ -484,7 +484,7 @@ def test_a_csv_refuses_the_visits_that_break_the_rules_of_a_visit_as_the_form_do
 
     assert body["saved"] == 1 and [p["row"] for p in body["problems"]] == [3, 4]          # what the form refuses, the file refuses
     assert "Camera P800 is installed at DONA_01" in body["problems"][0]["message"]
-    assert "photos on the card collected is required" in body["problems"][1]["message"]
+    assert "images on the card collected is required" in body["problems"][1]["message"]
 
 
 def test_a_site_that_is_not_a_location_comes_back_as_new_or_misnamed(tmp_path: Path):
@@ -644,7 +644,7 @@ def test_the_session_numbers_that_jump_are_warned_of_and_the_sites_not_visited_a
             "2024-11-05T10:00:00.000Z,Ana,R0005,2024-11-05,DONA_02,P900,Revision,50,D8,10:00\n")   # R0004 is unknown for both: R0005 can start
     result = _parse(text, kept=kept, sites=sites)
 
-    assert "Session numbers jump from R0003 to R0005." in result["warnings"]
+    assert "Revision numbers jump from R0003 to R0005." in result["warnings"]
     text = EPI_HEADER + "2024-10-12T09:00:00.000Z,Ana,R0004,2024-10-12,DONA_01,P800,Revision,50,C7,09:00\n"
     assert any(n.startswith("The revision R0004 has no visit to DONA_02, which was visited in R0003: the camera stays out in the field") for n in _parse(text, kept=kept, sites=sites)["notes"])
 

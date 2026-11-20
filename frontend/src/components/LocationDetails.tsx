@@ -19,7 +19,7 @@ function linesOf(l: LocalLocation): [string, ReactNode][] {
     ['Status', l.status && `${STATUS[l.status] ?? l.status}${l.status_date ? ` since ${formatDay(l.status_date)}` : ''}`],
     ['Note on the status', l.status_note],
     ['In production since', l.in_service && formatDay(l.in_service)],
-    ['From Trapper', l.trapper_pk != null && 'Yes'],
+    ['From TRAPPER', l.trapper_pk != null && 'Yes'],
   ]
   return lines.filter((x): x is [string, ReactNode] => x[1] !== null && x[1] !== undefined && x[1] !== false && x[1] !== '')
 }

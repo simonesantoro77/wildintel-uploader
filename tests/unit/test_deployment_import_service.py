@@ -1106,7 +1106,7 @@ def test_the_card_and_the_photos_are_those_the_visit_says(tmp_path: Path):
     result = _against(visit, tmp_path)
 
     assert result["sd_card"] == {"ok": True, "message": "The SD card is a13, the one the visit R0001 left in the camera."}
-    assert result["photo_count"] == {"ok": True, "message": "The folder has 2 photos, as the visit R0002 counted."}
+    assert result["photo_count"] == {"ok": True, "message": "The folder has 2 images, as the visit R0002 counted."}
 
 
 def test_another_card_and_missing_photos_fail(tmp_path: Path):
@@ -1115,13 +1115,13 @@ def test_another_card_and_missing_photos_fail(tmp_path: Path):
     result = _against(visit, tmp_path)
 
     assert result["sd_card"] == {"ok": False, "message": "You said the images come from the card B2, but the visit R0001 left A13 in the camera."}
-    assert result["photo_count"] == {"ok": False, "message": "The visit R0002 counted 1,900 photos on the card, and the folder has 2 photos — 1,898 photos missing."}
+    assert result["photo_count"] == {"ok": False, "message": "The visit R0002 counted 1,900 images on the card, and the folder has 2 images — 1,898 images missing."}
 
 
 def test_more_photos_than_counted_say_so(tmp_path: Path):
     result = _against({"collected_session": "R0002", "counted_photos": 1}, tmp_path)
 
-    assert result["photo_count"]["ok"] is False and result["photo_count"]["message"].endswith("— 1 photo more.")
+    assert result["photo_count"]["ok"] is False and result["photo_count"]["message"].endswith("— 1 image more.")
 
 
 def test_what_nobody_said_cannot_be_checked_and_passes(tmp_path: Path):
@@ -1131,7 +1131,7 @@ def test_what_nobody_said_cannot_be_checked_and_passes(tmp_path: Path):
 
     assert nothing["sd_card"]["ok"] and nothing["photo_count"]["ok"]
     assert no_card["sd_card"]["message"] == "No SD card was said for these images, so the card cannot be checked."
-    assert no_count["photo_count"]["message"] == "The visit R0002 did not count the photos on the card, so the number of photos cannot be checked."
+    assert no_count["photo_count"]["message"] == "The visit R0002 did not count the images on the card, so the number of images cannot be checked."
     assert all(r["ok"] for r in (no_card["sd_card"], no_count["photo_count"]))
 
 

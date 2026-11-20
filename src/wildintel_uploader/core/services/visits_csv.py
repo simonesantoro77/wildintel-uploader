@@ -64,12 +64,12 @@ FIELDS: tuple[tuple[str, str, bool], ...] = (
     ("time", "Time (HH:MM[:SS])", False),
     ("when", "Date and time in one column (YYYY-MM-DD HH:MM:SS)", False),
     ("created_at", "Created at (UTC, as Epicollect writes it)", False),
-    ("session", "Session (R0013, or its number)", False),
+    ("session", "Revision (R0013, or its number)", False),
     ("trappers", "Who went", False),
     ("camera_status", "Status of the camera", False),
     ("battery_status", "Batteries (OK, NoBatteries)", False),
     ("card_status", "SD card (OK, CardFull)", False),
-    ("num_photos", "Photos on the card collected", False),
+    ("num_photos", "Images on the card collected", False),
     ("sd", "SD card left", False),
     ("date_time_ok", "Date and time of the camera OK", False),
     ("camera_id", "Camera id", False),
@@ -144,7 +144,7 @@ ERROR_LABELS: dict[str, str] = {
     "card_status_invalid": "SD card status not valid",
     "yes_no_invalid": "Not yes or no",
     "camera_status_invalid": "Status of the camera not valid",
-    "session_invalid": "Session not valid",
+    "session_invalid": "Revision not valid",
     "revision_not_finished": "Revision started before the one before is finished",
     "revision_closed": "Revision closed",
     "revision_order": "Revision out of order",
@@ -249,7 +249,7 @@ class CsvVisit(BaseModel):
     def _session(cls, value):
         m = re.search(r"\d+", str(value))
         if not m:
-            raise _custom("session_invalid", "'{value}' is not a session (R0013, or its number).", value)
+            raise _custom("session_invalid", "'{value}' is not a revision (R0013, or its number).", value)
         return f"R{int(m.group(0)):04d}"
 
     @field_validator("card_batteries_ok", mode="before")
@@ -699,7 +699,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     if options.get("photos_not_counted"):
         uncounted = [v for v in visits if {"Revision", "Desinstallation"} & set(v["actions"]) and v.get("num_photos") is None and v.get("card_status") != "CardFull" and str(v.get("camera_status") or "").lower() not in visit_rules.NOT_REVISED]
         if uncounted:
-            notes.append(f"{len(uncounted)} {'visit has' if len(uncounted) == 1 else 'visits have'} no count of the photos on the card, kept as the file says: the photos of their deployments are not checked against a count.")
+            notes.append(f"{len(uncounted)} {'visit has' if len(uncounted) == 1 else 'visits have'} no count of the images on the card, kept as the file says: the images of their deployments are not checked against a count.")
     took = sorted(n for n in took_location_coordinates if n in row_of.values() and any(row_of.get(id(v)) == n for v in visits))
     if took:
         shown = ", ".join(str(n) for n in took[:8]) + (f" and {len(took) - 8} more" if len(took) > 8 else "")

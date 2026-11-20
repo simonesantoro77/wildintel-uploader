@@ -211,7 +211,7 @@ def sync_stream(
         created["research_project"].append(project_id)
         yield say(f"Research project {project_id}: created.")
 
-    yield say("Reading the locations from Trapper…")
+    yield say("Reading the locations from TRAPPER…")
     locations = trapper_service.list_locations(*credentials, research_project["pk"])
     known = {l.get("location_id", "").lower() for l in local_folder_service.list_locations(root, project_id)}
     by_id = {}
@@ -226,7 +226,7 @@ def sync_stream(
         created["locations"].append(location["location_id"].upper())
     yield say(f"Locations: {len(created['locations'])} created, {len(kept['locations'])} already there.")
 
-    yield say("Reading the deployments and collections from Trapper…")
+    yield say("Reading the deployments and collections from TRAPPER…")
     deployments = trapper_service.list_deployments(*credentials, research_project["pk"])
     names = collection_names(credentials, classification_project_pk)
     if only is not None:
@@ -260,14 +260,14 @@ def sync_stream(
                 except ValidationError as exc:  # one deployment Trapper holds badly doesn't stop the rest
                     error = "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors())
                     failed.append({"deployment_id": deployment_id, "error": error})
-                    yield say(f"{prefix}: skipped, Trapper holds it with invalid values ({error}).")
+                    yield say(f"{prefix}: skipped, TRAPPER holds it with invalid values ({error}).")
                     continue
                 local_folder_service.write_deployment_metadata(target, fields.model_dump())
                 created["deployments"].append(deployment_id)
             if (target / local_folder_service.IMAGES_FILE).is_file():
                 kept["images"].append(deployment_id)
             else:
-                yield say(f"{prefix}: reading its images from Trapper…")
+                yield say(f"{prefix}: reading its images from TRAPPER…")
                 location = by_id.get((deployment.get("location_id") or "").lower(), {})
                 resources = trapper_service.list_deployment_resources(*credentials, deployment["pk"])
                 entries = image_entries(resources, location.get("timezone"), bool(location.get("ignore_dst")))

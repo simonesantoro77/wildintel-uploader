@@ -43,7 +43,7 @@ describe('LocationPicker imports from Trapper', () => {
     render(<LocationPicker researchProjectId="DONA" trapperPk={2} value="" onSelect={onSelect} />)
 
     await user.click(await screen.findByRole('button', { name: /Add a new location/ }))
-    await user.click(screen.getByRole('button', { name: /From Trapper/ }))
+    await user.click(screen.getByRole('button', { name: /From TRAPPER/ }))
     for (const id of ['dona_01', 'DONA_02', 'DONA_03', 'DONA_04']) {
       await user.click(await screen.findByRole('checkbox', { name: new RegExp(id) }))
     }
@@ -68,7 +68,7 @@ describe('LocationPicker imports from Trapper', () => {
     render(<LocationPicker researchProjectId="DONA" trapperPk={2} value="" onSelect={onSelect} />)
 
     await user.click(await screen.findByRole('button', { name: /Add a new location/ }))
-    await user.click(screen.getByRole('button', { name: /From Trapper/ }))
+    await user.click(screen.getByRole('button', { name: /From TRAPPER/ }))
     await user.click(await screen.findByRole('checkbox', { name: /DONA_02/ }))
     await user.click(screen.getByRole('button', { name: 'Add 1 location' }))
 

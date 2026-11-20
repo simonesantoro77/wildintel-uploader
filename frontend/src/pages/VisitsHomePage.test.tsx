@@ -36,7 +36,7 @@ describe('VisitsHomePage', () => {
 
   it('goes from the visit dashboard to Register visits with its button', async () => {
     render(<VisitsHomePage onBack={vi.fn()} startBook />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Register visits' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Register the visits' }))
 
     expect(await screen.findByText('Where do the visits come from?')).toBeInTheDocument()
   })
@@ -51,7 +51,7 @@ describe('VisitsHomePage', () => {
     const onCreateDeployments = vi.fn(); const onImportImages = vi.fn()
     render(<VisitsHomePage onBack={vi.fn()} startBook onCreateDeployments={onCreateDeployments} onImportImages={onImportImages} />)
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Select the visit R0001 to TATR_0001' }))
-    await userEvent.click(await screen.findByRole('button', { name: /Create deployments/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Import the images/ }))
 
     expect(onImportImages).toHaveBeenCalledTimes(1)       // one visit: Import deployment, as the button of its row does
     expect(onCreateDeployments).not.toHaveBeenCalled()
@@ -60,7 +60,7 @@ describe('VisitsHomePage', () => {
   it('goes back to the menu from each, and its breadcrumb is Menu › the page', async () => {
     const onBack = vi.fn()
     const { unmount } = renderWithHeader(<VisitsHomePage onBack={onBack} />)
-    expect(await screen.findByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Register visits')
+    expect(await screen.findByRole('navigation', { name: 'You are here' })).toHaveTextContent('Menu›Register the visits')
     await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
     expect(onBack).toHaveBeenCalledTimes(1)
     unmount()

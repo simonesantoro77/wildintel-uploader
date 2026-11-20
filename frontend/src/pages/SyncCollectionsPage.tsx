@@ -54,7 +54,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
   useEffect(() => {
     api.trapperResearchProjects({})
       .then(({ results }) => setProjects(results))
-      .catch((e) => setError(message(e, 'The research projects could not be read from Trapper.')))
+      .catch((e) => setError(message(e, 'The research projects could not be read from TRAPPER.')))
   }, [])
 
   async function chooseProject(pk: string) {
@@ -63,7 +63,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
     try {
       setClassifications((await api.trapperClassificationProjects({}, Number(pk))).results)
     } catch (e) {
-      setError(message(e, 'The classification projects could not be read from Trapper.'))
+      setError(message(e, 'The classification projects could not be read from TRAPPER.'))
     }
   }
 
@@ -74,7 +74,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
       const found = (await api.syncCollectionNames({}, Number(projectPk), Number(pk))).results
       setCollections(found)
     } catch (e) {
-      setError(message(e, 'The collections could not be read from Trapper.'))
+      setError(message(e, 'The collections could not be read from TRAPPER.'))
     }
   }
 
@@ -113,12 +113,12 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
   return (
     <div className={PAGE_CLASS}>
       <PageHeader icon={UTIL_ICONS.sync} title="Sync local collections" parent="Utilities" onParent={onBack}
-        description={<>The local folders are checked against what Trapper has for a classification project, and what is missing is created: the research project and its locations, the collection
+        description={<>The local folders are checked against what TRAPPER has for a classification project, and what is missing is created: the research project and its locations, the collection
         (with its timestamp log) and the chosen deployments. What is already there is left as it is. The images are only downloaded if you ask for it.</>} />
 
       <WizardStep n={1} title="Choose what to sync" status={started ? 'done' : 'open'} canEdit={!syncing} onEdit={startOver}
                   summary={collection && <>{projects.find((p) => String(p.pk) === projectPk)?.acronym ?? projectPk} › {classifications.find((c) => String(c.pk) === classificationPk)?.name} › {collection.name} · {chosenDeployments.size} {chosenDeployments.size === 1 ? 'deployment' : 'deployments'}</>}
-                  description="A classification project of Trapper, one of its collections, and the deployments to sync.">
+                  description="A classification project of TRAPPER, one of its collections, and the deployments to sync.">
         <div className="mb-4">
           <label className={labelClass} htmlFor="sync-research-project">Research project</label>
           <Combobox
@@ -192,9 +192,9 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
             <label className="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" className="mt-1" checked={downloadImages} disabled={syncing} onChange={(e) => setDownloadImages(e.target.checked)} />
               <span>
-                <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-200">Also download the images from Trapper</span>
+                <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-200">Also download the images from TRAPPER</span>
                 <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Each image goes into its deployment&rsquo;s folder, as Trapper holds it. A deployment can have thousands, so this can take a long time and a lot of disk space.
+                  Each image goes into its deployment&rsquo;s folder, as TRAPPER holds it. A deployment can have thousands, so this can take a long time and a lot of disk space.
                   Only the images in this classification project can be downloaded, and the ones already in the folder are kept. The deployments stay <em>synced</em>: read-only, not preprocessed.
                 </span>
               </span>
@@ -212,7 +212,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
       </WizardStep>
 
       <WizardStep n={2} title="Sync" status={step2Status} canEdit={false} onEdit={() => {}} expanded
-                  description="Creates in your collections folder what Trapper has and is missing here.">
+                  description="Creates in your collections folder what TRAPPER has and is missing here.">
         {progress.length > 0 && (
           <div ref={logRef} role="log" aria-label="Sync progress"
                className="mb-4 max-h-56 overflow-y-auto rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-3 py-2 text-xs font-mono text-zinc-600 dark:text-zinc-400 space-y-0.5">
@@ -240,7 +240,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
                 <p><strong>Images downloaded:</strong> {result.downloaded.images.toLocaleString('en-US')} ({formatMegabytes(result.downloaded.bytes)})</p>
                 {Object.keys(result.downloaded.not_held).length > 0 && (
                   <p className="text-amber-700 dark:text-amber-400 mt-1">
-                    Trapper lists images that this classification project does not hold, so they could not be downloaded:{' '}
+                    TRAPPER lists images that this classification project does not hold, so they could not be downloaded:{' '}
                     {Object.entries(result.downloaded.not_held).map(([id, names]) => `${id} (${names.length})`).join(', ')}.
                   </p>
                 )}
@@ -260,7 +260,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
             )}
             {result.failed.length > 0 && (
               <div className="text-sm text-red-600 dark:text-red-400 mt-3">
-                <p>{result.failed.length} deployment{result.failed.length === 1 ? '' : 's'} could not be created, as Trapper holds {result.failed.length === 1 ? 'it' : 'them'} with invalid values:</p>
+                <p>{result.failed.length} deployment{result.failed.length === 1 ? '' : 's'} could not be created, as TRAPPER holds {result.failed.length === 1 ? 'it' : 'them'} with invalid values:</p>
                 <ul className="list-disc ml-5">
                   {result.failed.map((f) => <li key={f.deployment_id}><span className="font-mono">{f.deployment_id}</span> — {f.error}</li>)}
                 </ul>

@@ -182,7 +182,7 @@ def test_a_deployment_synced_from_trapper_is_never_repaired(kept):
     lfs.write_images_file(dest, DEPLOYMENT_ID, [], source="trapper")
 
     assert rep.inspect(root, "DONA", "R0003", DEPLOYMENT_ID)["status"] == "synced"
-    with pytest.raises(rep.RepairError, match="synced from Trapper"):
+    with pytest.raises(rep.RepairError, match="synced from TRAPPER"):
         _repair(root)
 
 

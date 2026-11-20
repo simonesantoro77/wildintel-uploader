@@ -78,19 +78,19 @@ export function UploadingToTrapper({ items, target, startedAt, onStop }: {
       </div>
 
       <div className={`${panel} divide-y divide-zinc-200 dark:divide-zinc-700 overflow-hidden mb-4`}>
-        <Phase n={1} state={reachedSend ? 'done' : 'running'} title="Set up Trapper">
-          {reachedSend ? 'The research project, the locations and the deployments are ready in Trapper.' : 'Looking for what is already in Trapper and creating what is missing.'}
+        <Phase n={1} state={reachedSend ? 'done' : 'running'} title="Set up TRAPPER">
+          {reachedSend ? 'The research project, the locations and the deployments are ready in TRAPPER.' : 'Looking for what is already in TRAPPER and creating what is missing.'}
         </Phase>
         <Phase n={2} state={sendState} title="Send the images" right={sendState === 'running' && <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{Math.round(percent)}%</p>}>
-          {sendState === 'pending' ? 'Starts once Trapper is set up.' : (
+          {sendState === 'pending' ? 'Starts once TRAPPER is set up.' : (
             <>
               <p>{formatBytes(sentBytes)} of {formatBytes(totalBytes)}{speed ? ` · ${formatBytes(speed)}/s` : ''}{left ? ` · ${left}` : ''}</p>
               {sendState === 'running' && <div className="mt-2"><Bar percent={percent} label="Progress of the images sent" /></div>}
             </>
           )}
         </Phase>
-        <Phase n={3} state={processing ? 'running' : 'pending'} title="Trapper processes them">
-          Starts once the images are sent. It happens on Trapper’s side, so you don’t need to wait here.
+        <Phase n={3} state={processing ? 'running' : 'pending'} title="TRAPPER processes them">
+          Starts once the images are sent. It happens on TRAPPER’s side, so you don’t need to wait here.
         </Phase>
       </div>
 
@@ -111,9 +111,9 @@ export function UploadingToTrapper({ items, target, startedAt, onStop }: {
               <div className="flex-1 min-w-0">
                 <p className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</p>
                 {i.state === 'done' && <p className="text-xs text-zinc-500 dark:text-zinc-400">{count(i.images, 'image')} · {formatBytes(i.bytes)} sent</p>}
-                {i.state === 'working' && i.stage === 'setup' && <p className="text-xs text-zinc-500 dark:text-zinc-400">Setting it up in Trapper</p>}
+                {i.state === 'working' && i.stage === 'setup' && <p className="text-xs text-zinc-500 dark:text-zinc-400">Setting it up in TRAPPER</p>}
                 {i.state === 'working' && i.stage === 'pack' && <p className="text-xs text-zinc-500 dark:text-zinc-400">Packing the images</p>}
-                {i.state === 'working' && i.stage === 'process' && <p className="text-xs text-zinc-500 dark:text-zinc-400">Sent · waiting for Trapper to take them</p>}
+                {i.state === 'working' && i.stage === 'process' && <p className="text-xs text-zinc-500 dark:text-zinc-400">Sent · waiting for TRAPPER to take them</p>}
                 {i.state === 'working' && i.stage === 'send' && (
                   <>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{sentImages(i).toLocaleString('en-US')} of {i.images.toLocaleString('en-US')} images · {formatBytes(i.sentBytes)} of {formatBytes(i.bytes)}</p>
@@ -131,7 +131,7 @@ export function UploadingToTrapper({ items, target, startedAt, onStop }: {
         </ul>
       </div>
 
-      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">If you stop, what’s already in Trapper stays there.</p>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">If you stop, what’s already in TRAPPER stays there.</p>
       <div className="flex justify-end"><button type="button" className={btnOutline} onClick={onStop}>Stop</button></div>
     </div>
   )
@@ -173,7 +173,7 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
           <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-5 w-5" /></span>
           <div>
             <p className="font-semibold text-emerald-900 dark:text-emerald-100">Upload complete</p>
-            <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">All the images are in Trapper.</p>
+            <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">All the images are in TRAPPER.</p>
           </div>
         </div>
       ) : (
@@ -189,7 +189,7 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
 
       {sent.length > 0 && (
         <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">
-          <strong className="font-semibold">Trapper is now processing the images.</strong> It happens on Trapper’s side and can take a while for large deployments. You don’t need to stay here.
+          <strong className="font-semibold">TRAPPER is now processing the images.</strong> It happens on TRAPPER’s side and can take a while for large deployments. You don’t need to stay here.
         </div>
       )}
 
@@ -202,8 +202,8 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
         <Tile value={String(failed.length)} label="Deployments failed" tone={failed.length > 0 ? 'amber' : undefined} />
         <Tile value={sent.reduce((sum, i) => sum + i.images, 0).toLocaleString('en-US')} label="Images sent" />
         <Tile value={formatBytes(sent.reduce((sum, i) => sum + i.bytes, 0))} label="Total size" />
-        <Tile value={String(locationsCreated.size)} label="Locations created in Trapper" />
-        <Tile value={String(deploymentsCreated)} label="Deployments created in Trapper" />
+        <Tile value={String(locationsCreated.size)} label="Locations created in TRAPPER" />
+        <Tile value={String(deploymentsCreated)} label="Deployments created in TRAPPER" />
       </div>
 
       {sent.length > 0 && (
@@ -229,7 +229,7 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
                     <span className="block font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{i.id}</span>
                     <span className="block text-xs text-zinc-500 dark:text-zinc-400">{count(i.images, 'image')} · {formatBytes(i.bytes)} sent</span>
                   </span>
-                  <Pill tone="blue">Processing on Trapper</Pill>
+                  <Pill tone="blue">Processing on TRAPPER</Pill>
                   <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 shrink-0 fill-none stroke-current text-zinc-500 transition-transform ${open === i.id ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                 </button>
                 {open === i.id && (
@@ -251,7 +251,7 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
             ))}
           </ul>
 
-          <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">What was set up in Trapper</h4>
+          <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">What was set up in TRAPPER</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">Only what was missing was created.</p>
           <ul className={`${panel} divide-y divide-zinc-200 dark:divide-zinc-700 mb-5`}>
             {[
@@ -275,7 +275,7 @@ export function UploadedToTrapper({ collection, researchProject, items, startedA
       {/* what happens next is asked as it is when a visit or a deployment is added: the question, then the options — one of them the main one */}
       <div className="flex flex-wrap items-center gap-3" role="group" aria-label="What next">
         <p className="mr-auto text-sm text-zinc-600 dark:text-zinc-300">Do you want to upload more deployments?</p>
-        {collectionUrl && <a className={`${btnOutline} inline-flex items-center gap-2`} href={collectionUrl} target="_blank" rel="noreferrer">Open in Trapper<span aria-hidden="true">↗</span></a>}
+        {collectionUrl && <a className={`${btnOutline} inline-flex items-center gap-2`} href={collectionUrl} target="_blank" rel="noreferrer">Open in TRAPPER<span aria-hidden="true">↗</span></a>}
         <button type="button" className={btnPrimary} onClick={onMore}>Upload more deployments</button>
         {onBack && <button type="button" className={btnOutline} onClick={onBack}>Back to the start</button>}
       </div>

@@ -143,7 +143,7 @@ export default function EditVisitDialog({ projectId, visit, onClose, onSaved }: 
             <label className={label} htmlFor="ev-sd">SD card left</label>
             <Combobox id="ev-sd" options={cards.map((c) => ({ value: c.label, label: c.label }))} value={form.sd} onChange={(v) => set({ sd: v })} placeholder={entities ? 'Pick an SD card' : 'Reading the SD cards…'} clearLabel="Clear SD card" />
           </div>
-          {field('ev-photos', 'Photos on the card collected', 'photos', 'number', { min: 0, disabled: form.card === 'CardFull', placeholder: form.card === 'CardFull' ? 'Not counted: the card is full' : undefined })}
+          {field('ev-photos', 'Images on the card collected', 'photos', 'number', { min: 0, disabled: form.card === 'CardFull', placeholder: form.card === 'CardFull' ? 'Not counted: the card is full' : undefined })}
           {choice('ev-battery', 'Batteries', 'battery', BATTERY_CODES.map((c) => ({ value: c, label: c || 'Not said' })))}
           {choice('ev-card', 'SD card', 'card', CARD_CODES.map((c) => ({ value: c, label: c || 'Not said' })))}
           {choice('ev-status', 'Status of the camera', 'status', [...CAMERA_STATUSES.map((c) => ({ value: c, label: c || 'Not said' })),

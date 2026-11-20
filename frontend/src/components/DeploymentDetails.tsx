@@ -61,7 +61,7 @@ export default function DeploymentDetails({ deployment: d, fields, creation, upl
     <span className="flex flex-wrap items-center gap-2">
       <span className={`${pill} ${creation === 'created' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : creation === 'planned' ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'}`}>{creation === 'created' ? 'Created' : creation === 'planned' ? 'Planned' : 'Not created'}</span>
       <span className={`${pill} ${uploaded ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'}`}>{uploaded ? 'Uploaded' : 'Not uploaded'}</span>
-      {(d.card || d.photos_counted != null || d.card_full) && <span className="text-sm text-zinc-500 dark:text-zinc-400">{[d.card && `SD ${d.card}`, d.card_full ? 'Card full' : d.photos_counted != null && `${d.photos_counted} photos`].filter(Boolean).join(' · ')}</span>}
+      {(d.card || d.photos_counted != null || d.card_full) && <span className="text-sm text-zinc-500 dark:text-zinc-400">{[d.card && `SD ${d.card}`, d.card_full ? 'Card full' : d.photos_counted != null && `${d.photos_counted} images`].filter(Boolean).join(' · ')}</span>}
     </span>
   )
   return (
@@ -112,7 +112,7 @@ export default function DeploymentDetails({ deployment: d, fields, creation, upl
                   {present(feature) && <Field label="Feature type">{feature}</Field>}
                   {present(f.habitat) && <Field label="Habitat">{f.habitat}</Field>}
                   {present(f.bait_use) && <Field label="Bait use">{f.bait_use ? 'Yes' : 'No'}</Field>}
-                  {present(f.timestamp_issues) && <Field label="Photo dates may be wrong">{f.timestamp_issues ? 'Yes' : 'No'}</Field>}
+                  {present(f.timestamp_issues) && <Field label="Image dates may be wrong">{f.timestamp_issues ? 'Yes' : 'No'}</Field>}
                 </dl>
               </Card>
             )}

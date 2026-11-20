@@ -11,9 +11,9 @@ export type MenuDashboard = 'visits' | 'deployments' | 'uploads' | 'statistics'
 
 /** What the menu does: each is one click from the action. */
 const ACTIONS: { value: MenuAction; icon: string; title: string; subtitle: string; description: string }[] = [
-  { value: 'register', icon: 'visits', title: 'Register visits', subtitle: 'Record the visits to the camera traps', description: 'Who went, when, to which site and what was done. They can be registered one by one, or in batch mode from files.' },
-  { value: 'import', icon: 'deployment', title: 'Create deployments', subtitle: 'Import the images collected in a visit', description: 'Pick the closed visits whose images you have and create their deployments: one, several at once, or one after another.' },
-  { value: 'upload', icon: 'upload', title: 'Upload deployment', subtitle: 'Upload deployments to public repositories', description: 'Send a deployment kept on this computer to a repository, such as Trapper.' },
+  { value: 'register', icon: 'visits', title: 'Register the visits', subtitle: 'Record the visits to the camera traps', description: 'Who went, when, to which site and what was done. They can be registered one by one, or in batch mode from files.' },
+  { value: 'import', icon: 'deployment', title: 'Import the images', subtitle: 'Import the images collected in a visit', description: 'Pick the collected visits whose images you have and create their deployments: one, several at once, or one after another.' },
+  { value: 'upload', icon: 'upload', title: 'Upload the images', subtitle: 'Upload images to public repositories', description: 'Send the images of a deployment kept on this computer to a repository, such as TRAPPER.' },
 ]
 
 /** The dashboards and the statistics, in a card of their own. */

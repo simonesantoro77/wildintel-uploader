@@ -445,12 +445,12 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
       <DashboardBar icon={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>} title="Visit dashboard" description="The visits kept to a research project." parent="Menu" onParent={onBack}
         actions={<>
           {project && visits !== null && visits.length > 0 && (
-            <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>
+            <DownloadButton busy={exporting} onClick={() => void exportVisits()} title="Download the visits of this research project as a CSV file, to import them again in Register the visits › CSV file">{exporting ? 'Exporting…' : 'Export visits (CSV)'}</DownloadButton>
           )}
           {onRegisterVisits && (
             <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} title="Register the visits to the camera traps" onClick={onRegisterVisits}>
               <Icon path={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} className="h-4 w-4" />
-              Register visits
+              Register the visits
             </button>
           )}
           {project && visits !== null && (
@@ -550,7 +550,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
               <span className="ml-auto flex flex-wrap items-center gap-2">
                 <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={createReason !== null || !onImportImages} title={createReason ?? 'Create the deployments of the selected visits'} onClick={runAction}>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{MENU_ICONS.deployment}</svg>Create deployments
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{MENU_ICONS.deployment}</svg>Import the images
                 </button>
               </span>
             </div>

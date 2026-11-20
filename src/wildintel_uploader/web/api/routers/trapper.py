@@ -25,15 +25,15 @@ T = TypeVar("T")
 
 def http_exc(exc: Exception) -> HTTPException:
     if isinstance(exc, err.UnauthorizedError):
-        return HTTPException(401, "Incorrect Trapper username or password.")
+        return HTTPException(401, "Incorrect TRAPPER username or password.")
     if isinstance(exc, err.ForbiddenError):
-        return HTTPException(403, "You don't have permission to access this Trapper resource.")
+        return HTTPException(403, "You don't have permission to access this TRAPPER resource.")
     if isinstance(exc, err.NotFoundError):
-        return HTTPException(404, "Trapper resource not found.")
+        return HTTPException(404, "TRAPPER resource not found.")
     if isinstance(exc, httpx.ConnectError):
-        return HTTPException(502, f"Could not connect to the Trapper server: {exc}")
+        return HTTPException(502, f"Could not connect to the TRAPPER server: {exc}")
     if isinstance(exc, httpx.TimeoutException):
-        return HTTPException(504, f"Timed out connecting to the Trapper server: {exc}")
+        return HTTPException(504, f"Timed out connecting to the TRAPPER server: {exc}")
     return HTTPException(400, str(exc))
 
 
@@ -54,7 +54,7 @@ def call(fn: Callable[[], T]) -> T:
 
 @router.get("/config")
 def get_config() -> dict:
-    """Saved Trapper connection defaults — never the password itself."""
+    """Saved TRAPPER connection defaults — never the password itself."""
     return trapper_service.get_connection_defaults()
 
 

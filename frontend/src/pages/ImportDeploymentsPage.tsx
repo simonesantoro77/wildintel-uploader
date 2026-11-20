@@ -27,5 +27,5 @@ export default function ImportDeploymentsPage({ onUpload, onOpenSettings, settin
                             queue={{ index, total: queue.length, current: idOf(queue[index]), next: index + 1 < queue.length ? idOf(queue[index + 1]) : null, parentFolder: parent, onFolder: setParent, onNext: go, onSkip: go, onStop: stop }} />
     )
   }
-  return <ImportSessionPage title="Import deployments" onSingleVisit={setSingle} onQueue={(visits) => { setQueue(visits); setIndex(0); setParent(null) }} onUpload={onUpload} settingsOpen={settingsOpen} onOpenSettings={onOpenSettings} onBack={onBack} onRegisterVisits={onRegisterVisits} initialVisits={initialVisits} />
+  return <ImportSessionPage title="Import the images" onSingleVisit={setSingle} onQueue={(visits) => { setQueue(visits); setIndex(0); setParent(null) }} onUpload={onUpload} settingsOpen={settingsOpen} onOpenSettings={onOpenSettings} onBack={onBack} onRegisterVisits={onRegisterVisits} initialVisits={initialVisits} />
 }

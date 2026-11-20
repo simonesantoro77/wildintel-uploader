@@ -47,7 +47,7 @@ describe('FilesReady', () => {
     expect(screen.getByText('List of deployments in R0001')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /R0001-DONA_0006/ }))
     expect(screen.getByText('a.zip')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Upload to Trapper' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Upload to TRAPPER' }))
     expect(onUpload).toHaveBeenCalled()
   })
 

@@ -50,7 +50,7 @@ def photo_jpeg(root: Path, research_project_id: str, collection: str, deployment
     folder = _folder(root, research_project_id, collection, deployment_id)
     path = (folder / name).resolve()
     if path.parent != folder or path.suffix.lower() not in _IMAGE_SUFFIXES or not path.is_file():
-        raise DeploymentPhotosError(f"The deployment doesn't have the photo '{name}'.")
+        raise DeploymentPhotosError(f"The deployment doesn't have the image '{name}'.")
     try:
         with Image.open(path) as img:
             img = ImageOps.exif_transpose(img)

@@ -184,11 +184,11 @@ describe('SettingsPage', () => {
     it('is set up in the Uploader section, on the tab of the platform', async () => {
       render(<SettingsPage onClose={vi.fn()} />)
       await screen.findByLabelText('Level')
-      expect(screen.queryByRole('button', { name: 'Trapper' })).not.toBeInTheDocument() // Trapper is not a section of its own
+      expect(screen.queryByRole('button', { name: 'TRAPPER' })).not.toBeInTheDocument() // Trapper is not a section of its own
       await section('Uploader')
 
       expect(screen.getByRole('heading', { name: 'Uploader' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Trapper' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tab', { name: 'TRAPPER' })).toHaveAttribute('aria-selected', 'true')
       expect(screen.getByLabelText('Web address')).toBeInTheDocument()
     })
 
@@ -498,7 +498,7 @@ describe('SettingsPage', () => {
   describe('Postvalidation', () => {
     const CHECKS = [
       /Deployment id format/, /starts with its collection/, /^Collection name/, /location is the one chosen/, /Image dates fit the deployment/, /Camera consistency/,
-      /Number of images is like the previous revisions/, /Number of sequences is like the previous revisions/, /Length of the sequences is like the previous revisions/, /The SD card is the one the visit left/, /The photos are those the visit counted/,
+      /Number of images is like the previous revisions/, /Number of sequences is like the previous revisions/, /Length of the sequences is like the previous revisions/, /The SD card is the one the visit left/, /The images are those the visit counted/,
     ]
     const open = async () => {
       render(<SettingsPage onClose={vi.fn()} />)
@@ -1066,7 +1066,7 @@ describe('SettingsPage', () => {
       render(<SettingsPage onClose={vi.fn()} initialSection="projects" initialItem="DONA" />)
 
       const page = within(await screen.findByRole('region', { name: 'Research project' }))
-      expect(page.getByText('This project comes from Trapper')).toBeInTheDocument()   // its page is open, not the list
+      expect(page.getByText('This project comes from TRAPPER')).toBeInTheDocument()   // its page is open, not the list
       expect(page.getByText('Doñana')).toBeInTheDocument()
     })
 
@@ -1409,7 +1409,7 @@ describe('SettingsPage — Entities', () => {
 
       expect(await screen.findByText('DONA')).toBeInTheDocument()
       expect(screen.getByText('Doñana')).toBeInTheDocument()
-      expect(screen.getByText('From Trapper')).toBeInTheDocument()
+      expect(screen.getByText('From TRAPPER')).toBeInTheDocument()
     })
 
     it('adds one by hand — kept at once, not with Save — and refuses an acronym that is not one', async () => {
@@ -1435,7 +1435,7 @@ describe('SettingsPage — Entities', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'View DONA' }))
 
       const page = within(screen.getByRole('region', { name: 'Research project' }))
-      expect(page.getByText('This project comes from Trapper')).toBeInTheDocument()
+      expect(page.getByText('This project comes from TRAPPER')).toBeInTheDocument()
       expect(page.queryByLabelText('Name')).not.toBeInTheDocument()
       expect(page.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
       expect(page.queryByRole('button', { name: 'Remove research project' })).not.toBeInTheDocument()
@@ -1513,13 +1513,13 @@ describe('SettingsPage — Entities', () => {
       mockedApi.saveResearchProject.mockImplementation(async (p) => p)
       await open('Research projects')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Import from Trapper' }))
-      const panel = within(await screen.findByRole('group', { name: 'Import research projects from Trapper' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Import from TRAPPER' }))
+      const panel = within(await screen.findByRole('group', { name: 'Import research projects from TRAPPER' }))
       await userEvent.click(await panel.findByRole('checkbox', { name: /TATR — Tatra/ }))
       await userEvent.click(panel.getByRole('checkbox', { name: /No acronym/ }))
       await userEvent.click(panel.getByRole('button', { name: 'Add 2 research projects' }))
 
-      expect(await panel.findByRole('status')).toHaveTextContent('1 added from Trapper.')
+      expect(await panel.findByRole('status')).toHaveTextContent('1 added from TRAPPER.')
       expect(panel.getByRole('status')).toHaveTextContent('“No acronym” has no acronym')
       expect(mockedApi.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({ acronym: 'TATR', name: 'Tatra', trapper_pk: 5 }))
     })
@@ -1528,7 +1528,7 @@ describe('SettingsPage — Entities', () => {
       mockedApi.trapperResearchProjects.mockRejectedValue(new Error('No Trapper account in the settings.'))
       await open('Research projects')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Import from Trapper' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Import from TRAPPER' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('No Trapper account in the settings.')
     })
@@ -1682,14 +1682,14 @@ describe('SettingsPage — Entities', () => {
       mockedApi.saveLocalLocation.mockImplementation(async (_rp, l) => l)
       await openLocations()
 
-      await userEvent.click(screen.getByRole('button', { name: 'Import from Trapper' }))
-      const panel = within(await screen.findByRole('group', { name: 'Import locations from Trapper' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Import from TRAPPER' }))
+      const panel = within(await screen.findByRole('group', { name: 'Import locations from TRAPPER' }))
       for (const name of [/DONA_01/, /DONA_07/, /DONA_08/]) await userEvent.click(await panel.findByRole('checkbox', { name }))
       await userEvent.click(panel.getByRole('button', { name: 'Add 3 locations' }))
 
-      expect(await panel.findByRole('status')).toHaveTextContent('1 added from Trapper.')
+      expect(await panel.findByRole('status')).toHaveTextContent('1 added from TRAPPER.')
       expect(panel.getByRole('status')).toHaveTextContent('DONA_01 is already there.')
-      expect(panel.getByRole('status')).toHaveTextContent('“DONA_08” has no coordinates in Trapper')
+      expect(panel.getByRole('status')).toHaveTextContent('“DONA_08” has no coordinates in TRAPPER')
       expect(mockedApi.trapperLocations).toHaveBeenCalledWith({}, 2)
       expect(mockedApi.saveLocalLocation).toHaveBeenCalledTimes(1)
       expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_07', latitude: 37.3, longitude: -6.2, timezone: 'Europe/Madrid', trapper_pk: 12, status: 'pending' }))
@@ -1700,9 +1700,9 @@ describe('SettingsPage — Entities', () => {
       mockedApi.listResearchProjects.mockResolvedValue({ results: [{ ...DONA, trapper_pk: null }] })
       await openLocations()
 
-      await userEvent.click(screen.getByRole('button', { name: 'Import from Trapper' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Import from TRAPPER' }))
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('was not taken from Trapper')
+      expect(await screen.findByRole('alert')).toHaveTextContent('was not taken from TRAPPER')
     })
   })
 
@@ -1760,8 +1760,8 @@ describe('SettingsPage — which sources and uploaders are used', () => {
     render(<SettingsPage onClose={vi.fn()} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Uploader' }))
 
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Trapper', 'Agouti'])
-    expect(screen.getByRole('switch', { name: 'Use Trapper' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['TRAPPER', 'Agouti'])
+    expect(screen.getByRole('switch', { name: 'Use TRAPPER' })).toHaveAttribute('aria-checked', 'true')
     await userEvent.click(screen.getByRole('tab', { name: 'Agouti' }))
     expect(screen.getByRole('switch', { name: 'Use Agouti' })).toHaveAttribute('aria-checked', 'false')
     await userEvent.click(screen.getByRole('switch', { name: 'Use Agouti' }))

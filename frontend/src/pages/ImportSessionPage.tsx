@@ -104,7 +104,7 @@ interface Props {
   initialVisits?: ClosedVisitTarget[]
 }
 
-export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack, title = 'Import deployments', onSingleVisit, onQueue, onRegisterVisits, initialVisits }: Props = {}) {
+export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOpen = false, onBack, title = 'Import the images', onSingleVisit, onQueue, onRegisterVisits, initialVisits }: Props = {}) {
   // how the visits ticked are imported: all at once, or one after another
   const [how, setHow] = useState<'all' | 'one'>('all')
   const [step, setStep] = useState(0)
@@ -998,7 +998,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         <div>
           <StepHeading>Origin</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            {fixedProject ? 'Pick the revision and the visits whose images you have.' : 'Say which research project the session belongs to.'} Next you pick the folder with the deployments.
+            {fixedProject ? 'Pick the revision and the visits whose images you have.' : 'Say which research project the revision belongs to.'} Next you pick the folder with the deployments.
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
           <WizardStep n={1} title={fixedProject ? 'Which visits are they of?' : 'Which research project?'} status="open" canEdit={false} onEdit={() => {}}
@@ -1029,7 +1029,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               const target = session ?? (shown[0] ? revisionOfVisit(shown[0]) : null)
               return (
                 <>
-                <FormCard title="Revision" description="A revision is one visit to every site. Pick the one these images are of: only its closed visits without a deployment are offered next.">
+                <FormCard title="Revision" description="A revision is one visit to every site. Pick the one these images are of: only its collected visits without a deployment are offered next.">
                   <RevisionSquares all={{ label: 'All revisions', note: plural(closedVisits.length, 'visit to import', 'visits to import') }} value={session ? String(session) : ''}
                     revisions={revisions.map((r) => ({ id: String(r), label: `R${String(r).padStart(4, '0')}`, note: plural(closedVisits.filter((c) => revisionOfVisit(c) === r).length, 'visit to import', 'visits to import') }))}
                     onPick={(id) => pickRevision(id ? Number(id) : null)} />
@@ -1049,7 +1049,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   </p>
                 </FormCard>
                 {onQueue && pickedList.length > 1 && (
-                  <FormCard title="How do you want to import them?" description="All at once takes a folder with a subfolder of images for each. One after another asks for each deployment in turn, as Import deployment does, the first, then the second…">
+                  <FormCard title="How do you want to import them?" description="All at once takes a folder with a subfolder of images for each. One after another asks for each deployment in turn, the first, then the second…">
                     <div role="radiogroup" aria-label="How to import them" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {([['all', 'All at once', 'One folder with a subfolder for each visit: the checks, the details and the preparation are done for all of them together.'],
                          ['one', 'One after another', 'Each deployment goes through the whole flow before the next one: its folder, its checks, its details and its saving.']] as const).map(([value, label, hint]) => (
@@ -1099,7 +1099,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
           <WizardStep n={1} title={singleVisit ? 'Folder with the images' : 'Revision folder'} status={imagesStatus(1)} canEdit={!validating} onEdit={() => setImagesOpen(1)}
                       description={singleVisit ? 'The folder with the images of the visit\u2019s deployment, on this computer.' : 'A folder with one subfolder per deployment, on this computer.'}
                       summary={scan && <>{sessionName}<br />{plural(candidates.length, 'deployment', 'deployments')} · {plural(candidates.reduce((n, d) => n + d.image_count, 0), 'image', 'images')}</>}>
-            <Notice kind="warning" className="mb-4">Copy the images from the cameras&rsquo; memory cards to a local folder first — don&rsquo;t point this at a card itself.</Notice>
+            <Notice kind="warning" className="mb-4">Copy the images from the cameras&rsquo; SD cards to a local folder first — don&rsquo;t point this at a card itself.</Notice>
             <label className={labelClass} htmlFor="session-dir">Folder path</label>
             <div className="flex gap-2">
               <input id="session-dir" className={`${inputClass} flex-1`} placeholder="/home/me/Pictures/R0003" value={sessionDir}
@@ -1221,7 +1221,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   const without = candidates.filter((d) => !folderVisit[d.name])
                   return without.length === 0
                     ? <Notice kind="success" role="status" className="mt-3">Every folder has its visit: {plural(candidates.length, 'deployment', 'deployments')} of the collection R{String(revisionOfVisit(pickedList[0]) ?? 0).padStart(4, '0')}.</Notice>
-                    : <Notice kind="warning" role="alert" className="mt-3">{without.length === 1 ? 'A folder has' : `${without.length} folders have`} no visit yet — pick it above: <span className="font-mono">{without.slice(0, 5).map((d) => d.name).join(', ')}{without.length > 5 ? ', …' : ''}</span>. Or untick {without.length === 1 ? 'it' : 'them'} if {without.length === 1 ? 'it is' : 'they are'} not of this session.</Notice>
+                    : <Notice kind="warning" role="alert" className="mt-3">{without.length === 1 ? 'A folder has' : `${without.length} folders have`} no visit yet — pick it above: <span className="font-mono">{without.slice(0, 5).map((d) => d.name).join(', ')}{without.length > 5 ? ', …' : ''}</span>. Or untick {without.length === 1 ? 'it' : 'them'} if {without.length === 1 ? 'it is' : 'they are'} not of this revision.</Notice>
                 })()}
                 </>
                 )}
@@ -1461,7 +1461,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                       description="The revision number, and the period of each deployment."
                       summary={revisionValid && <>Revision {revisionName}<br />{deploymentsCount}</>}>
           {guessingLeft > 0 && <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Reading the dates and the cameras from the images… ({guessingLeft} deployment(s) left)</p>}
-          <FormCard title={visitsMode ? 'The deployments' : 'Which revision is this?'} description={visitsMode ? 'The revision is the one of the visits you chose: they give every deployment its id.' : 'One revision number for the whole session. It gives every deployment its id.'}>
+          <FormCard title={visitsMode ? 'The deployments' : 'Which revision is this?'} description={visitsMode ? 'The revision is the one of the visits you chose: they give every deployment its id.' : 'One revision number for the whole collection. It gives every deployment its id.'}>
             {!visitsMode && <div className="flex items-end gap-2 max-w-xs">
               <button type="button" aria-label="Lower the revision number" className={`${btnOutline} !px-3`} disabled={!revisionValid || revisionNumber <= 1}
                       onClick={() => { revisionTouched.current = true; setRevision(String(revisionNumber - 1)); setRevisionFromLog(null); setRevisionSuggested(false); setRevisionFromVisits(false) }}>−</button>
@@ -1473,7 +1473,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                       onClick={() => { revisionTouched.current = true; setRevision(String((revisionValid ? revisionNumber : 0) + 1)); setRevisionFromLog(null); setRevisionSuggested(false); setRevisionFromVisits(false) }}>+</button>
             </div>}
             {!visitsMode && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">
-              {revisionFromVisits && revisionValid ? 'Taken from the session of the visits you chose — change it if it is not right.' : revisionFromLog && revisionValid ? `Taken from the deployment ids in ${revisionFromLog} — change it if it is not right.` : revisionSuggested && revisionValid ? 'Filled in as the next one expected for these locations — change it if it is not right.' : '1 for the first visit to these locations, 2 for the second, and so on.'}
+              {revisionFromVisits && revisionValid ? 'Taken from the revision of the visits you chose — change it if it is not right.' : revisionFromLog && revisionValid ? `Taken from the deployment ids in ${revisionFromLog} — change it if it is not right.` : revisionSuggested && revisionValid ? 'Filled in as the next one expected for these locations — change it if it is not right.' : '1 for the first visit to these locations, 2 for the second, and so on.'}
             </p>}
             {revisionValid && chosen.length > 0 && (
               <div className="mt-3 flex items-center gap-2 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
@@ -1777,7 +1777,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
             <StepHeading>Prepare and save</StepHeading>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection. Nothing is uploaded to Trapper yet.
+              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection. Nothing is uploaded to TRAPPER yet.
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
@@ -1869,7 +1869,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   {collectionPath && <button type="button" className={btnOutline} onClick={handleOpenFolder}>Open folder</button>}
                   {onUpload && projectId && revisionValid && (
                     <button type="button" className={btnPrimary} onClick={() => onUpload({ researchProjectId: projectId, collection: revisionName })}>
-                      Upload to Trapper
+                      Upload to TRAPPER
                     </button>
                   )}
                   {openFolderError && <p className="text-sm text-red-600 dark:text-red-400">{openFolderError}</p>}

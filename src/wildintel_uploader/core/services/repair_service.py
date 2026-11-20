@@ -137,7 +137,7 @@ def inspect(collections_dir: Path, research_project_id: str, collection: str, de
     log = log_problem or ("row" if row else ("no row" if local_folder_service.timestamp_log_path(dest.parent).is_file() else "no log"))
     if local_folder_service.is_synced(dest):
         return {"deployment_id": deployment_id, "status": "synced", "seal": None, "files": files, "images": len(images), "log": log,
-                "problems": ["It was synced from Trapper: what Trapper holds is not modified here."]}
+                "problems": ["It was synced from TRAPPER: what TRAPPER holds is not modified here."]}
     seal = seal_service.verify(dest)
     status = {"valid": "valid", "broken": "broken", "none": "unsealed"}[seal["status"]]
     problems = [f"{name} is {state}" for name, state in files.items() if state != "ok" and not (name == seal_service.SEAL_FILE and state == "missing")]
@@ -252,7 +252,7 @@ def repair_stream(collections_dir: Path, research_project_id: str, collection: s
     """
     dest = _deployment_dir(collections_dir, research_project_id, collection, deployment_id)
     if local_folder_service.is_synced(dest):
-        raise RepairError(f"{deployment_id} was synced from Trapper, so it can't be modified here.")
+        raise RepairError(f"{deployment_id} was synced from TRAPPER, so it can't be modified here.")
     collection_dir = dest.parent
 
     def step(name: str, status: str, message: str) -> dict:

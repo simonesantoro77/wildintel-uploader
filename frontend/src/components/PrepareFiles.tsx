@@ -91,7 +91,7 @@ export function PreparingFiles({ items, startedAt, onStop }: {
         <Spinner />
         <div>
           <p className="font-semibold text-zinc-900 dark:text-zinc-100">Writing the files…</p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Nothing is sent to Trapper in this mode. You can leave this page open and come back.</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Nothing is sent to TRAPPER in this mode. You can leave this page open and come back.</p>
         </div>
       </div>
 
@@ -182,7 +182,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
       <span aria-hidden="true" className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><BadgeIcon className="h-5 w-5" /></span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-emerald-900 dark:text-emerald-100">Files prepared</p>
-        <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">{when} · took {formatDuration(finishedAt - startedAt)}. Nothing was sent to Trapper.</p>
+        <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">{when} · took {formatDuration(finishedAt - startedAt)}. Nothing was sent to TRAPPER.</p>
       </div>
       {outputDir && <button type="button" className={btnPrimary} onClick={onOpenFolder}>Open folder</button>}
     </div>
@@ -251,14 +251,14 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
             )}
           </ul>
           <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">
-            <strong className="font-semibold">What next?</strong> You can send these files to Trapper yourself, or let the app do it with <strong className="font-semibold">Upload to Trapper</strong>.
+            <strong className="font-semibold">What next?</strong> You can send these files to TRAPPER yourself, or let the app do it with <strong className="font-semibold">Upload to TRAPPER</strong>.
           </div>
         </>
       )}
       {onUpload && uploadOptions && <div className="mb-4">{uploadOptions}</div>}
       <div className="flex justify-between items-center">
         <button type="button" className={`${btnOutline} flex items-center gap-2`} onClick={onBack}><span aria-hidden="true">←</span>Back</button>
-        {onUpload && <button type="button" className="px-4 py-2 text-sm border border-blue-600 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" onClick={onUpload}>Upload to Trapper</button>}
+        {onUpload && <button type="button" className="px-4 py-2 text-sm border border-blue-600 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" onClick={onUpload}>Upload to TRAPPER</button>}
       </div>
     </div>
   )

@@ -445,7 +445,7 @@ def consolidate_stream(source_dir: str, collection_dir: str, deployment: Deploym
     dest = collection / deployment.deployment_id
     work = staging_dir(collection, deployment.deployment_id)
     if local_folder_service.is_synced(dest):
-        raise DeploymentImportError(f"{dest.name} was synced from Trapper, so it can't be modified here.")
+        raise DeploymentImportError(f"{dest.name} was synced from TRAPPER, so it can't be modified here.")
     if (dest / "seal.json").exists():
         raise DeploymentImportError(f"{dest.name} is already consolidated.")
     staged = (work / PREPROCESSING_LOG_FILE).is_file()

@@ -4,7 +4,7 @@
 
 **WildINTEL Uploader** is part of the software the [WildINTEL project](https://wildintel.eu/)
 develops to monitor wildlife with camera traps. Camera-trap images are managed in
-[Trapper](https://gitlab.com/trapper-project/trapper); this application is where they get there:
+[TRAPPER](https://gitlab.com/trapper-project/trapper); this application is where they get there:
 it takes a deployment's images as they come from the camera, checks and prepares them, and
 uploads them.
 

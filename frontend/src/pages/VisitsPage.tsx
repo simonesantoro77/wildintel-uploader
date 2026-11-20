@@ -439,14 +439,14 @@ export function visitSummary(v: Visit, session: string, timezone?: string | null
       ]) },
       { key: 'sd', title: 'SD card', icon: SD_ICON, rows: rows([
         ['SD card left', asked.sdLeft !== 'off' && v.sd.trim()],
-        ['Photos collected', asked.photos !== 'off' && v.numPhotos.trim()],
+        ['Images collected', asked.photos !== 'off' && v.numPhotos.trim()],
         ['Card condition', asked.card !== 'off' && v.card, yes(v.card === 'OK')],
       ]) },
       { key: 'site', title: site.label, icon: site.icon, rows: rows([
         ['Feature type', feature],
         ['Habitat', d.habitat],
         ['Bait used', v.actions.includes('Installation') && d.bait_use != null && (d.bait_use ? 'Yes' : 'No'), 'neutral'],
-        ['Photo dates may be wrong', d.timestamp_issues === true && 'Yes', 'bad'],
+        ['Image dates may be wrong', d.timestamp_issues === true && 'Yes', 'bad'],
       ]) },
       { key: 'notes', title: notes.label, icon: notes.icon, optional: true, rows: rows([
         ['Groups', groups],
@@ -997,7 +997,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
       })}
       <h6 className="pt-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Validation &amp; revision rules (3)</h6>
-      <SwitchRow label="The photos were not counted" hint="For an old datasheet that has no count of the photos on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the photos of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
+      <SwitchRow label="The images were not counted" hint="For an old datasheet that has no count of the images on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the images of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="The coordinates of a visit are required: a row that gives them by a column or a default keeps them, and one that gives none takes those of its location. With this off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
       <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision starts when the one before it is finished. With this on, the locations still planned in it are marked as not visited, so the file can add the revision after it. An unknown revision is not closed: nothing is known of it." checked={csvClose} onChange={setCsvClose} />
     </div>
@@ -1070,13 +1070,13 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         </span>
         <span className="rounded-full px-2.5 py-1 text-xs font-semibold normal-case tracking-normal bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">To create</span>
       </h6>
-      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">The visits that were closed by the ones just added have their card collected: create its deployment now — its images are imported —, or do it later from the deployments menu.</p>
+      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">The visits whose cards were collected by the ones just added can have their images imported now, or later from the deployments menu.</p>
       <div className="space-y-3">
         {justClosed.map((c) => (
           <div key={`${c.visit.location_id}|${c.visit.date}|${c.visit.time}`} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">The visit <strong>{c.visit.session}</strong> to {c.visit.location_id} is closed: its card was collected on {formatVisitWhen(c.end)}.</p>
-            <button type="button" className={`${btnPrimary} inline-flex shrink-0 items-center justify-center gap-2 !h-12`} aria-label={`Create the deployment of the visit ${c.visit.session} to ${c.visit.location_id}`} onClick={() => onImportImages({ researchProjectId: project.acronym, visit: c.visit })}>
-              <Glyph className="h-5 w-5">{MENU_ICONS.deployment}</Glyph>Create deployment
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">The visit <strong>{c.visit.session}</strong> to {c.visit.location_id} has its card collected on {formatVisitWhen(c.end)}.</p>
+            <button type="button" className={`${btnPrimary} inline-flex shrink-0 items-center justify-center gap-2 !h-12`} aria-label={`Import the images of the visit ${c.visit.session} to ${c.visit.location_id}`} onClick={() => onImportImages({ researchProjectId: project.acronym, visit: c.visit })}>
+              <Glyph className="h-5 w-5">{MENU_ICONS.deployment}</Glyph>Import the images
             </button>
           </div>
         ))}
@@ -1155,7 +1155,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Menu" onParent={onBack} />
+      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Menu" onParent={onBack} />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary
         description="Enter them by hand, or read them from a file."
@@ -1377,7 +1377,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                         </div>
                       )}
                       <p id="visit-actions-hint" className="mt-5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/60 px-4 py-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
-                        {notVisited ? <>The visit is kept as <strong>not visited</strong>: nothing was done at it, so it has no action, and no camera, card or photos are asked.</> : visit.actions.length === 0 ? 'Answer the question: the rest of the form depends on it.' : <>The visit is kept as <strong>{actionsText(visit.actions)}</strong>. {actionsHint(visit.actions)}</>}
+                        {notVisited ? <>The visit is kept as <strong>not visited</strong>: nothing was done at it, so it has no action, and no camera, card or images are asked.</> : visit.actions.length === 0 ? 'Answer the question: the rest of the form depends on it.' : <>The visit is kept as <strong>{actionsText(visit.actions)}</strong>. {actionsHint(visit.actions)}</>}
                       </p>
                       {shown('actions') && <p className="text-xs text-red-600 dark:text-red-400 mt-1">Say whether you see the camera.</p>}
                     </fieldset>
@@ -1438,12 +1438,12 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 afterCamera={(on(asked.sdLeft) || on(asked.photos) || on(asked.card)) ? (
               <SectionCard
                 title="SD card" icon={SD_ICON} total={sdValues.length} filled={sdValues.filter((v) => v.trim()).length} missing={(errors.sd ? 1 : 0) + (errors.numPhotos === 'Required.' ? 1 : 0)}
-                summary={[on(asked.sdLeft) && visit.sd.trim() && `left ${visit.sd.trim()}`, on(asked.photos) && visit.numPhotos.trim() && `${visit.numPhotos.trim()} photos`, on(asked.card) && `card ${visit.card === 'Full' ? 'full' : 'OK'}`].filter(Boolean).join(' · ')}
+                summary={[on(asked.sdLeft) && visit.sd.trim() && `left ${visit.sd.trim()}`, on(asked.photos) && visit.numPhotos.trim() && `${visit.numPhotos.trim()} images`, on(asked.card) && `card ${visit.card === 'Full' ? 'full' : 'OK'}`].filter(Boolean).join(' · ')}
               >
                 {stolenCard && <Notice kind="info" className="mb-4">The SD card <strong>{stolenCard}</strong>, which was in the camera, was stolen with it and will be archived.</Notice>}
                 {on(asked.card) || on(asked.photos) ? (inCamera && cardVisit
-                  ? <Notice kind="info" className="mb-4">Tell the state and the number of photos obtained when removing the SD card <strong>{inCamera}</strong> from the camera (it was left there on {formatVisitWhen(cardVisit)}).</Notice>
-                  : <Notice kind="info" className="mb-4">Tell the state and the number of photos obtained when removing the SD card from the camera (no card is known to have been left in it).</Notice>) : null}
+                  ? <Notice kind="info" className="mb-4">Tell the state and the number of images obtained when removing the SD card <strong>{inCamera}</strong> from the camera (it was left there on {formatVisitWhen(cardVisit)}).</Notice>
+                  : <Notice kind="info" className="mb-4">Tell the state and the number of images obtained when removing the SD card from the camera (no card is known to have been left in it).</Notice>) : null}
                 {on(asked.card) && (
                 <div className="space-y-3 mb-4">
                   <SwitchRow label="Card OK" hint="Off if the card was full." required={asked.card === 'required'} checked={visit.card === 'OK'} onChange={(on) => set('card', on ? 'OK' : 'Full')} />
@@ -1451,7 +1451,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 )}
                 <div className="space-y-3">
                   {on(asked.photos) && (
-                  <ControlRow id="visit-photos" label="Photos on the card collected" ask={asked.photos} error={shown('numPhotos')}
+                  <ControlRow id="visit-photos" label="Images on the card collected" ask={asked.photos} error={shown('numPhotos')}
                               hint={inCamera && cardVisit ? <>SD card collected: <strong>{inCamera}</strong> (left on {formatVisitWhen(cardVisit)}).</> : 'No card is known to have been left in the camera.'}>
                     <input id="visit-photos" inputMode="numeric" className={`${inputClass} ${err('numPhotos') || (asked.photos === 'required' && !visit.numPhotos.trim() ? red : '')}`} value={visit.numPhotos} onChange={(e) => set('numPhotos', e.target.value)} />
                   </ControlRow>
@@ -1876,7 +1876,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 )}
                 {missingLocations && (
                   <Notice kind="info" className="mt-3 !items-start !rounded-2xl !px-6 !py-5 !text-base leading-relaxed">
-                    You can also create the locations by hand, from a spreadsheet file or from Trapper. The file is checked again when you come back.
+                    You can also create the locations by hand, from a spreadsheet file or from TRAPPER. The file is checked again when you come back.
                     {onOpenSettings && project && (
                       <div className="mt-4">
                         <button type="button" className="px-6 h-12 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white/5 text-base font-medium text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" onClick={() => onOpenSettings('locations', project.acronym)}>Go to the locations of {project.acronym}</button>
@@ -1907,7 +1907,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
               ...((made?.cameras.length ?? 0) > 0 ? [[csvSaved === null ? 'Cameras to create' : 'Cameras created', madeLine('cameras', 'camera_id')] as [string, ReactNode]] : []),
               ...((made?.sd_cards.length ?? 0) > 0 ? [[csvSaved === null ? 'SD cards to create' : 'SD cards created', madeLine('sd_cards', 'label')] as [string, ReactNode]] : []),
               ...((made?.trappers?.length ?? 0) > 0 ? [[csvSaved === null ? 'Trappers to create' : 'Trappers created', madeLine('trappers', 'name')] as [string, ReactNode]] : []),
-              ...(csvSaved !== null && justClosed.length > 0 ? [['Visits closed — their deployment can be created', justClosed.length] as [string, ReactNode]] : []),
+              ...(csvSaved !== null && justClosed.length > 0 ? [['Visits whose cards were collected — their deployment can be created', justClosed.length] as [string, ReactNode]] : []),
             ]
             const shownVisits = added.slice(0, 10)
             return (
@@ -2001,13 +2001,13 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                         <span className="rounded-full px-2.5 py-1 text-xs font-semibold normal-case tracking-normal bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">To create</span>
                       </h6>
                       <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
-                        As a result of {csvSaved === 1 ? 'this new visit' : 'these new visits'}, {justClosed.length} other {justClosed.length === 1 ? 'visit is' : 'visits are'} now closed: their card was collected. Create {justClosed.length === 1 ? 'its deployment' : 'their deployments'} now — {justClosed.length === 1 ? 'its images are' : 'their images are'} imported —, or do it later from the deployments menu.
+                        As a result of {csvSaved === 1 ? 'this new visit' : 'these new visits'}, {justClosed.length} other {justClosed.length === 1 ? 'visit has its card' : 'visits have their cards'} collected. Import their images now, or do it later from the deployments menu.
                       </p>
                       {/* one deployment goes to Import deployment, with its visit chosen; several go to Import deployments, all at once or one after another */}
                       {project && (justClosed.length === 1 ? onImportImages : onImportImagesOf) && (
                         <button type="button" className={`${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`}
                                 onClick={() => (justClosed.length === 1 && onImportImages ? onImportImages({ researchProjectId: project.acronym, visit: justClosed[0].visit }) : onImportImagesOf?.(project.acronym))}>
-                          <Glyph className="h-5 w-5">{MENU_ICONS.deployment}</Glyph>Create {justClosed.length === 1 ? 'deployment' : 'deployments'}
+                          <Glyph className="h-5 w-5">{MENU_ICONS.deployment}</Glyph>Import the images
                         </button>
                       )}
                     </section>

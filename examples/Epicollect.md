@@ -76,7 +76,7 @@ The three places that know the dates of `wicp_0001` say different things, to sho
 |---|---|---|
 | Epicollect5 entry (above) | 2025-04-29 09:15 | 2025-05-04 17:30 |
 | `R0003_FileTimestampLog.csv` (in that example) | 2025-04-28 08:00 | 2025-05-05 18:00 |
-| The images' EXIF (first and last photo) | 2025-05-01 05:02 | 2025-05-02 05:43 |
+| The images' EXIF (first and last image) | 2025-05-01 05:02 | 2025-05-02 05:43 |
 
 In an *Import session*, the dates are taken from Epicollect5 first, then from the log, then from the images — so
 `wicp_0001` takes the entry's, and `wicp_0002`, which has no entry, takes the log's. You can pick another source for any row.

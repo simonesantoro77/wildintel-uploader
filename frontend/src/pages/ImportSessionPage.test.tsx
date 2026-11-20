@@ -315,7 +315,7 @@ describe('ImportSessionPage', () => {
 
       await waitFor(() => expect(mockedApi.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({ name: 'Doñana', acronym: 'DONA', event_interval: 120, trapper_pk: null })))
       expect(await screen.findByLabelText('Research project')).toHaveValue('DONA — Doñana')
-      expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled()
+      await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
     })
 
     it('adds the ones ticked in Trapper, and picks the first', async () => {
@@ -325,7 +325,7 @@ describe('ImportSessionPage', () => {
       mockedApi.saveResearchProject.mockImplementation(async (p) => p)
       await openOrigin()
       await userEvent.click(screen.getByRole('button', { name: /Add a new research project/ }))
-      await userEvent.click(screen.getByRole('button', { name: /From Trapper/ }))
+      await userEvent.click(screen.getByRole('button', { name: /From TRAPPER/ }))
       await userEvent.click(await screen.findByRole('checkbox', { name: 'DONA — Doñana' }))
       await userEvent.click(screen.getByRole('checkbox', { name: 'TATR — Tatra' }))
       await userEvent.click(screen.getByRole('button', { name: 'Add 2 research projects' }))
@@ -581,11 +581,11 @@ describe('ImportSessionPage', () => {
     await toDetails()
     await next() // details → checks
     await nextFromChecks() // checks → prepare
-    expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole('button', { name: 'Import 2 deployments' }))
 
     await screen.findByText(/Imported — 2 deployment/)
-    await userEvent.click(screen.getByRole('button', { name: 'Upload to Trapper' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Upload to TRAPPER' }))
     expect(onUpload).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0003' })
   })
 
@@ -754,7 +754,7 @@ describe('an import session of visits', () => {
     render(<ImportSessionPage {...pageProps} />)
     await pickProject()
 
-    expect(await screen.findByRole('table', { name: 'Closed visits' })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'Collected visits' })).toBeInTheDocument()
     expect(await screen.findByText(/Status: Collected/)).toBeInTheDocument()
   })
 
@@ -904,7 +904,7 @@ describe('an import session of visits', () => {
     await toMoreDetailsSubstep()
     await next() // dates → checks
     expect(await screen.findByRole('radiogroup', { name: 'How strict: The SD card is the one the visit left' })).toBeInTheDocument()
-    expect(screen.getByRole('radiogroup', { name: 'How strict: The photos are those the visit counted' })).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'How strict: The images are those the visit counted' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
     await waitFor(() => expect(mockedApi.validateDeployment).toHaveBeenCalledTimes(2))

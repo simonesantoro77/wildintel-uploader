@@ -82,7 +82,7 @@ describe('SyncCollectionsPage', () => {
     await userEvent.click(await screen.findByLabelText('Collection'))
     await userEvent.click(await screen.findByText('R0003 — 2 deployment(s)'))
 
-    const box = screen.getByRole('checkbox', { name: /Also download the images from Trapper/ })
+    const box = screen.getByRole('checkbox', { name: /Also download the images from TRAPPER/ })
     expect(box).not.toBeChecked() // the images are only downloaded if asked for
     await userEvent.click(box)
     await userEvent.click(screen.getByRole('button', { name: 'Sync' }))

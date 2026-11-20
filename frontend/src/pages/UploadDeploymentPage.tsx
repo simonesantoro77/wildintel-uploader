@@ -28,7 +28,7 @@ const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-700 dark:text-z
 const inputClass = 'w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono'
 
 const STEPS: { step: UploadStep; label: string }[] = [
-  { step: 'connect', label: 'Connect to Trapper' },
+  { step: 'connect', label: 'Connect to TRAPPER' },
   { step: 'classification', label: 'Classification project' },
   { step: 'uploader', label: 'Uploader login' },
   { step: 'location', label: 'Location' },
@@ -65,9 +65,9 @@ function reduceRun(run: Run, event: UploadEvent): Run {
 }
 
 const MODES: { value: UploadMode; title: string; description: string; button: string; busy: string }[] = [
-  { value: 'upload', title: 'Upload to Trapper', description: 'Creates what’s missing in Trapper, packs the images and sends them.', button: 'Upload to Trapper', busy: 'Uploading…' },
-  { value: 'dry_run', title: 'Rehearse first (dry run)', description: 'Looks at Trapper and tells you what would be created and sent. Nothing is created, sent or written.', button: 'Rehearse the upload', busy: 'Checking…' },
-  { value: 'generate', title: 'Only prepare the files', description: 'Writes the files into your collections folder and stops, so you can send them some other way. Doesn’t need Trapper.', button: 'Prepare the files', busy: 'Preparing…' },
+  { value: 'upload', title: 'Upload to TRAPPER', description: 'Creates what’s missing in TRAPPER, packs the images and sends them.', button: 'Upload to TRAPPER', busy: 'Uploading…' },
+  { value: 'dry_run', title: 'Rehearse first (dry run)', description: 'Looks at TRAPPER and tells you what would be created and sent. Nothing is created, sent or written.', button: 'Rehearse the upload', busy: 'Checking…' },
+  { value: 'generate', title: 'Only prepare the files', description: 'Writes the files into your collections folder and stops, so you can send them some other way. Doesn’t need TRAPPER.', button: 'Prepare the files', busy: 'Preparing…' },
 ]
 
 const images = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'image' : 'images'}`
@@ -272,14 +272,14 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
       <input type="checkbox" className="mt-1" checked={deleteFiles} disabled={uploading} onChange={(e) => setDeleteFiles(e.target.checked)} />
       <span>
         <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Delete the package files once they are uploaded</span>
-        <span className="block text-xs text-zinc-500 dark:text-zinc-400">The zips, the yamls and the deployments csv are taken away when Trapper has them. Left unticked, they stay in your packages folder.</span>
+        <span className="block text-xs text-zinc-500 dark:text-zinc-400">The zips, the yamls and the deployments csv are taken away when TRAPPER has them. Left unticked, they stay in your packages folder.</span>
       </span>
     </label>
   )
 
   const imagesToSend = toUpload.reduce((sum, d) => sum + d.images, 0)
-  const blockedBy = !accountOk ? 'Set the Trapper account in the settings first.'
-    : mode !== 'generate' && projectMissing ? `${projectId} isn’t in Trapper yet.`
+  const blockedBy = !accountOk ? 'Set the TRAPPER account in the settings first.'
+    : mode !== 'generate' && projectMissing ? `${projectId} isn’t in TRAPPER yet.`
     : toUpload.length === 0 ? 'Pick at least one deployment.'
     : !classificationReady ? 'Pick the classification project.' : null
   const failures = order.filter((id) => runs[id]?.error).length
@@ -333,11 +333,11 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
       stage: run.steps.process || run.steps.wait ? 'process' : run.steps.upload ? 'send' : run.steps.package ? 'pack' : 'setup',
       sentBytes: Object.values(run.sent).reduce((sum, b) => sum + b, 0),
       steps: [
-        { label: created ? 'Created in Trapper' : 'Already in Trapper', message: run.steps.deployment?.message ?? '', done: true,
+        { label: created ? 'Created in TRAPPER' : 'Already in TRAPPER', message: run.steps.deployment?.message ?? '', done: true,
           links: [run.steps.location?.url && { label: 'Open the location', url: run.steps.location.url }, run.steps.deployment?.url && { label: 'Open the deployment', url: run.steps.deployment.url }].filter(Boolean) as { label: string; url: string }[] },
         { label: 'Images packed', message: run.packaged ? `${images.toLocaleString('en-US')} images in ${run.packaged.parts} ${run.packaged.parts === 1 ? 'package' : 'packages'}.` : '', done: true },
-        { label: `${images.toLocaleString('en-US')} images sent`, message: `${formatBytes(bytes)} sent to Trapper.`, done: true },
-        { label: 'Trapper is processing the images', message: 'They show up in the deployment as they’re ready.', done: false },
+        { label: `${images.toLocaleString('en-US')} images sent`, message: `${formatBytes(bytes)} sent to TRAPPER.`, done: true },
+        { label: 'TRAPPER is processing the images', message: 'They show up in the deployment as they’re ready.', done: false },
       ],
       locationId: info?.location_id ?? null,
       locationCreated: Boolean(result?.location_created),
@@ -362,7 +362,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={MENU_ICONS.upload} title="Upload deployment to Trapper" description="Sends the deployments of a revision to Trapper. Anything missing there is created, then the images are sent for Trapper to process."
+      <PageHeader icon={MENU_ICONS.upload} title="Upload the images" description="Sends the deployments of a revision to TRAPPER. Anything missing there is created, then the images are sent for TRAPPER to process."
         parent="Menu" onParent={onBack} />
 
       {trapper === null ? (
@@ -374,8 +374,8 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
         </Notice>
       ) : (
         <Notice kind="warning" className="mb-4" action={onOpenSettings && <button type="button" className={btnOutline} onClick={onOpenSettings}>Open Settings</button>}>
-          There is no Trapper account saved yet — set its URL, username and password in Settings › Trapper first
-          {mode === 'generate' ? ' (to look up a research project that was not filled in from Trapper).' : '.'}
+          There is no TRAPPER account saved yet — set its URL, username and password in Settings › TRAPPER first
+          {mode === 'generate' ? ' (to look up a research project that was not filled in from TRAPPER).' : '.'}
         </Notice>
       )}
 
@@ -383,26 +383,26 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                   summary={collection && <>{projectId} › {collectionName} · {toUpload.length} {toUpload.length === 1 ? 'deployment' : 'deployments'} ({images(imagesToSend)})</>}
                   description={projectId ? <>Select the revision and the deployments of the research project <strong className="font-mono">{projectId}</strong> that you want to upload.</> : 'Select the revision and the deployments that you want to upload.'}>
         <div className="mb-4">
-          {projectId && connected && checkingSelection && !selectionChecks && <p className="text-sm text-zinc-500 dark:text-zinc-400">Checking that {projectId} is in Trapper…</p>}
+          {projectId && connected && checkingSelection && !selectionChecks && <p className="text-sm text-zinc-500 dark:text-zinc-400">Checking that {projectId} is in TRAPPER…</p>}
           {selectionError && (
             <Notice kind="error" role="alert" className="mt-2" action={<button type="button" className={btnOutline} disabled={checkingSelection} onClick={() => setRecheck((n) => n + 1)}>Check again</button>}>
-              Could not check that {projectId} is in Trapper: {selectionError}
+              Could not check that {projectId} is in TRAPPER: {selectionError}
             </Notice>
           )}
           {!projectId && <p className="text-sm text-zinc-600 dark:text-zinc-300">{projects.length === 0 ? 'Nothing is kept in the collections folder yet — import a deployment first.' : 'There is no default research project: set it in the settings, with the card at the top right.'}</p>}
           {selectionChecks?.filter((c) => c.check === 'research_project' && c.ok).map((c) => (
             <p key={c.check} className="flex items-center gap-2 mt-2 text-sm text-emerald-600 dark:text-emerald-400">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.7 2.7L16 9.5" /></svg>
-              Found in Trapper
+              Found in TRAPPER
             </p>
           ))}
           {selectionChecks?.filter((c) => c.check === 'research_project' && !c.ok).map((c) => (
             <Notice key={c.check} kind="error" role="alert" className="mt-2">
               <p>{c.message}</p>
-              <p className="text-xs opacity-80 mt-1">Research projects can’t be created from here. Create it in Trapper, then check again.</p>
+              <p className="text-xs opacity-80 mt-1">Research projects can’t be created from here. Create it in TRAPPER, then check again.</p>
               <div className="flex items-center gap-2 mt-2">
                 <button type="button" className={btnOutline} disabled={checkingSelection} onClick={() => setRecheck((n) => n + 1)}>Check again</button>
-                {trapper?.base_url && <a className={`${btnPrimary} no-underline`} href={trapper.base_url} target="_blank" rel="noreferrer">Open Trapper</a>}
+                {trapper?.base_url && <a className={`${btnPrimary} no-underline`} href={trapper.base_url} target="_blank" rel="noreferrer">Open TRAPPER</a>}
               </div>
             </Notice>
           ))}
@@ -419,7 +419,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
               c.ok ? (
                 <p key={c.check} className={`flex items-center gap-2 mt-2 text-sm ${c.found ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" />{c.found ? <path d="M8 12.5l2.7 2.7L16 9.5" /> : <path d="M12 8v4M12 16h.01" />}</svg>
-                  {c.found ? 'Found in Trapper' : 'Not in Trapper yet — the upload creates it'}
+                  {c.found ? 'Found in TRAPPER' : 'Not in TRAPPER yet — the upload creates it'}
                 </p>
               ) : (
                 <p key={c.check} className="text-xs mt-1 text-red-600 dark:text-red-400"><Mark kind="warning" />{c.message}</p>
@@ -452,9 +452,9 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                     </>) },
                   { label: 'Period', className: 'px-4 py-3 font-mono text-xs', cell: (d) => (d.start_date ? `${formatLocal(d.start_date)} → ${d.end_date ? formatLocal(d.end_date) : '…'}` : '—') },
                   { label: 'Images', className: 'px-4 py-3 whitespace-nowrap', cell: (d) => images(d.images) },
-                  { label: 'In Trapper', cell: (d) => canUpload(d) && (d.uploaded_at
-                    ? <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">Already in Trapper</span>
-                    : <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">New in Trapper</span>) },
+                  { label: 'In TRAPPER', cell: (d) => canUpload(d) && (d.uploaded_at
+                    ? <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">Already in TRAPPER</span>
+                    : <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">New in TRAPPER</span>) },
                   { label: 'Details', className: 'px-4 py-3 text-right', cell: (d) => (
                     <span onClick={(e) => e.stopPropagation()}>
                       <IconButton compact label={`View the deployment ${d.deployment_id}`} title="View the deployment" onClick={() => void showDeployment(d)} path={ICON_PATHS.view} />
@@ -473,8 +473,8 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                       <span className="mt-2 block font-mono text-xs text-zinc-700 dark:text-zinc-300">{d.start_date ? `${formatLocal(d.start_date)} → ${d.end_date ? formatLocal(d.end_date) : '…'}` : '—'}</span>
                       <span className="mt-2 flex items-center justify-between gap-2 text-sm text-zinc-800 dark:text-zinc-200"><span>{images(d.images)}</span>
                         {canUpload(d) && (d.uploaded_at
-                          ? <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">Already in Trapper</span>
-                          : <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">New in Trapper</span>)}
+                          ? <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">Already in TRAPPER</span>
+                          : <span className="rounded-full px-3 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">New in TRAPPER</span>)}
                       </span>
                       {!d.preprocessed && <span className="mt-2 block text-xs text-red-600 dark:text-red-400">Not preprocessed — import it again through the wizard before uploading it.</span>}
                     </button>
@@ -497,26 +497,26 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
               <Combobox
                 id="upload-classification" options={classifications.map((c) => ({ value: String(c.pk), label: `${c.name} (#${c.pk})${c.is_active ? '' : ' — inactive'}` }))}
                 value={classificationPk} onChange={setClassificationPk} disabled={uploading || projectMissing}
-                placeholder={projectMissing ? `Needs ${projectId} in Trapper` : classifications.length === 0 ? 'No classification projects yet' : 'Select a classification project…'} clearLabel="Clear classification project"
+                placeholder={projectMissing ? `Needs ${projectId} in TRAPPER` : classifications.length === 0 ? 'No classification projects yet' : 'Select a classification project…'} clearLabel="Clear classification project"
               />
             ) : (
               <input id="upload-classification" type="number" min={1} step={1} className={inputClass} value={classificationPk} disabled={uploading}
-                     placeholder="Its pk in Trapper" onChange={(e) => setClassificationPk(e.target.value)} aria-invalid={classificationValid ? undefined : true} />
+                     placeholder="Its pk in TRAPPER" onChange={(e) => setClassificationPk(e.target.value)} aria-invalid={classificationValid ? undefined : true} />
             )}
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-              {projectMissing ? `Available once ${projectId} is found in Trapper.` : 'The revision is created in this classification project of Trapper.'}
+              {projectMissing ? `Available once ${projectId} is found in TRAPPER.` : 'The revision is created in this classification project of TRAPPER.'}
             </p>
             {connected && !projectMissing && classifications.some((c) => String(c.pk) === classificationPk) && (
               <p className="flex items-center gap-2 mt-2 text-sm text-emerald-600 dark:text-emerald-400">
                 <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.7 2.7L16 9.5" /></svg>
-                Found in Trapper
+                Found in TRAPPER
               </p>
             )}
             {classificationError && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{classificationError}</p>}
             {!classificationError && connected && !projectMissing && classifications.length === 0 && (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Trapper has none for this research project — create it there first.</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">TRAPPER has none for this research project — create it there first.</p>
             )}
-            {!connected && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Without a Trapper account they can’t be listed: type its pk.</p>}
+            {!connected && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Without a TRAPPER account they can’t be listed: type its pk.</p>}
             {connected && classifications.length > 1 && !classificationReady && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">The research project has several: pick the one the revision goes to.</p>
             )}
@@ -557,8 +557,8 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
         {toUpload.length > 0 && (
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-3">
             <strong className="text-zinc-700 dark:text-zinc-300">You’ll get: </strong>
-            {mode === 'upload' && <>{toUpload.length} {toUpload.length === 1 ? 'deployment' : 'deployments'} ({images(imagesToSend)}) sent to {projectId} › {collectionName} in Trapper. Anything missing there is created first.</>}
-            {mode === 'dry_run' && <>A report of what would be created in Trapper and how the {images(imagesToSend)} of {toUpload.length} {toUpload.length === 1 ? 'deployment' : 'deployments'} would be packed. Nothing is created, sent or written.</>}
+            {mode === 'upload' && <>{toUpload.length} {toUpload.length === 1 ? 'deployment' : 'deployments'} ({images(imagesToSend)}) sent to {projectId} › {collectionName} in TRAPPER. Anything missing there is created first.</>}
+            {mode === 'dry_run' && <>A report of what would be created in TRAPPER and how the {images(imagesToSend)} of {toUpload.length} {toUpload.length === 1 ? 'deployment' : 'deployments'} would be packed. Nothing is created, sent or written.</>}
             {mode === 'generate' && <>The zips, the yamls and the deployments csv of {toUpload.length} {toUpload.length === 1 ? 'deployment' : 'deployments'} ({images(imagesToSend)}), written into your collections folder.</>}
           </p>
         )}
@@ -576,7 +576,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
 
       {chosen && modeChosen && preparing && collection && (
         <WizardStep n={3} title="Prepare the files" status={uploading ? 'running' : finished ? 'done' : 'open'} canEdit={false} onEdit={() => {}} expanded
-                    description="Checks the images, packs them together and writes their description into your collections folder. Nothing is sent to Trapper.">
+                    description="Checks the images, packs them together and writes their description into your collections folder. Nothing is sent to TRAPPER.">
           {order.length === 0 ? (
             <div className="flex items-center justify-end gap-3">
               {blockedBy && <p className="text-xs text-amber-600 dark:text-amber-400">{blockedBy}</p>}
@@ -601,8 +601,8 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
       )}
 
       {chosen && modeChosen && sending && collection && (
-        <WizardStep n={prepared ? 4 : 3} title="Upload to Trapper" status={uploading ? 'running' : finished ? 'done' : 'open'} canEdit={false} onEdit={() => {}} expanded
-                    description="Creates what’s missing in Trapper, packs the images and sends them for Trapper to process.">
+        <WizardStep n={prepared ? 4 : 3} title="Upload to TRAPPER" status={uploading ? 'running' : finished ? 'done' : 'open'} canEdit={false} onEdit={() => {}} expanded
+                    description="Creates what’s missing in TRAPPER, packs the images and sends them for TRAPPER to process.">
           {order.length === 0 ? (
             <div>
               <div className="mb-4">{deleteOption}</div>
@@ -612,7 +612,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
               </div>
             </div>
           ) : uploading ? (
-            <UploadingToTrapper items={uploadItems} startedAt={startedAt} target={`${trapper?.base_url ?? 'Trapper'}${trapper?.user_name ? ` as ${trapper.user_name}` : ''}`} onStop={() => abortRef.current?.abort()} />
+            <UploadingToTrapper items={uploadItems} startedAt={startedAt} target={`${trapper?.base_url ?? 'TRAPPER'}${trapper?.user_name ? ` as ${trapper.user_name}` : ''}`} onStop={() => abortRef.current?.abort()} />
           ) : (
             <UploadedToTrapper collection={collection.name} researchProject={projectId} items={uploadItems} startedAt={startedAt} finishedAt={finishedAt} reportId={reportId}
                                filesNote={filesNote} onBack={onBack}
@@ -667,8 +667,8 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
                   <div className="mt-2 text-sm text-sky-700 dark:text-sky-400">
                     <p>🔍 Dry run — nothing was created, sent or written.</p>
                     <ul className="list-disc ml-6 text-xs">
-                      <li>{run.result.would_create_location ? 'The location would be created in Trapper.' : 'The location is already in Trapper.'}</li>
-                      <li>{run.result.would_create_deployment ? 'The deployment would be created in Trapper.' : 'The deployment is already in Trapper.'}</li>
+                      <li>{run.result.would_create_location ? 'The location would be created in TRAPPER.' : 'The location is already in TRAPPER.'}</li>
+                      <li>{run.result.would_create_deployment ? 'The deployment would be created in TRAPPER.' : 'The deployment is already in TRAPPER.'}</li>
                       <li>The images would go up in {run.result.parts} package(s).</li>
                     </ul>
                   </div>

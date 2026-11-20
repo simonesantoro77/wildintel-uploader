@@ -37,7 +37,7 @@ LABELS = {
     "camera": "Camera", "exif": "Required EXIF fields", "duplicates": "Duplicate images",
     "deployment_id": "Deployment id format", "collection_prefix": "Deployment id starts with its collection",
     "collection_name": "Collection name", "location": "The id's location is the one chosen", "time_range": "Image dates fit the deployment",
-    "sd_card": "The SD card is the visit's", "photo_count": "Number of photos is the visit's",
+    "sd_card": "The SD card is the visit's", "photo_count": "Number of images is the visit's",
     "image_count": "Number of images", "sequence_count": "Number of sequences", "sequence_length": "Length of the sequences",
     "preprocessing": "Preprocessing",
     "metadata_files": "Metadata files", "camera_match": "The camera is the deployment's",

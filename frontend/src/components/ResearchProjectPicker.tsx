@@ -95,7 +95,7 @@ export default function ResearchProjectPicker({ value, onSelect, onError }: Prop
       setTrapperProjects(results)
       setConn({ status: 'ok', message: `Connected — ${result.research_projects_count} research project(s) available.` })
     } catch (e) {
-      setConn({ status: 'error', message: e instanceof Error ? e.message : 'Could not connect to Trapper.' })
+      setConn({ status: 'error', message: e instanceof Error ? e.message : 'Could not connect to TRAPPER.' })
     }
   }
 
@@ -140,7 +140,7 @@ export default function ResearchProjectPicker({ value, onSelect, onError }: Prop
       const project: LocalResearchProject = { ...EMPTY_RESEARCH_PROJECT, name: rp.name, acronym: rp.acronym ?? '', trapper_pk: rp.pk }
       const problem = validateResearchProject(project)
       if (problem.name || problem.acronym) {
-        problems.push(`“${rp.name}” can't be added from Trapper as it is: ${problem.acronym ?? problem.name} Add it by hand instead.`)
+        problems.push(`“${rp.name}” can't be added from TRAPPER as it is: ${problem.acronym ?? problem.name} Add it by hand instead.`)
         continue
       }
       try {
@@ -183,9 +183,9 @@ export default function ResearchProjectPicker({ value, onSelect, onError }: Prop
             <div className="mt-4">
               {conn.status !== 'ok' ? connectionForm : (
                 <>
-                  <p className={labelClass}>Trapper research projects</p>
+                  <p className={labelClass}>TRAPPER research projects</p>
                   <CheckboxList
-                    filterLabel="Filter Trapper research projects" emptyText="No research projects found in Trapper." disabled={saving}
+                    filterLabel="Filter TRAPPER research projects" emptyText="No research projects found in TRAPPER." disabled={saving}
                     options={trapperProjects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
                     selected={trapperPks} onChange={setTrapperPks}
                   />

@@ -8,9 +8,9 @@ const DATABASE = <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7
 /** The steps of the work from the first: the research project, and then the three of the menu. */
 const STEPS: { badge: ReactNode; title: string; text: string }[] = [
   { badge: 'project', title: 'Create a research project', text: 'Define trappers, sites, cameras and SD cards once, or switch anytime from the top bar.' },
-  { badge: '1', title: 'Register visits', text: 'Log field visits (who, when, site, actions) by hand or from your field CSV.' },
-  { badge: '2', title: 'Create deployments', text: 'Pair closed visits with SD card photos to validate, rename and structure them in Camtrap DP.' },
-  { badge: '3', title: 'Upload deployment', text: 'Send curated local deployments to your remote repository (e.g., TRAPPER).' },
+  { badge: '1', title: 'Register the visits', text: 'Log field visits (who, when, site, actions) by hand or from your field CSV.' },
+  { badge: '2', title: 'Import the images', text: 'Pair collected visits with SD card images to validate, rename and structure them in Camtrap DP.' },
+  { badge: '3', title: 'Upload the images', text: 'Send curated local deployments to your remote repository (e.g., TRAPPER).' },
 ]
 
 /** The button of the title of the menu that opens the quick guide. */
