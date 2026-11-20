@@ -61,13 +61,13 @@ def copy_card(source_dir: str) -> Iterator[dict]:
         CardCopyError: the card is not a folder that can be read, or has nothing on it, or a file could not be copied (what was copied is removed)."""
     source = Path(source_dir).expanduser()
     if not source.is_dir():
-        raise CardCopyError(f"The memory card '{source_dir}' is not a folder that can be read.")
+        raise CardCopyError(f"The SD card '{source_dir}' is not a folder that can be read.")
     try:
         files = _files(source)
     except OSError as exc:
-        raise CardCopyError(f"The memory card '{source_dir}' cannot be read: {exc}") from exc
+        raise CardCopyError(f"The SD card '{source_dir}' cannot be read: {exc}") from exc
     if not files:
-        raise CardCopyError(f"There is nothing on the memory card '{source_dir}'.")
+        raise CardCopyError(f"There is nothing on the SD card '{source_dir}'.")
     clean_stale()
     base_dir().mkdir(parents=True, exist_ok=True)
     holder = Path(tempfile.mkdtemp(prefix="card-", dir=base_dir()))
@@ -86,7 +86,7 @@ def copy_card(source_dir: str) -> Iterator[dict]:
             yield {"type": "progress", "copied": n, "files": len(files), "bytes_copied": copied_bytes, "bytes": total}
     except OSError as exc:
         shutil.rmtree(holder, ignore_errors=True)
-        raise CardCopyError(f"The memory card could not be copied: {exc}") from exc
+        raise CardCopyError(f"The SD card could not be copied: {exc}") from exc
     yield {"type": "done", "path": str(destination), "files": len(files), "bytes": total}
 
 

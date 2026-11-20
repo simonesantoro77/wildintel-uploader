@@ -426,7 +426,7 @@ def test_a_location_is_deleted_unless_it_has_visits_or_comes_from_trapper(tmp_pa
 
     assert free.status_code == 200 and free.json() == {"deleted": "DONA_01"}
     assert visited.status_code == 409 and "1 visit" in visited.json()["detail"]
-    assert trapper.status_code == 409 and "Trapper" in trapper.json()["detail"]
+    assert trapper.status_code == 409 and "TRAPPER" in trapper.json()["detail"]
     assert missing.status_code == 404
     assert [l["location_id"] for l in listed] == ["DONA_02", "DONA_03"]
 
@@ -973,7 +973,7 @@ def test_import_local_refuses_a_deployment_synced_from_trapper(tmp_path: Path):
 
     for body in (plain, with_preprocessing):
         response = _client().post("/api/deployment-import/import-local", json=body)
-        assert response.status_code == 400 and "synced from Trapper" in response.json()["detail"]
+        assert response.status_code == 400 and "synced from TRAPPER" in response.json()["detail"]
     assert json.loads((folder / "deployment.json").read_text(encoding="utf-8")) == {"synced": True}
 
 
@@ -1095,7 +1095,7 @@ def test_validate_deployment_takes_the_visit_for_the_card_and_the_photos(tmp_pat
     assert response.status_code == 200
     body = response.json()
     assert body["sd_card"]["ok"] is False and "left 7B" in body["sd_card"]["message"]
-    assert body["photo_count"]["ok"] is False and "1,899 photos missing" in body["photo_count"]["message"]
+    assert body["photo_count"]["ok"] is False and "1,899 images missing" in body["photo_count"]["message"]
 
 
 def test_log_entry_gives_what_the_collections_logs_say_of_a_deployment(tmp_path: Path):

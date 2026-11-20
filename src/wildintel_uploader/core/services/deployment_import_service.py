@@ -178,7 +178,7 @@ def check_not_kept(dest: Path) -> None:
             was synced from Trapper, which is not modified here.
     """
     if local_folder_service.is_synced(dest):
-        raise DeploymentImportError(f"{dest.name} was synced from Trapper, so it can't be modified here.")
+        raise DeploymentImportError(f"{dest.name} was synced from TRAPPER, so it can't be modified here.")
     if dest.exists() and any(dest.iterdir()):
         raise DeploymentImportError(f"{dest} already exists — importing again would mix the images.")
 
@@ -377,7 +377,7 @@ def scan_session(session_dir: Path) -> dict:
         raise DeploymentImportError(f"Not a folder: {session_dir}")
     subfolders = sorted((p for p in session_dir.iterdir() if p.is_dir() and not p.name.startswith(".")), key=lambda p: p.name.lower())
     if not subfolders:
-        raise DeploymentImportError("This folder has no subfolders — a session has one subfolder per deployment.")
+        raise DeploymentImportError("This folder has no subfolders — a collection has one subfolder per deployment.")
     suffix = local_folder_service.TIMESTAMP_LOG_SUFFIX.lower()  # a timestamp log is not a stray file
     loose = sum(1 for p in session_dir.iterdir() if p.is_file() and not p.name.startswith(".") and not p.name.lower().endswith(suffix))
     warnings = [f"{loose} loose file(s) beside the subfolders will be ignored."] if loose else []
@@ -387,7 +387,7 @@ def scan_session(session_dir: Path) -> dict:
     log_path, log_warnings = _find_timestamp_log(session_dir)
     warnings += log_warnings
     if log_path is None and not log_warnings:  # none at all: the dates will have to come from elsewhere
-        warnings.append(f"No timestamp log ({session_dir.name}{local_folder_service.TIMESTAMP_LOG_SUFFIX}) was found in the session folder, so the dates can't be recovered from it.")
+        warnings.append(f"No timestamp log ({session_dir.name}{local_folder_service.TIMESTAMP_LOG_SUFFIX}) was found in the collection folder, so the dates can't be recovered from it.")
     if log_path is not None:
         periods, log_warnings = _timestamp_log_periods(log_path)
         warnings += log_warnings
@@ -708,11 +708,11 @@ def _sd_card_check(visit: dict | None) -> dict:
 def _photo_count_check(visit: dict | None, found: int) -> dict:
     """The photos in the folder against those the visit counted on the card when it collected it."""
     if not visit:
-        return _ok("No visit was chosen, so the number of photos cannot be checked.")
+        return _ok("No visit was chosen, so the number of images cannot be checked.")
     counted, session = visit.get("counted_photos"), visit.get("collected_session") or "the visit"
     if counted is None:
-        return _ok(f"The visit {session} did not count the photos on the card, so the number of photos cannot be checked.")
-    photos = lambda n: f"{n:,} {'photo' if n == 1 else 'photos'}"  # noqa: E731
+        return _ok(f"The visit {session} did not count the images on the card, so the number of images cannot be checked.")
+    photos = lambda n: f"{n:,} {'image' if n == 1 else 'images'}"  # noqa: E731
     if counted == found:
         return _ok(f"The folder has {photos(found)}, as the visit {session} counted.")
     gap = abs(counted - found)

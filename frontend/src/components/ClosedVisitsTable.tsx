@@ -37,7 +37,7 @@ const columnsOf = (onSite: (locationId: string) => void, onCard: (label: string)
   } },
   { label: 'Left on', className: date, cell: (c) => cellsOf(c)[2] },
   { label: 'Collected on', className: date, cell: (c) => cellsOf(c)[5] },
-  { label: 'Photos', className: mono, cell: (c) => cellsOf(c)[6] },
+  { label: 'Images', className: mono, cell: (c) => cellsOf(c)[6] },
   { label: 'Details', className: 'px-4 py-3 whitespace-nowrap', cell: (c) => (
     <span onClick={(e) => e.stopPropagation()}>{/* a press on the eye is not a press on the row */}
       <RowOptions label={`Options of the visit ${c.visit.session} to ${c.visit.location_id}`}>
@@ -81,8 +81,8 @@ function VisitLabel({ visit, picked, onPress }: { visit: ClosedVisit; picked: bo
       </span>
       <span className="mt-4 block border-t border-zinc-200 dark:border-zinc-700/70 pt-4 font-mono text-base">
         {photos !== '—'
-          ? <span className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400"><Glyph className="h-5 w-5"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.500" cy="10" r="1.500" /><path d="M21 16l-5-5-8 8" /></Glyph>{photos} photos</span>
-          : <span className="text-sm text-zinc-500 dark:text-zinc-400">photos not counted</span>}
+          ? <span className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400"><Glyph className="h-5 w-5"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.500" cy="10" r="1.500" /><path d="M21 16l-5-5-8 8" /></Glyph>{photos} images</span>
+          : <span className="text-sm text-zinc-500 dark:text-zinc-400">images not counted</span>}
       </span>
     </LabelFrame>
   )
@@ -111,9 +111,9 @@ export default function ClosedVisitsTable({ visits, selectedKey = '', onSelect, 
     <>
     <PickTable items={visits} keyOf={closedVisitKey} selectedKey={selectedKey} onSelect={onSelect} many={many} columns={columnsOf(setSite, setCard, setDetails)} searchText={(c) => cellsOf(c).join(' ')}
       renderLabel={(c, picked, press) => <VisitLabel visit={c} picked={picked} onPress={press} />}
-      names={{ table: 'Closed visits', search: 'Filter the closed visits', items: 'visits', pick: (c) => `the visit ${c.visit.session} to ${c.visit.location_id}`, pickPlaceholder: 'Select a visit…' }}
-      optionLabel={(c) => { const [session, site, left, status, card, collected, photos] = cellsOf(c); return `${left} · ${site} · ${session} · ${status}${card !== '—' ? ` · card ${card}` : ''} · collected on ${collected}${photos !== '—' ? ` (${photos} photos)` : ''}` }}
-      searchPlaceholder="Search by revision, location, status, SD card…" empty="No closed visit matches." filters={filters} total={total} />
+      names={{ table: 'Collected visits', search: 'Filter the collected visits', items: 'visits', pick: (c) => `the visit ${c.visit.session} to ${c.visit.location_id}`, pickPlaceholder: 'Select a visit…' }}
+      optionLabel={(c) => { const [session, site, left, status, card, collected, photos] = cellsOf(c); return `${left} · ${site} · ${session} · ${status}${card !== '—' ? ` · card ${card}` : ''} · collected on ${collected}${photos !== '—' ? ` (${photos} images)` : ''}` }}
+      searchPlaceholder="Search by revision, location, status, SD card…" empty="No collected visit matches." filters={filters} total={total} />
     {details && <VisitDetails closed={details} onClose={() => setDetails(null)} />}
     {card && <SdCardDetails label={card} card={sdCards?.find((c) => c.label === card)} onClose={() => setCard(null)}
       onOpenInSettings={onOpenSdCard ? () => { setCard(null); onOpenSdCard(card) } : undefined} />}

@@ -41,7 +41,7 @@ def test_a_card_that_is_not_there_or_is_empty_is_refused(tmp_path: Path):
     (tmp_path / "EMPTY").mkdir()
     with pytest.raises(card_copy_service.CardCopyError, match="not a folder"):
         list(card_copy_service.copy_card(str(tmp_path / "nowhere")))
-    with pytest.raises(card_copy_service.CardCopyError, match="nothing on the memory card"):
+    with pytest.raises(card_copy_service.CardCopyError, match="nothing on the SD card"):
         list(card_copy_service.copy_card(str(tmp_path / "EMPTY")))
 
 

@@ -1,6 +1,6 @@
 # Example visits (CSV files)
 
-Visits to the camera traps for trying **Register visits → From a CSV file**, in folders by what they are, all made for the entities of the research project `WICP_02`.
+Visits to the camera traps for trying **Register the visits → From a CSV file**, in folders by what they are, all made for the entities of the research project `WICP_02`.
 Import the entities first (Settings → Entities, with the research project `WICP_02` picked) and load each file on a research project that has no visits yet.
 
 | Folder | Source step | Made for the entities in | What is in it |

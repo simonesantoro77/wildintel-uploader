@@ -266,7 +266,7 @@ def test_the_research_project_is_the_one_it_was_filled_in_from_or_else_the_one_w
 
 
 def test_a_research_project_trapper_does_not_have_is_not_created_here():
-    with _with(FakeTrapper()), pytest.raises(up.TrapperUploadError, match="Trapper has no research project 'NOPE' — create it there first"):
+    with _with(FakeTrapper()), pytest.raises(up.TrapperUploadError, match="TRAPPER has no research project 'NOPE' — create it there first"):
         up.find_research_project(CREDENTIALS, {"acronym": "NOPE", "trapper_pk": None})
 
 
@@ -372,7 +372,7 @@ def test_the_upload_creates_the_location_and_the_deployment_then_packs_uploads_a
     # the revision goes to Trapper with the acronym of its research project before its name
     [trigger] = fake.triggered
     assert "_DONA-R0003_" in trigger["zip_file"] and "_DONA-R0003_" in trigger["yaml_file"]
-    assert next(e for e in events if e.get("step") == "wait" and e["status"] == "done")["message"] == "Revision DONA-R0003 is in Trapper."
+    assert next(e for e in events if e.get("step") == "wait" and e["status"] == "done")["message"] == "Revision DONA-R0003 is in TRAPPER."
 
 
 def test_the_yaml_names_the_classification_project_and_not_the_research_project(tmp_path: Path, fake_uploader):
@@ -423,7 +423,7 @@ def test_a_location_with_the_same_settings_says_nothing_about_them(tmp_path: Pat
 
     events = _upload(tmp_path, collection, fake)
 
-    assert next(e for e in events if e.get("step") == "location" and e["status"] == "done")["message"] == "Location DONA_0006_B was already in Trapper."
+    assert next(e for e in events if e.get("step") == "location" and e["status"] == "done")["message"] == "Location DONA_0006_B was already in TRAPPER."
 
 
 def test_generating_with_an_account_also_uses_the_locations_settings(tmp_path: Path, fake_uploader):
@@ -448,7 +448,7 @@ def test_the_package_names_the_deployment_as_trapper_has_it_not_as_it_is_kept_he
         events = _upload(tmp_path, collection, fake)
 
     assert seen == [stored]
-    assert f"was already in Trapper, as {stored} — the package uses that id" in next(e for e in events if e.get("step") == "deployment" and e["status"] == "done")["message"]
+    assert f"was already in TRAPPER, as {stored} — the package uses that id" in next(e for e in events if e.get("step") == "deployment" and e["status"] == "done")["message"]
 
 
 def test_a_package_names_the_deployment_it_was_given_and_puts_its_files_in_that_folder(tmp_path: Path):
@@ -518,7 +518,7 @@ def test_what_is_already_in_trapper_is_not_created_again(tmp_path: Path, fake_up
 
     assert fake.imported_locations == [] and fake.imported_deployments == []
     assert [e["message"] for e in events if e["type"] == "step" and e["status"] == "done"][3:5] == [
-        "Location DONA_0006_B was already in Trapper.", f"Deployment {DEPLOYMENT_ID} was already in Trapper.",
+        "Location DONA_0006_B was already in TRAPPER.", f"Deployment {DEPLOYMENT_ID} was already in TRAPPER.",
     ]
     assert events[-1]["location_created"] is False and events[-1]["deployment_created"] is False
 
@@ -654,7 +654,7 @@ def test_a_refused_login_says_who_refused_it_and_what_it_answered(tmp_path: Path
 def test_when_the_collection_never_appears_in_trapper_it_says_so(tmp_path: Path, fake_uploader):
     collection = _imported(tmp_path, 2)
 
-    with pytest.raises(up.TrapperUploadError, match="didn't appear in Trapper within 0 seconds"):
+    with pytest.raises(up.TrapperUploadError, match="didn't appear in TRAPPER within 0 seconds"):
         _upload(tmp_path, collection, FakeTrapper(collections_appear=False))
 
     assert not (collection / DEPLOYMENT_ID / "upload.json").exists()
@@ -776,7 +776,7 @@ def test_a_dry_run_says_what_is_already_in_trapper(tmp_path: Path, fake_uploader
     events = _run(tmp_path, collection, FakeTrapper(locations=["dona_0006_b"], deployments=[DEPLOYMENT_ID]), "dry_run")
 
     messages = [e["message"] for e in events if e["type"] == "step" and e["status"] == "done"]
-    assert "Location DONA_0006_B is already in Trapper." in messages and f"Deployment {DEPLOYMENT_ID} is already in Trapper." in messages
+    assert "Location DONA_0006_B is already in TRAPPER." in messages and f"Deployment {DEPLOYMENT_ID} is already in TRAPPER." in messages
     assert events[-1]["would_create_location"] is False and events[-1]["would_create_deployment"] is False
 
 
@@ -861,7 +861,7 @@ def test_generating_without_an_account_needs_the_classification_project_chosen(t
 def test_generating_without_a_known_pk_nor_an_account_says_what_to_do(tmp_path: Path, fake_uploader):
     collection = _imported(tmp_path, 2)
 
-    with pytest.raises(up.TrapperUploadError, match="research project's pk in Trapper"):
+    with pytest.raises(up.TrapperUploadError, match="research project's pk in TRAPPER"):
         list(up.upload_stream(None, {**RECORD, "trapper_pk": None}, collection, DEPLOYMENT_ID, tmp_path / "packages" / "DONA", mode="generate"))
 
 
@@ -965,7 +965,7 @@ def test_checking_the_access_reports_the_project_the_locations_and_the_uploader(
     assert [c["check"] for c in checks] == ["research_project", "classification_project", "location", "uploader"]
     assert all(c["ok"] for c in checks)
     assert "Doñana classification (#7)" in checks[1]["message"]
-    assert "Already in Trapper: DONA_0001" in checks[2]["message"] and "Would be created: dona_0002" in checks[2]["message"]
+    assert "Already in TRAPPER: DONA_0001" in checks[2]["message"] and "Would be created: dona_0002" in checks[2]["message"]
     assert fake.imported_locations == [] and fake.imported_deployments == []  # nothing was created
 
 
@@ -997,7 +997,7 @@ def test_checking_the_selection_says_whether_the_collection_is_there_or_would_be
         nothing = up.check_selection(CREDENTIALS, {"acronym": "NOPE", "trapper_pk": None}, "R0003")
 
     assert [(c["check"], c["ok"]) for c in there] == [("research_project", True), ("collection", True)]
-    assert "R0003 (#26)" in there[1]["message"] and "already in Trapper" in there[1]["message"]
+    assert "R0003 (#26)" in there[1]["message"] and "already in TRAPPER" in there[1]["message"]
     assert "creates it" in new[1]["message"] and new[1]["ok"]
     assert there[1]["found"] is True and new[1]["found"] is False
     assert [c["ok"] for c in nothing] == [False, False] and "Not checked" in nothing[1]["message"]

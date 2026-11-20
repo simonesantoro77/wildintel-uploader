@@ -103,7 +103,7 @@ export default function LocationPicker({ researchProjectId, trapperPk, value, on
       setTrapperProjects(results)
       setConn({ status: 'ok', message: `Connected — ${result.research_projects_count} research project(s) available.` })
     } catch (e) {
-      setConn({ status: 'error', message: e instanceof Error ? e.message : 'Could not connect to Trapper.' })
+      setConn({ status: 'error', message: e instanceof Error ? e.message : 'Could not connect to TRAPPER.' })
     }
   }
 
@@ -174,7 +174,7 @@ export default function LocationPicker({ researchProjectId, trapperPk, value, on
       const already = locations.find((l) => l.location_id.toLowerCase() === loc.location_id.toLowerCase())
       if (already) { chosen.push(already); continue }
       if (loc.latitude == null || loc.longitude == null) {
-        problems.push(`“${loc.location_id}” has no coordinates in Trapper, and a deployment needs them. Add it by hand instead.`)
+        problems.push(`“${loc.location_id}” has no coordinates in TRAPPER, and a deployment needs them. Add it by hand instead.`)
         continue
       }
       try {
@@ -233,19 +233,19 @@ export default function LocationPicker({ researchProjectId, trapperPk, value, on
               {conn.status !== 'ok' ? connectionForm : (
                 <>
                   <div className="mb-4">
-                    <label className={labelClass} htmlFor="trapper-location-project">Trapper research project</label>
+                    <label className={labelClass} htmlFor="trapper-location-project">TRAPPER research project</label>
                     <Combobox
                       id="trapper-location-project" options={trapperProjects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
                       value={trapperProjectPk} onChange={handleTrapperProjectChange}
                       placeholder={trapperProjects.length === 0 ? 'No research projects found' : 'Select a research project…'}
-                      clearLabel="Clear Trapper research project"
+                      clearLabel="Clear TRAPPER research project"
                     />
                   </div>
                   {trapperProjectPk && (
                     <div>
-                      <p className={labelClass}>Trapper locations</p>
+                      <p className={labelClass}>TRAPPER locations</p>
                       <CheckboxList
-                        filterLabel="Filter Trapper locations" emptyText={loadingTrapper ? 'Loading locations…' : 'No locations found.'}
+                        filterLabel="Filter TRAPPER locations" emptyText={loadingTrapper ? 'Loading locations…' : 'No locations found.'}
                         disabled={loadingTrapper || saving}
                         options={trapperLocations.map((l) => ({ value: String(l.pk), label: label(l) }))}
                         selected={trapperPks} onChange={setTrapperPks}

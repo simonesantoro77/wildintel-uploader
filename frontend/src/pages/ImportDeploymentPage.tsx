@@ -564,12 +564,12 @@ export const isoPeriod = (start: string | null | undefined, end: string | null |
 }
 export const visitKey = closedVisitKey
 export const visitLabel = (c: ClosedVisit) =>
-  `${formatVisitWhen(c.visit)} · ${c.visit.location_id} · ${c.visit.session} · ${c.visit.actions.join(' + ')}${c.visit.sd ? ` · card ${c.visit.sd}` : ''} · collected on ${formatVisitWhen(c.end)}${c.end.num_photos != null ? ` (${c.end.num_photos} photos)` : ''}`
+  `${formatVisitWhen(c.visit)} · ${c.visit.location_id} · ${c.visit.session} · ${c.visit.actions.join(' + ')}${c.visit.sd ? ` · card ${c.visit.sd}` : ''} · collected on ${formatVisitWhen(c.end)}${c.end.num_photos != null ? ` (${c.end.num_photos} images)` : ''}`
 
 export const EMPTY_LOCATION_DRAFT = { location_id: '', name: '', timezone: 'UTC', ignore_dst: 'no', latitude: '', longitude: '', coordinate_uncertainty: '' }
 
 export const ORIGIN_SOURCE_OPTIONS: Option<OriginSource>[] = [
-  { value: 'trapper', emoji: '🪤', title: 'From Trapper', description: 'Connect to Trapper and pick one — its fields fill in the form.', available: true },
+  { value: 'trapper', emoji: '🪤', title: 'From TRAPPER', description: 'Connect to TRAPPER and pick one — its fields fill in the form.', available: true },
   { value: 'manual', emoji: '✍️', title: 'By hand', description: 'Fill in the form yourself.', available: true },
 ]
 
@@ -581,7 +581,7 @@ export const IMAGE_CHECK_OPTIONS: { value: ImageCheck; label: string }[] = [
   { value: 'sequence', label: 'Shooting order vs. filename sequence' },
   { value: 'structure', label: 'Folder structure (subfolders)' },
   { value: 'camera', label: 'Same camera on every image' },
-  { value: 'exif', label: 'Required photo data' },
+  { value: 'exif', label: 'Required image data' },
   { value: 'duplicates', label: 'Duplicate images (same content)' },
 ]
 
@@ -605,7 +605,7 @@ export const DEPLOYMENT_CHECK_OPTIONS: { value: DeploymentCheck; label: string }
   { value: 'sequence_count', label: 'Number of sequences is like the previous revisions' },
   { value: 'sequence_length', label: 'Length of the sequences is like the previous revisions' },
   { value: 'sd_card', label: 'The SD card is the one the visit left' },
-  { value: 'photo_count', label: 'The photos are those the visit counted' },
+  { value: 'photo_count', label: 'The images are those the visit counted' },
 ]
 
 /** How the postvalidation names each check, and what it says it does. */
@@ -620,7 +620,7 @@ export const DEPLOYMENT_CHECK_DISPLAY: Record<DeploymentCheck, { label: string; 
   sequence_count: { label: 'Number of sequences is like the previous revisions', description: () => 'The number of sequences is close to that of the previous revisions.' },
   sequence_length: { label: 'Length of the sequences is like the previous revisions', description: () => 'The length of the sequences is close to that of the previous revisions.' },
   sd_card: { label: 'The SD card is the one the visit left', description: () => 'The card you said the images come from is the one the visit left in the camera.' },
-  photo_count: { label: 'The photos are those the visit counted', description: () => 'The folder has the number of photos the visit counted on the card when it collected it.' },
+  photo_count: { label: 'The images are those the visit counted', description: () => 'The folder has the number of images the visit counted on the card when it collected it.' },
 }
 
 export const STATISTIC_CHECKS: StatisticCheck[] = ['image_count', 'sequence_count', 'sequence_length']
@@ -979,7 +979,7 @@ export function MoreDetailsForm({ deployment, errors, onField, cameraExtra, came
   ])
   const siteSummary = sum([
     FEATURE_TYPE_OPTIONS.find((o) => o.value === deployment.feature_type)?.label, deployment.habitat, deployment.setup_by && `set up by ${deployment.setup_by}`,
-    deployment.bait_use && 'bait used', deployment.timestamp_issues && 'photo dates may be wrong',
+    deployment.bait_use && 'bait used', deployment.timestamp_issues && 'image dates may be wrong',
   ])
   const notesSummary = sum([groups.length > 0 && groups.join(', '), deployment.tags.length > 0 && `${deployment.tags.length} ${deployment.tags.length === 1 ? 'tag' : 'tags'}`, deployment.comments && 'comments'])
   return (
@@ -1097,7 +1097,7 @@ export function MoreDetailsForm({ deployment, errors, onField, cameraExtra, came
             <div className="divide-y divide-zinc-200 dark:divide-zinc-700 -mt-2">
               <SwitchRow plain label="Bait was used" hint="Say what it was in the tags or comments below." required={ask('bait_use')} checked={!!deployment.bait_use}
                        onChange={(v) => onField('bait_use', ask('bait_use') ? v : v || null)} />
-              <SwitchRow plain label="Photo dates may be wrong" hint="Turn on if the dates in the photos are known to be off and can’t be fixed, for example an unknown or wrong camera clock." checked={!!deployment.timestamp_issues} onChange={(v) => onField('timestamp_issues', v || null)} />
+              <SwitchRow plain label="Image dates may be wrong" hint="Turn on if the dates in the images are known to be off and can’t be fixed, for example an unknown or wrong camera clock." checked={!!deployment.timestamp_issues} onChange={(v) => onField('timestamp_issues', v || null)} />
             </div>
           </DetailCard>
         </div>
@@ -1244,7 +1244,7 @@ export function DeploymentFormBody({ deployment, timezone, errors, onField, date
           <DateTimeField label="End" required error={errors.end_date}
                          value={deployment.end_date ?? ''} onChange={(v) => onField('end_date', v ? stampTimezone(v, timezone) : null)} />
         </div>
-        {datesGuessed && <p className="mt-3 flex items-center gap-2 rounded-md bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-xs text-blue-800 dark:text-blue-300"><span aria-hidden="true">ⓘ</span>Filled in from the images' photo data — change them if they're wrong</p>}
+        {datesGuessed && <p className="mt-3 flex items-center gap-2 rounded-md bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-xs text-blue-800 dark:text-blue-300"><span aria-hidden="true">ⓘ</span>Filled in from the images' image data — change them if they're wrong</p>}
         {datesFromLog && <p className={hintClass}>The dates were taken from {datesFromLog}, not from the images' EXIF data.</p>}
       </FormCard>
     ) : (
@@ -1818,7 +1818,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
       try { setEjected(await api.ejectCard(path)) } catch { setEjected({ ejected: false, message: 'Eject the card from the system before taking it out.' }) }
       await handleScan(copy)
     } catch (e) {
-      setCopyError(e instanceof Error ? e.message : 'Could not copy the memory card.')
+      setCopyError(e instanceof Error ? e.message : 'Could not copy the SD card.')
     } finally {
       setCopying(false)
     }
@@ -1827,7 +1827,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   async function browseCard() {
     setBrowsing(true); setBrowseError(null)
     try {
-      const { path } = await api.browseFolder('Select the memory card')
+      const { path } = await api.browseFolder('Select the SD card')
       if (path) { setCardDir(path); await copyCard(path) }
     } catch (e) {
       setBrowseError(e instanceof Error ? e.message : 'Could not open the folder browser.')
@@ -1919,7 +1919,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
       setResearchProjects(results)
       setConn({ status: 'ok', message: `Connected — ${result.research_projects_count} research project(s) available.` })
     } catch (e) {
-      setConn({ status: 'error', message: e instanceof Error ? e.message : 'Could not connect to Trapper.' })
+      setConn({ status: 'error', message: e instanceof Error ? e.message : 'Could not connect to TRAPPER.' })
     }
   }
 
@@ -2022,7 +2022,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
       const project: LocalResearchProject = { ...EMPTY_RESEARCH_PROJECT, name: rp.name, acronym: rp.acronym ?? '', trapper_pk: rp.pk }
       const problem = validateResearchProject(project)
       if (problem.name || problem.acronym) {
-        problems.push(`“${rp.name}” can't be added from Trapper as it is: ${problem.acronym ?? problem.name} Add it by hand instead.`)
+        problems.push(`“${rp.name}” can't be added from TRAPPER as it is: ${problem.acronym ?? problem.name} Add it by hand instead.`)
         continue
       }
       try {
@@ -2485,10 +2485,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   return (
     <>
     {fixingDates && (
-      <TimeFixPage initial={{ folder: sourceDir, researchProjectId: selectedProjectId, visit: linkedVisit?.visit }} onBack={() => setFixingDates(false)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} parent="Import deployment" />
+      <TimeFixPage initial={{ folder: sourceDir, researchProjectId: selectedProjectId, visit: linkedVisit?.visit }} onBack={() => setFixingDates(false)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} parent="Import the images" />
     )}
     <div className={fixingDates ? 'hidden' : PAGE_CLASS}>
-      <PageHeader icon={MENU_ICONS.deployment} title="Import deployment" description="Organizes a folder of camera-trap images into its revision."
+      <PageHeader icon={MENU_ICONS.deployment} title="Import the images" description="Organizes a folder of camera-trap images into its revision."
         parent="Menu" onParent={onBack} />
 
       {queue && (
@@ -2553,8 +2553,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                       description="Where the deployment's camera-trap images are, on this computer."
                       summary={scan && <>{folderName}<br />{imageCount}</>}>
             <fieldset className="mb-4">
-              <legend className={labelClass}>Are the images on a memory card?</legend>
-              <ChoiceCards<'sd' | 'folder'> label="Are the images on a memory card?" value={imageSource} onChange={chooseImageSource}
+              <legend className={labelClass}>Are the images on an SD card?</legend>
+              <ChoiceCards<'sd' | 'folder'> label="Are the images on an SD card?" value={imageSource} onChange={chooseImageSource}
                 choices={[
                   { value: 'sd', label: 'Yes, they are on the SD card', description: 'The card is only read: its content is copied to a temporary folder', icon: <><path d="M6 3h8l4 4v14H6z" /><path d="M9 7v3M12 7v3M15 7v3" /></> },
                   { value: 'folder', label: 'No, they are in a folder', description: 'Already copied to this computer', icon: <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /> },
@@ -2562,7 +2562,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             </fieldset>
             {imageSource === 'sd' && (
               <div className="mb-4 reveal">
-                <label className={labelClass} htmlFor="card-dir">Where is the memory card?</label>
+                <label className={labelClass} htmlFor="card-dir">Where is the SD card?</label>
                 <div className="flex gap-2">
                   <input id="card-dir" className={`${inputClass} flex-1`} placeholder="/run/media/me/CARD" value={cardDir} disabled={copying}
                          onChange={(e) => { setCardDir(e.target.value); setCopyError(null) }} onKeyDown={(e) => { if (e.key === 'Enter' && cardDir.trim() && !copying) void copyCard() }} />
@@ -2756,10 +2756,10 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                                 : <strong className="font-mono font-bold text-zinc-800 dark:text-zinc-100">{defaultProject!.acronym}</strong>}{' '}
                               the SD card that holds the images you want to link to the new deployment was installed.</>
                           : 'Pick the research project, then tell us in which of its visits the SD card that holds the images you want to link to the new deployment was installed.')
-                        : 'The research project and the location the images come from. They are kept in the collections folder — pick one that is already there, or add a new one, by hand or from Trapper.'}
+                        : 'The research project and the location the images come from. They are kept in the collections folder — pick one that is already there, or add a new one, by hand or from TRAPPER.'}
                       summary={selectedProject && selectedLocation && <>
                         {selectedProject.acronym} · {selectedLocation.location_id}{selectedLocation.name ? `, ${selectedLocation.name}` : ''}<br />
-                        {linkedVisit && <>Closed visit: {visitLabel(linkedVisit)}<br /></>}
+                        {linkedVisit && <>Collected visit: {visitLabel(linkedVisit)}<br /></>}
                         {selectedLocation.latitude != null && selectedLocation.longitude != null && <>GPS {selectedLocation.latitude}, {selectedLocation.longitude} · </>}Timezone {timezone || 'unknown'}
                       </>}>
           {usesDefaultProject && !addingProject ? null : (
@@ -2787,9 +2787,9 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                   <div className="mt-4">
                     {conn.status !== 'ok' ? connectionForm : (
                       <>
-                        <p className={labelClass}>Trapper research projects</p>
+                        <p className={labelClass}>TRAPPER research projects</p>
                         <CheckboxList
-                          filterLabel="Filter Trapper research projects" emptyText="No research projects found in Trapper." disabled={savingProject}
+                          filterLabel="Filter TRAPPER research projects" emptyText="No research projects found in TRAPPER." disabled={savingProject}
                           options={researchProjects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
                           selected={trapperProjectPks} onChange={setTrapperProjectPks}
                         />
@@ -2863,7 +2863,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 revisions={[...new Set(closedVisits.map((c) => revisionOfVisit(c)).filter((r): r is number => r !== null))].sort((x, y) => y - x).map((r) => { const n = closedVisits.filter((c) => revisionOfVisit(c) === r).length; return { id: String(r), label: `R${String(r).padStart(4, '0')}`, note: `${n} ${n === 1 ? 'visit' : 'visits'} without deployment`, strong: String(n) } })}
                 onPick={(id) => { const r = id ? Number(id) : null; setRevisionPick(r); if (r !== null && linkedVisit && revisionOfVisit(linkedVisit) !== r) selectClosedVisit(undefined) }} />
             </FormCard>
-            <FormCard title="Closed visit" description="Select the visit in which the SD card was installed. Only the visits whose SD cards have already been collected are shown.">
+            <FormCard title="Collected visit" description="Select the visit in which the SD card was installed. Only the visits whose SD cards have already been collected are shown.">
               <ClosedVisitsTable
                 visits={closedVisits.filter((c) => revisionPick === null || revisionOfVisit(c) === revisionPick)}
                 selectedKey={linkedVisit ? visitKey(linkedVisit) : ''} onSelect={selectClosedVisit}
@@ -2881,8 +2881,8 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
           {selectedProjectId && !addingProject && closedVisits !== null && closedVisits.length === 0 && (
             <Notice kind="warning" role="status" className="!items-start"
                     action={onRegisterVisits && <button type="button" className={btnPrimary} onClick={() => onRegisterVisits(selectedProjectId)}>Register the visits</button>}>
-              <strong>There is no closed visit without a deployment in {selectedProjectId}.</strong> A deployment is always linked to a visit — the one that left the camera, closed by the one that collected its
-              card —: its dates, its SD card and the photos counted on it are the visit's. Register the visits first, by hand or from a file with their history.
+              <strong>There is no collected visit without a deployment in {selectedProjectId}.</strong> A deployment is always linked to a visit — the one that left the camera, closed by the one that collected its
+              card —: its dates, its SD card and the images counted on it are the visit's. Register the visits first, by hand or from a file with their history.
             </Notice>
           )}
 
@@ -3144,7 +3144,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
 
             <StepHeading>Prepare and save</StepHeading>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Choose what is done to the images, see how it went, and save the deployment in your local collection. Nothing is uploaded to Trapper yet.
+              Choose what is done to the images, see how it went, and save the deployment in your local collection. Nothing is uploaded to TRAPPER yet.
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
@@ -3296,7 +3296,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               {!destDir && (
               <>
               <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4">
-                Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to Trapper yet.
+                Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to TRAPPER yet.
               </p>
               <section aria-label="What is going to be saved" className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5">
               <h6 className="mb-4 flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100">
@@ -3400,12 +3400,12 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                         </span>
                         <span className="rounded-full px-2.5 py-1 text-xs font-semibold normal-case tracking-normal bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">Not uploaded yet</span>
                       </h6>
-                      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">Send this deployment to Trapper now, or do it later from the deployments menu.</p>
+                      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">Send this deployment to TRAPPER now, or do it later from the deployments menu.</p>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {onUpload && selectedProjectId && plannedCollection && (
                           <button type="button" className={`${btnPrimary} inline-flex items-center justify-center gap-2 !h-14 text-base`}
                                   onClick={() => onUpload({ researchProjectId: selectedProjectId, collection: plannedCollection.collection })}>
-                            <Glyph className="h-5 w-5">{ICON_PATHS.upload}</Glyph>Upload to Trapper
+                            <Glyph className="h-5 w-5">{ICON_PATHS.upload}</Glyph>Upload to TRAPPER
                           </button>
                         )}
                         {queue ? (

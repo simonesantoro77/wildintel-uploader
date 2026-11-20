@@ -344,7 +344,7 @@ const FOLDERS: { draftKey: 'collectionsDir' | 'reportsDir' | 'packagesDir'; labe
     description: 'Where the reports of the checks and of the image preparation are kept.',
     hint: 'Reports already made stay where they are: move them by hand if you want them in the new folder.' },
   { draftKey: 'packagesDir', label: 'Packages folder', dialog: 'Select the folder to keep the packages in',
-    description: 'Where the packages made to upload a deployment to Trapper are written, before and while they are sent.',
+    description: 'Where the packages made to upload a deployment to TRAPPER are written, before and while they are sent.',
     hint: 'Handy when the packages are big and the data folder is on a small disk.' },
 ]
 
@@ -573,7 +573,7 @@ const DEPLOYMENT_CHECKS: { key: DeploymentCheck; label: string; hint: string }[]
   { key: 'sequence_count', label: 'Number of sequences is like the previous revisions', hint: 'How many sequences there are, with a sequence as defined in its settings.' },
   { key: 'sequence_length', label: 'Length of the sequences is like the previous revisions', hint: 'How many images a sequence has, on average.' },
   { key: 'sd_card', label: 'The SD card is the one the visit left', hint: 'The card the images come from is the one the visit of the deployment left in the camera. Only for a deployment of a visit.' },
-  { key: 'photo_count', label: 'The photos are those the visit counted', hint: 'The folder has as many photos as the visit counted on the card when it collected it. Only for a deployment of a visit.' },
+  { key: 'photo_count', label: 'The images are those the visit counted', hint: 'The folder has as many images as the visit counted on the card when it collected it. Only for a deployment of a visit.' },
 ]
 
 const SIMILARITY_METHODS: { value: SimilarityMethod; label: string }[] = [
@@ -651,7 +651,7 @@ const statusBadge = (status: string | null | undefined, date?: string | null, no
 /** Where a research project or a location came from: Trapper's are read-only here. */
 /** The warning of a site whose time zone is not UTC: a red label, as the ones of the state of a visit. */
 const notUtcBadge = (timezone: string | null | undefined): BadgeSpec[] => (timezone && !isUtcZone(timezone) ? [{ text: 'Not UTC', tone: 'red', hint: `The time zone is ${timezone}, not UTC` }] : [])
-const originBadge = (trapperPk: number | null | undefined): BadgeSpec => (trapperPk != null ? { text: 'From Trapper', tone: 'blue', lock: true } : { text: 'Created here', tone: 'zinc' })
+const originBadge = (trapperPk: number | null | undefined): BadgeSpec => (trapperPk != null ? { text: 'From TRAPPER', tone: 'blue', lock: true } : { text: 'Created here', tone: 'zinc' })
 
 function Badge({ text, tone, lock, hint }: BadgeSpec) {
   return (
@@ -712,7 +712,7 @@ function EntityHeader({ heading, count, noun, onFile, onExport, onTemplate, expo
     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
       <h4 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{heading} <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400 align-middle">{count}</span></h4>
       <div className="flex flex-wrap items-center gap-2">
-        {onTrapper && <button type="button" className={btnOutline} onClick={onTrapper} disabled={addDisabled}>Import from Trapper</button>}
+        {onTrapper && <button type="button" className={btnOutline} onClick={onTrapper} disabled={addDisabled}>Import from TRAPPER</button>}
         <div className="relative">
           <button type="button" className={`${btnOutline} gap-2`} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} onBlur={() => setTimeout(() => setMenu(false), 150)}>
             More<ChevronDownIcon />
@@ -848,7 +848,7 @@ function ProjectForm({ item, others, isNew, onChange, onClose, onDone, doneLabel
         </div>
       </LabelledField>
       </ProjectSection>
-      <ProjectSection spacious icon={<SlidersIcon />} title="How was it done?" hint="The design of the study, as Trapper asks for it. It goes into the metadata of the deployments.">
+      <ProjectSection spacious icon={<SlidersIcon />} title="How was it done?" hint="The design of the study, as TRAPPER asks for it. It goes into the metadata of the deployments.">
         <ProjectChoice label="Sampling design" hint="How the places of the cameras were chosen." options={SAMPLING_DESIGN_OPTIONS} value={item.sampling_design} onChange={(v) => onChange({ sampling_design: v })} />
         <ProjectChoice label="Sensor method" hint="What makes the camera take a picture." options={SENSOR_METHOD_OPTIONS} value={item.sensor_method} onChange={(v) => onChange({ sensor_method: v })} />
         <ProjectChoice label="Animal types" hint="Whether the animals are marked, so they can be told apart." options={ANIMAL_TYPES_OPTIONS} value={item.animal_types} onChange={(v) => onChange({ animal_types: v })} />
@@ -889,11 +889,11 @@ function TrapperNotice({ noun, href }: { noun: string; href?: string }) {
       <div className="flex items-start gap-3 min-w-0">
         <span className="mt-0.5 shrink-0"><LockIcon /></span>
         <div className="min-w-0">
-          <p className="font-semibold">This {noun} comes from Trapper</p>
-          <p className="text-sm opacity-90">It can’t be edited here. Change it in Trapper, then import it again.</p>
+          <p className="font-semibold">This {noun} comes from TRAPPER</p>
+          <p className="text-sm opacity-90">It can’t be edited here. Change it in TRAPPER, then import it again.</p>
         </div>
       </div>
-      {href && <a href={href} target="_blank" rel="noreferrer" className={btnOutline}>Open in Trapper</a>}
+      {href && <a href={href} target="_blank" rel="noreferrer" className={btnOutline}>Open in TRAPPER</a>}
     </div>
   )
 }
@@ -1405,7 +1405,7 @@ function TrapperPanel<T>({ noun, load, keyOf, labelOf, onAdd, onClose }: {
     let cancelled = false
     Promise.resolve().then(load)
       .then((found) => { if (!cancelled) setItems(found) })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Could not reach Trapper.') })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Could not reach TRAPPER.') })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1421,17 +1421,17 @@ function TrapperPanel<T>({ noun, load, keyOf, labelOf, onAdd, onClose }: {
   }
 
   return (
-    <div className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4" role="group" aria-label={`Import ${noun}s from Trapper`}>
-      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3">Import {noun}s from Trapper</p>
+    <div className="mb-4 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4" role="group" aria-label={`Import ${noun}s from TRAPPER`}>
+      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3">Import {noun}s from TRAPPER</p>
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
-      {!error && items === null && <p className={hintClass}>Connecting to Trapper…</p>}
+      {!error && items === null && <p className={hintClass}>Connecting to TRAPPER…</p>}
       {items !== null && (
         <CheckboxList
-          filterLabel={`Filter Trapper ${noun}s`} emptyText={`Trapper has no ${noun}s to offer.`} disabled={busy}
+          filterLabel={`Filter TRAPPER ${noun}s`} emptyText={`TRAPPER has no ${noun}s to offer.`} disabled={busy}
           options={items.map((t) => ({ value: keyOf(t), label: labelOf(t) }))} selected={chosen} onChange={setChosen}
         />
       )}
-      {done && <div className="mt-3"><ImportResult message={`${done.added} added from Trapper.`} problems={done.problems} /></div>}
+      {done && <div className="mt-3"><ImportResult message={`${done.added} added from TRAPPER.`} problems={done.problems} /></div>}
       <div className="flex items-center gap-3 mt-3">
         <button type="button" className={btnPrimary} disabled={chosen.length === 0 || busy} onClick={() => void add()}>
           Add {chosen.length} {noun}{chosen.length === 1 ? '' : 's'}
@@ -1572,7 +1572,7 @@ function ProjectsTab({ projects, onChanged, onDetail, owned, openItem }: {
               if (!PROJECT_FIELDS[0].validate!(acronym)) {
                 if (projects.some((p) => p.acronym.toLowerCase() === acronym.toLowerCase())) { problems.push(`${acronym} is already there.`); continue }
                 try { await keep({ ...BLANK_PROJECT, acronym, name: t.name }, t.pk); added++ } catch (e) { problems.push(`${acronym}: ${e instanceof Error ? e.message : 'could not be saved.'}`) }
-              } else problems.push(`“${t.name}” has no acronym of 3 to 10 characters in Trapper: add it by hand instead.`)
+              } else problems.push(`“${t.name}” has no acronym of 3 to 10 characters in TRAPPER: add it by hand instead.`)
             }
             if (added) onChanged()
             return { added, problems }
@@ -1580,7 +1580,7 @@ function ProjectsTab({ projects, onChanged, onDetail, owned, openItem }: {
         />
       )}
       <div className="space-y-3">
-        {projects.length === 0 && <p className={hintClass}>No research project yet — add the first one, or take them from Trapper.</p>}
+        {projects.length === 0 && <p className={hintClass}>No research project yet — add the first one, or take them from TRAPPER.</p>}
         {projects.length > 0 && shown.length === 0 && <p className={hintClass}>Nothing matches “{search}”.</p>}
         {shown.map((p) => (
           <ItemCard key={p.acronym} icon={<ReportIcon />} title={p.acronym} badges={[statusBadge(p.status), originBadge(p.trapper_pk)]} subtitle={p.name} readOnly={p.trapper_pk != null}
@@ -1703,7 +1703,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
         <TrapperPanel<Location>
           noun="location" onClose={() => setTrapper(false)} keyOf={(l) => String(l.pk)} labelOf={(l) => `${l.location_id}${l.name ? ` — ${l.name}` : ''}`}
           load={async () => {
-            if (project.trapper_pk == null) throw new Error(`${project.acronym} was not taken from Trapper, so there are no locations of it to import. Add the research project from Trapper first.`)
+            if (project.trapper_pk == null) throw new Error(`${project.acronym} was not taken from TRAPPER, so there are no locations of it to import. Add the research project from TRAPPER first.`)
             return (await api.trapperLocations(NO_CREDENTIALS, project.trapper_pk)).results
           }}
           onAdd={async (chosen) => {
@@ -1711,7 +1711,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
             let added = 0
             for (const t of chosen) {
               if (there(t.location_id)) { problems.push(`${t.location_id} is already there.`); continue }
-              if (t.latitude == null || t.longitude == null) { problems.push(`“${t.location_id}” has no coordinates in Trapper, and a deployment needs them. Add it by hand instead.`); continue }
+              if (t.latitude == null || t.longitude == null) { problems.push(`“${t.location_id}” has no coordinates in TRAPPER, and a deployment needs them. Add it by hand instead.`); continue }
               try {
                 await keep({ ...BLANK_LOCATION, in_service: today(), location_id: t.location_id, name: t.name, latitude: String(t.latitude), longitude: String(t.longitude), timezone: t.timezone && isValidTimezone(t.timezone) ? t.timezone : null, ignore_dst: t.ignore_dst ? 'yes' : null }, t.pk)
                 added++
@@ -1732,7 +1732,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
         ))}
       </div>
       <p className={`${hintClass} mt-4 max-w-prose`}>
-        Locations that come from Trapper are read-only here. Change them in Trapper and import them again. A location that already has visits can't be deleted; mark it as archived instead and it stops being offered for new visits.
+        Locations that come from TRAPPER are read-only here. Change them in TRAPPER and import them again. A location that already has visits can't be deleted; mark it as archived instead and it stops being offered for new visits.
       </p>
       {deleteDialog}
     </div>
@@ -1890,7 +1890,7 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
           badges={(t) => [...(t.status === 'inactive' || t.status === 'archived' ? [statusBadge(t.status)] : []), ...(t.trapper_pk != null ? [originBadge(t.trapper_pk)] : [])]}
           subtitle={(t) => [t.name, t.affiliation].filter(Boolean).join(' · ')}
           meta={(t) => usedIn(countVisits((v) => (v.trappers ?? '').split(',').some((n) => sameName(n, t.name))))}
-          footnote="Trappers that come from Trapper are read-only here. Change them in Trapper and import them again. If someone no longer goes to the field, mark them as inactive instead of deleting them."
+          footnote="Trappers that come from TRAPPER are read-only here. Change them in TRAPPER and import them again. If someone no longer goes to the field, mark them as inactive instead of deleting them."
           empty="No trapper yet — a visit will have none to pick as who went."
           searchLabel="Search by username, name or affiliation"
           fields={[
@@ -1941,7 +1941,7 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
             { key: 'label', label: 'Label', placeholder: 'e.g. CAM-014', hint: 'What the camera is called in the field. No two cameras in a project have the same.', section: 'Which camera is it?', sectionIcon: <CameraIcon />, sectionHint: 'What the camera is called in the field, its serial number and its model. Visits refer to the camera by its label.' },
             { key: 'camera_id', label: 'Camera id', placeholder: 'e.g. P800HG08192031', hint: "The camera's serial number, if it is known." },
             { key: 'camera_model', label: 'Camera model', placeholder: 'e.g. Reconyx-PC800', hint: 'Manufacturer and model, written as manufacturer-model.' },
-            { key: 'connectivity', label: 'Mobile connection', kind: 'select', options: [{ value: 'none', label: 'None' }, { value: '4g', label: '4G' }, { value: '5g', label: '5G' }], section: 'How is it connected and powered?', sectionHint: 'Whether the camera sends its photos through the mobile network, and what it runs on: cells or a battery.', hint: 'The network the camera sends its photos through; none when it does not.' },
+            { key: 'connectivity', label: 'Mobile connection', kind: 'select', options: [{ value: 'none', label: 'None' }, { value: '4g', label: '4G' }, { value: '5g', label: '5G' }], section: 'How is it connected and powered?', sectionHint: 'Whether the camera sends its images through the mobile network, and what it runs on: cells or a battery.', hint: 'The network the camera sends its images through; none when it does not.' },
             { key: 'power_source', label: 'Power', kind: 'select', options: [{ value: 'cells', label: 'Cells', hint: 'AA, AAA… the ones that are changed.' }, { value: 'battery', label: 'Battery' }], hint: 'What the camera runs on: cells (AA, AAA…) or a battery.' },
             { key: 'battery_removable', label: 'The battery can be taken out', kind: 'select', options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }], hint: 'Only said of a battery: cells are always taken out to be changed.' },
             ...statusFields<Camera>(GEAR_STATUSES, true, GEAR_HINTS, true, ['active']),
@@ -2154,8 +2154,8 @@ function ConfigsEditor({ onSwitched, onError }: { onSwitched: () => void; onErro
   return (
     <div className="space-y-5 pt-3">
       <p className={`${hintClass} leading-relaxed max-w-prose`}>
-        A config is a saved set of all your settings: the folders, the Trapper account, the checks and the preparation of images.
-        The active one is what the app reads and saves. You can keep several, for example one per Trapper account, and switch between them.
+        A config is a saved set of all your settings: the folders, the TRAPPER account, the checks and the preparation of images.
+        The active one is what the app reads and saves. You can keep several, for example one per TRAPPER account, and switch between them.
       </p>
       <Notice kind="warning">These files keep your passwords as plain text. Don't share a config file with anyone, and don't upload it anywhere.</Notice>
       <div className="flex items-center justify-between gap-4">
@@ -2344,7 +2344,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
       const n = result.research_projects_count
       setConn({ kind: 'ok', message: `Connected as ${draft.trapperUser.trim()}. ${n} research project${n === 1 ? '' : 's'} available.` })
     } catch (e) {
-      setConn({ kind: 'error', message: e instanceof Error ? e.message : 'Could not connect to Trapper.' })
+      setConn({ kind: 'error', message: e instanceof Error ? e.message : 'Could not connect to TRAPPER.' })
     }
   }
 
@@ -2507,7 +2507,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
 
         {draft && saved && section === 'uploader' && (
           <div className="space-y-5 pt-5">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">The platforms a deployment can be uploaded to. Pick one to set it up. Trapper is the only one for now; others may come in a future version.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">The platforms a deployment can be uploaded to. Pick one to set it up. TRAPPER is the only one for now; others may come in a future version.</p>
           <div role="tablist" aria-label="Upload destinations" className="flex flex-wrap gap-2">
             {UPLOAD_DESTINATIONS.map((d) => (
               <button key={d.id} type="button" role="tab" aria-selected={uploadDestination === d.id} onClick={() => setUploadDestination(d.id)}
@@ -2519,15 +2519,15 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
           </div>
           {uploadDestination === 'trapper' && (
           <>
-          <ToggleCard title="Use Trapper" checked={draft.trapperEnabled} onChange={(v) => set('trapperEnabled', v)}
-                      description="Offers Trapper as a place to upload deployments to. Turned off, it is not offered, and its uploads are not shown in the uploads dashboard." />
+          <ToggleCard title="Use TRAPPER" checked={draft.trapperEnabled} onChange={(v) => set('trapperEnabled', v)}
+                      description="Offers TRAPPER as a place to upload deployments to. Turned off, it is not offered, and its uploads are not shown in the uploads dashboard." />
           <SettingsCard>
-            <CardBlock title="Server" description="The Trapper website you work with. Research projects and locations come from it, and deployments are uploaded to it.">
+            <CardBlock title="Server" description="The TRAPPER website you work with. Research projects and locations come from it, and deployments are uploaded to it.">
               <PlainField label="Web address">
                 <input aria-label="Web address" className={`${fieldBox} font-mono text-sm`} value={draft.trapperUrl} placeholder="https://trapper.example.org" autoComplete="off" onChange={(e) => set('trapperUrl', e.target.value)} />
               </PlainField>
             </CardBlock>
-            <CardBlock title="Account" description="The account this app uses in Trapper. It needs permission to read projects and upload deployments.">
+            <CardBlock title="Account" description="The account this app uses in TRAPPER. It needs permission to read projects and upload deployments.">
               <PlainField label="Username">
                 <input aria-label="Username" className={fieldBox} value={draft.trapperUser} autoComplete="off" onChange={(e) => set('trapperUser', e.target.value)} />
               </PlainField>
@@ -2623,13 +2623,13 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
             {visitSource === 'wildintel-new' && (
               <div className="space-y-5">
                 <ToggleCard title="Use WildINTEL Epicollect CSV" checked={draft.wildintelNewEnabled} onChange={(v) => set('wildintelNewEnabled', v)}
-                            description="Offers to read the visits from the CSV downloaded from the new WildINTEL Epicollect project (the form of the field flow). Turned off, it is not offered in Register visits." />
+                            description="Offers to read the visits from the CSV downloaded from the new WildINTEL Epicollect project (the form of the field flow). Turned off, it is not offered in Register the visits." />
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">The columns are found by the label of their question. The form has no date or time to read: a visit happened when its entry was created (UTC), and is told in the timezone of its location.</p>
               </div>
             )}
             {visitSource === 'csv' && (
               <div className="space-y-5">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Custom CSV is always offered in Register visits, and cannot be turned off. There is nothing to set up: the columns are matched when each file is read.</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Custom CSV is always offered in Register the visits, and cannot be turned off. There is nothing to set up: the columns are matched when each file is read.</p>
               </div>
             )}
             {visitSource === 'epicollect' && (
@@ -2676,7 +2676,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 </CardBlock>
               </SettingsCard>
               <ToggleCard title="Add answers with no place to go to the comments" checked={draft.epicollectUnmappedToComments} onChange={(v) => set('epicollectUnmappedToComments', v)}
-                          description="An entry may answer questions that no field of a deployment is matched to. Each one is added as a line, “question: answer”, after the comments of the entry. Photos are left out." />
+                          description="An entry may answer questions that no field of a deployment is matched to. Each one is added as a line, “question: answer”, after the comments of the entry. Images are left out." />
               </div>
             )}
           </div>

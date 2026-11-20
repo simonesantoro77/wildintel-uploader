@@ -21,15 +21,15 @@ T = TypeVar("T")
 def describe(exc: BaseException) -> str:
     """What went wrong, for a person — the web routers' own mapping."""
     if isinstance(exc, err.UnauthorizedError):
-        return "Incorrect Trapper username or password."
+        return "Incorrect TRAPPER username or password."
     if isinstance(exc, err.ForbiddenError):
-        return "You don't have permission to access this Trapper resource."
+        return "You don't have permission to access this TRAPPER resource."
     if isinstance(exc, err.NotFoundError):
-        return "Trapper resource not found."
+        return "TRAPPER resource not found."
     if isinstance(exc, httpx.ConnectError):
-        return f"Could not connect to the Trapper server: {exc}"
+        return f"Could not connect to the TRAPPER server: {exc}"
     if isinstance(exc, httpx.TimeoutException):
-        return f"Timed out connecting to the Trapper server: {exc}"
+        return f"Timed out connecting to the TRAPPER server: {exc}"
     return str(exc) or type(exc).__name__
 
 

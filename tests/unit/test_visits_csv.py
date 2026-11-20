@@ -259,7 +259,7 @@ def test_a_cell_that_is_not_what_its_field_takes_is_refused_with_the_code_of_the
             "WICP_0001,Revision,19/13/2026,11:40,,,,,\n")               # row 8: a date
     result = _parse(text, locations, [], mapping)
     by_row = {r["row"]: r for r in result["rows"]}
-    assert [by_row[n]["label"] for n in range(2, 9)] == ["Number not valid", "Not yes or no", "Session not valid", "Card and batteries not valid", "Number not valid", "Actions not valid", "Date or time not valid"]
+    assert [by_row[n]["label"] for n in range(2, 9)] == ["Number not valid", "Not yes or no", "Revision not valid", "Card and batteries not valid", "Number not valid", "Actions not valid", "Date or time not valid"]
     assert by_row[2]["message"] == "num_photos: 'many' is not a whole number." and by_row[6]["message"] == "camera_height: 'tall' is not a number."
     assert by_row[5]["message"].startswith("'Full' is not OK, Card full") and by_row[7]["message"].startswith("The actions 'Flying'")
 
@@ -286,8 +286,8 @@ def test_what_is_odd_goes_to_the_rows_that_make_it_odd_and_what_is_about_no_row_
             "WICP_0002,Revision,2026-10-14,13:15,R0002,40,4\n")         # row 3: fine
     result = _parse(text, locations, kept, mapping)
     by_row = {r["row"]: r for r in result["rows"]}
-    assert any("0 photos" in w for w in by_row[2]["warnings"]) and not any("0 photos" in w for w in by_row[3].get("warnings", []))
-    assert any("0 photos" in w for w in result["warnings"]) and result["loose_warnings"] == []   # the notice keeps only what no row has
+    assert any("0 images" in w for w in by_row[2]["warnings"]) and not any("0 images" in w for w in by_row[3].get("warnings", []))
+    assert any("0 images" in w for w in result["warnings"]) and result["loose_warnings"] == []   # the notice keeps only what no row has
 
 
 def test_the_report_of_an_import_tells_what_is_odd_in_the_rows_it_is_about():
@@ -576,9 +576,9 @@ def test_a_revision_with_no_count_of_the_photos_is_refused_unless_the_photos_wer
     strict = _photos_case(rows)
     loose = _photos_case(rows, {"photos_not_counted": True})
 
-    assert [v["actions"] for v in strict["visits"]] == [["Installation"]] and "The photos on the card collected is required for Revision" in strict["problems"][0]["message"]
+    assert [v["actions"] for v in strict["visits"]] == [["Installation"]] and "The number of images on the card collected is required for Revision" in strict["problems"][0]["message"]
     assert loose["problems"] == [] and [v["num_photos"] for v in loose["visits"]] == [None, None]                    # kept as the file says: no count
-    assert any("no count of the photos on the card" in n for n in loose["notes"])
+    assert any("no count of the images on the card" in n for n in loose["notes"])
 
 
 def test_a_count_the_file_gives_is_kept_when_the_photos_were_not_counted_and_nothing_is_invented():

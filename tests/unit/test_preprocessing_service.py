@@ -437,7 +437,7 @@ def test_a_deployment_synced_from_trapper_is_never_imported_into(tmp_path: Path)
     synced.mkdir(parents=True)
     (synced / "images.json").write_text('{"source": "trapper"}', encoding="utf-8")
 
-    with pytest.raises(pre.DeploymentImportError, match="synced from Trapper"):
+    with pytest.raises(pre.DeploymentImportError, match="synced from TRAPPER"):
         _run(source, tmp_path / "out")
     assert not (synced / "preprocessing.json").exists()
 

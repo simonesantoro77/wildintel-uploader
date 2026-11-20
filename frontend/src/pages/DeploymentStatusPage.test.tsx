@@ -86,9 +86,9 @@ describe('DeploymentStatusPage', () => {
 
     await userEvent.click(within(revisions).getByRole('button', { name: /^R0003/ }))
     const table = within(region).getByRole('table', { name: 'Deployments' })
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', 'Deployment', 'Visit', 'SD and photos', 'Creation', 'Upload', 'What to do'])
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', 'Deployment', 'Visit', 'SD and images', 'Creation', 'Upload', 'What to do'])
     const first = within(table).getAllByRole('row')[1]
-    expect(within(first).getAllByRole('cell').slice(1).map((c) => c.textContent)).toEqual(['R0003-TATR_0001', 'R0003 · TATR_00014 Sep 2024, 09:00 → 12 Oct 2024, 09:30', 'SD A13 · 241 photos', 'Created', '', ''])
+    expect(within(first).getAllByRole('cell').slice(1).map((c) => c.textContent)).toEqual(['R0003-TATR_0001', 'R0003 · TATR_00014 Sep 2024, 09:00 → 12 Oct 2024, 09:30', 'SD A13 · 241 images', 'Created', '', ''])
     expect(within(first).getByRole('button', { name: 'View the deployment R0003-TATR_0001' })).toBeInTheDocument()
     expect(within(first).getByRole('img', { name: 'Uploaded' })).toBeInTheDocument() // it was uploaded: a tick
 
@@ -109,7 +109,7 @@ describe('DeploymentStatusPage', () => {
     const label = within(within(region).getByRole('group', { name: 'Deployments' })).getByRole('article', { name: 'Deployment R0003-TATR_0001' })
     expect(label).toHaveTextContent('Created')
     expect(label).toHaveTextContent('R0003 · TATR_0001')
-    expect(label).toHaveTextContent('SD A13 · 241 photos')
+    expect(label).toHaveTextContent('SD A13 · 241 images')
     expect(within(label).getByRole('img', { name: 'Uploaded' })).toBeInTheDocument()
     await userEvent.click(within(label).getByRole('button', { name: 'View the deployment R0003-TATR_0001' }))      // its details open in a panel at the right
     const panel = await screen.findByRole('dialog', { name: 'Details of the deployment R0003-TATR_0001' })
@@ -167,7 +167,7 @@ describe('DeploymentStatusPage', () => {
     expect(mockedApi.listVisits).toHaveBeenCalledWith('TATR', 'TATR_0001')
     expect(panel.getByText('The visit that left the card')).toBeInTheDocument()
     expect(panel.getByText('The visit that collected it')).toBeInTheDocument()
-    expect(panel.getByText('241 photos')).toBeInTheDocument()
+    expect(panel.getByText('241 images')).toBeInTheDocument()
     expect(onShowVisit).not.toHaveBeenCalled()
 
     // a button under each of the two visits goes to it in the dashboard of the visits — to the visit, not to its revision
@@ -242,7 +242,7 @@ describe('DeploymentStatusPage', () => {
     const full = within(table).getByText('R0003-TATR_0002').closest('tr')!
     expect(within(full).getByText('SD C7', { exact: false }).closest('td')).toHaveTextContent('SD C7 · Card full')
     expect(within(full).getByText('Card full')).toHaveClass('bg-red-100', 'text-red-700')              // in red, as a state
-    expect(within(table).getByText('R0003-TATR_0003').closest('tr')!.textContent).not.toMatch(/Card full|photos/)  // no count and not full: nothing is said
+    expect(within(table).getByText('R0003-TATR_0003').closest('tr')!.textContent).not.toMatch(/Card full|images/)  // no count and not full: nothing is said
   })
 
   it('has a button on the row of a created deployment that goes to its statistics', async () => {
@@ -377,11 +377,11 @@ describe('DeploymentStatusPage', () => {
     await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the deployment R0003-TATR_0002' }))
     const bar = screen.getByRole('group', { name: 'Action on the selected deployments' })
     expect(within(bar).getByText('2 selected')).toBeInTheDocument()
-    await userEvent.click(within(bar).getByRole('button', { name: 'Upload deployments' }))
+    await userEvent.click(within(bar).getByRole('button', { name: 'Upload the images' }))
     expect(onUpload).toHaveBeenCalledWith({ researchProjectId: expect.any(String), collection: 'R0003', deployments: ['R0003-TATR_0001', 'R0003-TATR_0002'] })
 
     await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the deployment R0003-TATR_0003' }))     // already on Trapper
-    expect(within(bar).getByRole('button', { name: 'Upload deployments' })).toBeDisabled()
+    expect(within(bar).getByRole('button', { name: 'Upload the images' })).toBeDisabled()
     expect(bar).not.toHaveTextContent('Only deployments')
     await userEvent.click(within(bar).getByRole('button', { name: 'Clear' }))
     expect(screen.queryByRole('group', { name: 'Action on the selected deployments' })).not.toBeInTheDocument()
@@ -408,7 +408,7 @@ describe('DeploymentStatusPage', () => {
     // planned or failed: a cross, which is not a link; a deployment that is not created yet has nothing to say
     expect(within(uploadCell('TATR_0002')).getByRole('img', { name: 'Not uploaded' })).toBeInTheDocument()
     expect(within(uploadCell('TATR_0002')).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(uploadCell('TATR_0004')).getByRole('img', { name: 'Not uploaded' })).toHaveAttribute('title', 'Not uploaded (Trapper: failed)')
+    expect(within(uploadCell('TATR_0004')).getByRole('img', { name: 'Not uploaded' })).toHaveAttribute('title', 'Not uploaded (TRAPPER: failed)')
     expect(uploadCell('TATR_0003')).toHaveTextContent('—')
 
     await userEvent.click(screen.getByRole('button', { name: 'Upload the deployment R0003-TATR_0002' }))

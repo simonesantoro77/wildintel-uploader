@@ -22,7 +22,7 @@ describe('VisitDetails', () => {
     expect(collected.getByText('Camera date & time OK')).toBeInTheDocument()
     expect(collected.getAllByText('OK').length).toBeGreaterThanOrEqual(2)              // batteries and card; the date and time say Yes
     expect(collected.getByText('Damaged')).toBeInTheDocument()
-    expect(collected.getByText('920 photos')).toBeInTheDocument()
+    expect(collected.getByText('920 images')).toBeInTheDocument()
     expect(screen.getByText('35 days in the field')).toBeInTheDocument()
   })
 

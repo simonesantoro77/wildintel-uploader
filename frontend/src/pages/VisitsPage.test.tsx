@@ -107,7 +107,7 @@ async function pickCamera() {
 async function typePhotos(count = '1620') {
   await openSection('SD card')
   if (count) {
-    await userEvent.type(screen.getByLabelText('Photos on the card collected'), count)
+    await userEvent.type(screen.getByLabelText('Images on the card collected'), count)
     await userEvent.click(screen.getByLabelText('SD card left in the camera'))
     await userEvent.click(await screen.findByRole('option', { name: 'B2' }))
   }
@@ -180,7 +180,7 @@ describe('VisitsPage', () => {
     await pickWhen()
     await pickAction('Revision')
     await openSection('SD card'); await openSection('Camera'); await openSection('Site'); await openSection('Grouping and notes')
-    for (const label of ['SD card left in the camera', 'Photos on the card collected', 'Comments']) {
+    for (const label of ['SD card left in the camera', 'Images on the card collected', 'Comments']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument()
     }
     expect(screen.queryByRole('textbox', { name: 'Site' })).not.toBeInTheDocument() // the site is the location
@@ -216,10 +216,10 @@ describe('VisitsPage', () => {
     await userEvent.click(screen.getByLabelText('SD card left in the camera'))
     expect(screen.queryByRole('option', { name: 'A13 — SanDisk 64 GB' })).not.toBeInTheDocument() // the one this revision collects cannot be left
     await userEvent.click(await screen.findByRole('option', { name: 'B2' }))
-    await userEvent.type(screen.getByLabelText('Photos on the card collected'), '1620')
+    await userEvent.type(screen.getByLabelText('Images on the card collected'), '1620')
     await userEvent.click(screen.getByRole('switch', { name: 'Card OK' }))
     expect(screen.getByRole('switch', { name: 'Card OK' })).toHaveAttribute('aria-checked', 'false')
-    expect(screen.queryByLabelText('Photos on the card collected')).not.toBeInTheDocument() // with the card full the photos are not counted: their number is not asked
+    expect(screen.queryByLabelText('Images on the card collected')).not.toBeInTheDocument() // with the card full the photos are not counted: their number is not asked
     expect(within(screen.getByRole('region', { name: 'SD card' })).getByText(/^2 of 2 filled/)).toBeInTheDocument()
   })
 
@@ -503,9 +503,9 @@ describe('VisitsPage', () => {
       mockedApi.closedVisits.mockResolvedValue({ results: [closing()] })
       const onImportImages = await addRevision()
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Create the deployment of the visit R0001 to TATR_0001' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Import the images of the visit R0001 to TATR_0001' }))
 
-      expect(screen.getByText(/is closed: its card was collected on 2 Oct 2026/)).toBeInTheDocument()
+      expect(screen.getByText(/has its card collected on 2 Oct 2026/)).toBeInTheDocument()
       expect(screen.getByRole('status')).not.toHaveTextContent('is closed') // a card of its own, not part of the success one
       expect(onImportImages).toHaveBeenCalledWith({ researchProjectId: 'TATR', visit: left })
     })
@@ -895,14 +895,14 @@ describe('the visit filled in from the last one', () => {
     await pickAction('Revision')
     await openSection('SD card'); await openSection('Camera'); await openSection('Site'); await openSection('Grouping and notes')
     expect(screen.getByLabelText('SD card left in the camera')).toHaveValue('') // the card collected is the last one's, so it is not left back
-    expect(screen.getByLabelText('Photos on the card collected')).toHaveValue('')
+    expect(screen.getByLabelText('Images on the card collected')).toHaveValue('')
     expect(screen.queryByLabelText('Which camera will be installed?')).not.toBeInTheDocument()   // a revision is of the camera that was there, which the visit before says: it is not asked
     expect(screen.getByLabelText('Comments')).toHaveValue('') // the notes of the last visit are not this one's
     expect(screen.getByRole('switch', { name: 'Batteries OK' })).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByRole('switch', { name: 'Card OK' })).toHaveAttribute('aria-checked', 'true')
 
     // a Desinstallation leaves no card: what was typed for the Revision is left out
-    await userEvent.type(screen.getByLabelText('Photos on the card collected'), '10')
+    await userEvent.type(screen.getByLabelText('Images on the card collected'), '10')
     await pickAction('Desinstallation')
     for (const name of ['Mounting and placement', 'Where does it point?', 'How does it detect?']) expect(screen.queryByRole('region', { name })).not.toBeInTheDocument()   // a camera taken away has no set-up asked
     await addVisit()
@@ -977,20 +977,20 @@ describe('VisitsPage from a CSV file', () => {
     expect(screen.getByText('Drop the CSV downloaded from Epicollect. Columns are matched automatically by question label.')).toBeInTheDocument()
     expect(screen.getByLabelText('Options marked')).toHaveTextContent('7 / 7')
     expect(screen.getByText(/Timezone: UTC/)).toBeInTheDocument()
-    expect(screen.queryByRole('switch', { name: 'The photos were not counted' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'The images were not counted' })).not.toBeInTheDocument()
     const customize = screen.getByRole('button', { name: 'Customize' })
     expect(customize.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
     await userEvent.click(customize)
     expect(screen.getByText('Auto-create missing entities (4)')).toBeInTheDocument()
     expect(screen.getByText('Validation & revision rules (3)')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('switch', { name: 'The photos were not counted' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'The images were not counted' }))
     const done = screen.getByRole('button', { name: 'Done' })
     expect(done.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
     await userEvent.click(done)
     expect(screen.getByLabelText('Options marked')).toHaveTextContent('6 / 7')
     expect(screen.getByText('Customized')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
-    expect(screen.getByRole('switch', { name: 'The photos were not counted' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'The images were not counted' })).not.toBeChecked()
   })
 
   const onMainMenu = vi.fn()
@@ -1303,7 +1303,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
-    const toggle = screen.getByRole('switch', { name: 'The photos were not counted' })
+    const toggle = screen.getByRole('switch', { name: 'The images were not counted' })
     expect(toggle).toBeChecked()
     await userEvent.click(toggle)
     expect(toggle).not.toBeChecked()
@@ -1547,7 +1547,7 @@ describe('VisitsPage from a CSV file', () => {
     await continueFromTheFile()
 
     expect(await screen.findByRole('list', { name: 'What to check' })).toHaveTextContent('the session before it is missing')
-    expect(screen.getByRole('list', { name: 'What to check' })).not.toHaveTextContent('0 photos')           // that one is in its row
+    expect(screen.getByRole('list', { name: 'What to check' })).not.toHaveTextContent('0 images')           // that one is in its row
     expect(screen.getByRole('table', { name: 'Problems of Row 2' })).toHaveTextContent('Revision with 0 photos')
   })
 
@@ -1583,10 +1583,10 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
 
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Deployments' })).toHaveTextContent('As a result of this new visit, 1 other visit is now closed'))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Deployments' })).toHaveTextContent('As a result of this new visit, 1 other visit has its card collected'))
     await userEvent.click(await screen.findByRole('button', { name: 'What was saved' }))
-    expect(screen.getByRole('table', { name: 'Summary' })).toHaveTextContent('Visits closed — their deployment can be created1')
-    expect(screen.queryByRole('button', { name: /Create the deployment of the visit/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Summary' })).toHaveTextContent('Visits whose cards were collected — their deployment can be created1')
+    expect(screen.queryByRole('button', { name: /Import the images of the visit/ })).not.toBeInTheDocument()
   })
 
   it('goes from the visits that closed one to Import deployment, with its visit chosen — Create deployment', async () => {
@@ -1605,7 +1605,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Create deployment' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Import the images' }))
     expect(onImportImages).toHaveBeenCalledWith({ researchProjectId: 'TATR', visit: closed })
     expect(onImportImagesOf).not.toHaveBeenCalled()
   })
@@ -1625,7 +1625,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Continue to the review/ }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add 1 visit' }))
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Create deployments' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Import the images' }))
     expect(onImportImagesOf).toHaveBeenCalledWith('TATR')
     expect(onImportImages).not.toHaveBeenCalled()
   })
@@ -1924,7 +1924,7 @@ describe('By hand: do you see the camera?', () => {
     await userEvent.clear(screen.getByLabelText('Why is it archived?'))
     await userEvent.type(screen.getByLabelText('Why is it archived?'), 'No cameras left')
     await openSection('SD card'); await openSection('Camera')
-    await userEvent.type(screen.getByLabelText('Photos on the card collected'), '24')
+    await userEvent.type(screen.getByLabelText('Images on the card collected'), '24')
     await addVisit()
 
     await waitFor(() => expect(mockedApi.updateLocalLocation).toHaveBeenCalledWith('TATR', 'TATR_0001', { status_note: 'No cameras left' }))
@@ -1941,7 +1941,7 @@ describe('By hand: do you see the camera?', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Take it away' }))
     expect(screen.queryByLabelText('Why is it archived?')).not.toBeInTheDocument()
     await openSection('SD card'); await openSection('Camera')
-    await userEvent.type(screen.getByLabelText('Photos on the card collected'), '24')
+    await userEvent.type(screen.getByLabelText('Images on the card collected'), '24')
     await addVisit()
 
     await waitFor(() => expect(mockedApi.saveVisit).toHaveBeenCalledTimes(1))

@@ -77,8 +77,25 @@ def start(page: Page) -> None:
 @shot("welcome")
 def welcome(page: Page) -> None:
     start(page)
-    expect(button(page, "Get Started", exact=False)).to_be_visible()
+    expect(page.get_by_role("button", name=re.compile(r"^(Get started|Continue)")).first).to_be_visible()
     save(page, "welcome")
+
+
+@shot("welcome-first-run")
+def welcome_first_run(page: Page) -> None:
+    page.goto("/?first-run")
+    expect(button(page, "Get started")).to_be_visible()
+    save(page, "welcome-first-run")
+
+
+@shot("initial-setup")
+def initial_setup(page: Page) -> None:
+    page.goto("/?first-run")
+    button(page, "Get started").click()
+    expect(heading(page, "Initial setup")).to_be_visible()
+    page.get_by_label("Acronym", exact=False).fill("WICP_02")
+    page.get_by_label("Name", exact=False).fill("WICP_02 Doñana census")
+    save(page, "initial-setup")
 
 
 @shot("unfinished-runs")
@@ -91,7 +108,7 @@ def unfinished_runs(page: Page) -> None:
 
 def to_menu(page: Page) -> None:
     start(page)
-    button(page, "Get Started", exact=False).click()
+    page.get_by_role("button", name=re.compile(r"^Continue")).first.click()
     expect(page.get_by_text("What do you want to do?")).to_be_visible()
 
 
@@ -132,6 +149,9 @@ def _settings_shot(key: str, label: str) -> None:
         start(page)
         page.get_by_role("button", name="Settings").click()
         page.get_by_role("navigation", name="Settings sections").get_by_text(label, exact=True).click()
+        expect(page.get_by_role("alert")).to_have_count(0)
+        if key == "epicollect":
+            page.get_by_role("tab", name="Epicollect", exact=True).click()
         save(page, f"settings-{key}")
 
 
@@ -143,24 +163,66 @@ for _key, _label in SETTINGS_SECTIONS.items():
 
 @shot("visits")
 def visits(page: Page) -> None:
-    open_task(page, "Manage visits")
-    page.locator("button", has=page.locator("strong", has_text=re.compile("^Register visits$"))).click()
+    open_task(page, "Register the visits")
     expect(page.get_by_text("By hand", exact=True).first).to_be_visible()
     save(page, "visits")
 
 
+def visit_form(page: Page, *, first: bool) -> None:
+    start(page)
+    page.evaluate("""() => window.__mock.json['GET /api/settings']().FIELDWORK.sd_cards.push(
+      {label: 'D8', brand: 'SanDisk', capacity: '64 GB', research_project: 'DONA', status: 'ready'}
+    )""")
+    if first:
+        page.evaluate("window.__mock.json['POST /api/visits/list'] = () => ({results: []})")
+    page.get_by_role("button", name=re.compile(r"^Continue")).first.click()
+    page.locator("button", has=page.locator("strong", has_text=re.compile("^Register the visits$"))).click()
+    button(page, "By hand", exact=False).click()
+    page.get_by_label("Location", exact=True).click()
+    page.get_by_role("option", name=re.compile("^DONA_01")).click()
+    page.get_by_label("Filter the trappers").fill("Ana")
+    page.get_by_role("option", name=re.compile("Ana Pérez")).click()
+    page.get_by_label("Date and time of the visit", exact=False).fill("2025-11-20T08:30")
+    button(page, "Continue to the visit").click()
+    if first:
+        expect(page.get_by_role("radio", name="Of course not, I am going to install it")).to_be_checked()
+    else:
+        page.get_by_role("radio", name="Yes, I see it").check()
+        page.get_by_role("radio", name="OK", exact=True).check()
+    expect(heading(page, "Enter the visit")).to_be_visible()
+    page.get_by_role("region", name="SD card", exact=True).get_by_role("button").first.click()
+    if not first:
+        page.get_by_label("Images on the card collected").fill("241")
+    page.get_by_label("SD card left in the camera").click()
+    page.get_by_role("option", name=re.compile("^D8")).click()
+
+
+@shot("visit-installation-form")
+def visit_installation_form(page: Page) -> None:
+    visit_form(page, first=True)
+    save(page, "visit-installation-form", top=heading(page, "Enter the visit"))
+
+
+@shot("visit-revision-form")
+def visit_revision_form(page: Page) -> None:
+    visit_form(page, first=False)
+    save(page, "visit-revision-form", top=heading(page, "Enter the visit"))
+
+
 @shot("visit-book")
 def visit_book(page: Page) -> None:
-    open_task(page, "Manage visits")
-    page.locator("button", has=page.locator("strong", has_text=re.compile("^Visit dashboard$"))).click()
+    to_menu(page)
+    button(page, "Open dashboards", exact=False).click()
+    button(page, "Visit dashboard", exact=False).click()
     expect(page.get_by_role("table", name="Visits")).to_be_visible()
     save(page, "visit-book")
 
 
 @shot("deployments-status")
 def deployments_status(page: Page) -> None:
-    open_task(page, "Manage deployments")
-    page.locator("button", has=page.locator("strong", has_text=re.compile("^Deployments dashboard$"))).click()
+    to_menu(page)
+    button(page, "Open dashboards", exact=False).click()
+    button(page, "Deployments dashboard", exact=False).click()
     expect(page.get_by_role("table", name="Deployments")).to_be_visible()
     save(page, "deployments-status")
 
@@ -171,14 +233,15 @@ SOURCE = "/home/me/Pictures/R0003-DONA_01"
 
 
 def to_origin(page: Page) -> None:
-    open_task(page, "Manage deployments")
-    page.locator("button", has=page.locator("strong", has_text=re.compile("^Import deployment$"))).click()
+    open_task(page, "Import the images")
     expect(heading(page, "Origin")).to_be_visible()
 
 
 def pick_visit(page: Page) -> None:
     """The research project is the default one (DONA); among its closed visits, the one that left the camera of DONA_01."""
-    choose(page, "origin-visit", "DONA_01 · R0003")
+    page.get_by_role("checkbox", name=re.compile("DONA_02")).uncheck()
+    page.get_by_role("checkbox", name=re.compile("DONA_03")).uncheck()
+    page.get_by_role("checkbox", name=re.compile("DONA_01")).check()
     expect(button(page, "Continue to the images")).to_be_enabled()
 
 
@@ -201,7 +264,7 @@ def scan(page: Page) -> None:
     page.locator("#source-dir").fill(SOURCE)
     button(page, "Scan").click()
     expect(page.get_by_text("241 images found")).to_be_visible()
-    choose(page, "images-sd-card", "A13")
+    button(page, "Pick the SD card A13").click()
 
 
 @shot("step-folder")
@@ -249,7 +312,7 @@ def to_dates(page: Page) -> None:
 @shot("step-dates")
 def step_dates(page: Page) -> None:
     to_dates(page)
-    expect(page.get_by_text("Dates from: Visits of the field work")).to_be_visible()
+    expect(page.get_by_text("Locked · Field work", exact=False)).to_be_visible()
     save(page, "step-dates")
 
 
@@ -262,7 +325,7 @@ def to_details(page: Page) -> None:
 @shot("step-details")
 def step_details(page: Page) -> None:
     to_details(page)
-    expect(page.get_by_text("Where do they come from?")).to_be_visible()
+    expect(page.get_by_text(re.compile("Pre.filled details"))).to_be_visible()
     save(page, "step-details", top=heading(page, "More details"))
 
 
@@ -300,7 +363,7 @@ def step_import(page: Page) -> None:
     button(page, "Start preparing").click()
     expect(button(page, "Continue to save")).to_be_visible()
     button(page, "Continue to save").click()
-    button(page, "Save deployment").click()
+    button(page, "Save to my collection").click()
     expect(page.get_by_text("Deployment saved", exact=True)).to_be_visible()
     save(page, "step-import")
 
@@ -319,10 +382,10 @@ def reports(page: Page) -> None:
 
 def to_session_folders(page: Page) -> None:
     """The session of the visits to DONA: ticked in the origin, then the folder with a subfolder each, linked to its visit by its name."""
-    open_task(page, "Manage deployments")
-    page.locator("button", has=page.locator("strong", has_text=re.compile("^Import deployments$"))).click()
+    open_task(page, "Import the images")
     expect(heading(page, "Origin")).to_be_visible()
-    page.get_by_role("checkbox", name="Select all the visits offered").check()
+    for location in ("DONA_01", "DONA_02", "DONA_03"):
+        page.get_by_role("checkbox", name=re.compile(location)).check()
     button(page, "Continue to the images").click()
     page.locator("#session-dir").fill("/home/me/Pictures/trip-2024-09")
     button(page, "Scan").click()
@@ -335,7 +398,7 @@ def session_folders(page: Page) -> None:
     to_session_folders(page)
     page.get_by_label("SD card of DONA_01").select_option("A13")
     page.get_by_label("SD card of DONA_02").select_option("B2")
-    save(page, "session-folders", top=page.get_by_text("tick the ones to import"))
+    save(page, "session-folders", top=heading(page, "Revision folder"))
 
 
 def to_session_dates(page: Page) -> None:
@@ -350,17 +413,15 @@ def to_session_dates(page: Page) -> None:
 @shot("session-details")
 def session_details(page: Page) -> None:
     to_session_dates(page)
-    expect(page.get_by_text("Dates from: Visits of the field work")).to_be_visible()
+    expect(page.get_by_text("Locked · Field work", exact=False)).to_be_visible()
     save(page, "session-details", top=heading(page, "When was it collected?"))
 
 
 @shot("session-dates-log")
 def session_dates_log(page: Page) -> None:
-    to_session_dates(page)
-    page.get_by_role("button", name="Open DONA_02").click()
-    page.get_by_role("radio", name="Timestamp log file").click()
-    expect(page.get_by_text("Dates from: Timestamp log file")).to_be_visible()
-    save(page, "session-dates-log", top=heading(page, "When was it collected?"))
+    to_session_folders(page)
+    expect(page.get_by_text("In the log", exact=True)).to_be_visible()
+    save(page, "session-dates-log", top=heading(page, "Revision folder"))
 
 
 def to_session_checks(page: Page) -> None:
@@ -382,11 +443,10 @@ def session_check_results(page: Page) -> None:
 # ── Upload ───────────────────────────────────────────────────────────────────
 
 def to_upload(page: Page) -> None:
-    open_task(page, "Manage uploads")
-    page.locator("button", has=page.locator("strong", has_text=re.compile("^Upload deployment to Trapper$"))).click()
-    choose(page, "upload-research-project", "DONA")
-    choose(page, "upload-collection", "R0003")
-    expect(page.get_by_label("R0003-DONA_01")).to_be_visible()
+    open_task(page, "Upload the images")
+    page.get_by_role("button", name=re.compile(r"R0003")).first.click()
+    expect(page.get_by_role("table", name="Deployments")).to_be_visible()
+    expect(button(page, "Continue to step 2")).to_be_enabled()
 
 
 @shot("upload")
@@ -409,9 +469,12 @@ def upload_result(page: Page) -> None:
     to_upload(page)
     button(page, "Continue to step 2").click()
     page.get_by_role("radio", name=re.compile("^Upload")).first.check()
+    page.get_by_label("Delete the package files once they are uploaded").check()
     button(page, "Continue to step 3").click()
-    expect(page.get_by_text("Not uploaded", exact=True)).to_be_visible()
-    save(page, "upload-result", top=page.get_by_text("Completed", exact=True).last, bottom=button(page, "Upload more deployments"))
+    expect(page.get_by_text("1 deployment uploaded, 1 could not be uploaded")).to_be_visible()
+    expect(page.get_by_role("link", name="Download report")).to_be_visible()
+    save(page, "upload-result", top=page.get_by_role("heading", name=re.compile("Upload to TRAPPER")).first,
+         bottom=button(page, "Upload more deployments"))
 
 
 @shot("upload-running")
@@ -422,7 +485,7 @@ def upload_running(page: Page) -> None:
     page.get_by_role("radio", name=re.compile("^Upload")).first.check()
     button(page, "Continue to step 3").click()
     expect(page.get_by_text("1 of 2")).to_be_visible()
-    save(page, "upload-running", top=heading(page, "Upload to Trapper"))
+    save(page, "upload-running", top=heading(page, "Upload to TRAPPER"))
 
 
 # ── Repair ───────────────────────────────────────────────────────────────────
@@ -430,8 +493,8 @@ def upload_running(page: Page) -> None:
 @shot("repair")
 def repair(page: Page) -> None:
     open_util(page, "Repair local deployments")
-    choose(page, "repair-research-project", "DONA")
-    choose(page, "repair-collection", "R0003")
+    page.get_by_label("Search the revisions").fill("R0003")
+    page.get_by_role("option", name=re.compile("R0003")).click()
     button(page, "Check the deployments").click()
     expect(page.get_by_text("deployment.json is missing")).to_be_visible()
     button(page, "Repair 2 deployments").click()
@@ -488,8 +551,6 @@ def main(names: list[str]) -> None:
     base = f"http://127.0.0.1:{server.server_address[1]}"
 
     failed: list[str] = []
-    for stale in OUT.glob("_failed-*.png"):
-        stale.unlink()
     with sync_playwright() as p:
         browser = _browser(p)
         for name in names or SHOTS:

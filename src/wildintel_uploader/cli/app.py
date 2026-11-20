@@ -23,7 +23,7 @@ from wildintel_uploader.core.version import current_version
 
 app = typer.Typer(
     name="wildintel-uploader",
-    help="WildINTEL Uploader — import camera-trap deployments into Trapper.",
+    help="WildINTEL Uploader — import camera-trap deployments into TRAPPER.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -49,10 +49,10 @@ def main(
 
 @app.command("test-connection")
 def test_connection() -> None:
-    """Test the connection to Trapper (settings.toml's account)."""
+    """Test the connection to TRAPPER (settings.toml's account)."""
     trapper = trapper_credentials()
     result = call(lambda: trapper_service.test_connection(*trapper))
-    console.print(f"[green]✔[/green] Trapper {trapper[0]} as {trapper[1]} — {result['research_projects_count']} research project(s)")
+    console.print(f"[green]✔[/green] TRAPPER {trapper[0]} as {trapper[1]} — {result['research_projects_count']} research project(s)")
 
 
 app.command("tc", hidden=True, help="Alias for test-connection.")(test_connection)
@@ -114,7 +114,7 @@ def config_set(
 
 # ── Trapper lookups ───────────────────────────────────────────────────────────
 
-trapper_app = typer.Typer(help="Find the Trapper ids the other commands take.", no_args_is_help=True)
+trapper_app = typer.Typer(help="Find the TRAPPER ids the other commands take.", no_args_is_help=True)
 app.add_typer(trapper_app, name="trapper")
 
 
@@ -175,14 +175,14 @@ def _optional_prompt(label: str, default: str | None = None) -> Optional[str]:
 @app.command("import-deployment")
 def import_deployment() -> None:
     """Import a deployment: organize a folder of camera-trap images locally,
-    then register the deployment in Trapper. Does not upload the images to
-    Trapper yet — that's a separate step this app doesn't have."""
+    then register the deployment in TRAPPER. Does not upload the images to
+    TRAPPER yet — that's a separate step this app doesn't have."""
     trapper = trapper_credentials()
 
     console.print(Panel(
         "This copies your images to this app's own data folder before doing "
         "anything else — nothing in the source folder is changed or moved.\n\n"
-        "[yellow]Copy the images from the camera's memory card to a local folder "
+        "[yellow]Copy the images from the camera's SD card to a local folder "
         "first — don't point this at the card itself.[/yellow]",
         title="Import deployment",
     ))
@@ -262,7 +262,7 @@ def import_deployment() -> None:
             if event["type"] == "copy":
                 console.print(f"  [{event['index']}/{event['total']}] {event['name']}")
             elif event["type"] == "registering":
-                console.print("  Registering the deployment in Trapper…")
+                console.print("  Registering the deployment in TRAPPER…")
             elif event["type"] == "done":
                 console.print(f"[green]✔  Imported — images organized in {event['dest_dir']}[/green]")
 

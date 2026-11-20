@@ -19,7 +19,7 @@ export default function TrapperAccountNotice({ account, conn, onRetry }: Props) 
     <div className="text-sm">
       {!trapperAccountReady(account) ? (
         <p role="alert" className="text-amber-700 dark:text-amber-400">
-          The Trapper account isn’t set up: save its URL, username and password in the settings (⚙️) first.
+          The TRAPPER account isn’t set up: save its URL, username and password in the settings (⚙️) first.
         </p>
       ) : (
         <>
@@ -27,7 +27,7 @@ export default function TrapperAccountNotice({ account, conn, onRetry }: Props) 
             The account saved in the settings: <span className="font-mono">{account!.user_name}</span> at <span className="font-mono">{account!.base_url}</span>.
           </p>
           {(conn.status === 'idle' || conn.status === 'testing') && (
-            <p role="status" className="mt-2 flex items-center gap-2 text-zinc-500 dark:text-zinc-400"><SmallSpinner /> Connecting to Trapper…</p>
+            <p role="status" className="mt-2 flex items-center gap-2 text-zinc-500 dark:text-zinc-400"><SmallSpinner /> Connecting to TRAPPER…</p>
           )}
           {conn.status === 'error' && (
             <div className="mt-2">

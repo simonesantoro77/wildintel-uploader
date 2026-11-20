@@ -25,7 +25,7 @@ export function spanBetween(from: string, to: string): string | null {
 export function against(period: Period, exif: Period): string | null {
   if (!period.start || !period.end || !exif.start || !exif.end) return null
   const startsBefore = asUtc(exif.start) >= asUtc(period.start), endsAfter = asUtc(period.end) >= asUtc(exif.end)
-  return `Starts ${spanBetween(period.start, exif.start)} ${startsBefore ? 'before' : 'after'} the first photo and ends ${spanBetween(exif.end, period.end)} ${endsAfter ? 'after' : 'before'} the last.`
+  return `Starts ${spanBetween(period.start, exif.start)} ${startsBefore ? 'before' : 'after'} the first image and ends ${spanBetween(exif.end, period.end)} ${endsAfter ? 'after' : 'before'} the last.`
 }
 
 const periodText = (p: Period, timezone?: string) => (p.start ? `${formatLocal(p.start, timezone)} → ${p.end ? formatLocal(p.end, timezone) : '…'}` : '')

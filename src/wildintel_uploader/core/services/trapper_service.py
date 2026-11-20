@@ -87,7 +87,7 @@ def resolve_credentials(url: str | None, username: str | None, password: str | N
     resolved = (url or trapper.base_url, username or trapper.user_name, password or trapper.user_password)
     missing = [name for name, value in zip(("URL", "username", "password"), resolved) if not value]
     if missing:
-        raise ValueError(f"Missing Trapper {', '.join(missing)} — provide it, or save it in the configuration first.")
+        raise ValueError(f"Missing TRAPPER {', '.join(missing)} — provide it, or save it in the configuration first.")
     return resolved  # type: ignore[return-value]
 
 

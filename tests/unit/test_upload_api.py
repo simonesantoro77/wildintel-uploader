@@ -118,7 +118,7 @@ def test_a_failure_midway_is_an_error_line_not_a_crash(tmp_path: Path, fake_uplo
 
     assert response.status_code == 200
     events = _events(response)
-    assert events[-1]["type"] == "error" and "Trapper has no research project 'DONA'" in events[-1]["detail"]
+    assert events[-1]["type"] == "error" and "TRAPPER has no research project 'DONA'" in events[-1]["detail"]
     assert [e["step"] for e in events if e["type"] == "step"] == ["connect"]
 
 
@@ -140,7 +140,7 @@ def test_an_error_from_trapper_itself_is_reported_in_plain_words(tmp_path: Path,
          patch.object(trapper_service, "_client", return_value=Broken()):
         events = _events(_client().post("/api/upload/deployment", json=PAYLOAD))
 
-    assert events[-1] == {"type": "error", "detail": "Incorrect Trapper username or password."}
+    assert events[-1] == {"type": "error", "detail": "Incorrect TRAPPER username or password."}
 
 
 def test_an_unknown_research_project_or_deployment_is_a_404_before_anything_starts(tmp_path: Path):
@@ -167,7 +167,7 @@ def test_missing_trapper_credentials_are_a_400_naming_what_is_missing(tmp_path: 
         response = _client().post("/api/upload/deployment", json={**PAYLOAD, "url": None, "username": None, "password": None})
 
     assert response.status_code == 400
-    assert "Missing Trapper URL, username, password" in response.json()["detail"]
+    assert "Missing TRAPPER URL, username, password" in response.json()["detail"]
 
 
 def test_the_zips_are_split_at_the_size_of_the_settings(tmp_path: Path, fake_uploader):
@@ -190,7 +190,7 @@ def test_when_the_collection_does_not_appear_the_error_says_how_long_it_waited(t
          patch.object(trapper_upload_service, "WAIT_FOR_COLLECTION_SECONDS", 0.2), patch.object(trapper_upload_service, "POLL_SECONDS", 0.05):
         events = _events(_client().post("/api/upload/deployment", json=PAYLOAD))
 
-    assert events[-1]["type"] == "error" and "didn't appear in Trapper within 0 seconds" in events[-1]["detail"]
+    assert events[-1]["type"] == "error" and "didn't appear in TRAPPER within 0 seconds" in events[-1]["detail"]
 
 
 # ── the three modes ─────────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ def test_the_other_modes_do_need_the_account(tmp_path: Path):
             response = _client().post("/api/upload/deployment", json={"research_project_id": "DONA", "collection": "R0003", "deployment_id": DEPLOYMENT_ID, "mode": mode})
 
         assert response.status_code == 400, mode
-        assert "Missing Trapper URL, username, password" in response.json()["detail"]
+        assert "Missing TRAPPER URL, username, password" in response.json()["detail"]
 
 
 def test_upload_is_the_default_mode(tmp_path: Path, fake_uploader):

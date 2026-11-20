@@ -105,8 +105,8 @@ describe('UploadDeploymentPage', () => {
     await proceed()
     await proceedToStep3()
 
-    expect(await screen.findByText(/no Trapper account saved yet/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Upload to Trapper' })).toBeDisabled()
+    expect(await screen.findByText(/no TRAPPER account saved yet/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload to TRAPPER' })).toBeDisabled()
   })
 
   it('also needs the password saved, not just the URL and the user', async () => {
@@ -116,7 +116,7 @@ describe('UploadDeploymentPage', () => {
     await proceed()
     await proceedToStep3()
 
-    expect(screen.getByRole('button', { name: 'Upload to Trapper' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Upload to TRAPPER' })).toBeDisabled()
   })
 
   it('says so when the collections folder has no research projects yet', async () => {
@@ -168,8 +168,8 @@ describe('UploadDeploymentPage', () => {
   it('shows when a deployment was uploaded, which can still be chosen to send again', async () => {
     await pickCollection()
 
-    expect(await screen.findByText('Already in Trapper')).toBeInTheDocument() // only R0003-DONA_04
-    expect(screen.getAllByText('New in Trapper')).toHaveLength(2) // 01 and 02; 03 can't be sent at all, so it has neither
+    expect(await screen.findByText('Already in TRAPPER')).toBeInTheDocument() // only R0003-DONA_04
+    expect(screen.getAllByText('New in TRAPPER')).toHaveLength(2) // 01 and 02; 03 can't be sent at all, so it has neither
     const box = screen.getByRole('checkbox', { name: 'R0003-DONA_04' })
     expect(box).toBeEnabled()
     await userEvent.click(box)
@@ -178,9 +178,9 @@ describe('UploadDeploymentPage', () => {
 
   it('says how many deployments and images will be sent as they are ticked, and cannot upload none', async () => {
     await pickCollection()
-    expect(await screen.findByText(/2 deployments \(240 images\) sent to DONA › R0003 in Trapper/)).toBeInTheDocument()
+    expect(await screen.findByText(/2 deployments \(240 images\) sent to DONA › R0003 in TRAPPER/)).toBeInTheDocument()
     await userEvent.click(await screen.findByRole('checkbox', { name: 'R0003-DONA_01' }))
-    expect(screen.getByText(/1 deployment \(120 images\) sent to DONA › R0003 in Trapper/)).toBeInTheDocument()
+    expect(screen.getByText(/1 deployment \(120 images\) sent to DONA › R0003 in TRAPPER/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue to step 2' })).toBeEnabled()
 
     await userEvent.click(screen.getByRole('checkbox', { name: 'R0003-DONA_02' }))
@@ -203,14 +203,14 @@ describe('UploadDeploymentPage', () => {
     await proceedToStep3()
 
     await screen.findByText('Upload complete')
-    expect(screen.getByText(/All the images are in Trapper/)).toBeInTheDocument()
-    expect(screen.getByText(/Trapper is now processing the images/)).toBeInTheDocument()
+    expect(screen.getByText(/All the images are in TRAPPER/)).toBeInTheDocument()
+    expect(screen.getByText(/TRAPPER is now processing the images/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /^R0003-DONA_01/ }))
-    expect(screen.getAllByText('Already in Trapper').length).toBeGreaterThan(1) // the step's label, as well as the pill in the list
+    expect(screen.getAllByText('Already in TRAPPER').length).toBeGreaterThan(1) // the step's label, as well as the pill in the list
     expect(screen.getByText(/Deployment R0003-DONA_01 was already in Trapper\./)).toBeInTheDocument()
     expect(screen.getByText('120 images in 1 package.')).toBeInTheDocument()
     expect(screen.getByText('120 images sent')).toBeInTheDocument()
-    expect(screen.getByText('What was set up in Trapper')).toBeInTheDocument()
+    expect(screen.getByText('What was set up in TRAPPER')).toBeInTheDocument()
     // what next is asked as when a visit or a deployment is added: the question, then the options, the main one being to go on uploading
     const next = within(screen.getByRole('group', { name: 'What next' }))
     expect(next.getByText('Do you want to upload more deployments?')).toBeInTheDocument()
@@ -263,7 +263,7 @@ describe('UploadDeploymentPage', () => {
       ? { ...c, deployments: c.deployments.map((d) => (d.deployment_id === 'R0003-DONA_01' ? { ...d, uploaded_at: '2026-10-01T08:00:00+00:00' } : d)) } : c) })
     await proceedToStep3()
 
-    await waitFor(() => expect(screen.getAllByText('Already in Trapper')).toHaveLength(2)) // 04, and now 01
+    await waitFor(() => expect(screen.getAllByText('Already in TRAPPER')).toHaveLength(2)) // 04, and now 01
     expect(mockedApi.uploadCollections).toHaveBeenCalledTimes(2)
   })
 
@@ -275,7 +275,7 @@ describe('UploadDeploymentPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Upload more deployments' }))
 
     expect(screen.queryByText('Upload complete')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument() // back at step 1
+    expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument() // back at step 1
     expect(screen.getByRole('button', { name: 'Continue to step 2' })).toBeInTheDocument()
   })
 
@@ -306,12 +306,12 @@ describe('UploadDeploymentPage', () => {
 
   it('shuts step 1 and then step 2 once each is settled, with a pencil to open it again and a Back', async () => {
     await pickCollection('R0003', false, false)
-    expect(screen.queryByRole('radio', { name: 'Upload to Trapper' })).not.toBeInTheDocument() // step 2 is locked
+    expect(screen.queryByRole('radio', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument() // step 2 is locked
     await proceed()
 
     expect(screen.getByText(/DONA › R0003 · 2 deployments \(240 images\)/)).toBeInTheDocument()
-    expect(await screen.findByRole('radio', { name: 'Upload to Trapper' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument() // step 3 is not open yet
+    expect(await screen.findByRole('radio', { name: 'Upload to TRAPPER' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument() // step 3 is not open yet
 
     await proceedToStep3() // the next step begins by itself
     expect(screen.getByRole('button', { name: 'Edit Choose what to do' })).toBeInTheDocument()
@@ -320,7 +320,7 @@ describe('UploadDeploymentPage', () => {
     expect(screen.queryByText('Upload complete')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(screen.queryByRole('radio', { name: 'Upload to Trapper' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue to step 2' })).toBeInTheDocument()
   })
 
@@ -337,7 +337,7 @@ describe('UploadDeploymentPage', () => {
     await proceedToStep3()
     await screen.findByText('Files prepared')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Upload to Trapper' })) // opens step 4, which begins by itself
+    await userEvent.click(screen.getByRole('button', { name: 'Upload to TRAPPER' })) // opens step 4, which begins by itself
 
     expect(await screen.findByText('Upload complete')).toBeInTheDocument()
     expect(screen.getByText(/2 deployments prepared · 240 images/)).toBeInTheDocument() // step 3, shut with its summary
@@ -397,8 +397,8 @@ describe('UploadDeploymentPage', () => {
 
     await screen.findByText(/2 deployment\(s\) checked\./)
     expect(mockedApi.uploadDeployment.mock.calls.map((c) => c[3])).toEqual(['dry_run', 'dry_run'])
-    expect(screen.getAllByText('The location would be created in Trapper.')).toHaveLength(2)
-    expect(screen.getAllByText('The deployment is already in Trapper.')).toHaveLength(2)
+    expect(screen.getAllByText('The location would be created in TRAPPER.')).toHaveLength(2)
+    expect(screen.getAllByText('The deployment is already in TRAPPER.')).toHaveLength(2)
     expect(screen.getAllByText('The images would go up in 3 package(s).')).toHaveLength(2)
   })
 
@@ -501,7 +501,7 @@ describe('UploadDeploymentPage', () => {
       expect(links).toEqual(expect.arrayContaining([
         ['Open the location', 'https://trapper.example.org/geomap/location/detail/12/', '_blank'],
         ['Open the deployment', 'https://trapper.example.org/geomap/deployment/detail/47/', '_blank'],
-        ['Open in Trapper↗', 'https://trapper.example.org/storage/collection/detail/26/', '_blank'],
+        ['Open in TRAPPER↗', 'https://trapper.example.org/storage/collection/detail/26/', '_blank'],
       ]))
     })
   })
@@ -540,7 +540,7 @@ describe('UploadDeploymentPage', () => {
 
       expect(await screen.findByText(/doesn't exist in Trapper yet/)).toBeInTheDocument()
       expect(screen.getByText(/Research projects can’t be created from here/)).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Open Trapper' })).toHaveAttribute('href', 'https://trapper.example.org')
+      expect(screen.getByRole('link', { name: 'Open TRAPPER' })).toHaveAttribute('href', 'https://trapper.example.org')
       expect(screen.queryByRole('group', { name: 'Revision' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Continue to step 2' })).not.toBeInTheDocument()
       expect(mockedApi.checkUploadSelection).toHaveBeenCalledWith('DONA', undefined)   // looked for as soon as it is known, before a revision is picked
@@ -549,7 +549,7 @@ describe('UploadDeploymentPage', () => {
         { check: 'research_project', ok: true, message: 'You have access to the research project DONA (#2) in Trapper.' },
       ] })
       await userEvent.click(screen.getByRole('button', { name: 'Check again' }))
-      expect((await screen.findAllByText('Found in Trapper')).length).toBeGreaterThan(0)
+      expect((await screen.findAllByText('Found in TRAPPER')).length).toBeGreaterThan(0)
       await userEvent.click(await within(await screen.findByRole('group', { name: 'Revision' })).findByRole('button', { name: /^R0003/ }))
       await proceed()
       await proceedToStep3()
@@ -559,7 +559,7 @@ describe('UploadDeploymentPage', () => {
     it('says both the research project and the collection are found in Trapper, once both are chosen', async () => {
       await pickCollection()
 
-      expect((await screen.findAllByText('Found in Trapper')).length).toBeGreaterThanOrEqual(2)   // the research project and the collection
+      expect((await screen.findAllByText('Found in TRAPPER')).length).toBeGreaterThanOrEqual(2)   // the research project and the collection
       expect(mockedApi.checkUploadSelection).toHaveBeenCalledWith('DONA', 'R0003')
     })
 
@@ -570,8 +570,8 @@ describe('UploadDeploymentPage', () => {
       ] })
       await pickCollection()
 
-      expect(await screen.findByText('Not in Trapper yet — the upload creates it')).toBeInTheDocument()
-      expect(screen.getAllByText('Found in Trapper')).toHaveLength(2) // the research project and the classification project, not the collection
+      expect(await screen.findByText('Not in TRAPPER yet — the upload creates it')).toBeInTheDocument()
+      expect(screen.getAllByText('Found in TRAPPER')).toHaveLength(2) // the research project and the classification project, not the collection
     })
 
     it('says so when the account has no access, and when it cannot be checked', async () => {

@@ -165,7 +165,7 @@ const REPORT: Report = {
   entries: [],
 }
 
-const IMAGE_CHECK_LABELS = ['Corrupted images', 'Shooting order vs. filename sequence', 'Folder structure (subfolders)', 'Same camera on every image', 'Required photo data', 'Duplicate images (same content)']
+const IMAGE_CHECK_LABELS = ['Corrupted images', 'Shooting order vs. filename sequence', 'Folder structure (subfolders)', 'Same camera on every image', 'Required image data', 'Duplicate images (same content)']
 
 /** How strict the check is — one of the radio buttons of its row: Skip, Warn or Must pass. */
 const strictness = (check: string, choice: 'Skip' | 'Warn' | 'Must pass') =>
@@ -253,12 +253,12 @@ async function addProjectByHand(name = 'Doñana', acronym = 'DONA', location: Pa
   // its location is kept in its folder, with its visits (see the default of closedVisits): the visit is what is picked next
   storedLocations[acronym] = [{ ...DONA_01, trapper_pk: null, ignore_dst: false, ...location }]   // a location starts following summer time
   await userEvent.click(screen.getByRole('button', { name: 'Save research project' }))
-  await screen.findByRole('table', { name: 'Closed visits' })
+  await screen.findByRole('table', { name: 'Collected visits' })
 }
 
 /** The closed visit of the location is picked: the deployment is of it, and its location, its dates and its card are the visit's. */
 async function pickTheVisit() {
-  const table = await screen.findByRole('table', { name: 'Closed visits' })
+  const table = await screen.findByRole('table', { name: 'Collected visits' })
   await userEvent.click(within(table).getAllByRole('row')[1])
   await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
 }
@@ -405,7 +405,7 @@ describe('ImportDeploymentPage', () => {
       it('asks for the closed visit instead of the location, and lists those that have no deployment yet', async () => {
         await pickProject()
 
-        const table = await screen.findByRole('table', { name: 'Closed visits' })
+        const table = await screen.findByRole('table', { name: 'Collected visits' })
         const rows = within(table).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell').slice(1).map((c) => c.textContent))
         expect(rows).toEqual([
           ['R0002', 'DONA_01', 'Collected', 'B2', '5 Aug 2026, 08:14', '2 Oct 2026, 09:00', '1620', ''],
@@ -441,7 +441,7 @@ describe('ImportDeploymentPage', () => {
         render(<ImportDeploymentPage {...pageProps} onOpenSettings={onOpenSettings} />)
         await userEvent.click(await screen.findByLabelText('Research project'))
         await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
-        const table = await screen.findByRole('table', { name: 'Closed visits' })
+        const table = await screen.findByRole('table', { name: 'Collected visits' })
 
         await userEvent.click(within(within(table).getByRole('row', { name: /R0002/ })).getByRole('button', { name: 'DONA_01' }))
         const panel = within(screen.getByRole('dialog', { name: 'Details of the location DONA_01' }))
@@ -459,7 +459,7 @@ describe('ImportDeploymentPage', () => {
 
       it('picks a visit by pressing its row, and lets it go by pressing the row again', async () => {
         await pickProject()
-        const table = await screen.findByRole('table', { name: 'Closed visits' })
+        const table = await screen.findByRole('table', { name: 'Collected visits' })
 
         await userEvent.click(within(table).getByRole('row', { name: /R0002/ }))
         await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
@@ -468,7 +468,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.click(within(table).getByRole('row', { name: /R0002/ }))
         expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeDisabled()
         // the search narrows the rows
-        await userEvent.type(screen.getByLabelText('Filter the closed visits'), 'a13')
+        await userEvent.type(screen.getByLabelText('Filter the collected visits'), 'a13')
         expect(within(table).queryByRole('row', { name: /R0002/ })).not.toBeInTheDocument()
         expect(within(table).getByRole('row', { name: /R0001/ })).toBeInTheDocument()
       })
@@ -483,14 +483,14 @@ describe('ImportDeploymentPage', () => {
         await userEvent.click(screen.getByRole('button', { name: /^R0001/ }))
         expect(screen.getByLabelText('Active filters')).toHaveTextContent('Revision: R0001')
         expect(screen.getByLabelText('Active filters')).toHaveTextContent('1 of 2 visits match')
-        await userEvent.type(screen.getByLabelText('Filter the closed visits'), 'nothing like this')
+        await userEvent.type(screen.getByLabelText('Filter the collected visits'), 'nothing like this')
         expect(screen.getByLabelText('Active filters')).toHaveTextContent('Search: “nothing like this”')
         expect(screen.getByLabelText('Active filters')).toHaveTextContent('0 of 2 visits match')
       })
 
       it('shows the details of a visit in a panel at the right from the eye of its row, without picking it', async () => {
         await pickProject()
-        const table = await screen.findByRole('table', { name: 'Closed visits' })
+        const table = await screen.findByRole('table', { name: 'Collected visits' })
 
         await userEvent.click(within(table).getByRole('button', { name: 'Show the details of the visit R0002 to DONA_01' }))
         const panel = within(screen.getByRole('dialog', { name: 'Details of the visit R0002 to DONA_01' }))
@@ -502,7 +502,7 @@ describe('ImportDeploymentPage', () => {
         expect(panel.getByText('58 days in the field')).toBeInTheDocument()
         const collected = within(panel.getByRole('region', { name: 'The visit that collected it' }))
         expect(collected.getByText('R0003')).toBeInTheDocument()
-        expect(collected.getByText('1,620 photos')).toBeInTheDocument()                     // what it counted
+        expect(collected.getByText('1,620 images')).toBeInTheDocument()                     // what it counted
         expect(within(table).queryByRole('button', { pressed: true })).not.toBeInTheDocument()   // the press went to the eye, not to the row
 
         await userEvent.click(panel.getByRole('button', { name: 'Close' }))
@@ -520,7 +520,7 @@ describe('ImportDeploymentPage', () => {
         render(<ImportDeploymentPage {...pageProps} onOpenSettings={onOpenSettings} />)
         await userEvent.click(await screen.findByLabelText('Research project'))
         await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
-        const table = await screen.findByRole('table', { name: 'Closed visits' })
+        const table = await screen.findByRole('table', { name: 'Collected visits' })
 
         await userEvent.click(within(within(table).getByRole('row', { name: /R0002/ })).getByRole('button', { name: 'B2' }))
         const panel = within(screen.getByRole('dialog', { name: 'Details of the SD card B2' }))
@@ -538,11 +538,11 @@ describe('ImportDeploymentPage', () => {
 
       it('shows only the search field when asked, and picks a visit from the list under it', async () => {
         await pickProject()
-        await screen.findByRole('table', { name: 'Closed visits' })
+        await screen.findByRole('table', { name: 'Collected visits' })
 
         await userEvent.click(screen.getByRole('button', { name: 'Show only the search field' }))
-        expect(screen.queryByRole('table', { name: 'Closed visits' })).not.toBeInTheDocument()
-        const field = screen.getByLabelText('Filter the closed visits')
+        expect(screen.queryByRole('table', { name: 'Collected visits' })).not.toBeInTheDocument()
+        const field = screen.getByLabelText('Filter the collected visits')
         expect(field).toHaveAttribute('placeholder', 'Select a visit…')
         await userEvent.click(field)
         expect(screen.queryByRole('listbox')).not.toBeInTheDocument()          // nothing typed, nothing offered
@@ -552,20 +552,20 @@ describe('ImportDeploymentPage', () => {
         expect(screen.queryByRole('listbox')).not.toBeInTheDocument()          // and when it is emptied again, nothing again
         await userEvent.type(field, 'R0001')
         const options = within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent)
-        expect(options).toEqual(['10 Jun 2026, 09:00 · DONA_01 · R0001 · Collected · card A13 · collected on 5 Aug 2026, 09:00 (300 photos)'])
+        expect(options).toEqual(['10 Jun 2026, 09:00 · DONA_01 · R0001 · Collected · card A13 · collected on 5 Aug 2026, 09:00 (300 images)'])
 
         await userEvent.click(screen.getByRole('option', { name: /R0001/ }))
         await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
-        expect(field).toHaveValue('10 Jun 2026, 09:00 · DONA_01 · R0001 · Collected · card A13 · collected on 5 Aug 2026, 09:00 (300 photos)')
+        expect(field).toHaveValue('10 Jun 2026, 09:00 · DONA_01 · R0001 · Collected · card A13 · collected on 5 Aug 2026, 09:00 (300 images)')
       })
 
       it('shows the closed visits as labels when asked, and a label picks its visit as a row does', async () => {
         await pickProject()
-        await screen.findByRole('table', { name: 'Closed visits' })
+        await screen.findByRole('table', { name: 'Collected visits' })
 
         await userEvent.click(screen.getByRole('button', { name: 'Show the visits as labels' }))
-        expect(screen.queryByRole('table', { name: 'Closed visits' })).not.toBeInTheDocument()
-        const labels = screen.getByRole('group', { name: 'Closed visits' })
+        expect(screen.queryByRole('table', { name: 'Collected visits' })).not.toBeInTheDocument()
+        const labels = screen.getByRole('group', { name: 'Collected visits' })
         expect(within(labels).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Pick the visit R0002 to DONA_01', 'Pick the visit R0001 to DONA_01'])
         const label = within(labels).getByRole('button', { name: /R0002/ })
         expect(label).toHaveTextContent('DONA_01')
@@ -574,19 +574,19 @@ describe('ImportDeploymentPage', () => {
         expect(label).toHaveTextContent('58 days in the field')                    // from the day it left to the day it was collected
         expect(label).toHaveTextContent('Left on5 Aug 2026, 08:14')
         expect(label).toHaveTextContent('Collected on2 Oct 2026, 09:00')
-        expect(within(labels).getByRole('button', { name: /R0002/ })).toHaveTextContent('1620 photos')
+        expect(within(labels).getByRole('button', { name: /R0002/ })).toHaveTextContent('1620 images')
 
         await userEvent.click(within(labels).getByRole('button', { name: /R0002/ }))
         await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
         expect(within(labels).getByRole('button', { name: /R0002/, pressed: true })).toBeInTheDocument()
         // and back to the table: the row of the visit is still the one picked
         await userEvent.click(screen.getByRole('button', { name: 'Show the visits as a table' }))
-        expect(within(screen.getByRole('table', { name: 'Closed visits' })).getByRole('button', { name: /R0002/, pressed: true })).toBeInTheDocument()
+        expect(within(screen.getByRole('table', { name: 'Collected visits' })).getByRole('button', { name: /R0002/, pressed: true })).toBeInTheDocument()
       })
 
       it('takes the location of the visit as the deployment\'s, and its session as the revision', async () => {
         await pickProject()
-        await userEvent.click(within(await screen.findByRole('table', { name: 'Closed visits' })).getByRole('row', { name: /R0002/ }))
+        await userEvent.click(within(await screen.findByRole('table', { name: 'Collected visits' })).getByRole('row', { name: /R0002/ }))
 
         await waitFor(() => expect(screen.getByRole('button', { name: /Continue to the images/ })).toBeEnabled())
         await continueToDates()
@@ -597,7 +597,7 @@ describe('ImportDeploymentPage', () => {
 
       it('records on the visit the deployment it closed, once the deployment is saved', async () => {
         await pickProject()
-        await userEvent.click(within(await screen.findByRole('table', { name: 'Closed visits' })).getByRole('row', { name: /R0002/ }))
+        await userEvent.click(within(await screen.findByRole('table', { name: 'Collected visits' })).getByRole('row', { name: /R0002/ }))
         await continueToDates()
         await screen.findByText('Dates of the deployment')
         await waitFor(() => expect(screen.queryByText(/Reading the dates and the camera/)).not.toBeInTheDocument())
@@ -641,7 +641,7 @@ describe('ImportDeploymentPage', () => {
         await goToOriginStep()
         await userEvent.click(await screen.findByLabelText('Research project'))
         await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
-        await userEvent.click(within(await screen.findByRole('table', { name: 'Closed visits' })).getByRole('row', { name: /R0001/ }))
+        await userEvent.click(within(await screen.findByRole('table', { name: 'Collected visits' })).getByRole('row', { name: /R0001/ }))
         await continueToDates()
         await screen.findByText('Dates of the deployment')
 
@@ -689,7 +689,7 @@ describe('ImportDeploymentPage', () => {
           await goToOriginStep()
           await userEvent.click(await screen.findByLabelText('Research project'))
           await userEvent.click(await screen.findByRole('option', { name: 'DONA — Doñana' }))
-          await userEvent.click(within(await screen.findByRole('table', { name: 'Closed visits' })).getByRole('row', { name: /R0001/ }))
+          await userEvent.click(within(await screen.findByRole('table', { name: 'Collected visits' })).getByRole('row', { name: /R0001/ }))
           await userEvent.click(screen.getByRole('button', { name: /Continue to the images/ }))
           await scanTheFolder()
           if (card) {
@@ -734,7 +734,7 @@ describe('ImportDeploymentPage', () => {
         })
 
         const STRICT_CARD = 'How strict: The SD card is the one the visit left'
-        const STRICT_PHOTOS = 'How strict: The photos are those the visit counted'
+        const STRICT_PHOTOS = 'How strict: The images are those the visit counted'
 
         it('adds two checks to the details of a deployment of a visit: the card and the number of photos, as strict as the others', async () => {
           await toTheChecks('A13', 12)
@@ -841,7 +841,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.selectOptions(screen.getByLabelText('Bait use'), 'food')
         await userEvent.click(screen.getByRole('button', { name: 'Save research project' }))
 
-        expect(await screen.findByText(/There is no closed visit without a deployment in DONA/)).toBeInTheDocument() // it has no visit yet: they are registered first
+        expect(await screen.findByText(/There is no collected visit without a deployment in DONA/)).toBeInTheDocument() // it has no visit yet: they are registered first
         expect(mockedApi.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({
           name: 'Doñana', acronym: 'DONA', bait_use: 3, sampling_design: 1, event_interval: 0, trapper_pk: null,
         }))
@@ -902,7 +902,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.click(await screen.findByRole('checkbox', { name: 'DONA — Doñana' }))
         await userEvent.click(screen.getByRole('button', { name: /add 1 research project$/i }))
 
-        expect(await screen.findByText(/There is no closed visit without a deployment in DONA/)).toBeInTheDocument() // added and picked: with no visit yet
+        expect(await screen.findByText(/There is no collected visit without a deployment in DONA/)).toBeInTheDocument() // added and picked: with no visit yet
         expect(screen.queryByLabelText('Acronym')).not.toBeInTheDocument()
         expect(mockedApi.saveResearchProject).toHaveBeenCalledWith(expect.objectContaining({
           name: 'Doñana', acronym: 'DONA', trapper_pk: 2, // remembers which Trapper project it came from
@@ -913,7 +913,7 @@ describe('ImportDeploymentPage', () => {
 
       it('connects by itself with the account of the settings — it asks for no credentials', async () => {
         await openTrapperAndConnect()
-        expect(screen.queryByLabelText('Trapper URL')).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('TRAPPER URL')).not.toBeInTheDocument()
         expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
         await screen.findByRole('checkbox', { name: 'DONA — Doñana' })
         // Blank credentials: the backend fills them in from settings.toml.
@@ -936,7 +936,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.click(screen.getByRole('checkbox', { name: 'DONA — Doñana' }))
         await userEvent.click(screen.getByRole('button', { name: /add 2 research projects/i }))
 
-        await screen.findByText(/There is no closed visit without a deployment in SINE/)
+        await screen.findByText(/There is no collected visit without a deployment in SINE/)
         expect(mockedApi.saveResearchProject).toHaveBeenCalledTimes(2)
         expect(storedProjects.map((p) => p.acronym)).toEqual(['SINE', 'DONA'])
         expect(screen.getByLabelText('Research project')).toHaveValue('SINE — Sierra Nevada') // the first ticked, marked by default
@@ -950,7 +950,7 @@ describe('ImportDeploymentPage', () => {
       it('the Trapper research projects can be filtered as you type', async () => {
         mockedApi.trapperResearchProjects.mockResolvedValue({ results: MORE_PROJECTS })
         await openTrapperAndConnect()
-        await userEvent.type(await screen.findByLabelText('Filter Trapper research projects'), 'caz')
+        await userEvent.type(await screen.findByLabelText('Filter TRAPPER research projects'), 'caz')
 
         expect(screen.getByRole('checkbox', { name: 'CAZO — Cazorla' })).toBeInTheDocument()
         expect(screen.queryByRole('checkbox', { name: 'DONA — Doñana' })).not.toBeInTheDocument()
@@ -963,7 +963,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.click(await screen.findByRole('checkbox', { name: 'DONA — Doñana' }))
         await userEvent.click(screen.getByRole('button', { name: /add 1 research project$/i }))
 
-        expect(await screen.findByText(/There is no closed visit without a deployment in DONA/)).toBeInTheDocument()
+        expect(await screen.findByText(/There is no collected visit without a deployment in DONA/)).toBeInTheDocument()
         expect(mockedApi.saveResearchProject).not.toHaveBeenCalled()
       })
 
@@ -975,7 +975,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.click(screen.getByRole('checkbox', { name: 'DONA — Doñana' }))
         await userEvent.click(screen.getByRole('button', { name: /add 2 research projects/i }))
 
-        expect(await screen.findByText(/can't be added from Trapper as it is: Must have between 3 and 10 characters\. Add it by hand instead/)).toBeInTheDocument()
+        expect(await screen.findByText(/can't be added from TRAPPER as it is: Must have between 3 and 10 characters\. Add it by hand instead/)).toBeInTheDocument()
         expect(mockedApi.saveResearchProject).toHaveBeenCalledTimes(1)
         expect(screen.getByLabelText('Research project')).toHaveValue('DONA — Doñana')
       })
@@ -1162,10 +1162,10 @@ describe('ImportDeploymentPage', () => {
   it('asks whether the images are on a memory card, and shows the folder or the card according to the answer', async () => {
     await goToImagesStep()   // goes through the answer: a folder
     expect(screen.getByRole('radio', { name: /^No, they are in a folder/ })).toBeChecked()
-    expect(screen.queryByLabelText('Where is the memory card?')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Where is the SD card?')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('radio', { name: /^Yes, they are on the SD card/ }))
-    expect(screen.getByLabelText('Where is the memory card?')).toBeInTheDocument()
+    expect(screen.getByLabelText('Where is the SD card?')).toBeInTheDocument()
     expect(screen.queryByLabelText('Folder')).not.toBeInTheDocument()
   })
 
@@ -1181,7 +1181,7 @@ describe('ImportDeploymentPage', () => {
     await userEvent.click(screen.getByRole('radio', { name: /^Yes, they are on the SD card/ }))
 
     expect(screen.getByRole('button', { name: 'Copy the card' })).toBeDisabled()          // where the card is is asked first
-    await userEvent.type(screen.getByLabelText('Where is the memory card?'), '/run/media/me/CARD_A')
+    await userEvent.type(screen.getByLabelText('Where is the SD card?'), '/run/media/me/CARD_A')
     await userEvent.click(screen.getByRole('button', { name: 'Copy the card' }))
 
     expect(mockedApi.copyCard).toHaveBeenCalledWith('/run/media/me/CARD_A', expect.any(Function))
@@ -1203,7 +1203,7 @@ describe('ImportDeploymentPage', () => {
     await userEvent.click(screen.getByRole('radio', { name: /^Yes, they are on the SD card/ }))
     await userEvent.click(screen.getByRole('button', { name: /^browse/i }))
 
-    expect(mockedApi.browseFolder).toHaveBeenCalledWith('Select the memory card')
+    expect(mockedApi.browseFolder).toHaveBeenCalledWith('Select the SD card')
     expect(await screen.findByRole('alert')).toHaveTextContent('There is nothing on the memory card')
     expect(mockedApi.scanFolder).not.toHaveBeenCalled()
   })
@@ -1266,7 +1266,7 @@ describe('ImportDeploymentPage', () => {
       it('is one of the checks, on by default (it warns)', async () => {
         await goToValidateStep()
 
-        expect(strictness('Required photo data', 'Warn')).toBeChecked()
+        expect(strictness('Required image data', 'Warn')).toBeChecked()
       })
 
       it('passes when every image has its capture date, camera model and camera id', async () => {
@@ -1551,7 +1551,7 @@ describe('ImportDeploymentPage', () => {
     await openSection(/^Site/)
     await userEvent.click(screen.getByRole('button', { name: 'Road underpass' }))
     await userEvent.click(screen.getByLabelText('Bait was used'))
-    await userEvent.click(screen.getByLabelText('Photo dates may be wrong'))
+    await userEvent.click(screen.getByLabelText('Image dates may be wrong'))
     await openSection(/^Grouping and notes/)
     await userEvent.type(screen.getByLabelText('Groups'), 'season:winter 2020{Enter}')
     await userEvent.type(screen.getByLabelText('Groups'), 'grid:A1{Enter}')
@@ -1562,7 +1562,7 @@ describe('ImportDeploymentPage', () => {
     await openSection(/^Site/)
     expect(screen.getByRole('button', { name: 'Road underpass' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByLabelText('Bait was used')).toBeChecked()
-    expect(screen.getByLabelText('Photo dates may be wrong')).toBeChecked()
+    expect(screen.getByLabelText('Image dates may be wrong')).toBeChecked()
     await openSection(/^Camera/)
     expect(screen.getByLabelText('Depth below the surface (m)')).toHaveValue(4.8)
   })
@@ -1876,7 +1876,7 @@ describe('ImportDeploymentPage', () => {
       await goToValidateStep()
 
       await waitFor(() => expect(screen.queryByRole('radiogroup', { name: 'How strict: Duplicate images (same content)' })).not.toBeInTheDocument())
-      expect(screen.queryByRole('radiogroup', { name: 'How strict: Required photo data' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('radiogroup', { name: 'How strict: Required image data' })).not.toBeInTheDocument()
       expect(screen.queryByRole('radiogroup', { name: 'How strict: Folder structure (subfolders)' })).not.toBeInTheDocument()
       expect(screen.getByRole('radiogroup', { name: 'How strict: Corrupted images' })).toBeInTheDocument()
       expect(screen.getAllByRole('radiogroup')).toHaveLength(4) // and the question of where the images are
@@ -2112,11 +2112,11 @@ describe('ImportDeploymentPage', () => {
       await advanceToPreprocessing()
       await runPreprocessingAndContinue()
       await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
-      expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument() // not before it is imported
+      expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument() // not before it is imported
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
-      await userEvent.click(screen.getByRole('button', { name: 'Upload to Trapper' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Upload to TRAPPER' }))
       expect(onUpload).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0001' })
     })
 
@@ -2130,7 +2130,7 @@ describe('ImportDeploymentPage', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
-      expect(screen.queryByRole('button', { name: 'Upload to Trapper' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument()
     })
 
     it('imports with the steps left ticked, and the values of the settings', async () => {
@@ -2401,7 +2401,7 @@ describe('ImportDeploymentPage', () => {
       await screen.findByText(/Deployment saved/)
 
       const next = within(screen.getByRole('group', { name: 'What next' }))
-      expect(next.getAllByRole('button').map((b) => b.textContent)).toEqual(['Upload to Trapper', 'Add another deployment', '← Deployments menu', '← Main menu'])
+      expect(next.getAllByRole('button').map((b) => b.textContent)).toEqual(['Upload to TRAPPER', 'Add another deployment', '← Deployments menu', '← Main menu'])
       expect(screen.getByText('Review and save', { selector: 'h3, h4, h5, span, p' })).toBeInTheDocument()   // the same step, that now holds what was saved and what to do next
       expect(screen.queryByText('Review and upload')).not.toBeInTheDocument()
       expect(screen.getAllByText('Locked: the deployment is saved and sealed.')).toHaveLength(2)   // the two steps before it are locked once it is saved

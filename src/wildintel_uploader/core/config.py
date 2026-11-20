@@ -99,11 +99,11 @@ class GeneralSettings(BaseModel):
 
 
 class TrapperSettings(BaseModel):
-    enabled: bool = Field(default=True, description="Whether Trapper is used as a place to upload deployments to. (TRAPPER.enabled)")
-    base_url: Optional[str] = Field(default=None, description="Trapper server URL. (TRAPPER.base_url)")
-    user_name: Optional[str] = Field(default=None, description="Trapper username (its email — the import form only accepts that). (TRAPPER.user_name)")
+    enabled: bool = Field(default=True, description="Whether TRAPPER is used as a place to upload deployments to. (TRAPPER.enabled)")
+    base_url: Optional[str] = Field(default=None, description="TRAPPER server URL. (TRAPPER.base_url)")
+    user_name: Optional[str] = Field(default=None, description="TRAPPER username (its email — the import form only accepts that). (TRAPPER.user_name)")
     user_password: Optional[str] = Field(
-        default=None, description="Trapper password. (TRAPPER.user_password)", json_schema_extra={"secret": True},
+        default=None, description="TRAPPER password. (TRAPPER.user_password)", json_schema_extra={"secret": True},
     )
     max_zip_mb: int = Field(
         default=500, ge=1, le=5000,
@@ -170,7 +170,7 @@ class DataSettings(BaseModel):
     )
     packages_dir: Optional[str] = Field(
         default=None,
-        description="A folder of its own for the packages made to upload to Trapper, instead of the \"packages\" folder inside DATA.dir: <folder>/<research project id>/<collection>. (DATA.packages_dir)",
+        description="A folder of its own for the packages made to upload to TRAPPER, instead of the \"packages\" folder inside DATA.dir: <folder>/<research project id>/<collection>. (DATA.packages_dir)",
     )
 
     @field_validator("dir", "collections_dir", "reports_dir", "packages_dir")
@@ -210,7 +210,7 @@ class PostvalidationSettings(BaseModel):
     sequence_count: bool = Field(default=True, description="The number of sequences is like the previous revisions'. (POSTVALIDATION.sequence_count)")
     sequence_length: bool = Field(default=True, description="The length of the sequences is like the previous revisions'. (POSTVALIDATION.sequence_length)")
     sd_card: bool = Field(default=True, description="The SD card is the one the visit left in the camera. (POSTVALIDATION.sd_card)")
-    photo_count: bool = Field(default=True, description="The folder has the number of photos the visit counted on the card. (POSTVALIDATION.photo_count)")
+    photo_count: bool = Field(default=True, description="The folder has the number of images the visit counted on the card. (POSTVALIDATION.photo_count)")
     sequence_gap_seconds: float = Field(
         default=60.0, gt=0, le=86400,
         description="What a sequence is: a new one starts when the gap to the previous image is at least this many seconds. (POSTVALIDATION.sequence_gap_seconds)",
@@ -286,7 +286,7 @@ class Trapper(BaseModel):
     affiliation: Optional[str] = Field(default=None, description="Where the trapper works, free text.")
     email: Optional[str] = Field(default=None, description="The trapper's email address — optional.")
     status: Literal["active", "inactive", "archived"] = Field(default="active", description="Whether the trapper still goes to the field: an inactive one is no longer suggested, and an archived one is out of use for good (it never goes back).")
-    trapper_pk: Optional[int] = Field(default=None, description="Its id in Trapper, when it was taken from there — such a trapper can only be seen here.")
+    trapper_pk: Optional[int] = Field(default=None, description="Its id in TRAPPER, when it was taken from there — such a trapper can only be seen here.")
     id: Optional[str] = Field(default=None, description="Its internal id — a UUID the app generates when it is kept, that never changes and is never typed: what the records that refer to it point to.")
     created_at: Optional[str] = Field(default=None, description="When it was kept here (ISO 8601, UTC, with a Z): written by the app, never typed.")
     updated_at: Optional[str] = Field(default=None, description="When it was last changed (ISO 8601, UTC, with a Z): written by the app, never typed.")
@@ -407,7 +407,7 @@ class Camera(BaseModel):
     label: str = Field(min_length=1, description="What the camera is called — the name it goes by in the field.")
     camera_id: Optional[str] = Field(default=None, description="The camera's id — its serial number. (cameraID)")
     camera_model: Optional[str] = Field(default=None, description="Manufacturer and model, written as manufacturer-model. (cameraModel)")
-    connectivity: Optional[Literal["none", "4g", "5g"]] = Field(default=None, description="The mobile network the camera sends its photos through: none when it does not.")
+    connectivity: Optional[Literal["none", "4g", "5g"]] = Field(default=None, description="The mobile network the camera sends its images through: none when it does not.")
     power_source: Optional[Literal["cells", "battery"]] = Field(default=None, description="What it runs on: cells (AA, AAA… the ones that are changed) or a battery.")
     battery_removable: Optional[Literal["yes", "no"]] = Field(default=None, description="Whether the battery can be taken out of the camera: only said of a battery, as cells are always taken out to be changed.")
     in_service: Optional[date] = Field(default=None, description="The day it was put into production.")

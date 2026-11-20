@@ -388,7 +388,7 @@ def delete_location(root: Path, research_project_id: str, location_id: str) -> d
     if index is None:
         raise LocalFolderError(f"The location '{location_id}' isn't in {research_project_id}.")
     if locations[index].get("trapper_pk") is not None:
-        raise LocalFolderError(f"The location '{location_id}' comes from Trapper, so it can't be deleted here.")
+        raise LocalFolderError(f"The location '{location_id}' comes from TRAPPER, so it can't be deleted here.")
     visits = len(list_visits(root, research_project_id, location_id))
     if visits:
         raise LocalFolderError(f"The location '{location_id}' still has {visits} visit{'s' if visits != 1 else ''}: it can't be deleted — mark it as archived instead.")

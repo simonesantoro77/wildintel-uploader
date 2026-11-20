@@ -13,17 +13,17 @@ describe('MenuPage', () => {
   it('offers the actions one click away: register visits, create deployments and upload a deployment', async () => {
     const { onAction } = renderMenu()
 
-    await userEvent.click(screen.getByRole('button', { name: /register visits/i }))
-    await userEvent.click(screen.getByRole('button', { name: /create deployments/i }))
-    await userEvent.click(screen.getByRole('button', { name: /upload deployment/i }))
+    await userEvent.click(screen.getByRole('button', { name: /register the visits/i }))
+    await userEvent.click(screen.getByRole('button', { name: /import the images/i }))
+    await userEvent.click(screen.getByRole('button', { name: /upload the images/i }))
     expect(onAction.mock.calls.map((c) => c[0])).toEqual(['register', 'import', 'upload'])
   })
 
   it('offers the actions in that order, and no longer the three Manage menus', () => {
     renderMenu()
 
-    const titles = screen.getAllByRole('button').map((b) => b.textContent ?? '').map((t) => t.match(/Register visits|Create deployments|Upload deployment/)?.[0]).filter(Boolean)
-    expect(titles).toEqual(['Register visits', 'Create deployments', 'Upload deployment'])
+    const titles = screen.getAllByRole('button').map((b) => b.textContent ?? '').map((t) => t.match(/Register the visits|Import the images|Upload the images/)?.[0]).filter(Boolean)
+    expect(titles).toEqual(['Register the visits', 'Import the images', 'Upload the images'])
     for (const old of [/manage visits/i, /manage deployments/i, /manage uploads/i]) expect(screen.queryByRole('button', { name: old })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /import collection/i })).not.toBeInTheDocument()
   })
@@ -33,7 +33,7 @@ describe('MenuPage', () => {
 
     expect(screen.queryByRole('navigation', { name: 'Typical workflow' })).not.toBeInTheDocument()
     expect(screen.queryByText('Typical workflow')).not.toBeInTheDocument()
-    const cards = ['Register visits', 'Create deployments', 'Upload deployment'].map((name) => screen.getByRole('button', { name: new RegExp(`^${name}`) }))
+    const cards = ['Register the visits', 'Import the images', 'Upload the images'].map((name) => screen.getByRole('button', { name: new RegExp(`^${name}`) }))
     expect(cards.map((c) => c.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['1', '2', '3'])
     expect(screen.getByText(/Who went, when, to which site and what was done\./)).toBeInTheDocument()   // the visits are not said to be by hand or from a file
     expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
@@ -49,7 +49,7 @@ describe('MenuPage', () => {
     await userEvent.click(button)
     const panel = within(screen.getByRole('dialog', { name: 'Quick guide' }))
     expect(panel.getByText('End-to-end workflow')).toBeInTheDocument()
-    expect(panel.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Create a research project', 'Register visits', 'Create deployments', 'Upload deployment'])
+    expect(panel.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Create a research project', 'Register the visits', 'Import the images', 'Upload the images'])
     expect(panel.getByText('Define trappers, sites, cameras and SD cards once, or switch anytime from the top bar.')).toBeInTheDocument()
     expect(panel.getByText('Send curated local deployments to your remote repository (e.g., TRAPPER).')).toBeInTheDocument()
     expect(panel.getByText('Dashboards')).toBeInTheDocument()
@@ -72,9 +72,9 @@ describe('MenuPage', () => {
 
   it('has the three actions in three columns, and the dashboards under them as a bar of their own, as the utilities are', async () => {
     renderMenu()
-    const actions = screen.getByRole('button', { name: /^Register visits/ }).parentElement!
+    const actions = screen.getByRole('button', { name: /^Register the visits/ }).parentElement!
     expect(actions).toHaveClass('md:grid-cols-3')                                                  // the three in a row
-    expect([...actions.children].map((c) => c.querySelector('strong')?.textContent)).toEqual(['Register visits', 'Create deployments', 'Upload deployment'])
+    expect([...actions.children].map((c) => c.querySelector('strong')?.textContent)).toEqual(['Register the visits', 'Import the images', 'Upload the images'])
 
     const bar = screen.getByRole('region', { name: 'Dashboards and statistics' })
     expect(actions.contains(bar)).toBe(false)                                                      // not one of the cards: under them, full width

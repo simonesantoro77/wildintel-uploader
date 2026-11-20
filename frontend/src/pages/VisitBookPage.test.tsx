@@ -44,15 +44,15 @@ describe('VisitBookPage', () => {
     await screen.findByRole('table', { name: 'Visits' })
 
     const buttons = within(screen.getByRole('group', { name: 'Dashboard actions' })).getAllByRole('button').map((b) => b.textContent)
-    expect(buttons).toEqual(['Export visits (CSV)', 'Register visits', 'Create the next revision', 'Help & Legend'])
-    await userEvent.click(screen.getByRole('button', { name: 'Register visits' }))
+    expect(buttons).toEqual(['Export visits (CSV)', 'Register the visits', 'Create the next revision', 'Help & Legend'])
+    await userEvent.click(screen.getByRole('button', { name: 'Register the visits' }))
     expect(onRegisterVisits).toHaveBeenCalledTimes(1)
   })
 
   it('has no Register visits button where there is nowhere to go to register', async () => {
     await pickProject()
 
-    expect(screen.queryByRole('button', { name: 'Register visits' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Register the visits' })).not.toBeInTheDocument()
   })
 
   it('ticks visits, and a bar over the table says how many are selected and creates their deployments — when the card of each was collected and they are of one revision', async () => {
@@ -75,19 +75,19 @@ describe('VisitBookPage', () => {
     await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the visit R0001 to TATR_0002' }))
     expect(within(bar).getByText('2 selected')).toBeInTheDocument()
     expect(within(bar).getByText('Select all 3 matching')).toBeInTheDocument()
-    await userEvent.click(within(bar).getByRole('button', { name: /Create deployments/ }))
+    await userEvent.click(within(bar).getByRole('button', { name: /Import the images/ }))
     expect(onCreateDeployments).toHaveBeenCalledWith([expect.objectContaining({ researchProjectId: 'TATR', visit: expect.objectContaining({ location_id: 'TATR_0001', session: 'R0001' }) }), expect.objectContaining({ visit: expect.objectContaining({ location_id: 'TATR_0002' }) })])
 
     await userEvent.click(within(bar).getByRole('button', { name: 'Select all 3 matching' }))        // the three, one of which is still deployed: its card was not collected
     expect(within(bar).getByText('3 selected')).toBeInTheDocument()
     expect(bar).not.toHaveTextContent('Only visits whose card was collected')                  // no message in the bar: the button is just not active
-    expect(within(bar).getByRole('button', { name: /Create deployments/ })).toBeDisabled()
-    expect(within(bar).getByRole('button', { name: /Create deployments/ })).toHaveAttribute('title', 'Only visits whose card was collected, and have no deployment yet, can create their deployments.')   // what it says if the pointer stays on it
+    expect(within(bar).getByRole('button', { name: /Import the images/ })).toBeDisabled()
+    expect(within(bar).getByRole('button', { name: /Import the images/ })).toHaveAttribute('title', 'Only visits whose card was collected, and have no deployment yet, can create their deployments.')   // what it says if the pointer stays on it
     await userEvent.click(within(bar).getByRole('button', { name: 'Clear' }))
     expect(screen.queryByRole('group', { name: 'Action on the selected visits' })).not.toBeInTheDocument()
 
     await userEvent.click(within(table).getByRole('checkbox', { name: 'Select the visit R0001 to TATR_0002' }))        // one alone goes to Import deployment
-    await userEvent.click(within(screen.getByRole('group', { name: 'Action on the selected visits' })).getByRole('button', { name: /Create deployments/ }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Action on the selected visits' })).getByRole('button', { name: /Import the images/ }))
     expect(onImportImages).toHaveBeenCalledWith(expect.objectContaining({ researchProjectId: 'TATR', visit: expect.objectContaining({ location_id: 'TATR_0002' }) }))
   })
 
@@ -493,7 +493,7 @@ describe('VisitBookPage', () => {
     expect(within(panel.getByRole('region', { name: 'The visit that collected it' })).getByText('R0004')).toBeInTheDocument()
     expect(panel.getByText('P800')).toBeInTheDocument()
     expect(panel.getByText('A13')).toBeInTheDocument()
-    expect(panel.getByText('241 photos')).toBeInTheDocument()
+    expect(panel.getByText('241 images')).toBeInTheDocument()
     await userEvent.click(panel.getByRole('button', { name: 'Close' }))
     expect(within(screen.getByRole('table', { name: 'Visits' })).queryByRole('columnheader', { name: 'Camera' })).not.toBeInTheDocument()
 

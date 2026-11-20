@@ -28,7 +28,7 @@ const PHASE_DOT: Record<Exclude<Filter, ''>, string> = { planned: 'bg-zinc-400 d
 
 
 /** What a destination is called. */
-const DESTINATION_NAME: Record<string, string> = { trapper: 'Trapper', agouti: 'Agouti' }
+const DESTINATION_NAME: Record<string, string> = { trapper: 'TRAPPER', agouti: 'Agouti' }
 const STATE_NAME: Record<string, string> = { planned: 'planned', done: 'done', failed: 'failed' }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -187,7 +187,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
           ['Coords', `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`],
           ['Period', formatDeploymentPeriod(latest)],
           ...(latest.card ? [['SD card', latest.card] as [string, string]] : []),
-          ...(latest.card_full ? [['Photos', 'Card full'] as [string, string]] : latest.photos_counted != null ? [['Photos', String(latest.photos_counted)] as [string, string]] : []),
+          ...(latest.card_full ? [['Images', 'Card full'] as [string, string]] : latest.photos_counted != null ? [['Images', String(latest.photos_counted)] as [string, string]] : []),
           ...(latest.camera_id ? [['Camera', latest.camera_id] as [string, string]] : []),
           ...(group.length > 1 ? [['Deployments', String(group.length)] as [string, string]] : []),
         ],
@@ -202,15 +202,15 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
 
   // What a deployment says of itself, as the table and the labels both show it.
   // the photos counted — or "Card full", when the card was and they were not counted —: a link to look at them when the deployment is created — its images are in the collections folder
-  const photosText = (d: FieldDeployment) => (d.card_full ? 'Card full' : `${d.photos_counted} photos`)
+  const photosText = (d: FieldDeployment) => (d.card_full ? 'Card full' : `${d.photos_counted} images`)
   const hasPhotosText = (d: FieldDeployment) => d.card_full === true || d.photos_counted != null
   // a card that was full is told in red, as a state, in place of the number: its photos were not counted
   const cardFull = 'rounded-md px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
   const photos = (d: FieldDeployment) => (researchProjectId && phaseOf(d) === 'created'
     ? (d.card_full
-      ? <button type="button" title="The card was full, so its photos were not counted. Show the photos" aria-label={`Show the photos of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)} className={`${cardFull} hover:bg-red-200 dark:hover:bg-red-900/60`}>Card full</button>
-      : <LinkButton className="font-semibold" aria-label={`Show the photos of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)}>{photosText(d)}</LinkButton>)
-    : (d.card_full ? <span title="The card was full, so its photos were not counted" className={cardFull}>Card full</span> : photosText(d)))
+      ? <button type="button" title="The card was full, so its images were not counted. Show the images" aria-label={`Show the images of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)} className={`${cardFull} hover:bg-red-200 dark:hover:bg-red-900/60`}>Card full</button>
+      : <LinkButton className="font-semibold" aria-label={`Show the images of the deployment ${d.deployment_id}`} onClick={() => setPhotosPanel(d)}>{photosText(d)}</LinkButton>)
+    : (d.card_full ? <span title="The card was full, so its images were not counted" className={cardFull}>Card full</span> : photosText(d)))
   const creation = (d: FieldDeployment) => (
     phaseOf(d) === 'not_created'
                           ? <span title="The camera was stolen: the card is gone, so the deployment will not be created" className="rounded-full px-2.5 py-1 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">Not created</span>
@@ -306,8 +306,8 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
                 )}
                 <button type="button" className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setPicked(new Set())}>Clear</button>
                 <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!canUploadPicked || !onUploadMany} title={canUploadPicked ? 'Upload the selected deployments' : 'Only deployments that are created and not yet on Trapper, all of one revision, can be uploaded.'} onClick={() => onUploadMany?.(pickedDeployments)}>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICON_PATHS.upload}</svg>Upload deployments
+                        disabled={!canUploadPicked || !onUploadMany} title={canUploadPicked ? 'Upload the selected deployments' : 'Only deployments that are created and not yet on TRAPPER, all of one revision, can be uploaded.'} onClick={() => onUploadMany?.(pickedDeployments)}>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICON_PATHS.upload}</svg>Upload the images
                 </button>
               </div>
             )}
@@ -315,7 +315,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
             <div className="overflow-x-auto">
               <table className={TABLE.table} aria-label="Deployments">
                 <thead className={TABLE.head}>
-                  <tr><th scope="col" className="w-10 pl-4 py-3"><input type="checkbox" aria-label="Select all the deployments of the page" checked={pagePicked} ref={(el) => { if (el) el.indeterminate = !pagePicked && onPage.some((d) => picked.has(d.deployment_id)) }} onChange={togglePage} /></th>{['Deployment', 'Visit', 'SD and photos', 'Creation', 'Upload'].map((h) => <th key={h} scope="col" className={TABLE.th}>{h}</th>)}<th scope="col" className="px-4 py-3"><span className="sr-only">What to do</span></th></tr>
+                  <tr><th scope="col" className="w-10 pl-4 py-3"><input type="checkbox" aria-label="Select all the deployments of the page" checked={pagePicked} ref={(el) => { if (el) el.indeterminate = !pagePicked && onPage.some((d) => picked.has(d.deployment_id)) }} onChange={togglePage} /></th>{['Deployment', 'Visit', 'SD and images', 'Creation', 'Upload'].map((h) => <th key={h} scope="col" className={TABLE.th}>{h}</th>)}<th scope="col" className="px-4 py-3"><span className="sr-only">What to do</span></th></tr>
                 </thead>
                 <tbody className={TABLE.body}>
                   {onPage.map((d) => (

@@ -41,14 +41,14 @@ flowchart LR
         API --> FS[("settings.toml<br/>sessions/<br/>collections/, packages/")]
         SRC[("Source folder<br/>(read only)")] --> API
     end
-    API -- "wildintel-trapper-sdk (httpx)" --> T["Trapper"]
+    API -- "wildintel-trapper-sdk (httpx)" --> T["TRAPPER"]
 ```
 
 (The command line takes the backend's place in the diagram: it calls the same services
 directly, in the same process, without HTTP.)
 
 - **Local first.** The app's own data — the **collections folder** — is plain files and JSON
-  (see the [user manual](user-manual.md#the-collections-folder)); there is no database. Trapper
+  (see the [user manual](user-manual.md#the-collections-folder)); there is no database. TRAPPER
   is only talked to when asked: looking things up, registering and uploading deployments, syncing.
   The source folder of an import is only ever *read*.
 - **No server-side login session.** Every request carries the credentials it needs; blank ones
@@ -115,7 +115,7 @@ wins over the settings page's. Both can also go in `src/wildintel_uploader/web/.
 
 !!! note "Two kinds of settings"
     `web/settings.py` is the **server's** (port, log level, CORS — environment variables).
-    `core/config.py` is the **app's** own `settings.toml` (Trapper account, the data folder,
+    `core/config.py` is the **app's** own `settings.toml` (TRAPPER account, the data folder,
     checks, preprocessing — the ⚙️ page, and `wildintel-uploader config`).
 
 ## 3. Repository layout
@@ -140,7 +140,7 @@ wildintel-uploader/
 │   │   ├── app.py               # the Typer app: config, trapper lookups, import-deployment
 │   │   └── common.py            # the console, credentials, errors
 │   └── wucli.py                 # the development CLI (uv run wucli …)
-├── tests/unit/                  # pytest — Trapper always faked
+├── tests/unit/                  # pytest — TRAPPER always faked
 ├── frontend/
 │   └── src/
 │       ├── api.ts               # every backend call, and the NDJSON stream reader
@@ -198,7 +198,7 @@ something to say for each check.
 | `trapper_service` | Thin wrapper over the SDK for lookups; registers a deployment through the classic import form. |
 | `trapper_upload_service` | Uploading a deployment: location, deployment, packing in zips + yaml, upload, wait. Also the access check. |
 | `repair_service` | Looks at a deployment folder (valid as its `seal.json` says) and rebuilds its metadata files from the folder's own contents; the timestamp log prevails over the images. |
-| `sync_service` | Fills the collections folder from a Trapper classification project. |
+| `sync_service` | Fills the collections folder from a TRAPPER classification project. |
 | `session_store` | The wizard's resumable runs. |
 | `folder_picker`, `file_manager` | The OS's native folder dialog and file explorer — this is a local tool, so the backend can open them on the user's screen. |
 
@@ -230,7 +230,7 @@ abstraction**, `core/storage`: today they are JSON files in the collections fold
 - **The trappers** are global records (`ProjectStore.read_global` / `write_global`, `trappers.json` beside the projects): the people belong to no research project. Those an earlier version kept in the settings are moved to the store the first time they are asked for.
 - **What is not in the layer yet.** With a database, *all* the information should go to it, except the images. For now the layer has the records of the research projects and the trappers; the metadata of collections and deployments (`deployment.json`, `images.json`…) and the settings themselves (which say where the records are, so they stay a file) are not through it. The reports and the sessions stay files, for now.
 
-  **Not planned for now** — it has no effect until a database is used, and that is not foreseen. What was decided for when it is, so it is not lost: the metadata of collections and deployments would be *documents* of the store (by research project, collection, deployment and name; the JSON backend would keep them in the same files and paths as now, so nothing would be migrated); the modules that read them (`seal_service`, `repair_service`, `preprocessing_service`, `trapper_upload_service`, `statistics_service`, `sync_service`, `timefix_service`, `backup_service`) would be converted one by one, from paths to those names. The CSV logs of a collection (`FileTimestampLog`, `FieldworkLog`) and the packages to upload stay files: they are what `wildintel-tools` and Trapper ask for. **The seal is made over the content of the documents**, not over their files: `deployment.json` is hashed as `json.dumps(document, indent=2, ensure_ascii=False)`, which is what its file holds today, so the seals already made still verify.
+  **Not planned for now** — it has no effect until a database is used, and that is not foreseen. What was decided for when it is, so it is not lost: the metadata of collections and deployments would be *documents* of the store (by research project, collection, deployment and name; the JSON backend would keep them in the same files and paths as now, so nothing would be migrated); the modules that read them (`seal_service`, `repair_service`, `preprocessing_service`, `trapper_upload_service`, `statistics_service`, `sync_service`, `timefix_service`, `backup_service`) would be converted one by one, from paths to those names. The CSV logs of a collection (`FileTimestampLog`, `FieldworkLog`) and the packages to upload stay files: they are what `wildintel-tools` and TRAPPER ask for. **The seal is made over the content of the documents**, not over their files: `deployment.json` is hashed as `json.dumps(document, indent=2, ensure_ascii=False)`, which is what its file holds today, so the seals already made still verify.
 
 To keep the records somewhere else — a database, say — **add a backend**; nothing else is touched:
 
@@ -294,8 +294,8 @@ The wizard imports in two steps, so the preprocessing is a step like the validat
 | `{"type": "sealing"}` | Checking the source images and writing `seal.json`. |
 | `{"type": "done", "dest_dir", "processed", "skipped", "sealed", "report_id"}` | Finished (`sealed` is null after `/preprocess`). |
 
-The wizard's import does **not** talk to Trapper: the deployment is registered when it is
-**uploaded**. `/api/deployment-import/import` — copy, then register it through Trapper's classic
+The wizard's import does **not** talk to TRAPPER: the deployment is registered when it is
+**uploaded**. `/api/deployment-import/import` — copy, then register it through TRAPPER's classic
 deployment form — is the command line's flow.
 
 The **timezone** is read from the location, in the research project's `locations.json`
@@ -352,16 +352,16 @@ here, and it isn't modified (`local_folder_service.is_synced`).
 file goes up and a final `done`. Three modes:
 
 - `upload` — all of it;
-- `dry_run` — the same decisions, reading Trapper only (nothing created, sent or written);
+- `dry_run` — the same decisions, reading TRAPPER only (nothing created, sent or written);
 - `generate` — only `package` and `csv`: the zips, yamls and `<collection>_deployments.csv`
   under `<data dir>/packages/<research project>/`. It needs no connection if the research project's
-  pk in Trapper is known (`trapper_pk` in `research_project.json`).
+  pk in TRAPPER is known (`trapper_pk` in `research_project.json`).
 
 Packing splits a deployment's images in zips of at most `max_zip_mb` (`split_by_size`; a bigger
 file goes alone). The yaml names the **classification project's** pk — not the research
-project's — the deployment in lower case, as Trapper keeps it, and the location's timezone and
-summer-time setting, which Trapper checks against the location it has. Locations and deployments
-are found ignoring case: Trapper keeps its ids in lower case, the collections folder in upper.
+project's — the deployment in lower case, as TRAPPER keeps it, and the location's timezone and
+summer-time setting, which TRAPPER checks against the location it has. Locations and deployments
+are found ignoring case: TRAPPER keeps its ids in lower case, the collections folder in upper.
 
 ### Repair
 
@@ -373,17 +373,17 @@ the period, validated as `DeploymentFields`), `preprocessing.json` and `images.j
 the old file's, else the settings' with the location's timezone), and `seal_service.seal(dest, dest, …, recovered=True)`,
 which runs the validation and postvalidation over the folder's own images. `report_service.repair_report` joins what it wrote,
 the seal's per-image results and `_preprocessing_problems` (names, size, XMP identifier, hash). A deployment synced from
-Trapper is refused. The routes are `POST /api/repair/collections`, `/inspect` and `/deployment` (the stream).
+TRAPPER is refused. The routes are `POST /api/repair/collections`, `/inspect` and `/deployment` (the stream).
 
 ### Sync
 
-`sync_service.sync_stream` reads Trapper only. Collections are those of the classification project
+`sync_service.sync_stream` reads TRAPPER only. Collections are those of the classification project
 whose name starts with `R`; a deployment goes to the one its id starts with
-(`R0003-DONA_01` → `R0003`); what the folder already has is kept; and `images.json` is built from the resources Trapper lists, in the location's
+(`R0003-DONA_01` → `R0003`); what the folder already has is kept; and `images.json` is built from the resources TRAPPER lists, in the location's
 timezone. The images are downloaded only with `download_images`: `trapper_service.list_deployment_media` lists the files through the
-classification project's media — the URL that carries the access token (`?rt=`), without which Trapper answers 404 — and
+classification project's media — the URL that carries the access token (`?rt=`), without which TRAPPER answers 404 — and
 `file_downloader` fetches them, `DOWNLOAD_WORKERS` at a time, each written as `*.part` and moved into place; an image the project doesn't
-hold is reported in `downloaded.not_held`. Deployments Trapper holds in a way that isn't a valid `DeploymentFields` are reported
+hold is reported in `downloaded.not_held`. Deployments TRAPPER holds in a way that isn't a valid `DeploymentFields` are reported
 in `failed`, not raised.
 
 ### Sessions
@@ -398,7 +398,7 @@ start-up until the import reaches `done`, which discards it. Credentials never r
 
 `core/logging_setup.py`: console and a rotating file (`wildintel-uploader.log`, 5 MB × 5, in `platformdirs.user_log_dir` — `~/.local/state/wildintel-uploader/log` on Linux; the sessions are in `user_state_dir()/sessions`; neither is configurable, and what an earlier version left beside `settings.toml` or in Documents is moved at start) at
 `GENERAL.log_level`, changed on the fly when the settings are saved. At `DEBUG` each file and each
-Trapper query is logged, and tracebacks are kept; the libraries' byte-level chatter stays at INFO.
+TRAPPER query is logged, and tracebacks are kept; the libraries' byte-level chatter stays at INFO.
 The command line only prints warnings unless given `-v`.
 
 ### Streaming endpoints
@@ -429,9 +429,9 @@ the current task and shows one page.
 | `WelcomePage`, `MenuPage` | The first screen and the task menu (`OptionCards`; a task with `available: false` is *coming soon*). |
 | `ResumeSessionsPage` | The unfinished runs, shown before the menu when there are any. |
 | `ImportDeploymentPage` | The wizard of five stages (origin, images, dates and details, check details, prepare and save), each with steps of its own (`WizardStep`). The biggest file: its step components and the forms. It also exports what the session page reuses: `fillFromVisit`, `fillFromPreviousRevision`, `detailsFound` and `LockedDetailsContext` (the details shown as a source says them, until they are filled in by hand). |
-| `ImportSessionPage` | The same stages for a folder of deployments; with closed visits ticked in the origin, each folder is linked to a visit and the location, details and dates come from it. Reuses the wizard's pieces, exported from `ImportDeploymentPage`. |
+| `ImportSessionPage` | The same stages for a collection folder of deployments; with collected visits ticked in the origin, each folder is linked to a visit and the location, details and dates come from it. Reuses the wizard's pieces, exported from `ImportDeploymentPage`. |
 | `UploadDeploymentPage` | Steps: what to upload (research project → collection → deployments), what to do (mode), then the upload, with a card per deployment. |
-| `VisitsPage` | *Register visits*: the visits of a research project, by hand, from the Epicollect download or from a CSV. Stored in the project's `visits.json`; `POST /api/visits/closed` lists the closed visits that have no deployment yet and `POST /api/visits/link` links one to the deployment it gave. |
+| `VisitsPage` | *Register the visits*: the visits of a research project, by hand, from the Epicollect download or from a CSV. Stored in the project's `visits.json`; `POST /api/visits/closed` lists the collected visits that have no deployment yet and `POST /api/visits/link` links one to the deployment it gave. |
 | `UtilsPage` | The menu's *Utils* button: a list of maintenance tasks, each shown in place of the list once chosen — `TimeFixPage`, `RepairPage` and `SyncCollectionsPage`. |
 | `RepairPage` | Research project → collection → state of each deployment, and what each repair did. |
 | `SyncCollectionsPage` | Classification project → collection → deployments, and a live log. |
@@ -455,7 +455,7 @@ has sample backend payloads.
 The backend's own interactive docs are at `/docs` when it runs. All paths are under `/api` (the
 routers' own prefixes are `/trapper`, `/deployment-import`, `/settings`, `/sessions`, `/upload` and
 `/sync`; health is `/api/health` and `/api/version`); all
-bodies are JSON, and every `POST` that talks to Trapper takes optional `url`, `username` and
+bodies are JSON, and every `POST` that talks to TRAPPER takes optional `url`, `username` and
 `password` that default to the settings'.
 
 | Router | Endpoint | Does |
@@ -469,7 +469,7 @@ bodies are JSON, and every `POST` that talks to Trapper takes optional `url`, `u
 | | `GET`/`DELETE /settings/log` | Download / delete the log. |
 | | `GET`/`POST /settings/configs`, `POST …/{id}/activate`, `GET …/{id}/download`, `POST …/{id}/open-folder` | Several settings files. |
 | deployment-import | `POST /deployment-import/browse-folder` | The native folder dialog. |
-| | `…/scan-folder`, `/scan-session` | Scan a deployment's / a session's folder: only count its files and images (a session's also say which dates a timestamp log gives). |
+| | `…/scan-folder`, `/scan-session` | Scan a deployment's / a collection folder: only count its files and images (a collection scan also says which dates a timestamp log gives). |
 | | `…/guess-details` | Read a folder's images for the deployment form's starting point: the date range and the camera. |
 | | `…/validate-images`, `/validate-deployment` | The two sets of checks. |
 | | `…/research-projects/list`, `/save`; `…/locations/list`, `/save`, `/update` | The collections folder's research projects and locations. |
@@ -480,7 +480,7 @@ bodies are JSON, and every `POST` that talks to Trapper takes optional `url`, `u
 | | `…/exiftool` | Whether ExifTool is available. |
 | | `…/preprocess` | **Streams** the preprocessing, leaving the deployment pending. |
 | | `…/consolidate` | **Streams** the sealing of a preprocessed deployment. |
-| | `…/import-local` | **Streams** both at once (the session wizard's import). |
+| | `…/import-local` | **Streams** both at once (the collection wizard's import). |
 | | `…/import` | **Streams** copy-and-register (the command line's flow). |
 | | `…/open-folder` | Open a folder in the file explorer. |
 | reports | `GET /reports` | What each report says of itself, newest first. |
@@ -533,7 +533,7 @@ uv run wucli frontend lint
 ```
 
 - **Backend** — `tests/unit/`: services directly and the routers through FastAPI's `TestClient`.
-  **Trapper is always faked** — nothing needs a server or an account. Tests that need ExifTool are
+  **TRAPPER is always faked** — nothing needs a server or an account. Tests that need ExifTool are
   skipped without it (CI installs it). Image fixtures are generated into `tmp_path`; the folders
   in `examples/` are for trying the wizard by hand.
 - **Frontend** — Vitest and Testing Library, a `.test.tsx` beside each page and component, with
@@ -595,7 +595,7 @@ uv run wucli docs screenshots step-details sync     # only these
 
 `tools/screenshots/capture.py` serves the built frontend and drives it with Playwright, through
 the same steps a user takes. `tools/screenshots/mock_api.js` replaces `fetch` in the page with a
-fake backend that uses sample data (the DONA project, revision 3, three locations): no Trapper,
+fake backend that uses sample data (the DONA project, revision 3, three locations): no TRAPPER,
 no real folders, no account. Streaming endpoints send their events and can be held open
 (`hold: true`), so a screenshot shows a run midway — the upload's second deployment is. They are
 1100 px wide, in dark mode, with an `en-GB` locale. Long pages are cropped to the part that matters

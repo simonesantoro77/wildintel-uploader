@@ -29,7 +29,7 @@ _ASKED = {
     "Stolen": {},
     "Archive": {},  # the location is given up: nothing else is asked
 }
-_LABELS = {"camera": "The camera", "sd": "The SD card left in the camera", "photos": "The photos on the card collected", "camera_status": "The status of the camera"}
+_LABELS = {"camera": "The camera", "sd": "The SD card left in the camera", "photos": "The number of images on the card collected", "camera_status": "The status of the camera"}
 def unusual_card_id(label: str) -> bool:
     """Whether the id of an SD card is out of the ordinary: it has spaces or signs — `84 (10)`, `85(78)`, `38_B` — where ids are letters and digits, like `A13`, `47b` or `693`. It is said, not refused:
     the label on a card is whatever was written on it."""
@@ -412,7 +412,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
     for (session, site, action), of in sorted(count.items(), key=lambda kv: kv[0]):
         if len(of) > 1:
             hint = " (typo in the site number?)" if action == "Installation" else ""
-            say(f"{session}: {site} has {len(of)} \"{action}\" entries in the same session{hint}.", *of)
+            say(f"{session}: {site} has {len(of)} \"{action}\" entries in the same revision{hint}.", *of)
 
     for v in new:
         before = [e for e in everything if e is not v]
@@ -421,7 +421,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
         if older:
             say(f"{label(v)}: the visit time {v['date']} {v['time']} is not after the visit of {older[0].get('session')} ({older[0]['date']} {older[0]['time']}).", v)
         if "Revision" in v["actions"] and v.get("num_photos") is not None and v["num_photos"] <= 0:
-            say(f"{label(v)}: Revision with 0 photos; no deployment will be produced for it.", v)
+            say(f"{label(v)}: Revision with 0 images; no deployment will be produced for it.", v)
         for message in required_errors(v, photos_optional).values():
             say(f"{label(v)}: {message}", v)
         # Where its camera and its card are, with what came before it — the visits of the file included.
@@ -779,7 +779,7 @@ def session_jump_items(new: list[dict], kept: list[dict]) -> list[tuple[str, lis
     last = max((n for n in (_session_number(v.get("session")) for v in kept) if n is not None), default=None)
     first = min((n for n in (_session_number(v.get("session")) for v in new) if n is not None), default=None)
     if last is not None and first is not None and first > last + 1:
-        return [(f"Session numbers jump from R{last:04d} to R{first:04d}.", [v for v in new if _session_number(v.get("session")) == first])]
+        return [(f"Revision numbers jump from R{last:04d} to R{first:04d}.", [v for v in new if _session_number(v.get("session")) == first])]
     return []
 
 
@@ -810,5 +810,5 @@ def history_notes(new: list[dict], kept: list[dict]) -> list[str]:
         nocount = sorted(v["location_id"] for v in current if {"Revision", "Desinstallation"} & set(v["actions"]) and v.get("num_photos") is None
                          and v.get("card_status") != "CardFull" and str(v.get("camera_status") or "").lower() not in NOT_REVISED)
         if nocount:
-            notes.append(f"R{session:04d}: {len(nocount)} visit(s) without photo count (count forgotten), counted as the end of the collection: {', '.join(nocount)}.")
+            notes.append(f"R{session:04d}: {len(nocount)} visit(s) without image count (count forgotten), counted as the end of the collection: {', '.join(nocount)}.")
     return notes

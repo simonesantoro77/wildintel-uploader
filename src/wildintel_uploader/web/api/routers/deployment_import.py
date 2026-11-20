@@ -44,7 +44,7 @@ def browse_folder(req: BrowseFolderRequest = BrowseFolderRequest()) -> dict:
 def copy_card(req: CardRequest) -> StreamingResponse:
     """Copies a camera's memory card — read only — to a temporary folder of this computer, so that its images are processed as any local folder. Streamed:
     "start", "progress" after each file and "done" with the `path` of the copy; it is removed with /discard-card-copy when the import is over."""
-    return _stream(card_copy_service.copy_card(req.path), "The memory card could not be copied")
+    return _stream(card_copy_service.copy_card(req.path), "The SD card could not be copied")
 
 
 @router.post("/eject-card")
@@ -144,7 +144,7 @@ def delete_location(req: DeleteLocationRequest) -> dict:
     try:
         return local_folder_service.delete_location(config.collections_dir(), req.research_project_id, req.location_id)
     except local_folder_service.LocalFolderError as exc:
-        raise HTTPException(404 if "isn't in" in str(exc) else 409 if "still has" in str(exc) or "comes from Trapper" in str(exc) else 400, str(exc)) from exc
+        raise HTTPException(404 if "isn't in" in str(exc) else 409 if "still has" in str(exc) or "comes from TRAPPER" in str(exc) else 400, str(exc)) from exc
 
 
 @router.get("/exiftool")
@@ -173,7 +173,7 @@ def timestamp_log(req: TimestampLogRequest) -> dict:
     try:
         collection = deployment_import_service.default_collection_dir(req.research_project_id, req.deployment.deployment_id)
         if local_folder_service.is_synced(collection / req.deployment.deployment_id):
-            raise deployment_import_service.DeploymentImportError(f"{req.deployment.deployment_id} was synced from Trapper, so it can't be modified here.")
+            raise deployment_import_service.DeploymentImportError(f"{req.deployment.deployment_id} was synced from TRAPPER, so it can't be modified here.")
         # The camera's wall-clock time: what the images' EXIF holds, whatever the designator says.
         start = datetime.fromisoformat(req.deployment.start_date).replace(tzinfo=None)
         end = datetime.fromisoformat(req.deployment.end_date).replace(tzinfo=None)

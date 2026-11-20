@@ -48,10 +48,10 @@ describe('UploadStatusPage', () => {
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Details', 'Deployment', 'Location', 'Visit', 'Uploader', 'Status', 'What to do'])
     const cells = (row: HTMLElement) => within(row).getAllByRole('cell').map((c) => c.textContent)
     expect(within(table).getAllByRole('row').slice(1).map(cells)).toEqual([
-      ['', 'R0002-DONA_01', 'DONA_01', 'R0002 · DONA_0110 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'Trapper', 'Done20 Oct 2026, 12:00 (Europe/Madrid)', ''],
-      ['', 'R0002-DONA_02', 'DONA_02', 'R0002 · DONA_0210 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'Trapper', 'Planned', ''],
-      ['', 'R0001-DONA_01', 'DONA_01', 'R0001 · DONA_0110 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'Trapper', 'Done1 Sep 2026, 10:30 (Europe/Madrid)', ''],
-      ['', 'R0001-DONA_02', 'DONA_02', 'R0001 · DONA_0210 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'Trapper', 'Failed', ''],
+      ['', 'R0002-DONA_01', 'DONA_01', 'R0002 · DONA_0110 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'TRAPPER', 'Done20 Oct 2026, 12:00 (Europe/Madrid)', ''],
+      ['', 'R0002-DONA_02', 'DONA_02', 'R0002 · DONA_0210 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'TRAPPER', 'Planned', ''],
+      ['', 'R0001-DONA_01', 'DONA_01', 'R0001 · DONA_0110 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'TRAPPER', 'Done1 Sep 2026, 10:30 (Europe/Madrid)', ''],
+      ['', 'R0001-DONA_02', 'DONA_02', 'R0001 · DONA_0210 Jun 2026, 09:00 → 5 Aug 2026, 08:00', 'TRAPPER', 'Failed', ''],
     ])
     expect(within(table).queryByText('R0001-DONA_03')).not.toBeInTheDocument()   // the camera was stolen: there is no deployment to upload
   })
@@ -110,11 +110,11 @@ describe('UploadStatusPage', () => {
     expect(onUpload).toHaveBeenCalledWith({ researchProjectId: 'DONA', collection: 'R0001' })
     expect(screen.queryByRole('button', { name: /^(Upload|Try again the upload of) the deployment R0002-DONA_01$/ })).not.toBeInTheDocument() // done: nothing to upload
 
-    await userEvent.click(screen.getByRole('button', { name: 'View the upload of R0002-DONA_01 to Trapper' }))
+    await userEvent.click(screen.getByRole('button', { name: 'View the upload of R0002-DONA_01 to TRAPPER' }))
     const list = screen.getByRole('list', { name: 'Uploads of R0002-DONA_01' })
-    expect(list).toHaveTextContent('TrapperUploaded on 20 Oct 2026, 12:00 (Europe/Madrid) · 2 packages · location and deployment created there')
-    expect(within(list).getByRole('link', { name: 'Open R0002-DONA_01 in Trapper' })).toHaveAttribute('href', 'https://trapper.example.org/geomap/deployment/detail/7/')
-    await userEvent.click(screen.getByRole('button', { name: 'View the upload of R0002-DONA_01 to Trapper' }))
+    expect(list).toHaveTextContent('TRAPPERUploaded on 20 Oct 2026, 12:00 (Europe/Madrid) · 2 packages · location and deployment created there')
+    expect(within(list).getByRole('link', { name: 'Open R0002-DONA_01 in TRAPPER' })).toHaveAttribute('href', 'https://trapper.example.org/geomap/deployment/detail/7/')
+    await userEvent.click(screen.getByRole('button', { name: 'View the upload of R0002-DONA_01 to TRAPPER' }))
     expect(screen.queryByRole('list', { name: 'Uploads of R0002-DONA_01' })).not.toBeInTheDocument()
   })
 
@@ -179,11 +179,11 @@ describe('UploadStatusPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Show the uploads as labels' }))
     expect(screen.queryByRole('table', { name: 'Uploads' })).not.toBeInTheDocument()
-    const label = screen.getByRole('article', { name: 'Upload of R0002-DONA_01 to Trapper' })
+    const label = screen.getByRole('article', { name: 'Upload of R0002-DONA_01 to TRAPPER' })
     expect(label).toHaveTextContent('Done')
     expect(label).toHaveTextContent('R0002 · DONA_01')
-    expect(within(label).getByRole('button', { name: 'View the upload of R0002-DONA_01 to Trapper' })).toBeInTheDocument()
-    await userEvent.click(within(label).getByRole('button', { name: 'View the upload of R0002-DONA_01 to Trapper' }))
+    expect(within(label).getByRole('button', { name: 'View the upload of R0002-DONA_01 to TRAPPER' })).toBeInTheDocument()
+    await userEvent.click(within(label).getByRole('button', { name: 'View the upload of R0002-DONA_01 to TRAPPER' }))
     expect(within(label).getByRole('list', { name: 'Uploads of R0002-DONA_01' })).toBeInTheDocument()     // what was sent, in the label
   })
 

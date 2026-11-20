@@ -67,7 +67,7 @@ describe('App', () => {
     expect(await screen.findByText('What do you want to do?')).toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: 'Do not show this page again' })).not.toBeInTheDocument()
 
-    await userEvent.click(await screen.findByRole('button', { name: /^register visits/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^register the visits/i }))
     await userEvent.click(await title())
     expect(await screen.findByText('What do you want to do?')).toBeInTheDocument()      // not the welcome page
   })
@@ -84,7 +84,7 @@ describe('App', () => {
     render(<App />)
     await getStarted()
 
-    await userEvent.click(await screen.findByRole('button', { name: /^register visits/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^register the visits/i }))
     expect(await screen.findByText('visits — register')).toBeInTheDocument()
     await userEvent.click(await title()); await getStarted()
     await userEvent.click(await screen.findByRole('button', { name: /^dashboards and statistics/i }))   // folded away until opened
@@ -118,7 +118,7 @@ describe('App', () => {
   it('goes back to the welcome screen when the title is pressed, from wherever you are', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /^upload deployment/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^upload the images/i }))
     expect(await screen.findByText(/Upload page — nothing chosen/)).toBeInTheDocument()
 
     await userEvent.click(await title())
@@ -149,7 +149,7 @@ describe('App', () => {
   it('takes a finished import to the upload page, on the collection it went into', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /^create deployments/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^import the images/i }))
     await userEvent.click(await screen.findByRole('button', { name: 'finish the import' }))
 
     expect(await screen.findByText('Upload page — DONA / R0003')).toBeInTheDocument()
@@ -158,11 +158,11 @@ describe('App', () => {
   it('opens the upload page empty when it is chosen from the menu, whatever was imported before', async () => {
     render(<App />)
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /^create deployments/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^import the images/i }))
     await userEvent.click(await screen.findByRole('button', { name: 'finish the import' }))
     await userEvent.click(await title())
     await getStarted()
-    await userEvent.click(await screen.findByRole('button', { name: /^upload deployment/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^upload the images/i }))
 
     expect(await screen.findByText('Upload page — nothing chosen')).toBeInTheDocument()
   })

@@ -53,7 +53,7 @@ function Stage({ title, visit, kind, children }: { title: string; visit: StoredV
 const MORE: [keyof StoredVisit, string][] = [
   ['setup_by', 'Set up by'], ['camera_model', 'Camera model'], ['sd', 'SD card left'], ['camera_status', 'Status of the camera'], ['battery_status', 'Batteries'], ['card_status', 'SD card status'],
   ['calibration', 'Camera calibrated'], ['latitude', 'Latitude'], ['longitude', 'Longitude'], ['camera_interval', 'Camera delay (s)'], ['camera_height', 'Camera height (m)'], ['camera_depth', 'Camera depth (m)'],
-  ['camera_tilt', 'Camera tilt (°)'], ['camera_heading', 'Camera heading (°)'], ['detection_distance', 'Detection distance (m)'], ['timestamp_issues', 'Photo dates may be wrong'], ['bait_use', 'Bait use'],
+  ['camera_tilt', 'Camera tilt (°)'], ['camera_heading', 'Camera heading (°)'], ['detection_distance', 'Detection distance (m)'], ['timestamp_issues', 'Image dates may be wrong'], ['bait_use', 'Bait use'],
   ['feature_type', 'Feature type'], ['habitat', 'Habitat'], ['deployment_groups', 'Deployment groups'], ['tags', 'Tags'], ['actions', 'Actions'], ['when', 'Instant (UTC)'], ['deployment_id', 'Deployment imported'],
 ]
 const told = (v: unknown) => (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : Array.isArray(v) ? v.join(', ') : String(v))
@@ -136,7 +136,7 @@ export default function VisitDetails({ closed, onClose, onOpenVisit, researchPro
               ? <LinkButton title={`Show the details of the camera ${visit.camera_id}`} onClick={() => void showCamera()}>{camera}</LinkButton>
               : camera}</Field>}
             {visit.sd && <Field label="SD card">{visit.sd}</Field>}
-            {visit.num_photos != null && <Field label="Photos counted">{visit.num_photos.toLocaleString('en-US')}</Field>}
+            {visit.num_photos != null && <Field label="Images counted">{visit.num_photos.toLocaleString('en-US')}</Field>}
           </dl>
           {visit.comments && <Notes>{visit.comments}</Notes>}
           <MoreData visit={visit} shown={['trappers', 'latitude', 'longitude', 'camera_id', 'camera_model', 'sd', 'num_photos', 'comments', 'date_time_ok']} />
@@ -162,8 +162,8 @@ export default function VisitDetails({ closed, onClose, onOpenVisit, researchPro
                 <div className="flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3">
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-none stroke-emerald-500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.500" cy="10" r="1.500" /><path d="M21 16l-5-5-8 8" /></svg>
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Photos</p>
-                    <p className="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">{end.num_photos.toLocaleString('en-US')} photos</p>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Images</p>
+                    <p className="font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">{end.num_photos.toLocaleString('en-US')} images</p>
                   </div>
                 </div>
               )}

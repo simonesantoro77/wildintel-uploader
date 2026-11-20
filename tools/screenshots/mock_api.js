@@ -6,6 +6,7 @@
 // run midway. capture.py changes window.__mock before a step when needed.
 (() => {
   const TRAPPER_URL = 'https://trapper.example.org'
+  const FIRST_RUN = new URLSearchParams(window.location.search).has('first-run')
   const DATA_DIR = '/home/me/Documents/wildintel-uploader'
   const COLLECTIONS = `${DATA_DIR}/collections`
 
@@ -199,7 +200,8 @@
   }
 
   const SETTINGS = {
-    GENERAL: { default_research_project: 'DONA', log_level: 'INFO', workers: 4, cpu_count: 8, log_file: '/home/me/.local/state/wildintel-uploader/log/wildintel-uploader.log', log_level_override: null },
+    GENERAL: { default_research_project: FIRST_RUN ? '' : 'DONA', log_level: 'INFO', workers: 4, cpu_count: 8, log_file: '/home/me/.local/state/wildintel-uploader/log/wildintel-uploader.log', log_level_override: null },
+    FIELDLOG: { time_source: 'created_at', keep_seconds: false },
     TRAPPER: { base_url: TRAPPER_URL, user_name: 'field.team@example.org', has_password: true, max_zip_mb: 500 },
     EPICOLLECT5: { enabled: true, unmapped_to_comments: true, project_slug: 'donana-cameras', client_id: null, has_secret: false,
       mapping: { location_id: 'l', location_name: 'n', revision: 'r', start_date: 'sd', start_time: 'st', camera_model: 'm' } },
@@ -286,6 +288,7 @@
   const mock = {
     sessions: [],
     uploads: 0,
+    repaired: new Set(),
     streamDelay: 0,
     streams: {
       '/api/deployment-import/preprocess': () => ({
@@ -295,17 +298,21 @@
           { type: 'done', dest_dir: `${COLLECTIONS}/DONA/R0003/R0003-DONA_01`, processed: 241, skipped: 0, sealed: null, report_id: '20261006-094930_preprocessing_R0003-DONA_01' },
         ],
       }),
-      '/api/repair/deployment': (body) => ({
+      '/api/repair/deployment': (body) => {
+        mock.repaired.add(body.deployment_id)
+        const images = body.deployment_id === 'R0003-DONA_03' ? 305 : 188
+        return {
         events: [
-          { type: 'step', step: 'inspect', status: 'done', message: '188 image(s), 2 of 4 metadata files.' },
-          { type: 'step', step: 'dates', status: 'done', message: '2024-09-04 14:02:11 → 2024-10-12 07:40:09 (the timestamp log says so).' },
+          { type: 'step', step: 'inspect', status: 'done', message: `${images} image(s) inspected.` },
+          { type: 'step', step: 'dates', status: 'done', message: body.deployment_id === 'R0003-DONA_03' ? 'Dates read from the deployment.' : '2024-09-04 14:02:11 → 2024-10-12 07:40:09 (the timestamp log says so).' },
           { type: 'step', step: 'deployment', status: 'done', message: 'deployment.json rebuilt.' },
-          { type: 'step', step: 'preprocessing', status: 'done', message: 'preprocessing.json written for 188 image(s).' },
-          { type: 'step', step: 'images', status: 'done', message: 'images.json written: 188 image(s).' },
+          { type: 'step', step: 'preprocessing', status: 'done', message: `preprocessing.json written for ${images} image(s).` },
+          { type: 'step', step: 'images', status: 'done', message: `images.json written: ${images} image(s).` },
           { type: 'step', step: 'seal', status: 'done', message: 'Sealed. The images passed every check.' },
-          { type: 'done', deployment_id: body.deployment_id, images: 188, written: ['deployment.json', 'preprocessing.json', 'images.json', 'seal.json'], problems: 0, status: 'valid', report_id: '20261006-094930_preprocessing_R0003-DONA_01' },
+          { type: 'done', deployment_id: body.deployment_id, images, written: ['deployment.json', 'preprocessing.json', 'images.json', 'seal.json'], problems: 0, status: 'valid', report_id: null },
         ],
-      }),
+        }
+      },
       '/api/deployment-import/consolidate': () => ({
         events: [
           { type: 'sealing' },
@@ -332,20 +339,18 @@
           { type: 'progress', message: 'Reading the locations from Trapper…' },
           { type: 'progress', message: 'Locations: 1 created, 2 already there.' },
           { type: 'progress', message: 'Reading the deployments and collections from Trapper…' },
-          { type: 'progress', message: 'R0001: collection created.' },
-          { type: 'progress', message: 'R0001-DONA_01: created (224 images).' },
-          { type: 'progress', message: 'R0001-DONA_02: created (190 images).' },
           { type: 'progress', message: 'R0002: collection created.' },
           { type: 'progress', message: 'R0002-DONA_01: created (252 images).' },
+          { type: 'progress', message: 'R0002-DONA_09: created (190 images).' },
           {
-            type: 'done', research_project_id: 'DONA', folder: `${COLLECTIONS}/DONA`, collections: ['R0001', 'R0002'],
+            type: 'done', research_project_id: 'DONA', folder: `${COLLECTIONS}/DONA`, collections: ['R0002'],
             created: {
-              research_project: [], locations: ['DONA_03'], collections: ['R0001', 'R0002'],
-              deployments: ['R0001-DONA_01', 'R0001-DONA_02', 'R0002-DONA_01'], timestamp_log: ['R0001', 'R0002'],
-              images: ['R0001-DONA_01', 'R0001-DONA_02', 'R0002-DONA_01'],
+              research_project: [], locations: ['DONA_09'], collections: ['R0002'],
+              deployments: ['R0002-DONA_01', 'R0002-DONA_09'], timestamp_log: ['R0002'],
+              images: ['R0002-DONA_01', 'R0002-DONA_09'],
             },
             kept: { research_project: ['DONA'], locations: ['DONA_01', 'DONA_02'], collections: [], deployments: [], timestamp_log: [], images: [] },
-            unassigned: [], failed: [{ deployment_id: 'R0002-DONA_09', error: 'its start date is not valid' }],
+            unassigned: [], failed: [],
           },
         ],
       }),
@@ -361,7 +366,7 @@
         { id: 'default', name: 'Default config', path: '/home/me/.config/wildintel-uploader/settings.toml', active: true },
         { id: 'test-server', name: 'test-server', path: '/home/me/.config/wildintel-uploader/configs/test-server.toml', active: false },
       ],
-      'GET /api/trapper/config': () => ({ base_url: TRAPPER_URL, user_name: 'field.team@example.org', has_password: true }),
+      'GET /api/trapper/config': () => ({ base_url: FIRST_RUN ? '' : TRAPPER_URL, user_name: 'field.team@example.org', has_password: true }),
       'POST /api/trapper/test-connection': () => ({ ok: true, research_projects_count: 3 }),
       'POST /api/trapper/research-projects': () => ({ results: TRAPPER_PROJECTS }),
       'POST /api/trapper/classification-projects': () => ({ results: [{ pk: 10, name: 'DONA 2024', is_active: true }, { pk: 11, name: 'DONA 2023', is_active: false }] }),
@@ -379,7 +384,7 @@
       'POST /api/deployment-import/validate-deployment': (body) => (mock.faultyChecks && body.deployment?.deployment_id?.endsWith('DONA_02')
         ? { ...failedPostvalidation, time_range: undefined, report_id: FAILED_REPORT_ID }
         : { ...POSTVALIDATION, report_id: POSTVALIDATION_REPORT_ID }),
-      'POST /api/deployment-import/research-projects/list': () => ({ results: [{
+      'POST /api/deployment-import/research-projects/list': () => ({ results: FIRST_RUN ? [] : [{
         ...PROJECT, sampling_design: 1, sensor_method: 1, animal_types: 1, bait_use: 1, event_interval: 0, keywords: '', abstract: '', methods: '', description: '',
       }] }),
       'POST /api/deployment-import/locations/list': () => ({ results: LOCATIONS }),
@@ -392,7 +397,7 @@
       'POST /api/deployment-import/open-folder': () => ({ opened: '' }),
       'POST /api/visits/closed': () => ({ results: CLOSED_VISITS }),
       'POST /api/visits/link': () => ({ status: 'ok' }),
-      'POST /api/visits/list': () => ({ results: [...CLOSED_VISITS.flatMap((c) => [c.visit, c.end])] }),
+      'POST /api/visits/list': (body) => ({ results: CLOSED_VISITS.flatMap((c) => [c.visit, c.end]).filter((v) => !body.location_id || v.location_id === body.location_id) }),
       'POST /api/visits/book': () => ({ results: CLOSED_VISITS.flatMap((c) => [
         { ...c.visit, deployment: `${c.visit.session}-${c.visit.location_id}`, deployment_status: 'closed', deployment_id: c.visit.location_id === 'DONA_03' ? `${c.visit.session}-${c.visit.location_id}` : undefined },
         { ...c.end, deployment: `${c.end.session}-${c.end.location_id}`, deployment_status: 'open' },
@@ -426,6 +431,7 @@
       }] }),
       'POST /api/repair/inspect': (body) => {
         const files = { 'deployment.json': 'ok', 'images.json': 'ok', 'preprocessing.json': 'ok', 'seal.json': 'ok' }
+        if (mock.repaired.has(body.deployment_id)) return { deployment_id: body.deployment_id, status: 'valid', files, images: body.deployment_id === 'R0003-DONA_03' ? 305 : 188, log: body.deployment_id === 'R0003-DONA_03' ? 'no row' : 'row', problems: [] }
         if (body.deployment_id === 'R0003-DONA_01') return { deployment_id: body.deployment_id, status: 'valid', files, images: 241, log: 'row', problems: [] }
         if (body.deployment_id === 'R0003-DONA_02') {
           return { deployment_id: body.deployment_id, status: 'broken', files: { ...files, 'deployment.json': 'missing', 'images.json': 'missing' }, images: 188, log: 'row',
@@ -438,7 +444,7 @@
       'POST /api/upload/classification-projects': () => ({ results: [{ pk: 10, name: 'DONA 2024', is_active: true }] }),
       'POST /api/upload/check-selection': () => ({ checks: [
         { check: 'research_project', ok: true, message: 'You have access to the research project DONA (#2) in Trapper.' },
-        { check: 'collection', ok: true, message: 'You have access to the collection R0003 (#26): it is already in Trapper, so the upload adds to it.' },
+        { check: 'collection', ok: true, found: true, message: 'You have access to the collection R0003 (#26): it is already in Trapper, so the upload adds to it.' },
       ] }),
       'POST /api/upload/check-access': () => ({ checks: [
         { check: 'research_project', ok: true, message: 'Research project DONA found in Trapper (pk 2).' },
@@ -464,7 +470,7 @@
         location: { pk: 101, location_id: 'DONA_01', name: 'Doñana site 1', timezone: 'Europe/Madrid' },
         collection_dir: `${COLLECTIONS}/DONA/R0003`, collection_name: 'R0003',
       },
-      deployment: PREVIOUS.deployment,
+      deployment: { ...PREVIOUS.deployment, deployment_id: 'R0003-DONA_01' },
     },
     {
       task_id: '0b7d9e44-1c2f-4a88-b3d1-7e5a0c9f2b61', created_at: '2026-09-22T11:15:00+00:00', updated_at: '2026-09-22T11:20:00+00:00',
