@@ -493,6 +493,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     from_location = options.get("coordinates_from_location", True)   # a row with none takes its location's — unless the import is asked not to
     # A revision is one visit to each site: the session and the site of a visit already kept are taken, whatever its camera or its actions
     in_file: dict[tuple[str, str], int] = {}
+    kept_by_site = visit_rules.History(kept)   # the visits kept, found by site: a row asks of its site's, not of all of them
     same_visit = {(str(v.get("session") or "").upper(), str(v.get("location_id", "")).lower()) for v in kept if v.get("session")}
 
     # What became of each row of the file: {row: {"row", "site", "result", "message"}} — result is ok, problem, already_kept, new_site or ignored.
@@ -562,7 +563,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             visit.setdefault("session", "R0000")  # worked out below, when the order of the visits is known
             record = VisitRecord.model_validate(visit).model_dump(mode="json")
             record["when"] = visit_time.to_when(record["date"], record["time"], location)
-            record = visit_rules.with_site_start(record, kept, None)
+            record = visit_rules.with_site_start(record, kept_by_site, None)
             report[n]["actions"] = " + ".join(record["actions"])
         except RowError as exc:
             problem(n, str(exc), exc.code)
@@ -630,7 +631,8 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     disordered = visit_rules.revision_order_conflicts(visits, kept)
     for visit, why in disordered:
         problem(row_of[id(visit)], why, "revision_order")
-    visits = [v for v in visits if id(v) not in {id(r) for r, _ in disordered}]
+    out_of_order = {id(r) for r, _ in disordered}
+    visits = [v for v in visits if id(v) not in out_of_order]
     # a visit of a file follows the rules of a visit by hand (see visit_rules.refusals): the visits are taken in the order of their instants, each against the ones kept and
     # the ones of the file before it that were kept, and the one that breaks them is refused with the row it comes from. What cannot be checked is not: the revisions a site
     # lacks before its first visit are unknown (nothing is known of them — no day, no camera, no card), so a first visit to a site after R0001 may be any.
@@ -639,11 +641,12 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     all_locations = [*locations, *new_locations.values()]
     numbers = [n for n in (visit_rules._session_number(v.get("session")) for v in [*kept, *visits]) if n is not None]
     floor = min(numbers) if numbers else 1
-    accepted, gate, closing = list(kept), {}, []
+    accepted, gate, closing = visit_rules.History(kept), {}, []
+    unknown_kept_keys = {(str(u["location_id"]).lower(), str(u["session"]).upper()) for u in unknown_kept}
 
     def fills_unknown(v: dict) -> bool:
         """Whether the visit takes the place of an unknown one of the visits kept: its site has none in its revision, that is unknown."""
-        return any(str(u["location_id"]).lower() == v["location_id"].lower() and str(u["session"]).upper() == str(v["session"]).upper() for u in unknown_kept)
+        return (v["location_id"].lower(), str(v["session"]).upper()) in unknown_kept_keys
 
     # the visits that fill an unknown one come last: each is checked with the visits after it that it touches, and those need the other visits of its revision to be there
     for visit in sorted(visits, key=lambda v: (fills_unknown(v), visit_rules._stamp(v))):

@@ -12,7 +12,9 @@ in both. The only thing a file is excused is what cannot be checked because the 
 from __future__ import annotations
 
 import re
+from bisect import bisect_left
 from datetime import datetime
+from functools import lru_cache
 from math import asin, cos, radians, sin, sqrt
 
 ACTIONS = ("SiteStart", "Installation", "Revision", "Desinstallation", "Stolen", "Archive")
@@ -65,9 +67,14 @@ def _reason(code: str, text: str) -> Reason:
     return reason
 
 
+@lru_cache(maxsize=None)
+def _site_key(name: str) -> str:
+    return name.strip().lower()
+
+
 def _same(a, b) -> bool:
     """The same site: read whatever its case (it is the name of a folder, and Trapper keeps its ids in lower case)."""
-    return str(a or "").strip().lower() == str(b or "").strip().lower()
+    return _site_key(str(a or "")) == _site_key(str(b or ""))
 
 
 def _same_gear(a, b) -> bool:
@@ -109,7 +116,7 @@ def with_site_start(visit: dict, kept: list[dict], location: dict | None) -> dic
         return {**visit, "actions": [SITE_START, *actions]}
     if not location or location.get("status") != "pending" or "Installation" not in actions or is_not_revised(visit):
         return visit
-    if any(_same(v.get("location_id"), visit["location_id"]) for v in kept):
+    if _site_visits(kept, visit["location_id"]):
         return visit
     return {**visit, "actions": [SITE_START, *actions]}
 
@@ -171,6 +178,113 @@ def _leaves_card(v: dict) -> bool:
     return bool({"Installation", "Revision"} & set(v.get("actions") or []))
 
 
+class History(list):
+    """The visits so far, to which more are added (and nothing is taken away or changed), kept also by site and by revision.
+
+    The rules ask the same things of the visits again and again — the visits to a site, those of a revision, the last of the revisions before one — and a plain list
+    answers each by looking through all of them: reading a file of a few thousand visits is then slow, as the work grows with the square of the visits. The rules below
+    use these indexes when they are given a History, and look through the list when they are given any other list: the answers are the same."""
+
+    def __init__(self, visits=()):
+        super().__init__()
+        self._by_site: dict[str, list[dict]] = {}       # the visits to each site (lower case), as they came
+        self._by_time: dict[str, list[dict]] = {}       # the same, by their instants — made when asked, and again after another visit to the site came
+        self._by_session: dict[str, list[dict]] = {}    # the visits of each revision, as they came, by what their `session` says
+        self._latest: dict[int, tuple[tuple, dict]] = {}   # of each revision number, its last visit by its instant (the first that came when two are at once)
+        self._pos: dict[int, int] = {}                  # where each visit came: the order that ties between sites are told by
+        self._memo: dict[str, dict[tuple, object]] = {}   # what was worked out of a site at an instant, until another visit to the site comes
+        self.extend(visits)
+
+    def append(self, visit: dict) -> None:
+        self._pos.setdefault(id(visit), len(self))
+        super().append(visit)
+        site = _site_key(str(visit.get("location_id") or ""))
+        self._by_site.setdefault(site, []).append(visit)
+        self._by_time.pop(site, None)
+        self._memo.pop(site, None)
+        self._by_session.setdefault(visit.get("session"), []).append(visit)
+        number = _session_number(visit.get("session"))
+        if number:   # a visit with no number, or 0, is of no revision before another
+            key = (_stamp(visit), -self._pos[id(visit)])
+            if number not in self._latest or key > self._latest[number][0]:
+                self._latest[number] = (key, visit)
+
+    def extend(self, visits) -> None:
+        for visit in visits:
+            self.append(visit)
+
+    def _frozen(self, *args, **kwargs):
+        raise TypeError("A History is only added to: its indexes would not follow what is taken away or changed.")
+
+    __setitem__ = __delitem__ = __iadd__ = __imul__ = insert = remove = pop = clear = sort = reverse = _frozen
+
+    def at_site(self, site) -> list[dict]:
+        return self._by_site.get(_site_key(str(site or "")), [])
+
+    def at_site_by_time(self, site) -> list[dict]:
+        key = _site_key(str(site or ""))
+        if key not in self._by_time:
+            self._by_time[key] = sorted(self._by_site.get(key, ()), key=_stamp)
+        return self._by_time[key]
+
+    def sites_by_time(self):
+        for key in self._by_site:
+            yield self.at_site_by_time(key)
+
+    def remembered(self, what: str, site, when: str, work_out):
+        """What `work_out()` gives for a site at an instant: worked out once, and again after another visit to the site came. It is given as it was kept: not to be changed."""
+        cache = self._memo.setdefault(_site_key(str(site or "")), {})
+        if (what, when) not in cache:
+            cache[(what, when)] = work_out()
+        return cache[(what, when)]
+
+    def of_session(self, session) -> list[dict]:
+        return self._by_session.get(session, [])
+
+    def latest_before(self, number: int) -> dict | None:
+        """The last, by its instant, of the visits of the revisions before `number`."""
+        best = max((entry for n, entry in self._latest.items() if n < number), key=lambda entry: entry[0], default=None)
+        return best[1] if best else None
+
+
+def _site_visits(visits: list[dict], site) -> list[dict]:
+    """The visits to a site, as they came."""
+    return visits.at_site(site) if isinstance(visits, History) else [v for v in visits if _same(v.get("location_id"), site)]
+
+
+def _site_visits_by_time(visits: list[dict], site) -> list[dict]:
+    """The visits to a site, by their instants."""
+    return visits.at_site_by_time(site) if isinstance(visits, History) else sorted((v for v in visits if _same(v.get("location_id"), site)), key=_stamp)
+
+
+def _session_visits(visits: list[dict], session) -> list[dict]:
+    """The visits whose `session` says exactly this, as they came."""
+    return visits.of_session(session) if isinstance(visits, History) else [v for v in visits if v.get("session") == session]
+
+
+def _latest_before(visits: list[dict], number: int) -> dict | None:
+    """The last, by its instant, of the visits of the revisions before `number` (the first that came when two are at once)."""
+    if isinstance(visits, History):
+        return visits.latest_before(number)
+    return max((v for v in visits if (_session_number(v.get("session")) or number) < number), key=_stamp, default=None)
+
+
+def _last_touch(group: list[dict], when: str, touches) -> dict | None:
+    """Of the visits to a site, by their instants, the last before `when` that does something to a camera or a card (`touches`)."""
+    for i in range(bisect_left(group, when, key=_stamp) - 1, -1, -1):
+        if touches(group[i]):
+            return group[i]
+    return None
+
+
+def _touches_camera(v: dict) -> bool:
+    return _takes_away(v) or bool(_leaves_camera(v) and v.get("camera_id"))
+
+
+def _touches_card(v: dict) -> bool:
+    return _collects_card(v) or bool(v.get("sd") and _leaves_card(v))
+
+
 def asked(actions: list[str]) -> dict[str, str]:
     """Each field a visit may be asked, as strongly as any of its actions asks it."""
     out: dict[str, str] = {}
@@ -213,6 +327,19 @@ def camera_at(visits: list[dict], camera: str, when: str, unknown: list[dict] | 
     """The site a camera is put up at on a given moment — None when it is nowhere: never put up, uninstalled or stolen, or when it cannot be told (an unknown revision of
     its site came after). What is at a site is what its last visit left: a visit that takes the camera away or finds it stolen leaves none, and one that also puts another up — a
     replacement — leaves that one."""
+    if isinstance(visits, History):
+        # what each site's last visit that did something to a camera left there; when two sites have this camera, the one that was touched first is told
+        best = None
+        for group in visits.sites_by_time():
+            last = _last_touch(group, when, _touches_camera)
+            if last is None or not (_leaves_camera(last) and last.get("camera_id") and _same_gear(last["camera_id"], camera)):
+                continue
+            first = next(v for v in group if _touches_camera(v))
+            key = (_stamp(first), visits._pos[id(first)])
+            if best is None or key < best[0]:
+                best = (key, last)
+        at = {"site": best[1]["location_id"], "date": best[1]["date"], "session": best[1].get("session")} if best else None
+        return None if at is None or _stale(at, at["site"], unknown, number) else at
     here: dict[str, dict | None] = {}
     for v in sorted((v for v in visits if _stamp(v) < when), key=_stamp):
         site = str(v["location_id"]).lower()
@@ -227,12 +354,17 @@ def camera_at(visits: list[dict], camera: str, when: str, unknown: list[dict] | 
 def camera_at_site(visits: list[dict], site: str, when: str, unknown: list[dict] | None = None, number: int | None = None) -> dict | None:
     """The camera that is put up at a site on a given moment — None when none is known: nothing was installed there, or it was taken away or stolen, or an unknown revision
     of the site came after what is known. A visit that takes the camera away and puts another up leaves the other."""
-    at = None
-    for v in sorted((v for v in visits if _stamp(v) < when and _same(v.get("location_id"), site)), key=_stamp):
-        if _takes_away(v):
-            at = None
-        if _leaves_camera(v) and v.get("camera_id"):
-            at = {"camera": v["camera_id"], "date": v["date"], "session": v.get("session")}
+    def work_out():
+        at = None
+        for v in _site_visits_by_time(visits, site):
+            if _stamp(v) >= when:
+                break
+            if _takes_away(v):
+                at = None
+            if _leaves_camera(v) and v.get("camera_id"):
+                at = {"camera": v["camera_id"], "date": v["date"], "session": v.get("session")}
+        return at
+    at = visits.remembered("camera", site, when, work_out) if isinstance(visits, History) else work_out()
     return None if _stale(at, site, unknown, number) else at
 
 
@@ -240,7 +372,9 @@ def site_without_camera(visits: list[dict], site: str, when: str, unknown: list[
     """The visit that left a site with no camera — a Desinstallation, a Stolen camera — when it is the last that did something there before `when` and nothing is unknown after it: what the
     site has none of is known. None when it has a camera, when it has had none of its own (no visit before: the first visit puts one up), or when it cannot be told (an unknown revision of the site came after)."""
     at, last = None, None
-    for v in sorted((v for v in visits if _stamp(v) < when and _same(v.get("location_id"), site)), key=_stamp):
+    for v in _site_visits_by_time(visits, site):
+        if _stamp(v) >= when:
+            break
         if is_not_revised(v):
             continue
         if _takes_away(v):
@@ -255,6 +389,21 @@ def site_without_camera(visits: list[dict], site: str, when: str, unknown: list[
 def card_at(visits: list[dict], label: str, when: str, unknown: list[dict] | None = None, number: int | None = None) -> dict | None:
     """The site whose camera holds a card on a given moment — None when it is in none: never left, or collected, or when it cannot be told (an unknown revision of
     that site came after)."""
+    if isinstance(visits, History):
+        best = None
+        for group in visits.sites_by_time():
+            last = _last_touch(group, when, _touches_card)
+            if last is None or not (last.get("sd") and _leaves_card(last) and _same_gear(last["sd"], label)):
+                continue
+            # a site is put in the order when a card is left where none was — after the last visit that collected one, or the first — and keeps its place until one is collected
+            end = bisect_left(group, when, key=_stamp)
+            start = next((i for i in range(end - 1, -1, -1) if _collects_card(group[i])), 0)
+            first = next(v for v in group[start:end] if v.get("sd") and _leaves_card(v))
+            key = (_stamp(first), visits._pos[id(first)])
+            if best is None or key < best[0]:
+                best = (key, last)
+        found = {"site": best[1]["location_id"], "date": best[1]["date"], "session": best[1].get("session")} if best else None
+        return None if found and _stale(found, found["site"], unknown, number) else found
     in_site: dict[str, dict] = {}
     for v in sorted((v for v in visits if _stamp(v) < when), key=_stamp):
         site = str(v["location_id"]).lower()
@@ -268,12 +417,17 @@ def card_at(visits: list[dict], label: str, when: str, unknown: list[dict] | Non
 
 def card_at_site(visits: list[dict], site: str, when: str, unknown: list[dict] | None = None, number: int | None = None) -> dict | None:
     """The card the camera at a site holds on a given moment — None when it holds none: never left, or collected, or an unknown revision of the site came after."""
-    at = None
-    for v in sorted((v for v in visits if _stamp(v) < when and _same(v.get("location_id"), site)), key=_stamp):
-        if _collects_card(v):
-            at = None
-        if v.get("sd") and _leaves_card(v):
-            at = {"label": v["sd"], "date": v["date"], "session": v.get("session")}
+    def work_out():
+        at = None
+        for v in _site_visits_by_time(visits, site):
+            if _stamp(v) >= when:
+                break
+            if _collects_card(v):
+                at = None
+            if v.get("sd") and _leaves_card(v):
+                at = {"label": v["sd"], "date": v["date"], "session": v.get("session")}
+        return at
+    at = visits.remembered("card", site, when, work_out) if isinstance(visits, History) else work_out()
     return None if _stale(at, site, unknown, number) else at
 
 
@@ -302,8 +456,8 @@ def card_block(kept: list[dict], visit: dict, cards: list[dict] | None = None, u
         return _reason("card_in_another_camera", f"SD card {card} is in the camera at {there['site']} (left on {there['date']}): it has to be collected before it is left here.")
     session = visit.get("session")
     if session:
-        for w in kept:
-            if w is not visit and w.get("session") == session and _collects_card(w):
+        for w in _session_visits(kept, session):
+            if w is not visit and _collects_card(w):
                 held = card_at_site(kept, w["location_id"], _stamp(w), unknown, _session_number(w.get("session")))
                 if held and _same_gear(held["label"], card):
                     return _reason("card_collected_in_revision", f"SD card {card} was collected at {w['location_id']} in this revision ({session}): it cannot be left again in the same revision.")
@@ -394,7 +548,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
     """What is odd in the visits of a file, among them and with the ones already kept — each said once, with the session and the site, and with the visits of the
     file that it is about (the ones that make it odd). They are questions for the one who knows the field, not reasons to refuse a visit."""
     items: dict[str, list[dict]] = {}
-    everything = sorted([*kept, *new], key=_stamp)
+    everything = History(sorted([*kept, *new], key=_stamp))   # a visit is asked about with all of them, itself too: only what is before its instant counts
 
     def say(message: str, *visits: dict) -> None:
         about = items.setdefault(message, [])
@@ -415,9 +569,9 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
             say(f"{session}: {site} has {len(of)} \"{action}\" entries in the same revision{hint}.", *of)
 
     for v in new:
-        before = [e for e in everything if e is not v]
+        here = [e for e in _site_visits(everything, v["location_id"]) if e is not v]
         # Not after the visit of an earlier session.
-        older = [e for e in before if _same(e["location_id"], v["location_id"]) and str(e.get("session", "")) < str(v.get("session", "")) and _stamp(e) >= _stamp(v)]
+        older = [e for e in here if str(e.get("session", "")) < str(v.get("session", "")) and _stamp(e) >= _stamp(v)]
         if older:
             say(f"{label(v)}: the visit time {v['date']} {v['time']} is not after the visit of {older[0].get('session')} ({older[0]['date']} {older[0]['time']}).", v)
         if "Revision" in v["actions"] and v.get("num_photos") is not None and v["num_photos"] <= 0:
@@ -425,13 +579,12 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
         for message in required_errors(v, photos_optional).values():
             say(f"{label(v)}: {message}", v)
         # Where its camera and its card are, with what came before it — the visits of the file included.
-        for message in availability_errors(before, v, cards, unknown).values():
+        for message in availability_errors(everything, v, cards, unknown).values():
             say(f"{label(v)}: {message}", v)
         # An Installation while the card left at the visit before was not collected: nothing closes that deployment — unless the visit itself takes the card (a Revision, a
         # Desinstallation) or the camera went with it (a Stolen camera: its card is lost with it, and that is said by the visit).
         if "Installation" in v["actions"] and not {"Revision", "Desinstallation", "Stolen"} & set(v["actions"]):
-            last = max((e for e in before if _same(e["location_id"], v["location_id"]) and _stamp(e) < _stamp(v)
-                        and str(e.get("camera_status") or "").lower() not in NOT_REVISED), key=_stamp, default=None)
+            last = max((e for e in here if _stamp(e) < _stamp(v) and str(e.get("camera_status") or "").lower() not in NOT_REVISED), key=_stamp, default=None)
             if last and _leaves_card(last) and not _takes_away(last) and last.get("sd") and _seconds(v) - _seconds(last) >= 86400:
                 say(f"{label(v)}: Installation on {v['date']} while the card left there on {last['date']} ({last.get('session')} {' + '.join(last['actions'])}) "
                     "was not collected — no Revision or Desinstallation before it, so that card has no deployment. Check the field data.", v)
@@ -506,12 +659,12 @@ def refusals(visit: dict, kept: list[dict], locations: list[dict], cards: list[d
     reasons = []
     if not any(_same(l.get("location_id"), visit["location_id"]) for l in locations):
         reasons.append(_reason("site_not_a_location", f"The site '{visit['location_id']}' is not a location of the research project."))
-    if any(_same(v["location_id"], visit["location_id"]) and v.get("date") == visit["date"] and v.get("time") == visit["time"] for v in kept):
+    if any(v.get("date") == visit["date"] and v.get("time") == visit["time"] for v in _site_visits(kept, visit["location_id"])):
         reasons.append(_reason("visit_at_the_same_time", f"There is already a visit to {visit['location_id']} on {visit['date']} at {visit['time']}."))
     reasons += order_errors(visit, kept)
     # The first visit to a site puts the camera up: nothing else can be done where no camera is known to be.
     unknown_before = first_may_be_any and (_session_number(visit.get("session")) or 1) > 1
-    if not unknown_before and not is_not_revised(visit) and not any(_same(v["location_id"], visit["location_id"]) and _stamp(v) < _stamp(visit) for v in kept) and not (visit.get("actions") and set(visit["actions"]) <= {"Installation", SITE_START}):
+    if not unknown_before and not is_not_revised(visit) and not any(_stamp(v) < _stamp(visit) for v in _site_visits(kept, visit["location_id"])) and not (visit.get("actions") and set(visit["actions"]) <= {"Installation", SITE_START}):
         reasons.append(_reason("first_visit_not_installation", f"The first visit to {visit['location_id']} can only be an Installation."))
     reasons += site_start_errors(visit, kept)
     reasons += required_errors(visit, photos_optional).values()
@@ -527,8 +680,9 @@ def site_start_errors(visit: dict, kept: list[dict]) -> list[str]:
     if SITE_START not in (visit.get("actions") or []):
         return []
     site = str(visit["location_id"]).strip()
-    before = [v for v in kept if _same(v.get("location_id"), site) and _stamp(v) < _stamp(visit)]
-    if any(SITE_START in (v.get("actions") or []) for v in kept if _same(v.get("location_id"), site)):
+    here = _site_visits(kept, site)
+    before = [v for v in here if _stamp(v) < _stamp(visit)]
+    if any(SITE_START in (v.get("actions") or []) for v in here):
         return [_reason("site_start_repeated", f"{site} has started already: a site starts once.")]
     if before:
         return [_reason("site_start_not_first", f"The start of {site} has to be its first visit: it has visits before ({before[0].get('session')} on {before[0]['date']}).")]
@@ -541,14 +695,14 @@ def order_errors(visit: dict, kept: list[dict]) -> list[str]:
     errors: list[str] = []
     number = _session_number(visit.get("session"))
     site = str(visit["location_id"]).strip()
-    if number is not None and any(_same(v["location_id"], site) and _session_number(v.get("session")) == number for v in kept):
+    here = _site_visits(kept, site)
+    if number is not None and any(_session_number(v.get("session")) == number for v in here):
         errors.append(_reason("visit_repeated", f"{site} already has a visit in R{number:04d}: a revision is one visit to each site."))
-    last = max((v for v in kept if _same(v["location_id"], site)), key=_stamp, default=None)
+    last = max(here, key=_stamp, default=None)
     if last is not None and _stamp(last) >= _stamp(visit):
         errors.append(_reason("visit_not_after_the_last", f"The visit to {site} has to be after the last one, on {last['date']} at {last['time']} ({last.get('session')})."))
     if number is not None:
-        before = [v for v in kept if (_session_number(v.get("session")) or number) < number]
-        latest = max(before, key=_stamp, default=None)
+        latest = _latest_before(kept, number)
         if latest is not None and _stamp(latest) >= _stamp(visit) and not (last is not None and latest is last):
             errors.append(_reason("revision_order", f"R{number:04d} has to be after R{_session_number(latest.get('session')):04d}: its last visit was to {latest['location_id']} on {latest['date']} at {latest['time']}."))
     return errors
@@ -602,10 +756,14 @@ def edit_errors(old: dict | None, new: dict, others: list[dict], locations: list
     return list(dict.fromkeys(why for key, why in now if (key, why) not in before))
 
 
-def _session_number(session) -> int | None:
-    import re  # noqa: PLC0415
-    m = re.search(r"\d+", str(session or ""))
+@lru_cache(maxsize=None)
+def _number_of(session: str) -> int | None:
+    m = re.search(r"\d+", session)
     return int(m.group(0)) if m else None
+
+
+def _session_number(session) -> int | None:
+    return _number_of(str(session or ""))
 
 
 def archive_errors(visit: dict, kept: list[dict], location: dict | None, unknown: list[dict] | None = None) -> list[str]:
@@ -676,9 +834,20 @@ def revision_order_conflicts(new: list[dict], kept: list[dict]) -> list[tuple[di
     """The visits of `new` that are out of the order of the revisions — each with why: every visit of a revision is after all those of the revisions before it and before
     all those of the revisions after it, whichever the site. When two visits of a file are at odds, both are told."""
     out = []
+    # the earliest and the latest instants of each revision: a visit is at odds with another revision only when one before it ends after it starts, or one after it starts before it ends
+    first: dict[int, str] = {}
+    last: dict[int, str] = {}
+    for w in [*kept, *new]:
+        n = _session_number(w.get("session"))
+        if n is not None:
+            first[n] = min(first.get(n, _stamp(w)), _stamp(w))
+            last[n] = max(last.get(n, _stamp(w)), _stamp(w))
     for v in new:
         number = _session_number(v.get("session"))
         if number is None:
+            continue
+        stamp = _stamp(v)
+        if not any(n < number and last[n] >= stamp or n > number and first[n] <= stamp for n in first):
             continue
         for other in (w for w in [*kept, *new] if w is not v):
             n = _session_number(other.get("session"))
