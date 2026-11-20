@@ -35,7 +35,7 @@ from PIL import Image, ImageOps, JpegImagePlugin
 
 from wildintel_uploader.core import config
 from wildintel_uploader.core.schemas.requests import DeploymentFields
-from wildintel_uploader.core.services import camera_info, deployment_import_service, local_folder_service, report_service
+from wildintel_uploader.core.services import camera_info, deployment_import_service, file_memo, local_folder_service, report_service
 from wildintel_uploader.core.services.deployment_import_service import DeploymentImportError
 
 logger = logging.getLogger(__name__)
@@ -151,7 +151,11 @@ def _jpeg_settings(img: Image.Image) -> dict:
 
 def resize_to_width(source: Path, dest: Path, width: int) -> bool:
     """Writes source to dest, resized to `width` pixels wide keeping its proportions —
-    or just copies it if it isn't wider than that. True if it was resized."""
+    or just copies it if it isn't wider than that. True if it was resized.
+
+    Resizing decodes the image in full, so one that was resized without an error is remembered as not corrupted (see file_memo) while it is the same one: the check of the
+    seal does not decode it again. One that is only copied is not opened in full, so nothing is said of it."""
+    key = file_memo.stamp(source)
     with Image.open(source) as img:
         if img.width <= width:
             shutil.copy2(source, dest)
@@ -165,6 +169,7 @@ def resize_to_width(source: Path, dest: Path, width: int) -> bool:
             resized.save(dest, format="JPEG", **_jpeg_settings(img), **keep)
         else:
             resized.save(dest, format=fmt, **keep)
+    file_memo.DECODED.put(key, True)
     return True
 
 

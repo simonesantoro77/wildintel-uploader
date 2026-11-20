@@ -20,6 +20,8 @@ from pathlib import Path
 
 from PIL import ExifTags, Image
 
+from wildintel_uploader.core.services import file_memo
+
 logger = logging.getLogger(__name__)
 
 # What ExifTool is asked for, and the order the serial number is looked for in.
@@ -107,18 +109,42 @@ def _read_with_pillow(path: Path) -> CameraInfo:
         return CameraInfo()
 
 
-def read_cameras(paths: list[Path]) -> tuple[dict[Path, CameraInfo], str]:
-    """The camera model and id of each image, and which reader was used
-    ("exiftool" or "pillow"). ExifTool failing for any reason falls back to Pillow."""
-    if not paths:
-        return {}, "pillow"
-    exiftool = exiftool_path()
+def _read(paths: list[Path], exiftool: str | None) -> tuple[dict[Path, CameraInfo], str]:
     if exiftool:
         try:
             return _read_with_exiftool(exiftool, paths), "exiftool"
         except (OSError, subprocess.SubprocessError, json.JSONDecodeError, ValueError) as exc:
             logger.warning("ExifTool failed (%s) — falling back to Pillow for the camera information.", exc)
     return {path: _read_with_pillow(path) for path in paths}, "pillow"
+
+
+def read_cameras(paths: list[Path]) -> tuple[dict[Path, CameraInfo], str]:
+    """The camera model and id of each image, and which reader was used
+    ("exiftool" or "pillow"). ExifTool failing for any reason falls back to Pillow.
+
+    What is read is remembered while the image is the same one (see file_memo): the validation of the images, the preprocessing and the seal read the same images, and ExifTool
+    takes seconds for a card. A reading by Pillow is made again when ExifTool is there, as it says less."""
+    if not paths:
+        return {}, "pillow"
+    exiftool = exiftool_path()
+    stamps = {path: file_memo.stamp(path) for path in paths}
+    found: dict[Path, CameraInfo] = {}
+    readers: set[str] = set()
+    missing: list[Path] = []
+    for path in paths:
+        remembered = file_memo.CAMERAS.get(stamps[path])
+        if remembered is not None and not (exiftool and remembered[1] != "exiftool"):
+            found[path] = remembered[0]  # type: ignore[assignment]
+            readers.add(remembered[1])
+        else:
+            missing.append(path)
+    if missing:
+        read, reader = _read(missing, exiftool)
+        for path in missing:
+            found[path] = read[path]
+            file_memo.CAMERAS.put(stamps[path], (read[path], reader))
+        readers.add(reader)
+    return {path: found[path] for path in paths}, "exiftool" if readers == {"exiftool"} else "pillow"
 
 
 def common_value(values: list[str | None]) -> str | None:
