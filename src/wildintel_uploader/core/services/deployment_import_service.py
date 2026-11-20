@@ -24,7 +24,7 @@ from PIL import ExifTags, Image
 
 from wildintel_uploader.core import config, parallel
 from wildintel_uploader.core.schemas.requests import DeploymentFields
-from wildintel_uploader.core.services import camera_info, local_folder_service, trapper_service
+from wildintel_uploader.core.services import camera_info, file_memo, local_folder_service, trapper_service
 
 logger = logging.getLogger(__name__)
 
@@ -421,10 +421,15 @@ def _sequence_number(path: Path) -> int | None:
 
 
 def _corruption_error(path: Path) -> str | None:
-    """None if the file opens and fully decodes; otherwise PIL's error."""
+    """None if the file opens and fully decodes; otherwise PIL's error. An image that decoded is remembered while it is the same one (see file_memo): the preprocessing decodes it
+    in full to resize it, and the seal asks again."""
+    key = file_memo.stamp(path)
+    if file_memo.DECODED.get(key):
+        return None
     try:
         with Image.open(path) as img:
             img.load()
+        file_memo.DECODED.put(key, True)
         return None
     except Exception as exc:
         return str(exc)
