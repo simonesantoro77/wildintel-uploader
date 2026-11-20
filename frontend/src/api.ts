@@ -19,6 +19,10 @@ async function req<T>(url: string, options?: RequestInit): Promise<T> {
   return r.json() as Promise<T>
 }
 
+/** How far a long step of the checks of the images is: the cameras (all at once), the dates and the corrupted images (image by image). */
+export interface ImageCheckProgress { type: 'progress'; step: 'cameras' | 'dates' | 'corrupted'; done: number; total: number }
+type ImageCheckEvent = ImageCheckProgress | { type: 'done'; result: ValidationResult }
+
 function post<T>(url: string, body: unknown): Promise<T> {
   return req<T>(url, {
     method: 'POST',
@@ -244,8 +248,18 @@ export const api = {
 
   // checks omitted (or undefined) runs every check.
   // researchProjectId: the duplicates check also looks for images imported before into it; deploymentId: the one being imported again, left out of that.
-  validateImages: (path: string, checks?: ImageCheck[], researchProjectId?: string | null, deploymentId?: string | null) =>
-    post<ValidationResult>('/api/deployment-import/validate-images', { path, checks: checks ?? null, research_project_id: researchProjectId || null, deployment_id: deploymentId || null }),
+  // onProgress: told how far each long step is while it runs (the answer is the same).
+  validateImages: async (path: string, checks?: ImageCheck[], researchProjectId?: string | null, deploymentId?: string | null, onProgress?: (progress: ImageCheckProgress) => void) => {
+    const body = { path, checks: checks ?? null, research_project_id: researchProjectId || null, deployment_id: deploymentId || null }
+    if (!onProgress) return post<ValidationResult>('/api/deployment-import/validate-images', body)
+    let result: ValidationResult | null = null
+    await streamNdjson<ImageCheckEvent>('/api/deployment-import/validate-images/stream', body, (event) => {
+      if (event.type === 'progress') onProgress(event)
+      else result = event.result
+    }, 'The checks ended unexpectedly.')
+    if (!result) throw new Error('The checks ended unexpectedly.')
+    return result as ValidationResult
+  },
 
   // collectionName: the collection folder's name (Local folder) — omitted for Trapper, whose collection is the id's own prefix.
   validateDeployment: (

@@ -1245,7 +1245,7 @@ describe('ImportDeploymentPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-      expect(mockedApi.validateImages).toHaveBeenCalledWith('/home/me/deployments/DONA_01', ['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates'], 'DONA', 'R0001-DONA_01')
+      expect(mockedApi.validateImages).toHaveBeenCalledWith('/home/me/deployments/DONA_01', ['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates'], 'DONA', 'R0001-DONA_01', expect.any(Function))
       expect(await screen.findByText(/1 corrupted image\(s\): IMG_0002\.jpg/)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     })
@@ -1257,7 +1257,7 @@ describe('ImportDeploymentPage', () => {
       for (const check of [0, 1, 3, 4, 5]) await chooseStrictness(check, 'Skip')
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
 
-      expect(mockedApi.validateImages).toHaveBeenCalledWith('/home/me/deployments/DONA_01', ['structure'], 'DONA', 'R0001-DONA_01')
+      expect(mockedApi.validateImages).toHaveBeenCalledWith('/home/me/deployments/DONA_01', ['structure'], 'DONA', 'R0001-DONA_01', expect.any(Function))
     })
 
     describe('the EXIF fields the wizard needs', () => {
@@ -1882,7 +1882,7 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getAllByRole('radiogroup')).toHaveLength(4) // and the question of where the images are
 
       await userEvent.click(screen.getByRole('button', { name: 'Run checks' }))
-      expect(mockedApi.validateImages).toHaveBeenCalledWith('/home/me/deployments/DONA_01', ['corrupted', 'sequence', 'camera'], 'DONA', 'R0001-DONA_01')
+      expect(mockedApi.validateImages).toHaveBeenCalledWith('/home/me/deployments/DONA_01', ['corrupted', 'sequence', 'camera'], 'DONA', 'R0001-DONA_01', expect.any(Function))
     })
 
     it('says there is nothing to run when every validation check is turned off, and lets the user go on', async () => {

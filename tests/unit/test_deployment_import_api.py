@@ -1174,3 +1174,40 @@ def test_a_deployment_with_another_id_than_the_visits_say_is_refused(tmp_path: P
     with _in(tmp_path / "collections"):
         response = _client().post("/api/deployment-import/preprocess", json=payload)
     assert response.status_code == 400
+
+
+def _stream_events(response) -> list[dict]:
+    return [json.loads(line) for line in response.text.splitlines() if line]
+
+
+def test_validate_images_stream_tells_the_progress_and_ends_with_the_same_result(tmp_path: Path):
+    for number in range(1, 6):
+        _make_jpeg(tmp_path / f"IMG_{number:04d}.jpg", f"2024:05:01 10:0{number}:00")
+
+    response = _client().post("/api/deployment-import/validate-images/stream", json={"path": str(tmp_path), "checks": ["exif", "corrupted"]})
+    events = _stream_events(response)
+    plain = _client().post("/api/deployment-import/validate-images", json={"path": str(tmp_path), "checks": ["exif", "corrupted"]}).json()
+
+    assert response.status_code == 200
+    assert events[-1]["type"] == "done"
+    assert {k: v for k, v in events[-1]["result"].items() if k != "report_id"} == {k: v for k, v in plain.items() if k != "report_id"}
+    progress = [e for e in events if e["type"] == "progress"]
+    assert {e["step"] for e in progress} >= {"dates", "corrupted"}
+    for step in ("dates", "corrupted"):  # each step ends with all of its images done
+        assert [e for e in progress if e["step"] == step][-1] == {"type": "progress", "step": step, "done": 5, "total": 5}
+
+
+def test_validate_images_stream_of_a_missing_folder_is_a_400():
+    assert _client().post("/api/deployment-import/validate-images/stream", json={"path": "/no/such/folder"}).status_code == 400
+
+
+def test_validate_images_progress_counts_every_image_once(tmp_path: Path):
+    for number in range(1, 8):
+        _make_jpeg(tmp_path / f"IMG_{number:04d}.jpg", f"2024:05:01 10:0{number}:00")
+    told: list[tuple[str, int, int]] = []
+
+    from wildintel_uploader.core.services import deployment_import_service
+
+    deployment_import_service.validate_images(tmp_path, frozenset({"corrupted"}), progress=lambda *args: told.append(args))
+
+    assert told == [("corrupted", done, 7) for done in range(1, 8)]

@@ -15,7 +15,7 @@ import re
 import shutil
 import tempfile
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pathlib import Path
@@ -494,7 +494,14 @@ def _imported_before(images: list[Path], source_dir: Path, imported: dict[str, l
     return found
 
 
-def validate_images(source_dir: Path, checks: frozenset[str] | None = None, *, detail: bool = False, imported: dict[str, list[dict]] | None = None) -> dict:
+def _reporting(progress: Callable[[str, int, int], None] | None, step: str, total: int) -> Callable[[int], None] | None:
+    return None if progress is None else (lambda done: progress(step, done, total))
+
+
+def validate_images(
+    source_dir: Path, checks: frozenset[str] | None = None, *, detail: bool = False, imported: dict[str, list[dict]] | None = None,
+    progress: Callable[[str, int, int], None] | None = None,
+) -> dict:
     """Independent, opt-in checks over a scanned folder's images — only
     "checked_count" plus whichever of these were asked for are present in
     the result:
@@ -529,6 +536,8 @@ def validate_images(source_dir: Path, checks: frozenset[str] | None = None, *, d
         "duplicates_in_project", which images were imported before into
         another deployment of the project, and where.
     With detail, exif_missing also lists in "files" every image that lacks each field, not just examples.
+    `progress(step, done, total)` is told how far each long step is: "cameras" (done 0, then all at once: ExifTool reads them in one go),
+    "dates" and "corrupted" (image by image).
 
     Raises:
         DeploymentImportError: source_dir doesn't exist or isn't a folder.
@@ -545,13 +554,17 @@ def validate_images(source_dir: Path, checks: frozenset[str] | None = None, *, d
     cameras: dict[Path, camera_info.CameraInfo] = {}
     reader = "pillow"
     if "camera" in checks or "exif" in checks:
+        if progress:
+            progress("cameras", 0, len(images))
         cameras, reader = camera_info.read_cameras(images)
+        if progress:
+            progress("cameras", len(images), len(images))
         result["exiftool"] = reader == "exiftool"
 
     # Reading each image is what takes the time, so it is done for several at once (GENERAL.workers).
     taken: dict[Path, datetime | None] = {}
     if "exif" in checks or "sequence" in checks:
-        taken = dict(zip(images, parallel.pmap(_image_datetime, images)))
+        taken = dict(zip(images, parallel.pmap(_image_datetime, images, progress=_reporting(progress, "dates", len(images)))))
 
     if "exif" in checks:
         missing: dict[str, list[Path]] = {"date": [], "camera_model": [], "camera_id": []}
@@ -598,7 +611,7 @@ def validate_images(source_dir: Path, checks: frozenset[str] | None = None, *, d
         corrupted: list[dict] = []
         dated: dict[Path, datetime] = {}
         by_dir: dict[Path, list[Path]] = defaultdict(list)
-        errors = parallel.pmap(_corruption_error, images) if "corrupted" in checks else [None] * len(images)
+        errors = parallel.pmap(_corruption_error, images, progress=_reporting(progress, "corrupted", len(images))) if "corrupted" in checks else [None] * len(images)
         for path, error in zip(images, errors):
             if error is not None:
                 corrupted.append({"path": str(path.relative_to(source_dir)), "error": error})

@@ -9,6 +9,8 @@ import type { TrapperAccount } from '../components/TrapperAccountNotice'
 import { Fragment, createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
+import { describeImageCheckProgress } from '../imageCheckProgress'
+import type { ImageCheckProgress } from '../api'
 import { defaultResearchProject } from '../defaultResearchProject'
 import RevisionSquares from '../components/RevisionSquares'
 import ClosedVisitsTable, { closedVisitKey } from '../components/ClosedVisitsTable'
@@ -1563,6 +1565,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   const [imageChecks, setImageChecks] = useState<Set<ImageCheck>>(new Set(['corrupted', 'sequence', 'structure', 'camera', 'exif', 'duplicates']))
   const [requiredImageChecks, setRequiredImageChecks] = useState<Set<ImageCheck>>(new Set())
   const [validating, setValidating] = useState(false)
+  const [checkProgress, setCheckProgress] = useState<ImageCheckProgress | null>(null)
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
 
@@ -1862,9 +1865,9 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
   }
 
   async function handleValidate() {
-    setValidating(true); setValidationError(null); setValidation(null)
+    setValidating(true); setValidationError(null); setValidation(null); setCheckProgress(null)
     try {
-      setValidation(await api.validateImages(sourceDir, runnableImageChecks, researchProjectId, deployment.deployment_id || null))
+      setValidation(await api.validateImages(sourceDir, runnableImageChecks, researchProjectId, deployment.deployment_id || null, setCheckProgress))
     } catch (e) {
       setValidationError(e instanceof Error ? e.message : 'Could not validate the images.')
     } finally {
@@ -2673,7 +2676,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                         ? <>Last run {formatRun(imagesReport.created_at)} · <a className="font-medium text-blue-600 dark:text-blue-400 hover:underline" href={api.reportUrl(imagesReport.id, 'csv')} download>Download report</a></>
                         : 'How each check went, and the images that failed them.'}
                       summary={validation && (requiredImageChecksOk ? 'Checks run — you can continue' : 'A check set to Must pass failed')}
-                      badge={validating ? 'Checking…' : undefined} expanded={imagesOpen === 3}
+                      badge={validating ? describeImageCheckProgress(checkProgress) : undefined} expanded={imagesOpen === 3}
                       action={validation && imagesOpen === 3 ? (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={validating || runnableImageChecks.length === 0} onClick={handleValidate}>
                           {validating ? <SmallSpinner /> : null}{validating ? 'Checking…' : 'Run again'}
