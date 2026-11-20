@@ -9,6 +9,8 @@ import WizardStep from '../components/WizardStep'
 import ClosedVisitsTable from '../components/ClosedVisitsTable'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { api } from '../api'
+import { describeImageCheckProgress } from '../imageCheckProgress'
+import type { ImageCheckProgress } from '../api'
 import { applyEntry } from '../epicollectImport'
 import RecordingPeriod from '../components/RecordingPeriod'
 import PrefilledDetails from '../components/PrefilledDetails'
@@ -212,6 +214,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   const [detailsError, setDetailsError] = useState<string | null>(null)
   const [validations, setValidations] = useState<Record<string, Outcome<ValidationResult>>>({})
   const [validating, setValidating] = useState(false)
+  const [checkProgress, setCheckProgress] = useState<ImageCheckProgress | null>(null)
   const [checks, setChecks] = useState<Record<string, Outcome<DeploymentCheckResult>>>({})
   const [checking, setChecking] = useState(false)
   const [runs, setRuns] = useState<Record<string, ImportRun>>({})
@@ -508,8 +511,9 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   async function handleValidate() {
     setValidating(true); setValidations({})
     for (const d of candidates) {
+      setCheckProgress(null)
       try {
-        const result = await api.validateImages(d.path, runnableImageChecks, projectId)
+        const result = await api.validateImages(d.path, runnableImageChecks, projectId, null, setCheckProgress)
         setValidations((v) => ({ ...v, [d.name]: { result } }))
       } catch (e) {
         setValidations((v) => ({ ...v, [d.name]: { error: e instanceof Error ? e.message : 'Could not validate the images.' } }))
@@ -1263,7 +1267,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
           <WizardStep n={3} title="Results" status={imagesStatus(3)} canEdit={!validating} onEdit={() => setImagesOpen(3)}
                       description="How each check went, in each folder."
                       summary={ran && (left.length === 0 ? 'Checks run — every folder goes on' : `${plural(chosen.length, 'folder goes', 'folders go')} on, ${left.length} left out`)}
-                      badge={validating ? 'Checking…' : undefined} expanded={imagesOpen === 3}
+                      badge={validating ? describeImageCheckProgress(checkProgress) : undefined} expanded={imagesOpen === 3}
                       action={ran && imagesOpen === 3 ? (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={validating || runnableImageChecks.length === 0} onClick={handleValidate}>
                           {validating ? <SmallSpinner /> : null}{validating ? 'Checking…' : 'Run again'}

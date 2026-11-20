@@ -6,6 +6,9 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
+import threading
+import time
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
@@ -276,6 +279,45 @@ def validate_images(req: ValidateImagesRequest) -> dict:
     except (deployment_import_service.DeploymentImportError, local_folder_service.LocalFolderError) as exc:
         raise HTTPException(400, str(exc)) from exc
     return {**result, "report_id": _keep(lambda: report_service.validation_report(result, source, checks))}
+
+
+@router.post("/validate-images/stream")
+def validate_images_stream(req: ValidateImagesRequest) -> StreamingResponse:
+    """The same checks as /validate-images, told as NDJSON while they run: {"type": "progress", "step", "done", "total"} (at most a few
+    a second, and the last of each step) and, at the end, {"type": "done", "result": <what /validate-images answers>}. A failure is {"type": "error", "detail"}."""
+    checks = frozenset(req.checks) if req.checks is not None else None
+    source = Path(req.path).expanduser()
+    if not source.is_dir():
+        raise HTTPException(400, f"Not a folder: {source}")
+    events: queue.Queue = queue.Queue()
+    last = {"step": None, "at": 0.0}
+
+    def progress(step: str, done: int, total: int) -> None:
+        now = time.monotonic()
+        if step != last["step"] or done >= total or now - last["at"] >= 0.25:
+            last["step"], last["at"] = step, now
+            events.put({"type": "progress", "step": step, "done": done, "total": total})
+
+    def work() -> None:
+        try:
+            imported = None
+            if req.research_project_id and (checks is None or "duplicates" in checks):
+                imported = local_folder_service.imported_source_hashes(config.collections_dir(), req.research_project_id, req.deployment_id)
+            result = deployment_import_service.validate_images(source, checks, detail=True, imported=imported, progress=progress)
+            events.put({"type": "done", "result": {**result, "report_id": _keep(lambda: report_service.validation_report(result, source, checks))}})
+        except Exception as exc:
+            logger.warning("Validating the images failed: %s", exc, exc_info=debugging())
+            events.put({"type": "error", "detail": str(exc)})
+
+    def lines() -> Iterator[str]:
+        threading.Thread(target=work, daemon=True).start()
+        while True:
+            event = events.get()
+            yield json.dumps(event) + "\n"
+            if event["type"] != "progress":
+                return
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson")
 
 
 @router.post("/previous-deployments")
