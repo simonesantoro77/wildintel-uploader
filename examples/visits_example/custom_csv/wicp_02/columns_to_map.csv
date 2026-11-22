@@ -1,8 +1,8 @@
 Lugar;Dia;Hora;Tarea;Quien;Fotos;Tarjeta;Camara;Observaciones;Columna que no se usa;Latitud;Longitud
 WICP_02_001;14/09/2026;08:30;Installation;Ana Pérez;;1;BR5071050724;Primera instalación;x;37.012340;-6.441230
 WICP_02_002;14/09/2026;10:05;Installation;Ana Pérez;;2;RE5699252753;;x;37.025750;-6.452680
-WICP_02_003;14/09/2026;11:40;Installation;Ana Pérez & Luis Gómez;;3;RE1161042648;;x;37.038420;-6.468850
-WICP_02_004;14/09/2026;13:15;Installation;Ana Pérez & Luis Gómez;;4;SP1776213899;;x;37.047070;-6.481540
+WICP_02_003;14/09/2026;11:40;Installation;Ana Pérez, Luis Gómez;;3;RE1161042648;;x;37.038420;-6.468850
+WICP_02_004;14/09/2026;13:15;Installation;Ana Pérez, Luis Gómez;;4;SP1776213899;;x;37.047070;-6.481540
 WICP_02_001;19/10/2026;08:30;Revision;Luis Gómez;1420;5;BR5071050724;;x;37.012340;-6.441230
 WICP_02_002;19/10/2026;10:05;Revision;Luis Gómez;980;6;RE5699252753;;x;37.025750;-6.452680
 WICP_02_003;19/10/2026;11:40;Revision;Luis Gómez;1105;7;RE1161042648;;x;37.038420;-6.468850
