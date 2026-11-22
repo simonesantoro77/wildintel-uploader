@@ -16,6 +16,82 @@ You need:
 !!! tip "Load the revisions in order"
     A revision does not start until the one before it is finished (every expected site has its visit), and the visits of a revision are after those of the revisions before. So load the files **from the oldest to the newest**.
 
+## The format of the file
+
+The file is the download of the form **Cameratrap visit** of the WildINTEL Epicollect5 project. Knowing what it has helps to read what the application says about a row, and to tell why a row is refused.
+
+### How it is laid out
+
+- **One row is one visit** — one entry of the form: one trip to one camera trap.
+- The first row is the header. Epicollect5 writes each question as **its number, an underscore and its text** — `3_locationID`, `4_Status_of_the_came` — and **cuts it at 20 characters**. The application finds each column by the text of its question, ignoring the number, the case, the marks and the cut, so `7_N_pictures_collect` and `7_N_pictures_collected` are the same column.
+- A **place** (the question *Coordinates*) comes in several columns: `lat_25_Coordinates`, `long_25_Coordinates`, `accuracy_25_Coordinates` and the UTM ones.
+- Epicollect5 adds its own columns to every entry: `ec5_uuid`, `created_at`, `uploaded_at`, `created_by` and `title`.
+- The form **has no date and no time**. A visit happened **when its entry was created**: `created_at`, in UTC, as Epicollect writes it (`2026-09-14T08:30:00.000Z`).
+
+!!! warning "The columns a file must have"
+    Without a column for **`locationID`**, **`Status of the camera`** and **`created_at`** the file is refused as a whole — it is not the form of a visit. A column that is missing from the rest is a field left blank: the row is kept or refused according to its actions (see [the rules of a visit](user-manual-web.md#the-rules-of-a-visit)).
+
+### The columns, and what each one means
+
+What a blank answer means is always the same: the field is not kept, and the rules of the visit say whether it was needed.
+
+| Column (as Epicollect writes it) | What it is | How the application reads it |
+|---|---|---|
+| `1_setupBy` | Who went. One or several names, separated by commas. | **Who went** (`trappers`). The first name is also **set up by**. Each must be a trapper of the settings, or be created by the import. |
+| `2_Revision` | The round of visits: `R0001`, `R0002`… | The **revision** of the visit. Blank: the next one of its site. |
+| `3_locationID` | The site visited, written by hand: `WICP_02_001`. | The **site**. It must be a location of the research project, or be created. Whatever its case. |
+| `4_Status_of_the_came` | What was found at the site: **OK**, **Altered**, **Stolen**, **New site** or **Inactive site**. | With the next two columns, it gives the **actions** of the visit (see [below](#from-the-answers-to-the-actions)). **New site** also **starts the site** and, with the import allowed to, creates it. |
+| `5_Batteries_Status` | **OK** or **No batteries**. | The state of the **batteries**. |
+| `6_Card_Status` | **OK** or **Full Card**. | The state of the **card**. With the card full the images are not counted. |
+| `7_N_pictures_collect` | The number of images on the card that was collected. | **Images on the card collected**: a whole number. Empty when the card was full. |
+| `8_Date_and_time_OK` | Whether the camera's clock was right. | Yes if the answer begins with *OK*, no otherwise. |
+| `9_Action_after_inspe` | What is done once the camera has been inspected: *Keep the camera*, *Camera replacement*, *Camera removal* or *Site removal* (*Camera inspection*, an older name for the first, is read too). | The **actions** (see [below](#from-the-answers-to-the-actions)). |
+| `10_Action_after_thef` | What is done after a theft: *Camera replacement*, *Site removal*, *Camera removal* or *None*. | The **actions** after a theft. Only asked when the status is *Stolen*. |
+| `11_cameraModel` | The model of the camera put up. | **Camera model**. Used when the camera is created. |
+| `12_Camera_name` | The name the camera is known by. | The **camera id**, when there is no serial number. |
+| `13_Serial_number` | The serial number of the camera put up. | The **camera id**. It must be a camera of the project, or be created. |
+| `14_cameraHeight` | Height of the camera, **in centimetres**. | **Camera height**, kept **in metres**: `120` is `1.2`. |
+| `15_cameraDelay` | Delay between triggers, in seconds. | **Camera delay** (s). |
+| `16_cameraTilt` | Tilt of the camera, in degrees. | **Camera tilt** (°). |
+| `17_cameraHeading` | Heading of the camera, in degrees. | **Camera heading** (°). |
+| `18_detectionDistance` | Detection distance, in metres. | **Detection distance** (m). |
+| `19_baitUse` | Whether bait is used: *true*/*false*. | **Bait use** (yes/no). |
+| `20_featureType` | The kind of place the camera watches: `trailHiking`… | **Feature type**. |
+| `21_habitat` | The habitat. | **Habitat**. |
+| `22_SD_to_insert` | The card left in the camera, written by hand: `SD 1`, `sd-1` or `1`. | The **SD card left**: only its **number** is kept (`1`), whatever the way it is written. |
+| `23_Calibration` | Whether the camera was calibrated: *yes*/*no*. | **Camera calibrated** (yes/no). |
+| `24_Observations` | Free notes. | The **notes** of the visit. |
+| `lat_25_Coordinates`, `long_25_Coordinates` | Where the trapper was when the visit was noted. | The **coordinates of the visit**. They are the only ones the form has: a site made from a visit takes them as its own. |
+| `created_at` | When the entry was created, in UTC. | The **day and the time** of the visit, told in the timezone of its location. |
+
+**The columns that are not read:** `ec5_uuid`, `uploaded_at`, `created_by`, `title`, `accuracy_25_Coordinates`, and the UTM columns. They can be in the file; they are ignored.
+
+!!! note "The numbers in the headers"
+    The numbers (`1_`, `2_`…) are those of the form of the example files. Another version of the form may number the questions differently, or change the order: it does not matter, because the number is ignored. What matters is the **text** of the question. A column whose text the application does not know is ignored.
+
+### From the answers to the actions
+
+The form never asks *what was done* as such: the application works it out from three answers, with one rule.
+
+| Status of the camera | Action after the inspection / after the theft | The visit's actions |
+|---|---|---|
+| **New site** or **Inactive site** | — (not asked) | **Installation** |
+| **OK** or **Altered** | *Keep the camera* | **Revision** (the card is collected and another left) |
+| **OK** or **Altered** | *Camera replacement* | **Revision + Desinstallation + Installation** |
+| **OK** or **Altered** | *Camera removal* | **Revision + Desinstallation** |
+| **OK** or **Altered** | *Site removal* | **Revision + Desinstallation + Archive** |
+| **Stolen** | *Camera replacement* | **Stolen + Installation** |
+| **Stolen** | *Site removal* | **Stolen + Archive** |
+| **Stolen** | *Camera removal* or *None* | **Stolen** (the site stays open, with no camera) |
+
+- **New site** is a site that did not exist: it is created on the spot, with its camera. **Inactive site** is a site that exists but **has no camera** — it was taken away before — and gets one. Both ask the same questions: the camera and the card it leaves.
+- A status or an action that is none of these leaves the visit **with no actions**, and the row is refused.
+- **Altered** says the camera was found altered and put back in place; it does not change the actions.
+
+### What the answers about the card and the batteries do
+
+The batteries and the card are two questions. Their answers are kept as the **state of the batteries** (OK or *No batteries*) and the **state of the card** (OK or *Card full*). When the card is full, the images are not counted: `7_N_pictures_collect` is empty and the deployment is not checked against a count it does not have.
+
 ## 1. Download the CSV from Epicollect5
 
 1. Open the project of the WildINTEL form on [Epicollect5](https://five.epicollect.net/) and go to its **data** (the entries).
