@@ -256,7 +256,7 @@ A card that is in a camera is **Active**, and only a visit makes it so or takes 
 
 ### 2.6 Visits and revisions
 
-A **visit** is one trip to one camera trap, to do something with it. It is the field record: it says when it was, at which site, who went, what was done to the camera and the card, and what was found. The visits of a research project are registered in the application, with **Register the visits**, and everything else is worked out from them.
+A **visit** is one trip to one camera trap, to do something with it. It is the field record: it says when it was, at which site, who went, what was done to the camera and the card, and what was found. The visits of a research project are registered in the application, with **Register the visits**, and everything else is worked out from them. Many visits can be registered at once from a file, step by step in the guides for the [WildINTEL Epicollect CSV](guide-visits-epicollect.md) and for a [custom CSV](guide-visits-csv.md).
 
 ![A visit: one trip to one camera trap, recorded with when, where, who went, what was done, the SD card, the camera and what was found](img/visit.svg)
 
@@ -499,5 +499,6 @@ resized and tagged.
 | If you want to… | Read |
 |---|---|
 | Do everything — import, upload, repair, sync — with a guided interface | [User manual — web app](user-manual-web.md) |
+| Register many visits at once from a file — [from the WildINTEL Epicollect CSV](guide-visits-epicollect.md) or [from a custom CSV](guide-visits-csv.md) | [Guide — visits from Epicollect](guide-visits-epicollect.md) · [Guide — visits from a CSV](guide-visits-csv.md) |
 | Test the connection, change the settings, look up TRAPPER's ids or make a quick import from a terminal | [User manual — command line](user-manual-cli.md) |
 | Know what the application does, in detail | [Features](features.md) |

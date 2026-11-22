@@ -222,14 +222,14 @@ The places the visits of a research project can be taken from, besides entering 
 
 #### WildINTEL Epicollect CSV
 
-The visits are read from the **CSV file downloaded from the new WildINTEL Epicollect project**, the form of the field flow (*Register the visits › WildINTEL Epicollect CSV*). The columns are found by the label of their question: there is nothing to say about them.
+The visits are read from the **CSV file downloaded from the new WildINTEL Epicollect project**, the form of the field flow (*Register the visits › WildINTEL Epicollect CSV*; see the [step-by-step guide](guide-visits-epicollect.md)). The columns are found by the label of their question: there is nothing to say about them.
 
 - **The time of a visit** — the form has no date or time to read: a visit happened when its entry was created (`created_at`, UTC), and it is told in the timezone of its location.
 - **What is created** — the *Import & auto-creation rules* card summarizes the options and opens with **Customize**. It has switches to create locations, cameras, SD cards and trappers the file names that are not kept, and three more (*The photos were not counted*, *Use the coordinates of the location…* and *Close the revision before…*). **They are all marked at first** for the WildINTEL CSV; the expanded card has a switch to mark or clear them all. With **Create the locations** on, it asks the **timezone of the new locations** — the form does not say it — (**UTC** by default), and, only when it is not UTC, whether **their cameras follow summer time**. In a custom CSV the entity-creation switches start cleared, because creating asks for more columns.
 
 #### Custom CSV
 
-Always offered in *Register the visits*, and it cannot be turned off. There is nothing to set up: the columns are matched when each file is read (see [Custom CSV](#custom-csv)).
+Always offered in *Register the visits*, and it cannot be turned off. There is nothing to set up: the columns are matched when each file is read (see [Custom CSV](#custom-csv), or the [step-by-step guide](guide-visits-csv.md)).
 
 #### Epicollect
 
@@ -413,8 +413,8 @@ the visits come in:
 | Source | What it does |
 |---|---|
 | **By hand** | You fill in each visit yourself, following the field flow: the site, when, who went and what was done. |
-| **Custom CSV** | A CSV of any shape: the page shows its columns and you say which one gives each field of a visit. When Epicollect is turned on in the settings, the CSV can also be **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*), read the same way. |
-| **WildINTEL Epicollect CSV** | Reads the visits of a field trip from the CSV downloaded from the new WildINTEL Epicollect project (the form of the field flow): the columns are found by the label of their question. |
+| **Custom CSV** | A CSV of any shape: the page shows its columns and you say which one gives each field of a visit. When Epicollect is turned on in the settings, the CSV can also be **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*), read the same way. Step by step: [guide](guide-visits-csv.md). |
+| **WildINTEL Epicollect CSV** | Reads the visits of a field trip from the CSV downloaded from the new WildINTEL Epicollect project (the form of the field flow): the columns are found by the label of their question. Step by step: [guide](guide-visits-epicollect.md). |
 
 The sources that are turned off in the [settings](#visit-sources) are not offered, but *By hand* and *Custom CSV*.
 
@@ -477,6 +477,9 @@ Each field is marked *required* or *optional* according to the actions.
 The camera and the SD card are picked from those of the research project, and who went from the trappers of the settings; the form is refused if they are not. The rules above are checked by the server, whatever page sends the visit, and the form says why a camera or a card cannot be used as soon as it is chosen. A visit that is wrong can be **edited** from the dashboard, with the same rules checked — also on the visits after it that the change touches.
 
 #### Custom CSV
+
+!!! tip "Step by step"
+    There is a [guide to import the visits from a custom CSV](guide-visits-csv.md), and another [for the WildINTEL Epicollect CSV](guide-visits-epicollect.md).
 
 Any spreadsheet with a row per visit. Press **Register the visits › Custom CSV**; the research project is the default one. The steps:
 

@@ -41,6 +41,10 @@ What the web app and the command line have in common: installation, the general 
 Settings, and a step-by-step guide to every task in the web interface: registering and following the
 visits, importing a deployment or several deployments at once, uploading to TRAPPER and syncing.
 
+### [Guides](guide-visits-epicollect.md)
+
+Step-by-step walk-throughs of one task: [import the visits from the WildINTEL Epicollect CSV](guide-visits-epicollect.md) and [from a custom CSV](guide-visits-csv.md).
+
 ### [User Manual — command line](user-manual-cli.md)
 
 The `wildintel-uploader` command: connection test, settings, TRAPPER lookups and a quick

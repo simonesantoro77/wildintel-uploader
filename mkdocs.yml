@@ -90,6 +90,9 @@ nav:
       - Overview: user-manual.md
       - Web app: user-manual-web.md
       - Command line: user-manual-cli.md
+      - Guides:
+          - Import visits from Epicollect: guide-visits-epicollect.md
+          - Import visits from a CSV: guide-visits-csv.md
   - Developer Manual: developer-manual.md
   - Features: features.md
   - Changelog: changelog.md
