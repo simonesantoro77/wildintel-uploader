@@ -377,6 +377,83 @@ def _(page, url):
     save(page, "settings-postvalidation")
 
 
+def save_part(page, name: str, top: int, bottom: int | None = None) -> None:
+    """A part of the page, from `top` to `bottom` (in pixels): a long page cropped to what matters."""
+    page.wait_for_timeout(300)
+    height = page.evaluate("document.documentElement.scrollHeight")
+    page.screenshot(path=str(OUT / f"{name}.png"), full_page=True, clip={"x": 0, "y": top, "width": SIZE["width"], "height": (bottom or height) - top})
+
+
+def _register(page, source: str, shot_as: str | None = None) -> None:
+    """Menu › Register the visits, and one of the ways the visits come in (with a screenshot of the choice, if `shot_as` says)."""
+    page.get_by_role("button", name="Continue with WICP_02").click()
+    page.wait_for_load_state("networkidle")
+    page.get_by_role("button", name="Register the visits").first.click()
+    page.wait_for_load_state("networkidle")
+    if shot_as:
+        save_part(page, shot_as, 0, 560)
+    page.get_by_role("button", name=source).first.click()
+    page.wait_for_load_state("networkidle")
+
+
+def _file(page, folder: str, name: str) -> None:
+    page.locator("input[type=file]").first.set_input_files(str(ROOT / "examples" / "visits_example" / folder / "wicp_02" / name))
+    page.wait_for_timeout(800)
+
+
+def _check_and_save(page, shot: str, review_button: str, press_continue: bool = True) -> None:
+    """From the step of the file: the check of the visits, the review and the end — each with its screenshot. (With a custom CSV the check starts when the columns are read.)"""
+    if press_continue:
+        page.get_by_text("Continue →").first.click()
+    page.wait_for_timeout(4000)
+    save(page, f"{shot}-check")
+    page.get_by_text("Continue to the review").first.click()
+    page.wait_for_timeout(1500)
+    save_part(page, f"{shot}-review", 0, 960)
+    page.get_by_role("button", name=review_button).click()
+    page.wait_for_timeout(2500)
+    save(page, f"{shot}-saved")
+
+
+@shot("settings-wildintel-csv")
+def _(page, url):
+    settings(page, "Visit sources")
+    page.get_by_role("tab", name="WildINTEL Epicollect CSV", exact=True).click()
+    save(page, "settings-wildintel-csv")
+
+
+@shot("guide-epicollect", fresh=True)
+def _(page, url):
+    """Register the visits › WildINTEL Epicollect CSV, from the file to the visits saved (revision_1_installation.csv: the four cameras are put up)."""
+    _register(page, "WildINTEL Epicollect CSV", shot_as="guide-visits-source")
+    _file(page, "wildintel_csv", "revision_1_installation.csv")
+    save_part(page, "guide-epicollect-file", 0, 950)
+    page.get_by_role("button", name="Customize").click()
+    page.wait_for_timeout(500)
+    save_part(page, "guide-epicollect-rules", 360, 1820)
+    page.get_by_role("button", name="Done").first.click()
+    page.wait_for_timeout(300)
+    _check_and_save(page, "guide-epicollect", "Add 4 visits")
+
+
+@shot("guide-csv", fresh=True)
+def _(page, url):
+    """Register the visits › Custom CSV, with columns to match by hand (columns_to_map.csv: semicolons, Spanish headers, dates day first)."""
+    _register(page, "Custom CSV")
+    _file(page, "custom_csv", "columns_to_map.csv")
+    save_part(page, "guide-csv-file", 0, 950)
+    page.get_by_text("Continue →").first.click()
+    page.wait_for_timeout(1500)
+    boxes = page.get_by_role("combobox")
+    # the order of the fields: who went, actions, site, latitude, longitude, revision, date, time, date and time, created at, SD card left, SD card…
+    boxes.nth(11).select_option(label="Not matched")   # "Tarjeta" is the SD card that is left, not its state
+    for nth, column in ((0, "Quien"), (1, "Tarea"), (2, "Lugar"), (6, "Dia"), (10, "Tarjeta"), (12, "Fotos")):
+        boxes.nth(nth).select_option(label=column)
+    save_part(page, "guide-csv-mapping", 190, 1500)
+    page.get_by_role("button", name="Read the visits").click()
+    _check_and_save(page, "guide-csv", "Add 7 visits", press_continue=False)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("names", nargs="*", help="the screenshots to take (all by default)")

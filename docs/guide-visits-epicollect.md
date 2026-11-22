@@ -75,7 +75,8 @@ The form never asks *what was done* as such: the application works it out from t
 
 | Status of the camera | Action after the inspection / after the theft | The visit's actions |
 |---|---|---|
-| **New site** or **Inactive site** | — (not asked) | **Installation** |
+| **New site** | — (not asked) | **Site start + Installation** (the site starts here) |
+| **Inactive site** | — (not asked) | **Installation** |
 | **OK** or **Altered** | *Keep the camera* | **Revision** (the card is collected and another left) |
 | **OK** or **Altered** | *Camera replacement* | **Revision + Desinstallation + Installation** |
 | **OK** or **Altered** | *Camera removal* | **Revision + Desinstallation** |
@@ -105,11 +106,17 @@ The batteries and the card are two questions. Their answers are kept as the **st
 
 Open **Settings › Visit sources › WildINTEL Epicollect CSV** and check that **Use WildINTEL Epicollect CSV** is on (a green dot appears on the tab). A source that is off is not offered when you register the visits. Save the settings.
 
+![Settings › Visit sources › WildINTEL Epicollect CSV](img/screenshots/settings-wildintel-csv.png)
+
 ## 3. Open *Register the visits*
 
 From the task menu press **Register the visits**, pick the **research project** (the default one comes selected) and, as the way the visits come in, **WildINTEL Epicollect CSV**.
 
+![Register the visits: where the visits come from](img/screenshots/guide-visits-source.png)
+
 Drop the file in the file area, or browse for it. Choosing the file does **not** move on: the step stays open so that you can set the rules of the import.
+
+![Step 2: the file is chosen and the import rules are the default ones](img/screenshots/guide-epicollect-file.png)
 
 ## 4. Choose what the import may create
 
@@ -117,14 +124,16 @@ The card **Import & auto-creation rules** summarizes the options; **Customize** 
 
 | Switch | What it does |
 |---|---|
-| **Create the locations** | A site the file names that is not a location of the project is created, **at the place of its first visit**. It asks the **timezone of the new locations** — the form does not say it (UTC by default) — and, if it is not UTC, whether **their cameras follow summer time**. |
-| **Create the cameras** / **Create the SD cards** | The cameras and cards the file names and the project does not have are made. |
-| **Create the trappers** | The people the file says went are made as the row calls them (`Ana Pérez` becomes `ana.perez`); complete them later in *Settings › Trappers*. |
-| *The photos were not counted* | Accepts a Revision or a Desinstallation with no image count (an old datasheet), leaving the count empty. |
-| *Use the coordinates of the location…* | A row with no coordinates takes those of its location. |
-| *Close the revision before…* | When the revision before has locations still planned, they are marked as *Not revised* so the new revision can start. |
+| **Create the locations that do not exist** | A site the file names that is not a location of the project is created, **at the place of its first visit**. It asks the **timezone of the new locations** — the form does not say it (UTC by default) — and, if it is not UTC, whether **their cameras follow summer time**. |
+| **Create the cameras…** / **Create the SD cards that do not exist** | The cameras and cards the file names and the project does not have are made. |
+| **Create the trappers that do not exist** | The people the file says went are made as the row calls them (`Ana Pérez` becomes `ana.perez`); complete them later in *Settings › Trappers*. |
+| *The images were not counted* | Accepts a Revision or a Desinstallation with no image count (an old datasheet), leaving the count empty. |
+| *Use the coordinates of the location when a row has none* | A row with no coordinates takes those of its location. |
+| *Close the revision before when it has locations still planned* | When the revision before has locations still planned, they are marked as *Not revised* so the new revision can start. |
 
 For this form **they are all marked at first**; the expanded card has a switch to mark or clear them all. Clear the ones you do not want: for example, with every location, camera and card already in Settings, you may prefer that a misspelt id is **refused** and not created as a new one.
+
+![Import & auto-creation rules, expanded: all the options are on](img/screenshots/guide-epicollect-rules.png)
 
 Press **Done** to close the options and **Continue**.
 
@@ -139,6 +148,9 @@ The file is checked when you press **Continue**. A long history can take some mi
 
 First the page says what the file holds: *N visits to add · N already kept · N rows with a problem*, the new sites, what is **worth knowing** and what is **odd**. Below, the rows are laid out like a dashboard:
 
+![Check the visits of the file: four visits to add, no problems](img/screenshots/guide-epicollect-check.png)
+
+
 - **Revision selection** — *All revisions* and one card for each revision of the file. Pick one to narrow the rows.
 - **Status metrics & filters** — *Rows read*, *Ready*, *Skipped / Existing* and *With problems*. Press one to see only those rows.
 - **The table** — search, **Group by** *Row* or *Error*, and, for each row, its **Status**: *Add*, *Add · to check*, *Skipped / Existing*, *Skipped / Ignored* or *Error*. The **chevron** opens the errors of a row; the **eye** opens a panel with the row field by field.
@@ -146,7 +158,7 @@ First the page says what the file holds: *N visits to add · N already kept · N
 What to do with what you find:
 
 - **A row with a problem is not kept.** Each rule that is broken has a label of its own (*Visit not after the last one of the site*, *Revision started before the one before is finished*, *Not the camera at the site*…): they are listed in [the rules of a visit](user-manual-web.md#the-rules-of-a-visit). Correct the cause — in the project's settings, or in the data in Epicollect — and read the file again.
-- **A site that is not a location.** It may be a new site or a misprint. The page shows how far its first visit was from the nearest location and the locations whose id is one character apart. If it is new, turn on **Create the locations** (step 4) or create it in *Settings › Locations*; if it is a misprint, correct the id and read the file again.
+- **A site that is not a location.** It may be a new site or a misprint. The page shows how far its first visit was from the nearest location and the locations whose id is one character apart. If it is new, turn on **Create the locations that do not exist** (step 4) or create it in *Settings › Locations*; if it is a misprint, correct the id and read the file again.
 - **The revision before is not finished.** A notice says which revision and which sites are missing, and offers **Mark them as not visited and read again**. That closes the revision before, which cannot be changed afterwards.
 - **A row already kept** (the same revision and site) is left as it is.
 
@@ -158,7 +170,13 @@ When the rows are what you expected, press **Continue to the review**.
 
 The last step says **what is going to be saved** — the visits, the revisions and sites, and the locations, cameras, SD cards and trappers that will be created — and warns that **the visits cannot be changed once they are created**. Press **Add N visits**.
 
-Afterwards the step turns green (*Visits saved*). Open **What was saved** for the summary. A **report** of the import is written beside the visits (`visits_import_<day>_<time>.txt`), and the folder of every collection the visits touch is made, with its logs.
+![Review and confirm: what is going to be saved](img/screenshots/guide-epicollect-review.png)
+
+Afterwards the step turns green (*Visits saved*).
+
+![Visits saved](img/screenshots/guide-epicollect-saved.png)
+
+ Open **What was saved** for the summary. A **report** of the import is written beside the visits (`visits_import_<day>_<time>.txt`), and the folder of every collection the visits touch is made, with its logs.
 
 ## 8. What next
 
@@ -170,7 +188,7 @@ Afterwards the step turns green (*Visits saved*). Open **What was saved** for th
 
 | What you see | What it means |
 |---|---|
-| *Luis Gómez is not one of the trappers*, and every revision after it refused | The trapper is not registered. Add it in *Settings › Trappers*, or turn on **Create the trappers**. |
+| *Luis Gómez is not one of the trappers*, and every revision after it refused | The trapper is not registered. Add it in *Settings › Trappers*, or turn on **Create the trappers that do not exist**. |
 | *Camera not in the research project* / *SD card not in the research project* | Register it in *Settings › Entities*, or turn on the matching switch of step 4. Remember that **the case counts** for a camera and a card: `7b` and `7B` are two cards. |
 | *R0043 cannot start: R0042 is not finished* | The revision before has sites with no visit. Load its file first, or use **Mark them as not visited and read again**. |
 | *First visit is not an Installation* | The first visit to a site puts the camera up. In the form that is *New site* (or *Inactive site*, for a site that has no camera and gets one). |
