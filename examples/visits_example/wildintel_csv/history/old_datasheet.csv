@@ -1,0 +1,24 @@
+Trappers,Session,Date,Time,DateTime,Site,Camera,Action,Status,CardBatteriesOK,NumPhotos,SD,DateTimeOK,Notes,Longitude,Latitude
+"Anna K., Piotr W.",R0001,2025-03-10,09:30,2025-03-10 09:30,EXAM_0001,11,Installation,OK,,,1a,,Height 60 cm,20.071,49.251
+"Anna K., Piotr W.",R0001,2025-03-10,10:15,2025-03-10 10:15,EXAM_0002,12,Installation,OK,,,2a,,,20.083,49.262
+"Anna K., Piotr W.",R0001,2025-03-10,11:05,2025-03-10 11:05,EXAM_0003,13,Installation,OK,,,3a,,,20.095,49.244
+"Anna K., Piotr W.",R0001,2025-03-10,12:00,2025-03-10 12:00,EXAM_0004,14,Installation,OK,,,4a,,,20.102,49.27
+Anna K.,R0002,2025-04-14,09:10,2025-04-14 09:10,EXAM_0001,11,Revision,OK,OK,812,1b,OK,,20.071,49.251
+Anna K.,R0002,2025-04-14,09:50,2025-04-14 09:50,EXAM_0002,12,Revision,OK,CardFull,,2b,OK,,20.083,49.262
+Anna K.,R0002,2025-04-14,10:40,2025-04-14 10:40,EXAM_0003,13,Revision,Altered,OK,230,3b,Bad,"Camera turned, put back",20.095,49.244
+Anna K.,R0002,2025-04-14,11:30,2025-04-14 11:30,EXAM_0004,14,Revision,OK,NoBatteries,95,4b,OK,,20.102,49.27
+"Anna K., Piotr W.",R0003,2025-05-19,08:45,2025-05-19 08:45,EXAM_0001,11,Stolen,OK,,,,,Camera stolen,20.071,49.251
+"Anna K., Piotr W.",R0003,2025-05-19,08:50,2025-05-19 08:50,EXAM_0001,15,Installation,OK,,,1c,,New camera after the theft,20.071,49.251
+"Anna K., Piotr W.",R0003,2025-05-19,09:40,2025-05-19 09:40,EXAM_0002,12,Desinstallation,OK,OK,640,,OK,Camera broken,20.083,49.262
+"Anna K., Piotr W.",R0003,2025-05-19,09:45,2025-05-19 09:45,EXAM_0002,16,Installation,OK,,,2c,,,20.083,49.262
+"Anna K., Piotr W.",R0003,2025-05-19,10:30,2025-05-19 10:30,EXAM_0003,13,Revision,OK,OK,NA,3c,OK,Photos not counted,20.095,49.244
+"Anna K., Piotr W.",R0003,2025-05-19,11:20,2025-05-19 11:20,EXAM_0004,14,Desinstallation,OK,OK,310,,OK,Camera taken away for a while,20.102,49.27
+Piotr W.,R0004,2025-06-23,08:30,2025-06-23 08:30,EXAM_0001,15,Revision,OK,OK,400,1d,OK,,20.071,49.251
+Piotr W.,R0004,2025-06-23,09:15,2025-06-23 09:15,EXAM_0002,16,Revision,Knocked down,OK,512,2d,OK,,20.083,49.262
+Piotr W.,R0004,2025-06-23,10:05,2025-06-23 10:05,EXAM_0003,13,Desinstallation,OK,OK,275,,OK,Site given up: flooded,20.095,49.244
+Piotr W.,R0004,2025-06-23,10:55,2025-06-23 10:55,EXAM_0004,14,Installation,OK,,,4c,,Camera back at the site,20.102,49.27
+Piotr W.,R0004,2025-06-23,11:40,2025-06-23 11:40,EXAM_0005,13,Installation,OK,,,5a,,New site,20.115,49.258
+"Anna K., Piotr W.",R0005,2025-07-28,08:20,2025-07-28 08:20,EXAM_0001,15,Stolen,OK,,,,,"Stolen again, no camera left",20.071,49.251
+"Anna K., Piotr W.",R0005,2025-07-28,09:05,2025-07-28 09:05,EXAM_0002,16,Revision,OK,CardFullNoBatteries,,2e,OK,,20.083,49.262
+"Anna K., Piotr W.",R0005,2025-07-28,09:55,2025-07-28 09:55,EXAM_0004,14,Revision,OK,OK,150,4d,OK,,20.102,49.27
+"Anna K., Piotr W.",R0005,2025-07-28,10:45,2025-07-28 10:45,EXAM_0005,13,Revision,OK,OK,222,5b,OK,,20.115,49.258

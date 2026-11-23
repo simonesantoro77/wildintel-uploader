@@ -93,6 +93,7 @@ nav:
       - Guides:
           - Import visits from Epicollect: guide-visits-epicollect.md
           - Import visits from a CSV: guide-visits-csv.md
+          - Convert your field history: guide-visits-history.md
   - Developer Manual: developer-manual.md
   - Features: features.md
   - Changelog: changelog.md

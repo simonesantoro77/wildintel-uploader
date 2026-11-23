@@ -11,7 +11,8 @@ You need:
 
 - **A research project** with its **locations** already defined. A site named in the file that is not a location of the project is held until you create it (see [step 6](#6-check-the-result)).
 - **The trappers, cameras and SD cards** the file names, registered in *Settings › Entities* — or, if you prefer, let the import create them (see [step 4](#4-choose-what-the-import-may-create)).
-- **The CSV file downloaded from the Epicollect5 project** of the WildINTEL form, one file per round of visits.
+- **The CSV file downloaded from the Epicollect5 project** of the WildINTEL form. A download has every entry of the project, not only the last trip: the visits already kept are skipped, so the same download can be read again after each field trip.
+- **Your field history**, if you have visits from before the form: convert it to this same format first, as [the guide for the field history](guide-visits-history.md) explains, and load it before the first download of the form.
 
 !!! tip "Load the revisions in order"
     A revision does not start until the one before it is finished (every expected site has its visit), and the visits of a revision are after those of the revisions before. So load the files **from the oldest to the newest**.
@@ -58,7 +59,7 @@ What a blank answer means is always the same: the field is not kept, and the rul
 | `19_baitUse` | Whether bait is used: *true*/*false*. | **Bait use** (yes/no). |
 | `20_featureType` | The kind of place the camera watches: `trailHiking`… | **Feature type**. |
 | `21_habitat` | The habitat. | **Habitat**. |
-| `22_SD_to_insert` | The card left in the camera, written by hand: `SD 1`, `sd-1` or `1`. | The **SD card left**: only its **number** is kept (`1`), whatever the way it is written. |
+| `22_SD_to_insert` | The card left in the camera, written by hand: `SD 1`, `sd-1` or `1`. | The **SD card left**. A leading *SD* is dropped and the rest is kept as written: `SD 1`, `sd-1` and `1` are the card `1`, but `7b` and `7B` are two cards. |
 | `23_Calibration` | Whether the camera was calibrated: *yes*/*no*. | **Camera calibrated** (yes/no). |
 | `24_Observations` | Free notes. | The **notes** of the visit. |
 | `lat_25_Coordinates`, `long_25_Coordinates` | Where the trapper was when the visit was noted. | The **coordinates of the visit**. They are the only ones the form has: a site made from a visit takes them as its own. |
@@ -97,7 +98,7 @@ The batteries and the card are two questions. Their answers are kept as the **st
 
 1. Open the project of the WildINTEL form on [Epicollect5](https://five.epicollect.net/) and go to its **data** (the entries).
 2. Choose **Download** and, as the format, **CSV**, with the entries of the form that has the visits.
-3. Save the file. **Do not edit it, rename its columns or open and save it again in a spreadsheet**: the application finds each column by the label of its question (`3_locationID`, `4_Status_of_the_came`, `22_SD_to_insert`…), and a spreadsheet can change dates, accents and separators.
+3. Save the file. **Do not edit it, rename its columns or open and save it again in a spreadsheet**: the application finds each column by the label of its question (`3_locationID`, `4_Status_of_the_came`, `22_SD_to_insert`…), and a spreadsheet can change dates, accents and separators. A field history written in this format is the one file made by hand: see [the guide for the field history](guide-visits-history.md).
 
 !!! note "Nothing to map"
     The columns of this form are known, so unlike a custom CSV **no mapping is asked**.

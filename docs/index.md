@@ -43,7 +43,7 @@ visits, importing a deployment or several deployments at once, uploading to TRAP
 
 ### [Guides](guide-visits-epicollect.md)
 
-Step-by-step walk-throughs of one task: [import the visits from the WildINTEL Epicollect CSV](guide-visits-epicollect.md) and [from a custom CSV](guide-visits-csv.md).
+Step-by-step walk-throughs of one task: [import the visits from the WildINTEL Epicollect CSV](guide-visits-epicollect.md) and [from a custom CSV](guide-visits-csv.md), and [convert your field history](guide-visits-history.md) to the format of the form.
 
 ### [User Manual — command line](user-manual-cli.md)
 
