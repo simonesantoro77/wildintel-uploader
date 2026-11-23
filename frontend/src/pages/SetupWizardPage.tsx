@@ -259,7 +259,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={2} title="The trappers" status={status(2)} canEdit={false} onEdit={() => {}} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The people who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded.">
+      <WizardStep n={2} title="The trappers" status={status(2)} canEdit={false} onEdit={() => {}} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The people who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
         {step === 2 && (
           <AddList noun="trapper" added={chips(trappers, (t) => t.name)} onRemove={(k) => setTrappers((l) => l.filter((t) => t.name !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how the app and TRAPPER know the person.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
@@ -283,7 +283,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
           ))}
       </WizardStep>
 
-      <WizardStep n={4} title="The locations" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files.">
+      <WizardStep n={4} title="The locations" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files. If you add them here, write their ids exactly as the field files do (DONA_0012), or they will be taken as new ones.">
         {step === 4 && (
           <AddList noun="site" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'id', label: 'Location id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'On if the camera clocks are not changed in summer.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
@@ -296,7 +296,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={5} title="The cameras" status={status(5)} canEdit={false} onEdit={() => {}} summary={summary(cameras.map((c) => c.label), 'cameras')} description="Each camera by the name it has in the field, with its serial number and model if you know them. Skip this step to create them from the field files.">
+      <WizardStep n={5} title="The cameras" status={status(5)} canEdit={false} onEdit={() => {}} summary={summary(cameras.map((c) => c.label), 'cameras')} description="Each camera by the name it has in the field, with its serial number and model if you know them. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do.">
         {step === 5 && (
           <AddList noun="camera" added={chips(cameras, (c) => c.label)} onRemove={(k) => setCameras((l) => l.filter((c) => c.label !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'label', label: 'Label', required: true }, { name: 'camera_id', label: 'Serial number' }, { name: 'camera_model', label: 'Model' }]}
@@ -307,7 +307,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={6} title="The SD cards" status={status(6)} canEdit={false} onEdit={() => {}} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by the name written on it (7, 7b, 10B). Brand and capacity are optional. Skip this step to create them from the field files.">
+      <WizardStep n={6} title="The SD cards" status={status(6)} canEdit={false} onEdit={() => {}} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by the name written on it (7, 7b, 10B). Brand and capacity are optional. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do: 7b and 7B are two cards.">
         {step === 6 && (
           <AddList noun="SD card" added={chips(cards, (c) => c.label)} onRemove={(k) => setCards((l) => l.filter((c) => c.label !== k))} onContinue={next} continueLabel="Review" onSkip={next}
             fields={[{ name: 'label', label: 'Label', required: true }, { name: 'brand', label: 'Brand' }, { name: 'capacity', label: 'Capacity', hint: 'For example 64 GB.' }]}
