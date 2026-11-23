@@ -11,7 +11,8 @@ site_dir: site
 theme:
   name: material
   language: en
-  logo: img/wildIntel_logo.webp
+  custom_dir: overrides            # partials/logo.html shows two logos in the header
+  logo: img/wildIntel_logo_cropped.webp
   favicon: img/wildintel-uploader-icon.png
 
   palette:
@@ -37,6 +38,7 @@ theme:
     - content.code.annotate
 
 extra:
+  uploader_logo: img/wildintel-uploader-icon.svg
   version:
     provider: mike
   social:

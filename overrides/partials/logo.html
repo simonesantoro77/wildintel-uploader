@@ -1,0 +1,15 @@
+{#-
+  Header and drawer logo: the WildINTEL logo (theme.logo) and the icon of the uploader (extra.uploader_logo)
+  side by side. Replaces Material's partial, which takes a single logo.
+-#}
+{% if config.theme.logo %}
+  <span class="md-logos">
+    <img class="md-logos__wildintel" src="{{ config.theme.logo | url }}" alt="WildINTEL">
+    {% if config.extra.uploader_logo %}
+      <img src="{{ config.extra.uploader_logo | url }}" alt="WildINTEL Uploader">
+    {% endif %}
+  </span>
+{% else %}
+  {% set icon = config.theme.icon.logo or "material/library" %}
+  {% include ".icons/" ~ icon ~ ".svg" %}
+{% endif %}
