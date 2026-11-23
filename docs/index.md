@@ -1,6 +1,7 @@
 # WildINTEL Uploader
 
-![WildINTEL](img/wildIntel_logo.webp){ style="display: block; margin: 0 auto;" }
+![WildINTEL](img/wildIntel_logo_cropped.webp){ .logo }
+![WildINTEL Uploader](img/wildintel-uploader-icon.svg){ .logo }
 
 **WildINTEL Uploader** is an open-source desktop web application that takes the images of a
 camera-trap deployment — copied off the camera's SD card — checks them, organizes them in a
