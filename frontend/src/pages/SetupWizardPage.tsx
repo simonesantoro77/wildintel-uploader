@@ -117,7 +117,7 @@ function AddList({ noun, fields, onAdd, added, onRemove, onContinue, continueLab
       )}
       <div className="mt-5 flex gap-2">
         <button type="button" className={btnPrimary} onClick={onContinue}>{continueLabel}<span aria-hidden="true"> →</span></button>
-        {added.length === 0 && <button type="button" className={btnOutline} onClick={onSkip}>Skip, I will do it later</button>}
+        {added.length === 0 && <button type="button" className={btnOutline} onClick={onSkip}>Skip this step</button>}
       </div>
     </div>
   )
@@ -164,7 +164,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
   const people = [...new Set([...known, ...trappers.map((t) => t.name)])]
 
   const status = (n: number) => (n < step ? 'done' : n === step ? 'open' : 'locked') as 'done' | 'open' | 'locked'
-  const summary = (list: string[], noun: string): ReactNode => (list.length === 0 ? 'Skipped — to be done later in Settings › Entities.' : `${list.length} ${list.length === 1 ? noun.slice(0, -1) : noun} entered: ${list.join(', ')}`)
+  const summary = (list: string[], noun: string): ReactNode => (list.length === 0 ? 'Skipped: they can be added later in Settings › Entities, or created from the field files.' : `${list.length} ${list.length === 1 ? noun.slice(0, -1) : noun} entered: ${list.join(', ')}`)
   const next = () => setStep((s) => s + 1)
   const lower = (x: string) => x.trim().toLowerCase()
 
@@ -239,10 +239,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     <div className={PAGE_CLASS}>
       <datalist id="setup-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
       <PageHeader icon={UTIL_ICONS.setup} title="Initial setup" parent="Utilities" onParent={onBack}
-        description="A guide that asks, step by step, for the research project, its trappers and their roles, its sites, its cameras and its SD cards." />
+        description="Set up a research project, once. Only its name is needed now: the trappers, locations, cameras and SD cards can also be created later, from the field files." />
 
       <WizardStep n={1} title="The research project" status={status(1)} canEdit={false} onEdit={() => {}}
-                  summary={<><span className="font-mono">{code}</span> — {name.trim()}</>} description="Its acronym — it names its folder — and its name. The rest is filled in later in Settings › Entities.">
+                  summary={<><span className="font-mono">{code}</span> — {name.trim()}</>} description="A short acronym (it also names its folder, for example DONA_24) and its full name. Everything else can be filled in later in Settings › Entities.">
         {step === 1 && (
           <form onSubmit={(e) => { e.preventDefault(); if (projectOk) next() }} className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="The research project">
             <div>
@@ -259,10 +259,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={2} title="The trappers" status={status(2)} canEdit={false} onEdit={() => {}} summary={summary(trappers.map((t) => t.name), 'trappers')} description="Who goes to the field. The username is what the trapper is called in the app.">
+      <WizardStep n={2} title="The trappers" status={status(2)} canEdit={false} onEdit={() => {}} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The people who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded.">
         {step === 2 && (
           <AddList noun="trapper" added={chips(trappers, (t) => t.name)} onRemove={(k) => setTrappers((l) => l.filter((t) => t.name !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'username', label: 'Username', required: true }, { name: 'name', label: 'Full name', required: true, hint: 'How a visit says who went.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
+            fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how the app and TRAPPER know the person.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
             onAdd={(v) => {
               if (trappers.some((t) => lower(t.username) === lower(v.username))) throw new Error(`There is a trapper with the username ${v.username.trim()} already.`)
               setTrappers((l) => [...l, { username: v.username.trim(), name: v.name.trim(), affiliation: v.affiliation.trim(), email: v.email.trim() }])
@@ -270,7 +270,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={3} title="Their roles in the research project" status={status(3)} canEdit={false} onEdit={() => {}} summary={summary(roles.map((r) => `${r.trapper} · ${roleName(r.role)}`), 'roles')} description="What each trapper is in the research project.">
+      <WizardStep n={3} title="Their roles in the research project" status={status(3)} canEdit={false} onEdit={() => {}} summary={summary(roles.map((r) => `${r.trapper} · ${roleName(r.role)}`), 'roles')} description="Optional. What each person is in the research project (principal investigator, contact, rights holder…), as it will appear in the published data.">
         {step === 3 && (people.length === 0
           ? <><p className="text-sm text-zinc-600 dark:text-zinc-300">There are no trappers to give a role to.</p><div className="mt-4"><button type="button" className={btnOutline} onClick={next}>Continue<span aria-hidden="true"> →</span></button></div></>
           : (
@@ -283,10 +283,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
           ))}
       </WizardStep>
 
-      <WizardStep n={4} title="The sites" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="Where the cameras are put up: an id, where it is and its timezone.">
+      <WizardStep n={4} title="The locations" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files.">
         {step === 4 && (
           <AddList noun="site" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'id', label: 'Site id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
+            fields={[{ name: 'id', label: 'Location id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'On if the camera clocks are not changed in summer.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
             onAdd={(v) => {
               const latitude = Number(v.latitude), longitude = Number(v.longitude)
               if (!(latitude >= -90 && latitude <= 90) || !(longitude >= -180 && longitude <= 180)) throw new Error('The coordinates must lie within −90 to 90 and −180 to 180.')
@@ -296,7 +296,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={5} title="The cameras" status={status(5)} canEdit={false} onEdit={() => {}} summary={summary(cameras.map((c) => c.label), 'cameras')} description="What each camera is called in the field, its serial number and its model.">
+      <WizardStep n={5} title="The cameras" status={status(5)} canEdit={false} onEdit={() => {}} summary={summary(cameras.map((c) => c.label), 'cameras')} description="Each camera by the name it has in the field, with its serial number and model if you know them. Skip this step to create them from the field files.">
         {step === 5 && (
           <AddList noun="camera" added={chips(cameras, (c) => c.label)} onRemove={(k) => setCameras((l) => l.filter((c) => c.label !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'label', label: 'Label', required: true }, { name: 'camera_id', label: 'Serial number' }, { name: 'camera_model', label: 'Model' }]}
@@ -307,7 +307,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={6} title="The SD cards" status={status(6)} canEdit={false} onEdit={() => {}} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by its number or the label on it, its brand and its capacity.">
+      <WizardStep n={6} title="The SD cards" status={status(6)} canEdit={false} onEdit={() => {}} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by the name written on it (7, 7b, 10B). Brand and capacity are optional. Skip this step to create them from the field files.">
         {step === 6 && (
           <AddList noun="SD card" added={chips(cards, (c) => c.label)} onRemove={(k) => setCards((l) => l.filter((c) => c.label !== k))} onContinue={next} continueLabel="Review" onSkip={next}
             fields={[{ name: 'label', label: 'Label', required: true }, { name: 'brand', label: 'Brand' }, { name: 'capacity', label: 'Capacity', hint: 'For example 64 GB.' }]}
@@ -319,7 +319,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       </WizardStep>
 
       {step >= 7 && (
-        <WizardStep n={7} title="Review" status={step === 7 ? 'open' : 'done'} canEdit={false} onEdit={() => {}} summary="What was going to be done was done." description="What is going to be done, before it is.">
+        <WizardStep n={7} title="Review" status={step === 7 ? 'open' : 'done'} canEdit={false} onEdit={() => {}} summary="What was going to be done was done." description="Check what is going to be created. Nothing is created until you confirm.">
           {step === 7 && (
             <div className="space-y-4">
               <section aria-label="What is going to be done" className={CARD}>

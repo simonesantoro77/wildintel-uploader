@@ -53,9 +53,9 @@ const MAPPING_ICONS: Record<string, ReactNode> = {
 }
 
 const SOURCE_OPTIONS: { value: VisitSource; icon: ReactNode; title: string; description: string }[] = [
-  { value: 'manual', icon: <><path d="M18 11V6a2 2 0 0 0-4 0v4" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" /></>, title: 'By hand', description: 'Enter each visit yourself, following the field flow: the site, when, who went and what was done.' },
-  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'Custom CSV', description: 'A CSV of any shape: say which column gives each field of a visit.' },
-  { value: 'wildintel-new', icon: <><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></>, title: 'WildINTEL Epicollect CSV', description: 'Read the visits of a field trip from the CSV downloaded from the new WildINTEL Epicollect project.' },
+  { value: 'manual', icon: <><path d="M18 11V6a2 2 0 0 0-4 0v4" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" /></>, title: 'By hand', description: 'Enter one visit at a time: the location, when, who went and what was done.' },
+  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'Custom CSV', description: 'Any other spreadsheet saved as CSV, with one row per visit. In the next step you say which column is which.' },
+  { value: 'wildintel-new', icon: <><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></>, title: 'WildINTEL Epicollect CSV', description: 'The file downloaded from the WildINTEL field form in Epicollect5. Nothing to set up: the columns of the form are recognised.' },
 ]
 
 /** The icon of the SD card section, drawn as those of the sections of the details are. */
@@ -966,7 +966,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 border-b border-zinc-200 dark:border-zinc-700 pb-5 sm:grid-cols-2">
           <div>
             <label htmlFor="epicollect-timezone" className={labelClass}>Timezone of the new locations</label>
-            <p className={hintClass}>The form does not say it. The coordinates of a new location are the ones of its first visit.</p>
+            <p className={hintClass}>Only for the locations this file adds. Their coordinates are those of their first visit.</p>
           </div>
           <div>
             <TimezoneCombobox id="epicollect-timezone" value={csvDefaults.timezone ?? 'UTC'}
@@ -980,26 +980,26 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                             className={`flex-1 px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${(csvDefaults.daylight_saving ?? 'yes') === v ? 'bg-blue-600 text-white shadow' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'}`}>{v === 'yes' ? 'Yes' : 'No'}</button>
                   ))}
                 </div>
-                <p className={hintClass}>Enable if camera clocks shift +1h during daylight saving time.</p>
+                <p className={hintClass}>Yes if the camera clocks are moved forward one hour in summer.</p>
               </div>
             )}
           </div>
         </div>
       )}
-      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Auto-create missing entities (4)</h6>
+      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Add what the app does not have yet (4)</h6>
       {([
-        ['locations', 'Create the locations that do not exist', 'Needs its coordinates (latitude and longitude) and its timezone; its name is optional.'],
-        ['cameras', 'Create the cameras that do not exist', 'Needs the camera id and its model.'],
-        ['sd_cards', 'Create the SD cards that do not exist', 'Needs the SD card id and its brand; its capacity is optional.'],
-        ['trappers', 'Create the trappers that do not exist', 'Each person a row says went, who is not a trapper yet, is made as the row calls them: their username is worked out from the name, and the rest is completed in Settings › Trappers.'],
+        ['locations', 'Create the locations that do not exist', 'A location the file names that the research project does not have yet is added. From the WildINTEL form it takes the coordinates of its first visit; from a custom CSV it needs its coordinates and timezone.'],
+        ['cameras', 'Create the cameras that do not exist', 'A camera the file names that the app does not have yet is added. From a custom CSV it needs its model.'],
+        ['sd_cards', 'Create the SD cards that do not exist', 'A card the file names that the app does not have yet is added, with its name as written: 7b and 7B are two cards. From a custom CSV it needs its brand.'],
+        ['trappers', 'Create the trappers that do not exist', 'A person the file says went who is not a trapper yet is added: the username is made from the name (Ana Pérez becomes ana.perez). Complete them later in Settings › Trappers.'],
       ] as const).map(([entity, label, hint]) => {
         const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
         return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
       })}
-      <h6 className="pt-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Validation &amp; revision rules (3)</h6>
-      <SwitchRow label="The images were not counted" hint="For an old datasheet that has no count of the images on the cards: a Revision or a Desinstallation with no count is accepted as it is, with no number invented, and the images of its deployment are not checked against a count it has not." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
-      <SwitchRow label="Use the coordinates of the location when a row has none" hint="The coordinates of a visit are required: a row that gives them by a column or a default keeps them, and one that gives none takes those of its location. With this off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
-      <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision starts when the one before it is finished. With this on, the locations still planned in it are marked as not visited, so the file can add the revision after it. An unknown revision is not closed: nothing is known of it." checked={csvClose} onChange={setCsvClose} />
+      <h6 className="pt-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Rows with something missing (3)</h6>
+      <SwitchRow label="The images were not counted" hint="For old datasheets: a visit that collected a card but has no image count is accepted, and the count is left empty." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
+      <SwitchRow label="Use the coordinates of the location when a row has none" hint="A row with no coordinates takes those of its location. Off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
+      <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision can only be added when the one before it is complete. On, the locations with no visit in the revision before are marked as not visited." checked={csvClose} onChange={setCsvClose} />
     </div>
   )
   const mappedEnough = given('location_id') && given('actions') && (given('when') || given('created_at') || (given('date') && given('time'))) && createdNeeds.every((f) => given(f.field))
@@ -1155,10 +1155,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="The visits to the camera traps, from which the deployments are worked out." parent="Menu" onParent={onBack} />
+      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Bring in the visits to the camera traps. From them the app knows which images belong to which camera, location and period." parent="Menu" onParent={onBack} />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary
-        description="Enter them by hand, or read them from a file."
+        description="Load them from a file, or enter them one by one."
         summary={chosen?.title}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1651,7 +1651,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {!defaultProject && (
             <WizardStep
               n={2} title="Which research project?" status={project ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { setProject(undefined); forgetCsv(); setCsvName(null) }}
-              description="The visits are kept in the visits file of a research project of the collections folder; the sites of the file must be its locations."
+              description="The research project the visits belong to. The locations in the file must be locations of this project, or be added when the file is loaded."
               summary={project?.acronym}
             >
               <ResearchProjectPicker value={project?.acronym ?? ''} onSelect={(picked) => { setProject(picked); forgetCsv(); setCsvName(null) }} />
@@ -1660,8 +1660,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
           <WizardStep
             n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
-            description={source === 'wildintel-new' ? 'Drop the CSV downloaded from Epicollect. Columns are matched automatically by question label.'
-              : 'Any spreadsheet file with a row per visit. Next, you say which column gives each field of a visit.'}
+            description={source === 'wildintel-new' ? 'The CSV downloaded from the WildINTEL form in Epicollect5. Its columns are recognised by themselves: there is nothing to match.'
+              : 'A CSV with one row per visit. In the next step you say which column is each field.'}
             summary={csvName}
           >
             {source === 'csv' && sourcesUsed.epicollect && (
@@ -1679,7 +1679,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                   <button type="button" className={btnPrimary} disabled={downloading} onClick={() => void downloadEpicollect()}>{downloading ? 'Downloading…' : csvColumns ? 'Download again' : 'Download the entries'}</button>
                   {csvName && <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{csvName}</span>}
                 </div>
-                <p className={hintClass}>The entries of the project and the connection set in Settings › Visit sources are downloaded as a CSV with a row per entry. Next, you say which column gives each field of a visit.</p>
+                <p className={hintClass}>Downloads the entries of the Epicollect5 project set in Settings › Visit sources › Epicollect5 connection, one row per entry. In the next step you say which column is each field.</p>
               </div>
             ) : (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 space-y-3">
@@ -1703,7 +1703,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{csvName ?? 'No file chosen'}</span>
                 <input id="visits-csv" aria-label="CSV file" type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void readCsv(file) }} />
               </label>
-              <p className={hintClass}>Visits that do not have a number yet get the next one for their site. A visit that is already kept (the same revision and site, whatever the day) is left as it is; one with no number, if it has the same site, day and time.</p>
+              <p className={hintClass}>A visit the app already has (the same revision and location) is not loaded again, so the same file can be read more than once. A row with no revision gets the next one of its location.</p>
             </div>
             )}
             {(source === 'csv' || source === 'wildintel-new') && (
@@ -1712,11 +1712,11 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Create what does not exist</span>
+                      <span className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Options of the import</span>
                       <span className="rounded-md border border-zinc-200 dark:border-zinc-700 px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400">{importRulesOpen ? 'Expanded' : defaultOptions && defaultTimezone ? 'Default preset' : 'Customized'}</span>
                     </div>
                     <h5 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Import &amp; auto-creation rules</h5>
-                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400"><span aria-label="Options marked">Options enabled ({optionsOn} / 7)</span>{source === 'wildintel-new' && csvCreate.locations && <> · Timezone: {csvDefaults.timezone || 'UTC'}</>}</p>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400"><span aria-label="Options marked">Options on: {optionsOn} of 7</span>{source === 'wildintel-new' && csvCreate.locations && <> · Timezone: {csvDefaults.timezone || 'UTC'}</>}</p>
                   </div>
                   <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} aria-expanded={importRulesOpen} aria-controls="visit-import-rules" onClick={() => setImportRulesOpen((open) => !open)}>
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 text-sky-500 dark:text-sky-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h7M15 6h5M4 12h3M11 12h9M4 18h9M17 18h3M11 4v4M7 10v4M13 16v4" /></svg>
@@ -1731,7 +1731,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${everyOption || optionsOn > 0 ? 'translate-x-5' : ''}`} />
                     </button>
                   </div>
-                  {source === 'csv' && <p className={`${hintClass} mb-3`}>Creating entities asks for more fields in the column matching, where defaults can also be given.</p>}
+                  {source === 'csv' && <p className={`${hintClass} mb-3`}>Adding new locations, cameras or cards asks for more columns in the next step, or a default value.</p>}
                   {createSwitches}
                 </div>}
               </fieldset>
@@ -1746,7 +1746,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {source === 'csv' && (
             <WizardStep
               n={defaultProject ? 3 : 4} title="Match the columns" status={!csvColumns || !fileConfirmed ? 'locked' : csvResult ? 'done' : 'open'} sealed={csvSaved !== null} summary={csvSaved !== null ? 'The columns of the file' : undefined} canEdit={csvSaved === null} onEdit={() => { setCsvResult(null); setCsvSaved(null) }}
-              description="For each field of a visit, the column of the file that gives it. What the file has by the names a visit uses is already matched; leave a field with no column if the file does not have it."
+              description="For each field of a visit, choose the column of the file that has it. Columns with the same name are already chosen. Leave a field empty if the file does not have it."
             >
               {csvColumns && (
                 <>
@@ -1810,10 +1810,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             </WizardStep>
           )}
 
-          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="What the file says, before it is kept."
+          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="The app checks every row. Nothing is saved yet."
                       action={csvResult && csvSaved == null && fileConfirmed && !csvConfirming && (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={rechecking} onClick={() => void recheckCsv()}
-                                title="Check the file again against what is kept now: the visits, the locations and the settings">
+                                title="Check the file again, for example after adding locations in the settings">
                           <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-4 w-4 fill-none stroke-current ${rechecking ? 'animate-spin' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12a8 8 0 11-2.3-5.7M20 4v5h-5" /></svg>
                           {rechecking ? 'Checking…' : 'Check again'}
                         </button>
@@ -1911,7 +1911,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             ]
             const shownVisits = added.slice(0, 10)
             return (
-              <WizardStep n={(source === 'csv' ? 6 : 5) - (defaultProject ? 1 : 0)} title={csvSaved === null ? 'Review and confirm' : 'Review and continue'} status="open" canEdit={false} onEdit={() => {}} description={csvSaved === null ? 'What is going to be saved, before it is.' : 'What was saved, and what to do next.'}>
+              <WizardStep n={(source === 'csv' ? 6 : 5) - (defaultProject ? 1 : 0)} title={csvSaved === null ? 'Review and confirm' : 'Review and continue'} status="open" canEdit={false} onEdit={() => {}} description={csvSaved === null ? 'What will be saved. Nothing is saved until you confirm.' : 'What was saved, and what to do next.'}>
                 {csvSaved === null ? (
                   <>
                     <section aria-label="What is going to be saved" className={REVIEW_CARD}>
