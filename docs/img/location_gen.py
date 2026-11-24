@@ -20,7 +20,7 @@ def generate():
         '<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#475569"/></marker></defs>',
         '<rect width="960" height="550" rx="18" fill="#fff" stroke="#d4d4d8"/>',
         '<text x="30" y="40" font-size="15" font-weight="700" fill="#2563eb" letter-spacing="1">THE LIFE OF A LOCATION</text>',
-        '<text x="30" y="68" font-size="13" fill="#475569">A site with coordinates, a timezone and a summer-time setting.</text>',
+        '<text x="30" y="68" font-size="13" fill="#475569">A location with coordinates, a timezone and a summer-time setting.</text>',
     ]
     cells = ['<mxCell id="0"/>', '<mxCell id="1" parent="0"/>']
 
@@ -47,12 +47,12 @@ def generate():
         '<path d="M420 230 H485" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<path d="M650 230 H715" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<text x="225" y="208" text-anchor="middle" font-size="11" fill="#475569">Settings</text>',
-        '<text x="455" y="202" text-anchor="middle" font-size="11" fill="#475569">Site start</text>',
+        '<text x="455" y="202" text-anchor="middle" font-size="11" fill="#475569">Location start</text>',
         '<text x="455" y="217" text-anchor="middle" font-size="11" fill="#475569">or Settings</text>',
         '<text x="685" y="208" text-anchor="middle" font-size="11" fill="#475569">Install</text>',
         '<path d="M340 190 V132 H800 V185" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<rect x="463" y="119" width="215" height="24" rx="8" fill="#fff"/>',
-        '<text x="570" y="136" text-anchor="middle" font-size="12" fill="#475569">Site start + Installation</text>',
+        '<text x="570" y="136" text-anchor="middle" font-size="12" fill="#475569">Location start + Installation</text>',
         '<path d="M800 270 V313 H625 V275" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<rect x="632" y="300" width="160" height="25" rx="8" fill="#fff"/>',
         '<text x="712" y="317" text-anchor="middle" font-size="11" fill="#475569">Camera removed or stolen</text>',
@@ -65,16 +65,16 @@ def generate():
         '<text x="480" y="453" text-anchor="middle" font-size="12" fill="#475569">Out of use for good</text>',
         '<text x="480" y="380" text-anchor="middle" font-size="12" fill="#475569">Archive: Settings * from any state, or an Archive visit</text>',
         '<path d="M480 388 V400" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
-        '<text x="30" y="502" font-size="12" fill="#64748b">* Settings can mark a site Planned or Archived only when no camera is out and no visit is still due.</text>',
+        '<text x="30" y="502" font-size="12" fill="#64748b">* Settings can mark a location Planned or Archived only when no camera is out and no visit is still due.</text>',
         '<text x="30" y="522" font-size="12" fill="#64748b">Settings can also change non-archived states subject to visit history. Archived is final.</text>',
         '</svg>',
     ]
     vertex("archived", "<b>Archived</b><br><font style='font-size:12px'>Out of use for good</font>", 365, 405, 230, 65,
            "rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#64748b;strokeWidth=2;fontColor=#334155;fontSize=17;")
     edge("planned-pending", "planned", "pending", "Settings")
-    edge("pending-ready", "pending", "ready", "Site start or Settings")
+    edge("pending-ready", "pending", "ready", "Location start or Settings")
     edge("ready-active", "ready", "active", "Installation")
-    edge("pending-active", "pending", "active", "Site start + Installation", [(340, 132), (800, 132)],
+    edge("pending-active", "pending", "active", "Location start + Installation", [(340, 132), (800, 132)],
          "exitX=0.5;exitY=0;entryX=0.5;entryY=0;")
     edge("active-ready", "active", "ready", "Camera removed or stolen", [(800, 313), (625, 313)],
          "exitX=0.5;exitY=1;entryX=0.84;entryY=1;")
