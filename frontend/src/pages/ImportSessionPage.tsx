@@ -1033,12 +1033,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               const target = session ?? (shown[0] ? revisionOfVisit(shown[0]) : null)
               return (
                 <>
-                <FormCard title="During which revision?" description="Only the visits that have no deployment yet are offered.">
+                <FormCard title="Revisions" description="Pick one to see only its visits, or all of them.">
                   <RevisionSquares all={{ label: 'All revisions', note: plural(closedVisits.length, 'visit to import', 'visits to import') }} value={session ? String(session) : ''}
                     revisions={revisions.map((r) => ({ id: String(r), label: `R${String(r).padStart(4, '0')}`, note: plural(closedVisits.filter((c) => revisionOfVisit(c) === r).length, 'visit to import', 'visits to import') }))}
                     onPick={(id) => pickRevision(id ? Number(id) : null)} />
                 </FormCard>
-                <FormCard title="Visits" description={`Tick the visits in which you put your SD cards, all of one revision. Each folder will be one of them: it says where and when it was taken.`}>
+                <FormCard title="Visits" description={`Tick the visits in which you put your SD cards, all of one revision. Each image folder will be one of them: it says where and when it was taken.`}>
                   <ClosedVisitsTable
                     visits={shown}
                     many={{
@@ -1056,7 +1056,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   <FormCard title="How do you want to import them?" description="All at once takes a folder with a subfolder of images for each. One after another asks for each deployment in turn, the first, then the second…">
                     <div role="radiogroup" aria-label="How to import them" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {([['all', 'All at once', 'One folder with a subfolder for each visit: the checks, the details and the preparation are done for all of them together.'],
-                         ['one', 'One after another', 'Each deployment goes through the whole flow before the next one: its folder, its checks, its details and its saving.']] as const).map(([value, label, hint]) => (
+                         ['one', 'One after another', 'Each visit goes through the whole flow before the next one: its image folder, its checks, its details and its saving.']] as const).map(([value, label, hint]) => (
                         <label key={value} className={`block cursor-pointer rounded-xl border px-4 py-3 ${how === value ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700'}`}>
                           <span className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100"><input type="radio" name="how-to-import" checked={how === value} onChange={() => setHow(value)} />{label}</span>
                           <span className="mt-1 block text-sm text-zinc-600 dark:text-zinc-300">{hint}</span>
