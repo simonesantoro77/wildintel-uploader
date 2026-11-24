@@ -139,7 +139,7 @@ describe('App', () => {
   it('shows the welcome screen, not the unfinished sessions, when the title is pressed — and the sessions after Get Started', async () => {
     mockedApi.listSessions.mockResolvedValue(UNFINISHED)
     render(<App />)
-    await userEvent.click(await title()) // the sessions are offered first when the app starts
+    await userEvent.click(await title()) // the sessions are offered first when WildINTEL Uploader starts
 
     expect(await screen.findByRole('button', { name: /^(get started|continue)/i })).toBeInTheDocument()
     await getStarted()

@@ -1,5 +1,5 @@
 /** What a visit did, as the interface says it: the actions are kept by their names (`SiteStart`), and told as words. */
-const LABELS: Record<string, string> = { SiteStart: 'Site start' }
+const LABELS: Record<string, string> = { SiteStart: 'Location start' }
 
 export const actionLabel = (action: string): string => LABELS[action] ?? action
 export const actionsLabel = (actions: readonly string[], separator = ' + '): string => actions.map(actionLabel).join(separator)

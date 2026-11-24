@@ -565,7 +565,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
                 count.setdefault((v["session"], v["location_id"].lower(), action), []).append(v)
     for (session, site, action), of in sorted(count.items(), key=lambda kv: kv[0]):
         if len(of) > 1:
-            hint = " (typo in the site number?)" if action == "Installation" else ""
+            hint = " (typo in the location number?)" if action == "Installation" else ""
             say(f"{session}: {site} has {len(of)} \"{action}\" entries in the same revision{hint}.", *of)
 
     for v in new:
@@ -600,7 +600,7 @@ def history_warning_items(new: list[dict], kept: list[dict], cards: list[dict] |
         for (session, _, shown), of in sorted(by.items(), key=lambda kv: kv[0]):
             sites = {v["location_id"] for v in of}
             if len(sites) > 1:
-                say(f"{session}: {what.lower()} {shown} is at {len(sites)} sites ({', '.join(sorted(sites))}).", *of)
+                say(f"{session}: {what.lower()} {shown} is at {len(sites)} locations ({', '.join(sorted(sites))}).", *of)
     return list(items.items())
 
 
@@ -658,7 +658,7 @@ def refusals(visit: dict, kept: list[dict], locations: list[dict], cards: list[d
     it is the first to its site and not an Installation, it lacks what its actions ask, or its camera or card are not where it says. Empty when it can be kept."""
     reasons = []
     if not any(_same(l.get("location_id"), visit["location_id"]) for l in locations):
-        reasons.append(_reason("site_not_a_location", f"The site '{visit['location_id']}' is not a location of the research project."))
+        reasons.append(_reason("site_not_a_location", f"'{visit['location_id']}' is not a location of the research project."))
     if any(v.get("date") == visit["date"] and v.get("time") == visit["time"] for v in _site_visits(kept, visit["location_id"])):
         reasons.append(_reason("visit_at_the_same_time", f"There is already a visit to {visit['location_id']} on {visit['date']} at {visit['time']}."))
     reasons += order_errors(visit, kept)
@@ -683,7 +683,7 @@ def site_start_errors(visit: dict, kept: list[dict]) -> list[str]:
     here = _site_visits(kept, site)
     before = [v for v in here if _stamp(v) < _stamp(visit)]
     if any(SITE_START in (v.get("actions") or []) for v in here):
-        return [_reason("site_start_repeated", f"{site} has started already: a site starts once.")]
+        return [_reason("site_start_repeated", f"{site} has started already: a location starts once.")]
     if before:
         return [_reason("site_start_not_first", f"The start of {site} has to be its first visit: it has visits before ({before[0].get('session')} on {before[0]['date']}).")]
     return []
@@ -697,7 +697,7 @@ def order_errors(visit: dict, kept: list[dict]) -> list[str]:
     site = str(visit["location_id"]).strip()
     here = _site_visits(kept, site)
     if number is not None and any(_session_number(v.get("session")) == number for v in here):
-        errors.append(_reason("visit_repeated", f"{site} already has a visit in R{number:04d}: a revision is one visit to each site."))
+        errors.append(_reason("visit_repeated", f"{site} already has a visit in R{number:04d}: a revision is one visit to each location."))
     last = max(here, key=_stamp, default=None)
     if last is not None and _stamp(last) >= _stamp(visit):
         errors.append(_reason("visit_not_after_the_last", f"The visit to {site} has to be after the last one, on {last['date']} at {last['time']} ({last.get('session')})."))
@@ -715,14 +715,14 @@ def _replay(visit: dict, others: list[dict], locations: list[dict], cards: list[
     number = _session_number(visit.get("session"))
     found: list[tuple[tuple[str, str] | None, str]] = []
     if number is not None and any(_same(v["location_id"], visit["location_id"]) and _session_number(v.get("session")) == number for v in others):
-        found.append((None, _reason("visit_repeated", f"{visit['location_id']} already has a visit in R{number:04d}: a revision is one visit to each site.")))
+        found.append((None, _reason("visit_repeated", f"{visit['location_id']} already has a visit in R{number:04d}: a revision is one visit to each location.")))
     found += [(None, why) for why in refusals(visit, [v for v in others if _stamp(v) < stamp], locations, cards, unknown)]
     # a site starts once, with its first visit: the visits after this one say it, or this one is before the visit that says it
     site_later = [v for v in others if _same(v["location_id"], visit["location_id"]) and _stamp(v) > stamp]
     if SITE_START in (visit.get("actions") or []) and any(SITE_START in (v.get("actions") or []) for v in others if _same(v["location_id"], visit["location_id"])):
-        found.append((None, _reason("site_start_repeated", f"{visit['location_id']} has started already: a site starts once.")))
+        found.append((None, _reason("site_start_repeated", f"{visit['location_id']} has started already: a location starts once.")))
     elif SITE_START not in (visit.get("actions") or []) and any(SITE_START in (v.get("actions") or []) for v in site_later):
-        found.append((None, _reason("visit_before_site_start", f"{visit['location_id']} starts after this visit: a visit before the start of its site cannot be kept.")))
+        found.append((None, _reason("visit_before_site_start", f"{visit['location_id']} starts after this visit: a visit before the start of its location cannot be kept.")))
     # a revision is after the one before it and before the one after it, whichever the site: a visit cannot go past the visits of another revision
     if number is not None:
         for other in others:
@@ -890,7 +890,7 @@ def unknown_installation_warnings(new: list[dict], kept: list[dict], unknown: li
             continue
         for after in (v for v in everything if _same(v["location_id"], u["location_id"]) and _session_number(v.get("session")) == number + 1):
             if "Installation" not in (after.get("actions") or []) and not is_not_revised(after):
-                said.append(f"R{number + 1:04d} {u['location_id']}: the site has no visit in R{number:04d}, so the camera has to be put up in R{number + 1:04d} (an Installation), and this visit does not.")
+                said.append(f"R{number + 1:04d} {u['location_id']}: the location has no visit in R{number:04d}, so the camera has to be put up in R{number + 1:04d} (an Installation), and this visit does not.")
     return list(dict.fromkeys(said))
 
 

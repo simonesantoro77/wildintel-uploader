@@ -415,7 +415,7 @@ def _camera_status_refusal(camera: dict, wanted: str, visits: list[dict]) -> str
     hand, and it cannot leave the field — back to ready, to planned, or archived — while it is put up: a visit takes it away (a Desinstallation) or finds it stolen first."""
     name = str(camera.get("label") or camera.get("camera_id") or "")
     if wanted == "active":
-        return f"The camera {name} is active when it is put up at a site: a visit does it (an Installation); its status cannot be set to active by hand."
+        return f"The camera {name} is active when it is put up at a location: a visit does it (an Installation); its status cannot be set to active by hand."
     if wanted in ("ready", "planned", "archived"):
         for key in (camera.get("camera_id"), camera.get("label")):
             there = visit_rules.camera_at(visits, str(key), "9999-12-31T23:59:59Z") if key else None

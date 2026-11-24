@@ -145,7 +145,7 @@ describe('BackupPage', () => {
 
   it('says why a file is not a backup', async () => {
     mocked.backupPickFile.mockResolvedValue({ path: '/x.zip' })
-    mocked.backupRead.mockRejectedValue(new Error('That .zip is not a backup of this app: it has no manifest.'))
+    mocked.backupRead.mockRejectedValue(new Error('That .zip is not a backup of WildINTEL Uploader: it has no manifest.'))
     render(<BackupPage onBack={vi.fn()} />)
     await userEvent.click(screen.getByRole('radio', { name: 'Restore a backup' }))
     await userEvent.click(screen.getByRole('button', { name: 'Choose the backup…' }))

@@ -31,8 +31,8 @@ const STEPS: { step: UploadStep; label: string }[] = [
   { step: 'connect', label: 'Connect to TRAPPER' },
   { step: 'classification', label: 'Classification project' },
   { step: 'uploader', label: 'Uploader login' },
-  { step: 'location', label: 'Location' },
-  { step: 'deployment', label: 'Deployment' },
+  { step: 'location', label: 'Location in TRAPPER' },
+  { step: 'deployment', label: 'Deployment in TRAPPER' },
   { step: 'package', label: 'Pack the images' },
   { step: 'csv', label: 'Deployments csv' },
   { step: 'upload', label: 'Upload' },
@@ -334,7 +334,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
       sentBytes: Object.values(run.sent).reduce((sum, b) => sum + b, 0),
       steps: [
         { label: created ? 'Created in TRAPPER' : 'Already in TRAPPER', message: run.steps.deployment?.message ?? '', done: true,
-          links: [run.steps.location?.url && { label: 'Open the location', url: run.steps.location.url }, run.steps.deployment?.url && { label: 'Open the deployment', url: run.steps.deployment.url }].filter(Boolean) as { label: string; url: string }[] },
+          links: [run.steps.location?.url && { label: 'Open the location in TRAPPER', url: run.steps.location.url }, run.steps.deployment?.url && { label: 'Open the deployment in TRAPPER', url: run.steps.deployment.url }].filter(Boolean) as { label: string; url: string }[] },
         { label: 'Images packed', message: run.packaged ? `${images.toLocaleString('en-US')} images in ${run.packaged.parts} ${run.packaged.parts === 1 ? 'package' : 'packages'}.` : '', done: true },
         { label: `${images.toLocaleString('en-US')} images sent`, message: `${formatBytes(bytes)} sent to TRAPPER.`, done: true },
         { label: 'TRAPPER is processing the images', message: 'They show up in the deployment as they’re ready.', done: false },
@@ -362,7 +362,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={MENU_ICONS.upload} title="Upload the images" description="Sends the deployments of a revision to TRAPPER. Anything missing there is created, then the images are sent for TRAPPER to process."
+      <PageHeader icon={MENU_ICONS.upload} title="Upload the images" description="Sends the deployments of a revision to TRAPPER."
         parent="Menu" onParent={onBack} />
 
       {trapper === null ? (

@@ -338,14 +338,14 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
 /** The folders of the app that can be put somewhere of their own; blank, each is a folder inside the data folder. */
 const FOLDERS: { draftKey: 'collectionsDir' | 'reportsDir' | 'packagesDir'; label: string; description: string; hint: string; dialog: string }[] = [
   { draftKey: 'collectionsDir', label: 'Collections folder', dialog: 'Select the folder to keep the collections in',
-    description: 'The images of each deployment, organised by research project and collection.',
-    hint: 'Leave it empty to keep it inside the data folder.' },
+    description: 'The images of each deployment.',
+    hint: 'Empty: inside the data folder.' },
   { draftKey: 'reportsDir', label: 'Reports folder', dialog: 'Select the folder to keep the reports in',
-    description: 'The reports of the checks and of the preparation of the images.',
-    hint: 'Leave it empty to keep it inside the data folder. Reports already made are not moved.' },
+    description: 'The reports of the checks and of the preparation.',
+    hint: 'Empty: inside the data folder.' },
   { draftKey: 'packagesDir', label: 'Packages folder', dialog: 'Select the folder to keep the packages in',
-    description: 'The files prepared to upload a deployment to TRAPPER.',
-    hint: 'Leave it empty to keep it inside the data folder.' },
+    description: 'The files prepared to upload to TRAPPER.',
+    hint: 'Empty: inside the data folder.' },
 ]
 
 type SectionId = 'general' | 'uploader' | 'sources' | 'validation' | 'postvalidation' | 'preprocessing' | 'entities' | 'reports' | 'config'
@@ -464,7 +464,7 @@ function NumberBox({ label, value, limits, onChange, unit }: {
 const LOG_LEVELS: { value: LogLevel; label: string; hint: string }[] = [
   { value: 'ERROR', label: 'Errors only', hint: 'Only what goes wrong.' },
   { value: 'WARNING', label: 'Warnings', hint: 'Problems and things worth checking.' },
-  { value: 'INFO', label: 'Normal', hint: 'What the app does: each scan, check and import started and finished.' },
+  { value: 'INFO', label: 'Normal', hint: 'What WildINTEL Uploader does: each scan, check and import started and finished.' },
   { value: 'DEBUG', label: 'Everything', hint: 'For tracking a problem down. Makes the file bigger.' },
 ]
 
@@ -1080,7 +1080,7 @@ function ItemForm<T extends object>({ same, caseSensitive = false, noun, backLab
               <div className="flex flex-wrap gap-2" role="group" aria-label={f.label}>
                 {(f.options ?? []).map((o) => (
                   <button key={o.value} type="button" aria-pressed={picked === o.value} onClick={() => change(f, i)(o.value)}
-                          disabled={!!f.byAppOnly?.includes(o.value) && wasStatus !== o.value} title={f.byAppOnly?.includes(o.value) && wasStatus !== o.value ? 'Only a visit does this: an Installation makes a site active.' : undefined}
+                          disabled={!!f.byAppOnly?.includes(o.value) && wasStatus !== o.value} title={f.byAppOnly?.includes(o.value) && wasStatus !== o.value ? 'Only a visit does this: an Installation makes a location active.' : undefined}
                           className={`px-3 py-1.5 rounded-full text-sm border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${picked === o.value ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>{o.label}</button>
                 ))}
               </div>,
@@ -1297,7 +1297,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending', ready: 'Ready', active: 'Active', inactive: 'Inactive', archived: 'Archived', stolen: 'Stolen', lost: 'Lost', broken: 'Broken', planned: 'Planned', finished: 'Finished',
 }
 const STATUS_HINTS: Record<string, string> = {
-  pending: 'In the app, not started yet.', ready: 'Available.', active: 'In use.', inactive: 'Not going to the field.', archived: 'No longer used.', stolen: 'Taken away.', lost: 'Can not be found.', broken: 'Does not work.', planned: 'Not started yet.', finished: 'No more fieldwork.',
+  pending: 'In WildINTEL Uploader, not started yet.', ready: 'Available.', active: 'In use.', inactive: 'Not going to the field.', archived: 'No longer used.', stolen: 'Taken away.', lost: 'Can not be found.', broken: 'Does not work.', planned: 'Not started yet.', finished: 'No more fieldwork.',
 }
 const statusOptions = (...values: string[]) => values.map((value) => ({ value, label: STATUS_LABELS[value], hint: STATUS_HINTS[value] }))
 /** The status of an item, then — for what can stop being used — the day it did and why. */
@@ -1312,7 +1312,7 @@ const statusFields = <T extends object>(values: string[], withDetails: boolean, 
 
 const GEAR_STATUSES = ['planned', 'ready', 'active', 'archived']
 const ARCHIVE_REASONS = [{ value: 'lost', label: 'Lost' }, { value: 'stolen', label: 'Stolen' }, { value: 'broken', label: 'Broken' }, { value: 'other', label: 'Other' }]
-const GEAR_HINTS = { planned: 'Only in Settings: it is not in the app yet.', ready: 'Available, not in the field yet. Offered when a visit is registered.', active: 'In use in the field. Offered when a visit is registered.', archived: 'Out of use for good: lost, stolen, broken… It never goes back to ready or active.' }
+const GEAR_HINTS = { planned: 'Only in Settings: it is not in WildINTEL Uploader yet.', ready: 'Available, not in the field yet. Offered when a visit is registered.', active: 'In use in the field. Offered when a visit is registered.', archived: 'Out of use for good: lost, stolen, broken… It never goes back to ready or active.' }
 
 const numberRange = (min: number, max: number) => (v: string) => (v === '' || (Number.isFinite(Number(v)) && Number(v) >= min && Number(v) <= max) ? null : `A number from ${min} to ${max}.`)
 /** A number that has to be given: the coordinates of a location. */
@@ -1327,7 +1327,7 @@ const LOCATION_FIELDS: ItemField<LocationDraft>[] = [
   { key: 'coordinate_uncertainty', label: 'Coordinate uncertainty', placeholder: 'e.g. 100', unit: 'metres', hint: 'How far off the position could be.', validate: (v) => (v === '' || (/^\d+$/.test(v) && Number(v) >= 1) ? null : 'A whole number, 1 or more.') },
   { key: 'timezone', label: 'Time zone', required: true, placeholder: 'e.g. Europe/Madrid', section: 'Time', sectionIcon: <ClockIcon />, sectionHint: 'The time zone the location is in, and whether its cameras follow summer time. Every visit and deployment here is read with them.', kind: 'timezone', fixed: true, alsoSets: (v) => (isUtcZone(v) ? { ignore_dst: null } : {}), hint: "The location's own time zone, required. Every visit and deployment here is read in it, so it cannot be changed once the location is created.", validate: (v) => (!v ? 'Required.' : isValidTimezone(v) ? null : 'Not a known IANA time zone (e.g. Europe/Madrid).') },
   { key: 'ignore_dst', label: 'The cameras here ignore summer time', kind: 'bool', fixed: true, off: (l) => (isUtcZone(l.timezone ?? '') ? 'Summer time is not applied in UTC.' : null), hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time. Like the time zone, it cannot be changed once the location is created.' },
-  ...statusFields<LocationDraft>(['planned', 'pending', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in the app yet.', pending: 'In the app, waiting to start: its first visit starts it. It is not waited for in the revisions before.', ready: 'It has started and has no camera yet: a visit that says Site start makes it so.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active']),
+  ...statusFields<LocationDraft>(['planned', 'pending', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in WildINTEL Uploader yet.', pending: 'In WildINTEL Uploader, waiting to start: its first visit starts it. It is not waited for in the revisions before.', ready: 'It has started and has no camera yet: a visit that says Location start makes it so.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active']),
 ]
 
 /** What a research project is when it is added by hand, or read from a CSV file: its acronym and name, and the fields free text. */
@@ -1814,7 +1814,7 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
   const inProject = (project: string) => owner === null || project.toLowerCase() === owner.toLowerCase()
   const TAB_INTRO: Record<EntityTab, string> = {
     projects: 'The research projects the field work belongs to. Each one keeps its own locations, cameras and SD cards.',
-    trappers: 'The people who go to the field — one can be in several research projects. When a visit is registered, they are the ones to pick as who went.',
+    trappers: 'The trappers who go to the field — one can be in several research projects. When a visit is registered, they are the ones to pick as who went.',
     roles: 'What each trapper is in a research project, with the roles of the contributors of Camtrap DP. They go into the metadata of the datasets.',
     locations: 'The places where cameras are set up. Each research project has its own locations, cameras and SD cards.',
     cameras: 'The camera traps. Each one is called by its label, so no two of a project have the same; its serial number is kept when it is known.',
@@ -1894,10 +1894,10 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
           empty="No trapper yet — a visit will have none to pick as who went."
           searchLabel="Search by username, name or affiliation"
           fields={[
-            { key: 'username', label: 'Username', placeholder: 'e.g. ana.perez', hint: 'What the trapper is called in the app: required, with no spaces, and no two trappers have the same.', section: 'Who is it?', sectionIcon: <UsersIcon />,
-              sectionHint: 'The username tells one person from another; the full name is how a visit says who went to the field. Where they work and how to write to them are optional.',
+            { key: 'username', label: 'Username', placeholder: 'e.g. ana.perez', hint: 'What the trapper is called in WildINTEL Uploader: required, with no spaces, and no two trappers have the same.', section: 'Who is it?', sectionIcon: <UsersIcon />,
+              sectionHint: 'The username tells one trapper from another; the full name is how a visit says who went to the field. Where they work and how to write to them are optional.',
               strict: true, validate: (v) => (/^\S+$/.test(v) ? null : 'Required, with no spaces.') },
-            { key: 'name', label: 'Full name', required: true, strict: true, placeholder: 'e.g. Ana Pérez', hint: 'The name of the person, as it should be on a visit.', validate: (v) => (v ? null : 'A full name is required.') },
+            { key: 'name', label: 'Full name', required: true, strict: true, placeholder: 'e.g. Ana Pérez', hint: 'The name of the trapper, as it should be on a visit.', validate: (v) => (v ? null : 'A full name is required.') },
             { key: 'affiliation', label: 'Affiliation', placeholder: 'e.g. University of Huelva', hint: 'Where the trapper works. Free text.' },
             { key: 'email', label: 'Email', placeholder: 'e.g. ana@example.org', hint: 'How to write to them. Optional.', validate: (v) => (v === '' || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? null : 'Not an email address.') },
             ...statusFields<Trapper>(['active', 'inactive', 'archived'], false, { active: 'Offered when a visit is registered.', inactive: 'Not offered when a visit is registered. It can be active again.', archived: 'Out of use for good: never offered again, and it never goes back. Past visits keep their name.' })]}
@@ -2091,7 +2091,7 @@ function AboutBlock() {
     { icon: 'notes', title: 'What’s new', subtitle: 'Release notes', href: `${REPO_URL}/releases` },
   ]
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-6" aria-label="About the app" role="group">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-6" aria-label="About WildINTEL Uploader" role="group">
       <div>
         <div className="flex items-center gap-3">
           <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white text-2xl">⇪</span>
@@ -2155,7 +2155,7 @@ function ConfigsEditor({ onSwitched, onError }: { onSwitched: () => void; onErro
     <div className="space-y-5 pt-3">
       <p className={`${hintClass} leading-relaxed max-w-prose`}>
         A config is a saved set of all your settings: the folders, the TRAPPER account, the checks and the preparation of images.
-        The active one is what the app reads and saves. You can keep several, for example one per TRAPPER account, and switch between them.
+        The active one is what WildINTEL Uploader reads and saves. You can keep several, for example one per TRAPPER account, and switch between them.
       </p>
       <Notice kind="warning">These files keep your passwords as plain text. Don't share a config file with anyone, and don't upload it anywhere.</Notice>
       <div className="flex items-center justify-between gap-4">
@@ -2412,26 +2412,26 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
         {draft && saved && section === 'general' && (
           <div className="space-y-5 pt-5">
             <AboutBlock />
-            <GroupCard title="Where files are kept" description="Everything the app makes is kept in the data folder. Change the folders below only to keep a part elsewhere, for example on another disk; left empty, they are inside the data folder.">
+            <GroupCard title="Where files are kept" description="The data folder holds everything. Choose a folder below only to keep a part elsewhere, for example on another disk.">
               <div className="space-y-6">
                 <FolderField
-                  label="Data folder" inputLabel="Folder" description="Where the app keeps everything it makes: the collections, the reports and the packages."
+                  label="Data folder" inputLabel="Folder" description="Where WildINTEL Uploader keeps everything it makes."
                   value={draft.dataDir} error={dataDirError} browsing={browsing} browseLabel="Browse for the data folder" defaultLabel="Use the default data folder"
-                  hint="By default, a folder named after the app inside your Documents folder." onChange={(v) => set('dataDir', v)} onBrowse={() => handleBrowse('dataDir')}
+                  hint="Default: a folder named after WildINTEL Uploader in your Documents folder. The folders below, when empty, move with it." onChange={(v) => set('dataDir', v)} onBrowse={() => handleBrowse('dataDir')}
                 />
                 {FOLDERS.map(({ draftKey, label, description, hint }) => {
                   const error = draft[draftKey].trim() !== '' && !isAbsolutePath(draft[draftKey]) ? 'An absolute path (or one starting with ~).' : null
                   const defaultKey = draftKey.replace('Dir', '') as 'collections' | 'reports' | 'packages'
                   return (
                     <FolderField
-                      key={draftKey} label={label} inputLabel={label} description={description} value={draft[draftKey]} placeholder={saved.DATA[`default_${defaultKey}_dir`]} error={error} browsing={browsing}
+                      key={draftKey} label={label} inputLabel={label} description={description} value={draft[draftKey]} placeholder={draft.dataDir.trim() ? `${draft.dataDir.trim().replace(/[\\/]+$/, '')}${draft.dataDir.includes('\\') && !draft.dataDir.includes('/') ? '\\' : '/'}${defaultKey}` : saved.DATA[`default_${defaultKey}_dir`]} error={error} browsing={browsing}
                       browseLabel={`Browse for the ${defaultKey} folder`} defaultLabel={`Use the default ${defaultKey} folder`} hint={hint} onChange={(v) => set(draftKey, v)} onBrowse={() => handleBrowse(draftKey)}
                     />
                   )
                 })}
               </div>
             </GroupCard>
-            <GroupCard title="Default research project" description="Filled in for you whenever a research project is asked for, such as when a visit is registered or a deployment imported. You can still change it each time.">
+            <GroupCard title="Default research project" description="Filled in whenever a research project is asked for. You can change it each time.">
               <label className="sr-only" htmlFor="default-research-project">Default research project</label>
               <Combobox
                 id="default-research-project" value={draft.defaultResearchProject} onChange={(v) => set('defaultResearchProject', v)}
@@ -2440,7 +2440,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
               />
             </GroupCard>
             <ToggleCard title="Welcome page" checked={draft.showWelcome} onChange={(v) => set('showWelcome', v)}
-                        description="Shown when the app opens, to say what it does. Turn it off to open straight on the menu — the tick of the welcome page does the same." />
+                        description="Shown when WildINTEL Uploader opens. Turn it off to open on the menu." />
             <GroupCard title="Parallel work" description="How many images are checked or prepared at the same time. More at once finishes sooner, up to what this computer can do.">
               <div className="max-w-xs"><NumberBox label="Images at once" value={draft.workers} limits={WORKERS} onChange={(v) => set('workers', v)} unit="at once" /></div>
               <p className={hintClass}>
@@ -2448,7 +2448,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 with a hard disk or a network drive, more may not help, as the files are read slower than they are worked on.
               </p>
             </GroupCard>
-            <GroupCard title="Activity log" description="The app writes down what it does, so a problem can be tracked down. Raise the detail only while you look for one, then lower it again. It applies right away.">
+            <GroupCard title="Activity log" description="Writes down what WildINTEL Uploader does, to find problems. It applies right away.">
               <div role="radiogroup" aria-label="Level" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {LOG_LEVELS.map((l) => (
                   <button key={l.value} type="button" role="radio" aria-checked={draft.logLevel === l.value} onClick={() => set('logLevel', l.value)}
@@ -2527,7 +2527,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 <input aria-label="Web address" className={`${fieldBox} font-mono text-sm`} value={draft.trapperUrl} placeholder="https://trapper.example.org" autoComplete="off" onChange={(e) => set('trapperUrl', e.target.value)} />
               </PlainField>
             </CardBlock>
-            <CardBlock title="Account" description="The account this app uses in TRAPPER. It needs permission to read projects and upload deployments.">
+            <CardBlock title="Account" description="The account WildINTEL Uploader uses in TRAPPER. It needs permission to read projects and upload deployments.">
               <PlainField label="Username">
                 <input aria-label="Username" className={fieldBox} value={draft.trapperUser} autoComplete="off" onChange={(e) => set('trapperUser', e.target.value)} />
               </PlainField>
@@ -2560,7 +2560,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 )}
               </div>
             </CardBlock>
-            <CardBlock title="Uploading deployments" description="The images of a deployment are sent in several packages, none bigger than this. Smaller packages are quicker to retry if the connection drops.">
+            <CardBlock title="Uploading deployments" description="Packages of at most this size. Smaller ones are quicker to retry if the connection drops.">
               <div className="max-w-60"><PlainField label="Largest package"><NumberBox label="Largest package" value={draft.maxZipMb} limits={MAX_ZIP_MB} onChange={(v) => set('maxZipMb', v)} unit="MB" /></PlainField></div>
             </CardBlock>
           </SettingsCard>
@@ -2635,7 +2635,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
             {visitSource === 'epicollect' && (
               <div className="space-y-5">
               <ToggleCard title="Use the Epicollect5 connection" checked={draft.epicollectEnabled} onChange={(v) => set('epicollectEnabled', v)}
-                              description="Lets the app download the entries of an Epicollect5 project by itself, instead of you downloading the CSV (in Register the visits › Custom CSV), and read the details of a deployment when it is imported." />
+                              description="Downloads the entries of an Epicollect5 project, so you do not have to download the CSV." />
               <SettingsCard>
                 <CardBlock title="Project" description="The Epicollect5 project the information is imported from.">
                   <PlainField label="Project name in its web address" hint={`It is the last part of the project's address: five.epicollect.net/project/${draft.epicollectSlug.trim() || 'my-project'}`}>

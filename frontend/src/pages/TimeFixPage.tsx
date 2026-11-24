@@ -198,7 +198,7 @@ export default function TimeFixPage({ initial, onBack, parent = 'Utilities' }: {
   return (
     <div className={`${PAGE_CLASS} space-y-6`}>
       <PageHeader icon={UTIL_ICONS.timefix} title="Check and fix dates and times" parent={parent} onParent={onBack}
-        description="For the images of a card copied to a folder whose camera clock went wrong: see where the time jumps, shift the dates and remove the images that can’t be trusted."
+        description="Fix the dates of images whose camera clock went wrong."
         actions={<HelpButton label="Help" expanded={helpOpen} onClick={() => setHelpOpen(true)} />} />
 
       <WizardStep n={1} title="Choose the folder and the visit" status={timeline ? 'done' : 'open'} canEdit={!busy} onEdit={() => setTimeline(null)}

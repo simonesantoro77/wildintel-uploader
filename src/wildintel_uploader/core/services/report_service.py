@@ -242,7 +242,7 @@ def visits_import_report(research_project_id: str, result: dict, saved: int) -> 
             b.add(identifier, "Things to check", False, warning, scope="deployment")
     for site in result.get("new_sites", []):
         near = site.get("nearest")
-        b.add(site["site"], "Site is not a location", False,
+        b.add(site["site"], "Not a location of the research project", False,
               f"{site['visits']} visit(s) held; nearest location {near['location_id'] + ' at ' + str(near['distance_m']) + ' m' if near else 'unknown'}"
               f"{'; one character apart from ' + ', '.join(site['similar']) if site.get('similar') else ''}.", scope="deployment")
     # what is odd and is not about a row of the file — all of it, when the result does not tell the rows

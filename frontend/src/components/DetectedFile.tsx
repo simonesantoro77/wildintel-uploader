@@ -11,7 +11,7 @@ export const FILE_KINDS: Record<FileKind, { title: string; summary: string }> = 
 
 /** The core fields shown for each kind, with the field of a visit each one is. */
 const CORE: Record<FileKind, [label: string, field: string][]> = {
-  form: [['Site', 'location_id'], ['Status of the camera', 'camera_status'], ['Date and time', 'created_at']],
+  form: [['Location', 'location_id'], ['Status of the camera', 'camera_status'], ['Date and time', 'created_at']],
   other: [['Site', 'location_id'], ['Actions', 'actions'], ['Date', 'date'], ['Time', 'time']],
 }
 

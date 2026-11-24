@@ -2,6 +2,7 @@ import { useTrail } from '../components/Trail'
 import { ArrowIcon, LineIcon, MENU_ICONS as ICONS, taskCard } from '../components/TaskCard'
 import { PAGE_CLASS, PageTitle } from '../components/PageBar'
 import QuickGuide, { QuickGuideButton } from '../components/QuickGuide'
+import Glossary, { GlossaryButton } from '../components/Glossary'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Task } from '../types'
@@ -11,7 +12,7 @@ export type MenuDashboard = 'visits' | 'deployments' | 'uploads' | 'statistics'
 
 /** What the menu does: each is one click from the action. */
 const ACTIONS: { value: MenuAction; icon: string; title: string; subtitle: string; description: string }[] = [
-  { value: 'register', icon: 'visits', title: 'Register the visits', subtitle: 'Record the visits to the camera traps', description: 'Who went, when, to which site and what was done. They can be registered one by one, or in batch mode from files.' },
+  { value: 'register', icon: 'visits', title: 'Register the visits', subtitle: 'Record the visits to the camera traps', description: 'Who went, when, to which location and what was done. They can be registered one by one, or in batch mode from files.' },
   { value: 'import', icon: 'deployment', title: 'Import the images', subtitle: 'Import the images collected in a visit', description: 'Pick the visits in which you put the SD cards with your images and create their deployments: one, several at once, or one after another.' },
   { value: 'upload', icon: 'upload', title: 'Upload the images', subtitle: 'Upload images to public repositories', description: 'Send the images of a deployment kept on this computer to a repository, such as TRAPPER.' },
 ]
@@ -59,12 +60,15 @@ export default function MenuPage({ onAction, onDashboard, onChoose }: Props) {
   const [dashboardsOpen, setDashboardsOpen] = useState(false)
   // the quick guide: the work from end to end, in a panel at the right
   const [guideOpen, setGuideOpen] = useState(false)
+  // the glossary: what each word means, in a panel at the right
+  const [glossaryOpen, setGlossaryOpen] = useState(false)
   useTrail([{ label: 'Menu', icon: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> }])
   return (
     <div className={PAGE_CLASS}>
       <PageTitle title="What do you want to do?" description="Choose one of the following." label="Menu actions"
-                 actions={<QuickGuideButton expanded={guideOpen} onClick={() => setGuideOpen(true)} />} />
+                 actions={<div className="flex flex-wrap gap-2"><GlossaryButton expanded={glossaryOpen} onClick={() => setGlossaryOpen(true)} /><QuickGuideButton expanded={guideOpen} onClick={() => setGuideOpen(true)} /></div>} />
       {guideOpen && <QuickGuide onClose={() => setGuideOpen(false)} />}
+      {glossaryOpen && <Glossary onClose={() => setGlossaryOpen(false)} />}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {ACTIONS.map((t, i) => <ActionCard key={t.value} number={i + 1} icon={ICONS[t.icon]} title={t.title} subtitle={t.subtitle} description={t.description} onClick={() => onAction(t.value)} />)}
       </div>

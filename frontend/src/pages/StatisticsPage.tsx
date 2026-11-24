@@ -123,7 +123,7 @@ function SequenceDialog({ deploymentId, row, field, onClose }: { deploymentId: s
           {([
             ['Began', formatLocal(s.start, zone)],
             ['Ended', formatLocal(s.end, zone)],
-            ['Site', field?.site ?? row.location],
+            ['Location', field?.site ?? row.location],
             ['Share of its images', `${num((s.images / Math.max(row.metrics.image_count, 1)) * 100)}% of the ${num(row.metrics.image_count)} of the deployment`],
           ] as [string, string][]).map(([name, value]) => <div key={name} className="flex justify-between gap-4"><dt className="text-zinc-500 dark:text-zinc-400">{name}</dt><dd className="text-right font-medium text-zinc-900 dark:text-zinc-100">{value}</dd></div>)}
         </dl>
@@ -449,7 +449,7 @@ export default function StatisticsPage({ onBack, settingsOpen, focus }: Props) {
 
           {/* each deployment */}
           <TableCard label="Statistics of the deployments">
-            <div className="print:hidden"><TableToolbar searchLabel="Filter the deployments" placeholder="Search by deployment, site or SD card…" text={text} onText={(t) => { setText(t); setPage(1) }}
+            <div className="print:hidden"><TableToolbar searchLabel="Filter the deployments" placeholder="Search by deployment, location or SD card…" text={text} onText={(t) => { setText(t); setPage(1) }}
               choice={{ label: 'State', value: state, onChange: (v) => { setState(v as State | ''); setPage(1) }, options: STATES.map((s) => ({ value: s, label: STATUS[s].text })) }}
               extra={<button type="button" className="flex items-center gap-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 transition hover:bg-zinc-200 dark:hover:bg-zinc-700" onClick={exportCsv}>
                 <Icon path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" /></>} className="h-3 w-3" />Export CSV</button>}
@@ -578,7 +578,7 @@ export default function StatisticsPage({ onBack, settingsOpen, focus }: Props) {
             <p>The first says how many days had each number of images, with the mean as a dashed line; the second, how many sequences have each number of images. In the logarithmic scale a few very long sequences can be seen beside many of one or two images; the amber column is the long tail. <em>By day</em> shows instead each day of a month — the images of each, or the sequences that began — with the arrows to go to the month before or after.</p>
           </HelpCard>
           <HelpCard title="Against the previous revisions" tone="text-violet-600 dark:text-violet-400" icon={HELP_ICONS.filter}>
-            <p className="mb-2">Each deployment is compared with the previous revisions of its location — the same site in the revisions before — in the number of images, of sequences and how many images a sequence has, with the method and the tolerance of Postvalidation.</p>
+            <p className="mb-2">Each deployment is compared with the previous revisions of its location — that location in the revisions before — in the number of images, of sequences and how many images a sequence has, with the method and the tolerance of Postvalidation.</p>
             <dl className="space-y-2">
               {STATES.map((k) => <div key={k} className="flex items-baseline gap-3"><dt className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${STATUS[k].tone}`}>{STATUS[k].text}</dt><dd>{STATUS[k].help}</dd></div>)}
             </dl>

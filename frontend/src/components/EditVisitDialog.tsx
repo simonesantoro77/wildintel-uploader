@@ -105,7 +105,7 @@ export default function EditVisitDialog({ projectId, visit, onClose, onSaved }: 
         <div>
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {filling ? 'Nothing is known of this visit yet. What you say here takes the place of the unknown one.' : 'The site and the revision are the key of the visit: they do not change.'}
+            {filling ? 'Nothing is known of this visit yet. What you say here takes the place of the unknown one.' : 'The location and the revision are the key of the visit: they do not change.'}
             {' '}The camera, the SD card and who went are the ones of the settings, and the rules of a visit are checked with the visits before and after it.
           </p>
         </div>

@@ -24,13 +24,13 @@ first. Part of what the web app does can also be done from a terminal: see the
 
 ## 1. Getting started
 
-[Install](user-manual.md#1-installation) the app and run it with no arguments. It starts a small server on your computer
-and opens the app in your default browser (<http://127.0.0.1:8769>, or the next free port).
+[Install](user-manual.md#1-installation) WildINTEL Uploader and run it with no arguments. It starts a small server on your computer
+and opens WildINTEL Uploader in your default browser (<http://127.0.0.1:8769>, or the next free port).
 
 !!! info
     **Keep the window it opened until you finish** — closing it stops the app. Data is kept on your machine; connections to services such as TRAPPER, Epicollect and map providers depend on the features you use.
 
-The app opens on the welcome screen, which says what it does — *from the field to a curated, standard dataset* — and gives four points:
+WildINTEL Uploader opens on the welcome screen, which says what it does — *from the field to a curated, standard dataset* — and gives four points:
 
 - **Validated**.
 - **Traceable**: each deployment is sealed with the checks it passed and a SHA-256 fingerprint of every image.
@@ -43,28 +43,28 @@ On the first launch, there are no research projects yet. Press **Get started** t
 
 ### Initial setup
 
-The assistant asks for the basic data of the research project and the folder where the app keeps what it makes and, optionally, the people and equipment used in the field. For this example we will create `WICP_02`, a project with four sites.
+The assistant asks for the basic data of the research project and the folder where WildINTEL Uploader keeps what it makes and, optionally, the trappers and equipment used in the field. For this example we will create `WICP_02`, a project with four locations.
 
 1. **The research project** — enter its required **Acronym**, `WICP_02`, and **Name**, for example `WICP_02 Doñana census`. The acronym names its folder. Press **Continue**.
-2. **The data folder** — the folder where the app keeps the collections, the reports and the packages. The one the app proposes is already filled in: keep it, or press **Choose folder…** to pick another. The data folder is the same for every research project, so it is asked for only with the first one; when there are projects already, this step does not appear and the folder is changed in **Settings › General**.
+2. **The data folder** — the folder where WildINTEL Uploader keeps the collections, the reports and the packages. The one WildINTEL Uploader proposes is already filled in: keep it, or press **Choose folder…** to pick another. The data folder is the same for every research project, so it is asked for only with the first one; when there are projects already, this step does not appear and the folder is changed in **Settings › General**.
 
 Then choose:
 
 - **Finish setup & skip optional steps** goes straight to the review. The trappers, locations, cameras and SD cards are created automatically when you load your first field file.
 - **Configure optional entities** goes through the optional steps, one by one. Each says that it is optional and where else it can be given.
 
-3. **The trappers** — add the people who go to the field, for example `Pedro Pérez`. Each needs a unique **Username** and **Full name**; affiliation and email are optional.
+3. **The trappers** — add the trappers who go to the field, for example `Pedro Pérez`. Each needs a unique **Username** and **Full name**; affiliation and email are optional.
 4. **Their roles in the research project** — assign roles to the trappers, such as principal investigator, contact or contributor. Roles can also be given later in **Settings › Entities**.
 5. **The locations** — add each location with its **Location id**, latitude, longitude and **Timezone**, for example `WICP_02_001`, `37.0123`, `-6.4412` and the timezone used by its camera. UTC is the default; for a different timezone, say whether the cameras ignore summer time.
 6. **The cameras** — add each camera's **Label**, for example `CAM-001`; serial number and model are optional.
 7. **The SD cards** — add each card's **Label**, for example `1`; brand and capacity are optional.
-8. **Review** — check what is going to be done and press **Create it**; **Back** returns to the step before. The project and the other entries are saved at this point, and the app attempts to make the project the default. Check the result for any entries that could not be saved.
+8. **Review** — check what is going to be done and press **Create it**; **Back** returns to the step before. The project and the other entries are saved at this point, and WildINTEL Uploader attempts to make the project the default. Check the result for any entries that could not be saved.
 
 Until you press **Create it**, any step already passed can be opened again with its pencil to change what you entered.
 
 In the optional steps you can add entries one by one or use **Import from CSV** and **Download a template**. You can also skip them and add them later in **Settings › Entities**. Project details such as description, keywords and sampling design can be filled in there as well. See [Entities](#entities) and the examples in `examples/entities_example/wicp_02`.
 
-New sites are **Pending**: their first visit starts them, and earlier revisions do not wait for them. The timezone is important for interpreting camera dates and cannot be changed after the site is created; see [Locations](user-manual.md#23-locations).
+New sites are **Pending**: their first visit starts them, and earlier revisions do not wait for them. The timezone is important for interpreting camera dates and cannot be changed after the location is created; see [Locations](user-manual.md#23-locations).
 
 After setup, choose **Register the first visit** or return to **Main menu**. To create another project later, use **Create a new research project** on the welcome screen or in the research project selector.
 
@@ -83,7 +83,7 @@ To register the visit to the first location, pick `WICP_02_001` in the form.
 
 ![Selecting the location of the visit](img/screenshots/quick-start-visit-location.png)
 
-In **Who**, select the people who went, for example `Pedro Pérez`. You can search for a trapper by name.
+In **Who**, select the trappers who went, for example `Pedro Pérez`. You can search for a trapper by name.
 
 ![Searching for a trapper in the visit form](img/screenshots/quick-start-visit-trapper.png)
 
@@ -92,37 +92,37 @@ In **When**, enter the date and time of the visit. The form also shows the GPS c
 ![Entering the visit date and time and checking its location](img/screenshots/quick-start-visit-when.png)
 
 !!! info "GPS coordinates of the visit"
-    These coordinates are where you were when you recorded the visit, **not the site's coordinates**. The app compares them with the selected site's stored coordinates to check that you are nearby. Enter your position or use the **Use my current position** button. The fields initially contain the site's coordinates, so the initial `0 m` match does not confirm where you actually are.
+    These coordinates are where you were when you recorded the visit, **not the location's coordinates**. WildINTEL Uploader compares them with the selected location's stored coordinates to check that you are nearby. Enter your position or use the **Use my current position** button. The fields initially contain the location's coordinates, so the initial `0 m` match does not confirm where you actually are.
 
 Next, say what was done: as no camera is known there yet, the visit is an *Installation*. Open the **Camera** section and choose the camera that is installed, `CAM-001`, say that it was calibrated, and give its height, its tilt and its heading and the delay between triggers; in **SD card**, pick the card that is left in it, the `1`.
 
-![Register visits › By hand: an Installation at an example site](img/screenshots/visit-installation-form.png)
+![Register visits › By hand: an Installation at an example location](img/screenshots/visit-installation-form.png)
 
 We press **Review the visit**, check what is going to be kept and confirm it.
 
 ![Reviewing the visit before adding it](img/screenshots/quick-start-visit-review.png)
 
-Once the visit is registered, we go to the **Visit dashboard** (see [Visit dashboard](#visit-dashboard)). The first revision, `R0001`, has been created and the visit is *Deployed*: the camera is out. Other pending sites are not yet expected in the revision; their first visits start them. For each planned site shown in the dashboard, press the **Create the visit** button (:material-map-marker-outline:) at the right of its row to register its visit.
+Once the visit is registered, we go to the **Visit dashboard** (see [Visit dashboard](#visit-dashboard)). The first revision, `R0001`, has been created and the visit is *Deployed*: the camera is out. Other pending locations are not yet expected in the revision; their first visits start them. For each planned location shown in the dashboard, press the **Create the visit** button (:material-map-marker-outline:) at the right of its row to register its visit.
 
 ![Visit dashboard after registering the first visit](img/screenshots/quick-start-visit-dashboard.png)
 
-Continue registering the visits to the other sites. A revision is finished when every expected site has a visit recorded; if a site cannot be visited, it can instead be marked as not visited. The next revision cannot begin until the previous one is finished.
+Continue registering the visits to the other locations. A revision is finished when every expected location has a visit recorded; if a location cannot be visited, it can instead be marked as not visited. The next revision cannot begin until the previous one is finished.
 
-Once the first revision is finished, we plan the next round of visits (`R0002`). Some time later, we return to the first site to check the camera and collect its SD card. We register this new visit in the same way, but now the camera is there, so we answer that we see it, and that it is well: the visit is a *Revision*. The camera is the one the visit before says, so it is not asked; we say that it was calibrated and, in **SD card**, how many images the card collected has and which card is left, for example `5`.
+Once the first revision is finished, we plan the next round of visits (`R0002`). Some time later, we return to the first location to check the camera and collect its SD card. We register this new visit in the same way, but now the camera is there, so we answer that we see it, and that it is well: the visit is a *Revision*. The camera is the one the visit before says, so it is not asked; we say that it was calibrated and, in **SD card**, how many images the card collected has and which card is left, for example `5`.
 
-![Register visits › By hand: a Revision at an example site](img/screenshots/visit-revision-form.png)
+![Register visits › By hand: a Revision at an example location](img/screenshots/visit-revision-form.png)
 
-Once the visit has been registered, the app offers to **Import the images** collected on the SD card and associate them with the visit in revision `R0001`. You can import them now or later from the deployments menu.
+Once the visit has been registered, WildINTEL Uploader offers to **Import the images** collected on the SD card and associate them with the visit in revision `R0001`. You can import them now or later from the deployments menu.
 
 ![Importing images from the SD card collected during the visit](img/screenshots/quick-start-collected-card.png)
 
 ### Managing deployments
 
-The images on the collected card belong to the **deployment** associated with the earlier visit, in `R0001`. The app can import them directly from the SD card or from a folder on your computer.
+The images on the collected card belong to the **deployment** associated with the earlier visit, in `R0001`. WildINTEL Uploader can import them directly from the SD card or from a folder on your computer.
 
 ![Choosing whether images are on an SD card or in a folder](img/screenshots/quick-start-images-source.png)
 
-For this example, choose **No, they are in a folder** and select the folder containing the images. The app scans it and shows how many images it found. It also asks which **SD card** contained them: select the card collected during the visit. The app checks it against the card recorded as left in the camera.
+For this example, choose **No, they are in a folder** and select the folder containing the images. WildINTEL Uploader scans it and shows how many images it found. It also asks which **SD card** contained them: select the card collected during the visit. WildINTEL Uploader checks it against the card recorded as left in the camera.
 
 ![Image count and selection of the SD card the images came from](img/screenshots/quick-start-images-card.png)
 
@@ -134,15 +134,15 @@ Once the checks are complete and all those set to **Must pass** have passed, con
 
 ![Recording period from the visits that left and collected the SD card](img/screenshots/quick-start-recording-period.png)
 
-After the dates, the app shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format. Most fields are optional, and the available details are pre-filled with information from the field visit where the SD card was left. You can review or edit them before continuing.
+After the dates, WildINTEL Uploader shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format. Most fields are optional, and the available details are pre-filled with information from the field visit where the SD card was left. You can review or edit them before continuing.
 
 ![Deployment details pre-filled from the field visit](img/screenshots/quick-start-deployment-details.png)
 
-The app then runs another set of checks on the deployment and the image collection as a whole, rather than examining each image separately. For example, it checks whether the images' dates fit within the deployment's recording period. As before, you choose which checks to run and whether each must pass to continue, or can instead show a warning and let you proceed. The app then imports the images into the collections folder, one **collection** for each revision. See [Import the images](#6-import-the-images) and [Import deployments](#7-import-deployments) for the available import flows.
+WildINTEL Uploader then runs another set of checks on the deployment and the image collection as a whole, rather than examining each image separately. For example, it checks whether the images' dates fit within the deployment's recording period. As before, you choose which checks to run and whether each must pass to continue, or can instead show a warning and let you proceed. WildINTEL Uploader then imports the images into the collections folder, one **collection** for each revision. See [Import the images](#6-import-the-images) and [Import deployments](#7-import-deployments) for the available import flows.
 
 ![Choosing deployment checks and how strict each check should be](img/screenshots/step-checks.png)
 
-Once the checks pass, the app prepares the images before they can be saved:
+Once the checks pass, WildINTEL Uploader prepares the images before they can be saved:
 
 - It copies them into the deployment's collection folder; the originals are not changed.
 - It reads each image's capture date and converts it to UTC using the location's timezone settings. If an image has no EXIF date, it uses the file date.
@@ -154,13 +154,13 @@ Once the checks pass, the app prepares the images before they can be saved:
 **Add metadata.** This optional step writes information such as the creator, owner, publisher, rights, license and location into each image as XMP.
 
 !!! note "Add metadata"
-    The notice under **What gets written into each image** warns when **Owner** or **Publisher** has not been set in **Settings › Preprocessing**. If either is missing, its value will be written as **Unknown**; the notice does not prevent you from continuing. Set these values in Settings if you want the images to carry the correct attribution. This step also needs ExifTool; if it is unavailable, the app disables the step and explains why.
+    The notice under **What gets written into each image** warns when **Owner** or **Publisher** has not been set in **Settings › Preprocessing**. If either is missing, its value will be written as **Unknown**; the notice does not prevent you from continuing. Set these values in Settings if you want the images to carry the correct attribution. This step also needs ExifTool; if it is unavailable, WildINTEL Uploader disables the step and explains why.
 
-When you start preprocessing, the app copies and processes the images. How long this takes depends on the number of images and the processing steps you selected. If everything completes successfully, the app shows a summary of what was done and asks you to confirm saving the deployment in your local collection. Saving seals it so the app can detect later changes.
+When you start preprocessing, WildINTEL Uploader copies and processes the images. How long this takes depends on the number of images and the processing steps you selected. If everything completes successfully, WildINTEL Uploader shows a summary of what was done and asks you to confirm saving the deployment in your local collection. Saving seals it so WildINTEL Uploader can detect later changes.
 
 ![Reviewing the deployment summary and confirming that it should be saved](img/screenshots/quick-start-save-deployment.png)
 
-Once saving is complete, the app offers the option to upload the deployment to a repository. In this example, the **Upload to TRAPPER** button sends it to TRAPPER; you can also upload it later.
+Once saving is complete, WildINTEL Uploader offers the option to upload the deployment to a repository. In this example, the **Upload to TRAPPER** button sends it to TRAPPER; you can also upload it later.
 
 ![Saved deployment with the option to upload it to TRAPPER](img/screenshots/step-import.png)
 
@@ -169,7 +169,7 @@ Once saving is complete, the app offers the option to upload the deployment to a
 !!! note "Before uploading to TRAPPER"
     Configure and test the connection in [Settings › Uploader › TRAPPER](#trapper) before uploading.
 
-When you press **Upload to TRAPPER**, the app takes you to the upload form with this deployment already selected. There, choose the TRAPPER classification project to which you want to link the deployment.
+When you press **Upload to TRAPPER**, WildINTEL Uploader takes you to the upload form with this deployment already selected. There, choose the TRAPPER classification project to which you want to link the deployment.
 
 ![Upload form with deployments selected and the TRAPPER classification project field](img/screenshots/upload.png)
 
@@ -177,7 +177,7 @@ Press **Continue**. Choose **Upload to TRAPPER** and select **Delete the package
 
 ![Choosing to upload to TRAPPER and delete the generated package files after upload](img/screenshots/upload-mode.png)
 
-Press **Continue** to start the upload. The app creates any missing locations and deployments in TRAPPER, then uploads the images. If everything succeeds, it shows a link to the deployment in TRAPPER, where you can view the uploaded images.
+Press **Continue** to start the upload. WildINTEL Uploader creates any missing locations and deployments in TRAPPER, then uploads the images. If everything succeeds, it shows a link to the deployment in TRAPPER, where you can view the uploaded images.
 
 ![Upload results, with a link to open the deployment in TRAPPER](img/screenshots/upload-result.png)
 
@@ -190,17 +190,17 @@ dot marks a section with an invalid value.
 
 ![Settings › General](img/screenshots/settings-general.png)
 
-- **Data folder** — where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
+- **Data folder** — where WildINTEL Uploader keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
   `Documents/wildintel-uploader`; a path must be absolute (or start with `~`).
-- **Collections folder**, **Reports folder** and **Packages folder** — where the collections, the reports of the checks and the packages made to upload to TRAPPER are kept. Blank, each is a folder (`collections`, `reports`, `packages`) inside the data folder; set one to keep it somewhere else, on another disk for instance. A path must be absolute (or start with `~`). What is already kept in the old place is not moved: do it by hand.
-- **Welcome page** — on by default: the page that says what the app does is shown when it opens. Turn it off to open straight on the menu (or on the runs left unfinished); the tick **Do not show this page again** of the welcome page does the same. The title of the header then goes to the menu.
+- **Collections folder**, **Reports folder** and **Packages folder** — where the collections, the reports of the checks and the packages made to upload to TRAPPER are kept. Blank, each is a folder (`collections`, `reports`, `packages`) inside the data folder; set one to keep it somewhere else, on another disk for instance. A path must be absolute (or start with `~`). **When you change the data folder, the folders that are inside it go with it** — the ones left blank, and the ones that were set to a place inside it — and the ones kept elsewhere stay where they are. What is already kept in the old place is not moved: do it by hand.
+- **Welcome page** — on by default: the page that says what WildINTEL Uploader does is shown when it opens. Turn it off to open straight on the menu (or on the runs left unfinished); the tick **Do not show this page again** of the welcome page does the same. The title of the header then goes to the menu.
 - **Workers** — how many images are validated and preprocessed at once. Up to the number of
   processors of your machine pays off; the default is that number, up to 4.
-- **Log level** — how much the app logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
+- **Log level** — how much WildINTEL Uploader logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
   every step.
 - **Log file** — download it, or delete it. It lives in the log folder of your system (`~/.local/state/wildintel-uploader/log` on Linux), which can't be changed. It rotates at 5 MB keeping the last 5. Attach it to any
   bug report.
-- **About** — at the top: the app's name and version, **Check for updates** (it offers the download when there is a newer version), and links to **Report a problem** (a GitHub issue that already says the version and your browser), the **Documentation**, the **GitHub** project and **What's new** (the release notes).
+- **About** — at the top: WildINTEL Uploader's name and version, **Check for updates** (it offers the download when there is a newer version), and links to **Report a problem** (a GitHub issue that already says the version and your browser), the **Documentation**, the **GitHub** project and **What's new** (the release notes).
 
 - **Keep the seconds in the logs** — the start and the end of the deployments written in the `FileTimestampLog` and the `FieldworkLog`, for the visits of any origin. Off by default: they are cut to the minute.
 
@@ -249,7 +249,7 @@ The connection to Epicollect5 and the mapping of its questions, to read the entr
 The Epicollect5 project the deployments' information will be imported from (see [Dates and details](#stage-3-dates-and-details)): its **slug**, the
 name in its URL (`five.epicollect.net/project/<slug>`), and, only if the project is private, the **client id** and **secret** of
 its API client, which you create at <https://developers.epicollect.net>. **Test connection** reads the project with what is typed — saved or not — and says its name and how many inputs
-it has; a blank secret is the saved one. The **Import deployment information from Epicollect5** switch turns the use of Epicollect5 on or off — it is off until you turn it on, and while it is off nothing is read from Epicollect5. **Add them to the comments** sends what an entry answers in the inputs that are not mapped to any field to the comments of the deployment, a line each (*question: answer*; image inputs are left out). Below, the **Mapping** relates each field of a deployment to an input of the project's form. Epicollect5 has no input for a date and a time together, so the day and the time of the start and of the end are mapped apart, along with the revision. What an entry gives fills the camera, the site and the notes of a deployment; it is **no longer a source of its dates** — those come from the visits, the timestamp log or the images.
+it has; a blank secret is the saved one. The **Import deployment information from Epicollect5** switch turns the use of Epicollect5 on or off — it is off until you turn it on, and while it is off nothing is read from Epicollect5. **Add them to the comments** sends what an entry answers in the inputs that are not mapped to any field to the comments of the deployment, a line each (*question: answer*; image inputs are left out). Below, the **Mapping** relates each field of a deployment to an input of the project's form. Epicollect5 has no input for a date and a time together, so the day and the time of the start and of the end are mapped apart, along with the revision. What an entry gives fills the camera, the location and the notes of a deployment; it is **no longer a source of its dates** — those come from the visits, the timestamp log or the images.
 
 ### Validation
 
@@ -295,7 +295,7 @@ switch each step off.
 
 ![Settings › Entities](img/screenshots/settings-entities.png)
 
-The things the visits and the deployments refer to, one tab each: **Research projects**, **Trappers**, **Roles**, **Locations**, **Cameras** and **SD cards**. A location whose **time zone is not UTC** has a red **Not UTC** label — in its line, in its form and in the panel at the right that opens when a site is pressed.
+The things the visits and the deployments refer to, one tab each: **Research projects**, **Trappers**, **Roles**, **Locations**, **Cameras** and **SD cards**. A location whose **time zone is not UTC** has a red **Not UTC** label — in its line, in its form and in the panel at the right that opens when a location is pressed.
 Each can be added one at a time, taken from TRAPPER (research projects and locations) or loaded from a CSV with **Import CSV** — in the **More** button of each tab, with **Export CSV** and **CSV template**, the file with the columns that Import CSV reads and no rows, to fill in — (there are
 examples in `examples/entities_example/wicp_02`, explained in `examples/CSV.md`). Locations, cameras, SD cards and roles belong to a research project: pick it first. The **trappers**, the people, belong to none: they are the same whatever the project, and what each is in a project is its **role**. The page of each location, SD card and camera shows its **QR code** (it says `wildintel:<camera|sdcard|location>:<research project>:<id>`), with a button to download it as an SVG to print on a label.
 A location's **time zone** (UTC unless you say another) and whether its cameras ignore summer time are chosen when it is created and **cannot be changed afterwards**: the instant of every visit to it was worked out with them. The **locations**, **cameras**, **SD cards** and **roles** belong to a research project and are kept in its folder of the collections folder (`<research project>/locations.json`, `cameras.json`, `sd_cards.json` and `roles.json`, beside its `visits.json`), so they travel with its collections. The **trappers**, the people, are kept beside the folders of the research projects (`trappers.json` in the collections folder), not in the settings. Cameras, cards, roles and trappers kept in the settings file by an earlier version are moved to where they belong the first time they are needed. A camera or a card can be *active* or not; the visits only offer the ones in use.
@@ -347,7 +347,7 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 
 | Task | What it's for |
 |---|---|
-| 📋 **Register the visits** | Record the visits to the camera traps: who went, when, to which site and what was done — one by one, or from a file. |
+| 📋 **Register the visits** | Record the visits to the camera traps: who went, when, to which location and what was done — one by one, or from a file. |
 | 📷 **Import the images** | Import the images collected in a visit: pick the visits in which you put the SD cards with your images and create their deployments — one, several at once, or one after another. |
 | ☁️ **Upload the images** | Upload deployments to platforms: send a deployment already kept locally to TRAPPER. |
 | 📊 **Dashboards and statistics** | A bar that opens, under it, the list with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on TRAPPER — and the **statistics**. |
@@ -356,17 +356,19 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 ![The task menu](img/screenshots/menu.png)
 
 The **Quick guide** button, at the right of the title, opens a panel with the work from end to end: the research project and then the three steps, and where to follow the progress and to fix dates and files. The numbers of the cards are the **typical workflow**: **1 Register the visits**, then **2 Import the images** — which takes the location, the camera and the dates from the visits — and then **3 Upload the images**. *Sync* is for when
+
+The **Glossary** button, beside it, opens a panel with what each word of WildINTEL Uploader means, in alphabetical order: *camera*, *collection*, *deployment*, *location*, *research project*, *revision*, *SD card*, *trapper* and *visit*. A **revision** is one visit to every location of a research project; a **deployment** is the time a camera stays at a location with an SD card — from the visit that put the card in to the visit that collected it — with the conditions in which it was installed and the images it took; and the deployments of a revision are its **collection**.
 TRAPPER already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this
 documentation, and the sun/moon button switches between dark and light.
 
-If the app was closed in the middle of an import, the first thing you see is the list of
+If WildINTEL Uploader was closed in the middle of an import, the first thing you see is the list of
 **unfinished runs** — see [Unfinished runs](#4-unfinished-runs).
 
 ## 4. Unfinished runs
 
-An import saves its progress as you go. If you close the app, or it fails, the next time you start
+An import saves its progress as you go. If you close WildINTEL Uploader, or it fails, the next time you start
 it the first screen lists the **unfinished runs** — the folder, the research project and when it
 was started — each with **Resume** and **Discard**. Resuming takes you back to the step after the
 folder was chosen. Passwords are never saved with a run.
@@ -386,26 +388,26 @@ The dashboard is of the **default research project**. Choose another project usi
 - **Export visits (CSV)** — downloads the visits kept as a CSV that [Register the visits › Custom CSV](#custom-csv) reads back as they are (it is there when the project has visits).
 - **Register the visits** — goes to [Register the visits](#5-register-the-visits) without going back to the menu.
 - **Select visits and create their deployments** — each row has a box (and one in the header selects the page). Once visits are ticked a bar appears over the table: *N selected*, **Select all N matching**, **Clear** and **Create deployments →**. The button is only active when the card of every visit ticked was **collected** (*Collected*), they have no deployment yet and they are of **one revision**; the bar says why when it is not. With one visit it goes to Import deployment; with several, to Import deployments, with those visits ticked.
-- **Create the next revision** — plans the next trip: the visit book gets the next revision (`R0003` after `R0002`) with a **planned visit to each location that can be visited** — the ones that are not archived and not only planned in the settings, that is, *ready* or *active* —, and opens on it. A revision is one visit to every location, so the one before has to be **finished** for visits to be made in the new one: if it is not, a message says which locations are still to be visited in it and that no visit can be made in the new revision until it is finished — make those visits, or press **Mark them as not visited** (it asks again before it does it: the visit book of that revision is then consolidated and cannot be modified). That message is not only for the moment the revision is created: **whenever the book has a planned revision with no visit and the revision before it is not finished, it is shown**, with its button, so the revision before can be finished from there. The next revision is not planned again until the one planned has its first visit — the button then says why, and the message about the revision before stays beside it. With no visits yet it plans the first, `R0001`.
+- **Create the next revision** — plans it: the visit book gets the next revision (`R0003` after `R0002`) with a **planned visit to each location that can be visited** — the ones that are not archived and not only planned in the settings, that is, *ready* or *active* —, and opens on it. A revision is one visit to every location, so the one before has to be **finished** for visits to be made in the new one: if it is not, a message says which locations are still to be visited in it and that no visit can be made in the new revision until it is finished — make those visits, or press **Mark them as not visited** (it asks again before it does it: the visit book of that revision is then consolidated and cannot be modified). That message is not only for the moment the revision is created: **whenever the book has a planned revision with no visit and the revision before it is not finished, it is shown**, with its button, so the revision before can be finished from there. The next revision is not planned again until the one planned has its first visit — the button then says why, and the message about the revision before stays beside it. With no visits yet it plans the first, `R0001`.
 - **Help & Legend** — opens a panel at the right with the legend: the *overall progress*, the *visit states*, the *data states* and the *filters and search*. It closes with its cross, with **Got it, close**, by pressing the background or with Escape.
 
 Under the head are three blocks, in this order:
 
-1. **Revision selection** — a revision is one visit to every site. A card for *All revisions* (the visits done of all, and the percentage) and one for each of the five most recent revisions (*R0003*, *R0002*… with the days it went from and to, *N of M done* and a tick when every visit is done); the older ones are in the **Older revisions** list at the right of the title. Picking one narrows everything below to it.
+1. **Revision selection** — a revision is one visit to every location. A card for *All revisions* (the visits done of all, and the percentage) and one for each of the five most recent revisions (*R0003*, *R0002*… with the days it went from and to, *N of M done* and a tick when every visit is done); the older ones are in the **Older revisions** list at the right of the title. Picking one narrows everything below to it.
 2. **Status metrics & filters** — the **Progress** card (the share of visits done, with a bar and the number pending) and a card for each state, with its count: *Planned*, *Deployed*, *Collected*, *Stolen* and *Not visited*. Pressing a card shows only those visits; pressing it again shows them all.
-3. **The table** — one panel with the search, the filters and the rows. The buttons at the right of **Reset** change its view: **as a table**, **as labels** or **on a map**. The map draws each site of the rows that match — of the revision picked, or the latest visit of each when all are — as a point by its latitude and longitude (WGS84), with its id beside it and the area the sites cover dashed, coloured by the state of that visit, with a legend; the buttons at the corner of the map **zoom** it in and out (zooming in looks at the site that is chosen) and show all the sites again, and dragging **moves** it; pointing at a point, or focusing it with the keyboard, opens its **card** over the map — its name, coordinates, the visit, the SD card and the camera — with the **buttons of its row** in it (the previous visit, edit, the eye that shows the visit, create the visit or the deployment… the ones that apply) and **Show it in the table**; the card stays while the pointer goes from the point to it, so its buttons can be pressed, and **choosing** the point — pressing it, or Enter — keeps the card open until it is closed with its cross. **Show it in the table** brings its visit into view and **marks** its row: an arrow `>` before the revision, a blue bar at the left and a clearer background, with a flash when it appears. **Pressing a row** of the table (or a label) marks it in the same way, and pressing the marked one again clears it; the buttons of a row only do what they do. Behind the points is the map of **OpenStreetMap** (with its attribution): it is asked for from the provider, so it needs a connection and the provider sees which area is drawn — the **Background map** button turns it off, and it stays off the next time; with no connection, or with it off, the points are drawn on their own. A site with no coordinates is not drawn, and the line over the map says how many.
+3. **The table** — one panel with the search, the filters and the rows. The buttons at the right of **Reset** change its view: **as a table**, **as labels** or **on a map**. The map draws each location of the rows that match — of the revision picked, or the latest visit of each when all are — as a point by its latitude and longitude (WGS84), with its id beside it and the area the locations cover dashed, coloured by the state of that visit, with a legend; the buttons at the corner of the map **zoom** it in and out (zooming in looks at the location that is chosen) and show all the locations again, and dragging **moves** it; pointing at a point, or focusing it with the keyboard, opens its **card** over the map — its name, coordinates, the visit, the SD card and the camera — with the **buttons of its row** in it (the previous visit, edit, the eye that shows the visit, create the visit or the deployment… the ones that apply) and **Show it in the table**; the card stays while the pointer goes from the point to it, so its buttons can be pressed, and **choosing** the point — pressing it, or Enter — keeps the card open until it is closed with its cross. **Show it in the table** brings its visit into view and **marks** its row: an arrow `>` before the revision, a blue bar at the left and a clearer background, with a flash when it appears. **Pressing a row** of the table (or a label) marks it in the same way, and pressing the marked one again clears it; the buttons of a row only do what they do. Behind the points is the map of **OpenStreetMap** (with its attribution): it is asked for from the provider, so it needs a connection and the provider sees which area is drawn — the **Background map** button turns it off, and it stays off the next time; with no connection, or with it off, the points are drawn on their own. A location with no coordinates is not drawn, and the line over the map says how many.
 
 The chevron at the left of *Revision selection* and of *Status metrics & filters* **folds the block away**, to leave only the table; press it again to bring the block back.
 
-**The table.** At the top, a search (by site, revision, camera, card, who, deployment…) with a cross to clear it, the **Status** list and **Reset**, which puts every filter back (the search, the status and the revision). Under them a line tells the **active filters** — *Revision: R0003 · Status: Collected* — and how many visits match. The list is paged, ten rows at a time, with its foot (*Showing 1–10 of 24 visits*, *Prev*, the pages and *Next*), and can be **sorted by a column** — press its name, and again to turn it round (the rows not made always go last).
+**The table.** At the top, a search (by location, revision, camera, card, who, deployment…) with a cross to clear it, the **Status** list and **Reset**, which puts every filter back (the search, the status and the revision). Under them a line tells the **active filters** — *Revision: R0003 · Status: Collected* — and how many visits match. The list is paged, ten rows at a time, with its foot (*Showing 1–10 of 24 visits*, *Prev*, the pages and *Next*), and can be **sorted by a column** — press its name, and again to turn it round (the rows not made always go last).
 
-Besides the visits made, the table has a row — status **Planned**, with no day, no actions — for each expected location that has no visit in a revision. Pending sites are not expected until they start, and revisions before a known site start do not include them. Where a site's start is not known, an earlier revision can be **Unknown** and filled in with the pencil button.
+Besides the visits made, the table has a row — status **Planned**, with no day, no actions — for each expected location that has no visit in a revision. Pending locations are not expected until they start, and revisions before a known location start do not include them. Where a location's start is not known, an earlier revision can be **Unknown** and filled in with the pencil button.
 
-A visit is one row: its **Revision**, **Where** (the site), **When**, the **Actions**, its **Status** — *Planned* (not made yet), *Deployed* (it left a camera that is still out), *Collected* (a later visit collected the card it left), *Stolen* (the camera it left was stolen: its deployment is closed with no images, and there is nothing to create), *Not visited* (the visit could not be made) and *Unknown*; nothing for a visit that left no camera — and **Images**: a tick once the deployment is made and its images are stored, which opens [Deployments dashboard](#deployments-dashboard) on that deployment; a grey crossed circle when they are not stored, because the card was not collected or the camera was stolen.
+A visit is one row: its **Revision**, **Where** (the location), **When**, the **Actions**, its **Status** — *Planned* (not made yet), *Deployed* (it left a camera that is still out), *Collected* (a later visit collected the card it left), *Stolen* (the camera it left was stolen: its deployment is closed with no images, and there is nothing to create), *Not visited* (the visit could not be made) and *Unknown*; nothing for a visit that left no camera — and **Images**: a tick once the deployment is made and its images are stored, which opens [Deployments dashboard](#deployments-dashboard) on that deployment; a grey crossed circle when they are not stored, because the card was not collected or the camera was stolen.
 
-**The details of a visit.** The **chevron** at the left of a row opens its details, and the row is marked with a blue band while they are open; press the chevron — now pointing down — to close them. The eye button in the row does the same. The details show everything the visit says: the actions, who went, the camera and its model, the **SD card left** and the **SD card collected** — the one the visit before it left at the site, with the images it holds; when no visit before it is known (the revisions before are unknown) it says so —, the status of the camera, the card and the batteries, the coordinates, the notes and its instant in UTC. The details of a visit show, on a line, **the earlier visit that left the SD card this visit collects** and then **this visit** — with the images it holds, and the state of the camera, the batteries and the card —, and the revisions between them that say nothing (not made, not visited or unknown) as dots on the line. When the closest earlier visit left no camera, or there is no earlier visit, it says *There is no earlier revision in which the card was left* and shows just the visit. The **location** and the **camera** are underlined with dots, as the other links are: each opens its own **panel over the details of the visit** — the data of the location, and the data of the camera (serial number, model, status, connectivity, power source…) — with a button to open it in the settings; Escape shuts the one on top.
+**The details of a visit.** The **chevron** at the left of a row opens its details, and the row is marked with a blue band while they are open; press the chevron — now pointing down — to close them. The eye button in the row does the same. The details show everything the visit says: the actions, who went, the camera and its model, the **SD card left** and the **SD card collected** — the one the visit before it left at the location, with the images it holds; when no visit before it is known (the revisions before are unknown) it says so —, the status of the camera, the card and the batteries, the coordinates, the notes and its instant in UTC. The details of a visit show, on a line, **the earlier visit that left the SD card this visit collects** and then **this visit** — with the images it holds, and the state of the camera, the batteries and the card —, and the revisions between them that say nothing (not made, not visited or unknown) as dots on the line. When the closest earlier visit left no camera, or there is no earlier visit, it says *There is no earlier revision in which the card was left* and shows just the visit. The **location** and the **camera** are underlined with dots, as the other links are: each opens its own **panel over the details of the visit** — the data of the location, and the data of the camera (serial number, model, status, connectivity, power source…) — with a button to open it in the settings; Escape shuts the one on top.
 
-**The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the visit of the revision **before** and the one **after**, to the same site; **edit** the visit; **fill in** an unknown visit; **create the visit** that was planned; **view** its details; and **create the deployment** — it opens [Import deployment](#import-a-deployment) with the research project and that visit already chosen — on a *collected* visit that has none yet.
+**The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the visit of the revision **before** and the one **after**, to the same location; **edit** the visit; **fill in** an unknown visit; **create the visit** that was planned; **view** its details; and **create the deployment** — it opens [Import deployment](#import-a-deployment) with the research project and that visit already chosen — on a *collected* visit that has none yet.
 
 The [Deployments dashboard](#deployments-dashboard) and the Uploads dashboard have the same head, panel of help, folding blocks and table.
 
@@ -414,20 +416,20 @@ The [Deployments dashboard](#deployments-dashboard) and the Uploads dashboard ha
 Press **Register the visits**.
 
 ![Register visits](img/screenshots/visits.png)
- A **visit** is one trip to a camera trap: when it was, which site, who went and what was
+ A **visit** is one trip to a camera trap: when it was, which location, who went and what was
 done. The visits of a research project are kept in its `visits.json`, and the deployments are worked out from them: a
 deployment goes from the visit that **left** a camera to the one that **collected** its card. Choose the research project and how
 the visits come in:
 
 | Source | What it does |
 |---|---|
-| **By hand** | You fill in each visit yourself, following the field flow: the site, when, who went and what was done. |
-| **From a file** | A CSV with a row per visit, dropped in the page or, when Epicollect is turned on in the settings, **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*). Once the file is read the app says what it detected — **WildINTEL Epicollect CSV**, whose columns are found by the label of their question, or **Custom CSV / Spreadsheet**, where you say which column gives each field — with the header of the file and the fields that matched. **Change type** reads the file as the other one and says why it cannot, if it cannot. |
+| **By hand** | You fill in each visit yourself, following the field flow: the location, when, who went and what was done. |
+| **From a file** | A CSV with a row per visit, dropped in the page or, when Epicollect is turned on in the settings, **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*). Once the file is read WildINTEL Uploader says what it detected — **WildINTEL Epicollect CSV**, whose columns are found by the label of their question, or **Custom CSV / Spreadsheet**, where you say which column gives each field — with the header of the file and the fields that matched. **Change type** reads the file as the other one and says why it cannot, if it cannot. |
 
 *By hand* and *From a file* are always offered.
 
-Besides the visits and the rows with problems, reading a file says what is **worth knowing** without being wrong — the sites visited on the trip before and not on this one (their cameras are still out and
-their deployments stay open), visits where nothing was collected (*Not revised*), visits with no image count —, and warns of a **jump in the revision numbers** and of a row whose **session, site, camera and actions** are those of a
+Besides the visits and the rows with problems, reading a file says what is **worth knowing** without being wrong — the locations visited in the revision before and not on this one (their cameras are still out and
+their deployments stay open), visits where nothing was collected (*Not revised*), visits with no image count —, and warns of a **jump in the revision numbers** and of a row whose **session, location, camera and actions** are those of a
 visit already kept (it is that visit, left as it is). When the visits are kept, **a report** of the import is written beside them (`visits_import_<day>_<time>.txt`), and **Show the deployments** lists, by collection, the deployments the
 visits say: the closed ones and the ones whose camera is still out.
 
@@ -439,27 +441,27 @@ A visit follows the same rules **by hand and from a file**: the one that breaks 
 
 | Label in the results | What it says |
 |---|---|
-| *Site is not a location* | The site is not a location of the research project (see *Sites that are not locations*, below). |
-| *Visit already there at that time* | The site already has a visit on that day and at that time. |
-| *Site visited twice in a revision* | A revision is **one visit to each site**, whatever the day. |
-| *Visit not after the last one of the site* / *Revision out of order* | A visit is after the last one to its site, and a revision is after the revisions before it and before the ones after it. |
+| *Not a location of the research project* | The location of the file is not one of the research project (see *Names that are not locations*, below). |
+| *Visit already there at that time* | The location already has a visit on that day and at that time. |
+| *Location visited twice in a revision* | A revision is **one visit to each location**, whatever the day. |
+| *Visit not after the last one of the location* / *Revision out of order* | A visit is after the last one to its location, and a revision is after the revisions before it and before the ones after it. |
 | *Revision started before the one before is finished* | A revision starts when the one before it has a visit in every location that is not archived. |
 | *Revision closed* | Every location has its visit in that revision: nothing new is added to it. |
-| *First visit is not an Installation* | The first visit to a site puts the camera up. |
+| *First visit is not an Installation* | The first visit to a location puts the camera up. |
 | *Something its actions ask is missing* | An Installation asks for the camera and the card it leaves; a Revision, the camera and the images it collected (not when the card was full); a Desinstallation, the camera and the images; a Stolen camera, the camera. |
-| *Not the camera at the site*, *Camera already installed here*, *Camera installed at another site* | A Revision, a Desinstallation or a Stolen camera is of the camera that is at the site (to change it, add an Installation to the visit); a camera is not put up where it already is, nor while it is at another site. |
-| *SD card archived*, *SD card left is the one collected*, *SD card in another camera*, *SD card collected in this revision* | The card left is not archived, is not the one the visit collects, is not in the camera of another site, and was not collected in the same revision. |
-| *Site archived*, *Archive with an Installation*, *Camera still there when the site is archived* | An archived site has no visits after the day it was archived; a visit that archives it puts no camera up and takes the one that is out away (or finds it stolen). |
+| *Not the camera at the location*, *Camera already installed here*, *Camera installed at another location* | A Revision, a Desinstallation or a Stolen camera is of the camera that is at the location (to change it, add an Installation to the visit); a camera is not put up where it already is, nor while it is at another location. |
+| *SD card archived*, *SD card left is the one collected*, *SD card in another camera*, *SD card collected in this revision* | The card left is not archived, is not the one the visit collects, is not in the camera of another location, and was not collected in the same revision. |
+| *Location archived*, *Archive with an Installation*, *Camera still there when the location is archived* | An archived location has no visits after the day it was archived; a visit that archives it puts no camera up and takes the one that is out away (or finds it stolen). |
 | *Camera not in the research project*, *SD card not in the research project*, *Trapper not in the settings* | The camera, the SD card and who went have to exist — by hand and in a file — unless the import is asked to create the camera or the card. |
 
-What the form only **questions** — a Revision with no images, a camera or a card at two sites in a revision — is still kept, with a warning.
+What the form only **questions** — a Revision with no images, a camera or a card at two locations in a revision — is still kept, with a warning.
 
-**What an unknown revision hides is not checked.** A revision before the first visit of a site is *unknown*: nothing is known of it — no day, no camera, no card. So the first visit to a site in a revision after `R0001` may be any, and what a visit left at a site (which camera is there, which card is in it) is **not trusted for a later visit when an unknown revision of that site lies between them**: nobody knows what was done in it. An unknown revision counts as a visit to finish its revision, and a real visit that comes later takes its place.
+**What an unknown revision hides is not checked.** A revision before the first visit of a location is *unknown*: nothing is known of it — no day, no camera, no card. So the first visit to a location in a revision after `R0001` may be any, and what a visit left at a location (which camera is there, which card is in it) is **not trusted for a later visit when an unknown revision of that location lies between them**: nobody knows what was done in it. An unknown revision counts as a visit to finish its revision, and a real visit that comes later takes its place.
 
-**A visit already kept** is the one of the **same revision and site**, whatever the day: a row like that is left as it is and counted as *already kept*. Only a row with no revision — it gets the next of its site — is told by the site, the day and the time.
+**A visit already kept** is the one of the **same revision and location**, whatever the day: a row like that is left as it is and counted as *already kept*. Only a row with no revision — it gets the next of its location — is told by the location, the day and the time.
 
-- **Sites that are not locations.** A site of the file that is not a location of the research project may be a site that is really new or one misnamed in the field. Its visits
-  are held, and the site is shown with what tells the two apart: **how far** its first visit was from the nearest location, and the locations whose id is **one character apart**
+- **Names that are not locations.** A name in the file that is not a location of the research project may be a location that is really new or one misnamed in the field. Its visits
+  are held, and the location is shown with what tells the two apart: **how far** its first visit was from the nearest location, and the locations whose id is **one character apart**
   from its own (*it may be a misprint*). If it is new, create it — by turning on **Create the locations that do not exist** in the first step (the file then gives the coordinates **of the location**, `location_latitude` and `location_longitude`, besides its `timezone` and `daylight_saving`) or in Settings › Locations — and read the file again; if it is a misprint, correct
   the id in the file and read it again.
 
@@ -468,11 +470,11 @@ What the form only **questions** — a Revision with no images, a camera or a ca
 A visit is a form with these parts:
 
 1. **Actions** — one or several of *Installation* (a camera is put up and a card left), *Revision* (the card is collected and another left),
-   *Desinstallation* (the camera is taken away with its card), *Stolen*, *Archive* (the site is given up) and *Site start* (the site begins here: said once, with its first
-   visit, as *Archive* says it ends). In the form that asks questions, the first visit ever to a site in a revision after the first asks whether it is **where the site
-   starts** — off by default, as the site may have been there before with its earlier visits not in the app; in the first revision it is where it starts, and nothing is asked.
-   A site with a *Site start* is not waited for in the revisions before it: they do not need a visit to it, nor an *unknown* one. A site with none keeps what it had: what
-   came before it is *unknown*. The first visit of an existing site can be edited to add it. It also gives the site its state: *planned* (only in Settings: it cannot be used, a start included) → *pending* (in the app, not started: what a new location is) → *ready* (it started and has no camera) → *active* (it has a camera) → *archived*. A pending site is not waited for in the revisions until a visit to it is known, and the first camera put up at it says *Site start* by itself, so the form does not ask; a *ready* or *active* site, which started before or whose start is not known, is asked in the form (off by default). The rest of the form depends on what is chosen: what the actions do not
+   *Desinstallation* (the camera is taken away with its card), *Stolen*, *Archive* (the location is given up) and *Location start* (the location begins here: said once, with its first
+   visit, as *Archive* says it ends). In the form that asks questions, the first visit ever to a location in a revision after the first asks whether it is **where the location
+   starts** — off by default, as the location may have been there before with its earlier visits not in WildINTEL Uploader; in the first revision it is where it starts, and nothing is asked.
+   A location with a *Location start* is not waited for in the revisions before it: they do not need a visit to it, nor an *unknown* one. A location with none keeps what it had: what
+   came before it is *unknown*. The first visit of an existing location can be edited to add it. It also gives the location its state: *planned* (only in Settings: it cannot be used, a start included) → *pending* (in WildINTEL Uploader, not started: what a new location is) → *ready* (it started and has no camera) → *active* (it has a camera) → *archived*. A pending location is not waited for in the revisions until a visit to it is known, and the first camera put up at it says *Location start* by itself, so the form does not ask; a *ready* or *active* location, which started before or whose start is not known, is asked in the form (off by default). The rest of the form depends on what is chosen: what the actions do not
    ask is left out. When the camera was already visited, **the Camera, Site and Grouping sections come filled in from the last visit** (not its notes).
 2. **Camera** — the camera (picked from the active ones of the project, or added from here) and how it is placed and set: height or depth, tilt,
    heading, delay, detection distance, its status, whether the batteries and the clock were right. **It comes before the SD card**.
@@ -488,19 +490,19 @@ The camera and the SD card are picked from those of the research project, and wh
 
 Any spreadsheet with a row per visit. Press **Register the visits › From a file**; the research project is the default one. The steps:
 
-1. **Choose the spreadsheet file.** When Epicollect is turned on in the settings, first say **where the CSV is**: *A file on this computer* or *Epicollect5 project* — with the latter, **Download the entries** reads them from the project of the settings and goes on as a file does. Drop the CSV in the file area or browse for it. The app reads its columns and says what it detected — the download of the WildINTEL form or a custom CSV —; if it is wrong, say it is the other one, and the steps go on as that kind of file does. If you do not know what the file should look like, **Download a template** (at the top right of the file area): a CSV with the columns of a visit and twenty example visits of four locations in five revisions — the installation, revisions, a theft, a camera replaced, one taken away and a site given up — in which several actions are written in one visit, joined with `+` (`Stolen + Installation`, `Revision + Desinstallation + Installation`…). Its columns are matched by themselves; replace its rows with yours. Choosing the file does **not** move on: the step stays open with **Import & auto-creation rules**, where **Customize** opens the switches for entities the file names that are not in the project; each asks for more fields in the matching, where a default can also be given (a location is created with **its own coordinates**, `location_latitude` and `location_longitude`, which are not those of the visit). **Done** closes the options; **Continue** moves on.
-2. **Match the columns.** For each field of a visit, the column of the file that gives it. The fields are in groups, as in the form of a visit by hand — *Who*, *Where*, *When*, *The visit*, *SD card*, *Camera*, *Site*, and *Grouping and notes* —, each with an example from the file. Each group is a card with a **chevron at the left** that folds it away, and says how many of its fields are matched (*3 of 5 matched*). What has the name of a field (`location_id`, `session`, `date`, `time`, `actions`, `trappers`, `camera_id`, `sd`, `num_photos`…) is matched by itself; pick the rest, or give a **default** for a field the file has no column for. The site and the actions are required — every row gives them, by a column or a default. The **coordinates of the visit** (`latitude` and `longitude`: where the trapper was when the visit was noted) are required of a visit, but the file need not have them: a row gives them by a column or a default and, when it gives none, takes those of its **location** (a note says how many rows did) — the switch *Use the coordinates of the location when a row has none*, on by default, in the options of the second step; with it off, a row with none is refused —; one of the two alone is refused; the time is a date and a time, or — when the file has it — the instant of an entry (`created_at`), as the *visit sources* setting says. Dates may be written day first. A visit with no revision gets the next one of its site. Press **Read the visits**.
-3. **Check the visits of the file.** The check starts when you press **Continue** in the step of the file, not before. While it runs nothing is shown but that the file is being checked (a long history can take some minutes): a bar that moves — it does not say how far the check is — and the number of the step turns like a clock. Then what the file says, before it is kept: *N visits to add · N already kept · N rows with a problem*, the new sites, what is worth knowing and what is odd. Then the **rows** of the file, laid out like a dashboard:
+1. **Choose the spreadsheet file.** When Epicollect is turned on in the settings, first say **where the CSV is**: *A file on this computer* or *Epicollect5 project* — with the latter, **Download the entries** reads them from the project of the settings and goes on as a file does. Drop the CSV in the file area or browse for it. WildINTEL Uploader reads its columns and says what it detected — the download of the WildINTEL form or a custom CSV —; if it is wrong, say it is the other one, and the steps go on as that kind of file does. If you do not know what the file should look like, **Download a template** (at the top right of the file area): a CSV with the columns of a visit and twenty example visits of four locations in five revisions — the installation, revisions, a theft, a camera replaced, one taken away and a location given up — in which several actions are written in one visit, joined with `+` (`Stolen + Installation`, `Revision + Desinstallation + Installation`…). Its columns are matched by themselves; replace its rows with yours. Choosing the file does **not** move on: the step stays open with **Import & auto-creation rules**, where **Customize** opens the switches for entities the file names that are not in the project; each asks for more fields in the matching, where a default can also be given (a location is created with **its own coordinates**, `location_latitude` and `location_longitude`, which are not those of the visit). **Done** closes the options; **Continue** moves on.
+2. **Match the columns.** For each field of a visit, the column of the file that gives it. The fields are in groups, as in the form of a visit by hand — *Who*, *Where*, *When*, *The visit*, *SD card*, *Camera*, *Site*, and *Grouping and notes* —, each with an example from the file. Each group is a card with a **chevron at the left** that folds it away, and says how many of its fields are matched (*3 of 5 matched*). What has the name of a field (`location_id`, `session`, `date`, `time`, `actions`, `trappers`, `camera_id`, `sd`, `num_photos`…) is matched by itself; pick the rest, or give a **default** for a field the file has no column for. The location and the actions are required — every row gives them, by a column or a default. The **coordinates of the visit** (`latitude` and `longitude`: where the trapper was when the visit was noted) are required of a visit, but the file need not have them: a row gives them by a column or a default and, when it gives none, takes those of its **location** (a note says how many rows did) — the switch *Use the coordinates of the location when a row has none*, on by default, in the options of the second step; with it off, a row with none is refused —; one of the two alone is refused; the time is a date and a time, or — when the file has it — the instant of an entry (`created_at`), as the *visit sources* setting says. Dates may be written day first. A visit with no revision gets the next one of its location. Press **Read the visits**.
+3. **Check the visits of the file.** The check starts when you press **Continue** in the step of the file, not before. While it runs nothing is shown but that the file is being checked (a long history can take some minutes): a bar that moves — it does not say how far the check is — and the number of the step turns like a clock. Then what the file says, before it is kept: *N visits to add · N already kept · N rows with a problem*, the new locations, what is worth knowing and what is odd. Then the **rows** of the file, laid out like a dashboard:
    - **Revision selection** — a card for *All revisions* and one for each revision the file has (the five most recent as cards, the older ones in the **Older revisions** list, for a file with many). Picking one narrows what is below to its rows.
    - **Status metrics & filters** — the **Progress** card and a card for *Rows read*, *Ready* (new visits), *Skipped / Existing* (already kept, or ignored) and *With problems*. Pressing one shows only those rows; pressing it again shows them all.
-   - **The table** — the search (by row, site, visit, action…), **Group by** — *Row* or *Error* — and **Reset**, with a line of the **active filters**. Grouped **by row**, each row of the file has its **Row**, **Visit**, **Site ID**, **Actions**, **When** and **Status** (*Add*, *Add · to check*, *Skipped / Existing*, *Skipped / Ignored* or *Error*); the **chevron** at the left is only in the rows with something wrong, and opens the errors under the row — a row that is fine has none —, and the row is marked with a blue band while they are open; the **eye** button opens a **panel at the right** with what the row says, field by field, and what is wrong with it when something is (Escape or **Close** shuts it). Grouped **by error**, each kind of error is a row with how many rows have it, and its chevron opens those rows.
+   - **The table** — the search (by row, location, visit, action…), **Group by** — *Row* or *Error* — and **Reset**, with a line of the **active filters**. Grouped **by row**, each row of the file has its **Row**, **Visit**, **Location ID**, **Actions**, **When** and **Status** (*Add*, *Add · to check*, *Skipped / Existing*, *Skipped / Ignored* or *Error*); the **chevron** at the left is only in the rows with something wrong, and opens the errors under the row — a row that is fine has none —, and the row is marked with a blue band while they are open; the **eye** button opens a **panel at the right** with what the row says, field by field, and what is wrong with it when something is (Escape or **Close** shuts it). Grouped **by error**, each kind of error is a row with how many rows have it, and its chevron opens those rows.
 
    When the rows of a revision are refused because the revision before is not finished — *R0043 cannot start: R0042 is not finished, 3 location(s) still to be visited in it: …* —, a notice above the metrics says which revision and which locations, and has the button **Mark them as not visited and read again**: those locations get a visit *Not revised*, the revision before is closed — it cannot be changed afterwards —, and the file is read again. The other way out is to correct the file and read it again. The switch of the second step, *Close the revision before when it has locations still planned*, does the same beforehand.
 
-   An SD card whose id has spaces or signs (*84 (10)*, *38_B*) is told among what is odd — it is kept as written, not refused; the ids of the cards are never upper-cased. **The case counts** for an SD card, a camera and the full name of a trapper (not its username, which is read whatever its case): `7b` and `7B` are two SD cards (they were two sites), and a visit that says `7b` is of the card `7b`, not of `7B`. The sites and the research projects are still read whatever their case: they are names of folders, and TRAPPER keeps its ids in lower case.
+   An SD card whose id has spaces or signs (*84 (10)*, *38_B*) is told among what is odd — it is kept as written, not refused; the ids of the cards are never upper-cased. **The case counts** for an SD card, a camera and the full name of a trapper (not its username, which is read whatever its case): `7b` and `7B` are two SD cards (they were two locations), and a visit that says `7b` is of the card `7b`, not of `7B`. The locations and the research projects are still read whatever their case: they are names of folders, and TRAPPER keeps its ids in lower case.
 
    *Worth knowing* is collapsed: open it to read it. **Continue to the review** goes on to step 4.
-4. **Review and confirm.** It says **what is going to be saved** — the visits, the revisions and sites, and the locations, cameras, SD cards and trappers that are created —, warns that the visits cannot be changed once they are created, and has the button **Add N visits**. Once they are added the same step turns green (*Visits saved*), has **What was saved** collapsed — open it for the summary —, the deployments that can now be created and what to do next.
+4. **Review and confirm.** It says **what is going to be saved** — the visits, the revisions and locations, and the locations, cameras, SD cards and trappers that are created —, warns that the visits cannot be changed once they are created, and has the button **Add N visits**. Once they are added the same step turns green (*Visits saved*), has **What was saved** collapsed — open it for the summary —, the deployments that can now be created and what to do next.
 
    **The trappers must be registered first** — in Settings › Trappers —, or the rows that say them are refused (*Luis Gómez is not one of the trappers*), and with them every revision after. Turn on **Create the trappers that do not exist**, in the options of the second step, to make them from the file: each person a row says went — *who went* and *set up by* — who is not a trapper yet is made as the row calls them, the username is worked out from the name (`Ana Pérez` is `ana.perez`, `ana.perez2` if that one is taken) and a note says it; complete them in Settings › Trappers. Only the people of the rows that are kept are made.
 
@@ -510,11 +512,11 @@ Any spreadsheet with a row per visit. Press **Register the visits › From a fil
 
 When the visits are kept, the end says how many were added and, if they **collected other visits** — a visit collects the card left by the visit that started the deployment —, how many: **pick their revision and import their images** is a link to [Import deployment](#import-a-deployment) on the research project. A **report** of the import is written with the other reports.
 
-The rows are read as their fields take them: *a date that is not a date*, *actions that are not Site start, Installation, Revision, Desinstallation, Stolen or Archive* (*New site* as the status of the camera says Site start, even when the location already exists), a card code that is not OK, Card full, No batteries or Card full and no batteries, or image counts that are not a whole number, are rows with a problem, and none of them is kept. The visits are then checked with [the rules of a visit](#the-rules-of-a-visit), in the order of their instants, each against the ones kept and the ones of the file before it. The visits of a file that fill unknown revisions of the visits kept are checked together, with the ones after them that they touch.
+The rows are read as their fields take them: *a date that is not a date*, *actions that are not Location start, Installation, Revision, Desinstallation, Stolen or Archive* (*New site* as the status of the camera says Location start, even when the location already exists), a card code that is not OK, Card full, No batteries or Card full and no batteries, or image counts that are not a whole number, are rows with a problem, and none of them is kept. The visits are then checked with [the rules of a visit](#the-rules-of-a-visit), in the order of their instants, each against the ones kept and the ones of the file before it. The visits of a file that fill unknown revisions of the visits kept are checked together, with the ones after them that they touch.
 
-There are example files of every case — all correct, three revisions, a revision that starts before the one before is finished, unknown sites, rows that cannot be read, a card that is left where it cannot be, a theft and a site given up, columns to match by hand — in [`examples/visits_example`](https://github.com/wildintelproject/wildintel-uploader/tree/main/examples/visits_example), in folders by the option they are for — `custom_csv/wicp_02` and `wildintel_csv/wicp_02` —, made for the entities of the research project `WICP_02`.
+There are example files of every case — all correct, three revisions, a revision that starts before the one before is finished, unknown locations, rows that cannot be read, a card that is left where it cannot be, a theft and a location given up, columns to match by hand — in [`examples/visits_example`](https://github.com/wildintelproject/wildintel-uploader/tree/main/examples/visits_example), in folders by the option they are for — `custom_csv/wicp_02` and `wildintel_csv/wicp_02` —, made for the entities of the research project `WICP_02`.
 
-**The deployments the visits say, and the logs of the collections.** Each site's visits, in order, give a deployment for every pair where the first **left a camera** (an Installation or a Revision)
+**The deployments the visits say, and the logs of the collections.** Each location's visits, in order, give a deployment for every pair where the first **left a camera** (an Installation or a Revision)
 and the second **collected its card**: it goes from the one to the other and is *closed*. It belongs to the collection **the revision of the visit that collected it names, minus one** — R0013
 collects the deployments of R0012 — and that is the revision [Import deployment](#import-a-deployment) gives it. A camera that was left and has not been collected is *open*: it will belong to
 the collection that the visit that collects it names. When a visit is registered — by hand or from a file — the **folder of each collection it changes is made**, with its `collection.json`, and so are its logs — they are written automatically, with no button for it, in the folder of each collection, its `<R000N>_FileTimestampLog.csv` (the
@@ -532,13 +534,13 @@ Open **Deployments dashboard** from **Dashboards and statistics**. It is of the 
 
 1. **Revision selection** — a card for *All revisions* and one for each of the five most recent revisions (*R0003*… with how many deployments each has); the older ones are in the **Older revisions** list. Picking one narrows everything below to it.
 2. **Status metrics & filters** — the **Progress** card (the share of the deployments that are created, with a bar and how many are to create) and a card for each state, with its count: *Planned* (the card was collected, so the images are to be imported and the deployment created), *Created* (the images are stored) and *Not created* (the camera was stolen, so there are no images: it is left out of the progress). Pressing one shows only those; pressing it again shows them all.
-3. **The table** — one panel with the search, the *Status* filter and **Reset**, the **active filters** and how many deployments match, the rows and the foot with the pages. The buttons at the right of **Reset** change its view: **as a table**, **as labels**, **on a map** or only the **search** field. The map is the one of the [Visit dashboard](#visit-dashboard) — the sites by their latitude and longitude on the map of OpenStreetMap, with the same zoom, dragging and background button — with a point for each **site** of the deployments that match: two deployments of a site in different revisions share it, and the point is the latest one's. Its colour is the state of that deployment (*Created*, *Planned* or *Not created*), a **tick** on the point says it was **uploaded**, and the legend says both. Pointing at a point opens its card — the deployment, the site, the coordinates, the period, the SD card, the images (or *Card full*) and the state — with the **buttons of its row** (its statistics, view, create or upload) and **Show it in the table**, which marks its row. A site with no coordinates is not drawn, and the line over the map says how many.
+3. **The table** — one panel with the search, the *Status* filter and **Reset**, the **active filters** and how many deployments match, the rows and the foot with the pages. The buttons at the right of **Reset** change its view: **as a table**, **as labels**, **on a map** or only the **search** field. The map is the one of the [Visit dashboard](#visit-dashboard) — the locations by their latitude and longitude on the map of OpenStreetMap, with the same zoom, dragging and background button — with a point for each **location** of the deployments that match: two deployments of a location in different revisions share it, and the point is the latest one's. Its colour is the state of that deployment (*Created*, *Planned* or *Not created*), a **tick** on the point says it was **uploaded**, and the legend says both. Pointing at a point opens its card — the deployment, the location, the coordinates, the period, the SD card, the images (or *Card full*) and the state — with the **buttons of its row** (its statistics, view, create or upload) and **Show it in the table**, which marks its row. A location with no coordinates is not drawn, and the line over the map says how many.
 
 The chevron at the left of the first two blocks folds them away, to leave only the table.
 
 A deployment is one row: the **deployment** (`R0003-DONA_01`), **where**, **when** — the visit that started it (a link that opens the [visit dashboard](#visit-dashboard) on that visit, with its details) and the period —, its **SD card and images**, its **Creation** (*Planned*, *Created* or *Not created*) and its **Upload**. The chevron at the left of a row opens its details, and the eye button does the same.
 
-**The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the deployment of the revision **before** and the one **after**, to the same site; **show its statistics** — on a created one: it opens [Statistics](#statistics) on its revision, with it isolated —; **view** its details; **create the deployment** — a *planned* one, whose card was already collected: it opens [Import deployment](#import-a-deployment) with the research project and the visit that left the camera already chosen —; and **upload** — on a created deployment not uploaded yet (it opens the upload page on its revision). In the **Upload** column an uploaded one has a tick (the platform and the day, in its tip) that opens the uploads dashboard on its uploads. The camera still out or the card not imported is the state of the *visit*, not of the deployment. The **Show image details** button of a visit of the visit dashboard opens it on that deployment.
+**The buttons of a row** are together, in a box of their own, and only the ones that apply are there: the deployment of the revision **before** and the one **after**, to the same location; **show its statistics** — on a created one: it opens [Statistics](#statistics) on its revision, with it isolated —; **view** its details; **create the deployment** — a *planned* one, whose card was already collected: it opens [Import deployment](#import-a-deployment) with the research project and the visit that left the camera already chosen —; and **upload** — on a created deployment not uploaded yet (it opens the upload page on its revision). In the **Upload** column an uploaded one has a tick (the platform and the day, in its tip) that opens the uploads dashboard on its uploads. The camera still out or the card not imported is the state of the *visit*, not of the deployment. The **Show image details** button of a visit of the visit dashboard opens it on that deployment.
 
 **Select deployments and upload them** — each row has a box (and one in the header selects the page). Once deployments are ticked a bar appears over the table: *N selected*, **Select all N matching**, **Clear** and **Upload deployments**. The button is only active when every deployment ticked is **created** (its images are stored), is **not on TRAPPER yet** and they are all of **one revision**. It goes to [Upload the images](#8-upload-the-images) on that revision with those deployments ticked, instead of all that are left to send.
 
@@ -551,7 +553,7 @@ Open **Statistics** from **Dashboards and statistics**. It is of the **default r
 
 1. **Figures of** — the figures below are of the whole revision, or of **one deployment** that you isolate with its button (or the list of the rest, when there are more than eight); a button puts the whole revision back.
 2. **The figures** — five cards: the **length** in days (mean per deployment, the shortest and the longest, and the camera-days all of them add up), the **images** (the total and the mean per deployment), the **images per day** (the mean, the median day and the busiest day), the **sequences** (how many, and how many images a sequence has, on average and the median) and the **longest sequence**, with *Inspect the sequence*: how many images, how long, when it began and ended on the wall clock of its location, and how far apart its images are.
-3. **Comparison with the previous revisions** — each deployment is compared with the previous revisions of its location, the same site in the revisions before, in the number of images, the number of sequences and how many images a sequence has, with the method and the tolerance of [Postvalidation](#postvalidation). A card counts the deployments that are *Similar*, *To review* — some value departs from the previous ones — or have *Not enough history* — fewer previous revisions than Postvalidation asks for —; pressed, it filters the table.
+3. **Comparison with the previous revisions** — each deployment is compared with the previous revisions of its location, the same location in the revisions before, in the number of images, the number of sequences and how many images a sequence has, with the method and the tolerance of [Postvalidation](#postvalidation). A card counts the deployments that are *Similar*, *To review* — some value departs from the previous ones — or have *Not enough history* — fewer previous revisions than Postvalidation asks for —; pressed, it filters the table.
 4. **Two distributions** — how many days had each number of images (in 6 or 10 ranges, with the mean as a dashed line) and how many sequences have each number of images, in a linear or a logarithmic scale — the logarithmic one shows a few very long sequences beside many of one or two images; the amber column is the long tail. Point at a column for its number, or open its table. Each of the two has a **By day** view as well: a column for every day of a month — the images of each day in the first, the sequences that began each day in the second, with the days that have none empty — and the arrows at its right go to the **month before** or **after**; each diagram keeps its own month.
 5. **The table** — one row for each deployment, with the search, the *State* filter, **Export CSV** and the pages: its days (with its period), images, images per day, sequences, images per sequence, its longest sequence, the previous revisions it has and its state. The name of a deployment isolates it in the figures. Under its state, a button says how its **images a day changed** against the revision before of its location — *More activity* from +12%, *Unusual peak* above +45%, *Less activity* from −12%, *Sharp drop* below −35%, *Stable* between, and *First revision* when there is none before — and opens the **comparison**: the six metrics side by side (length, images, images per day, sequences, images per sequence and the longest sequence, with the difference and the change in %), how the location evolved revision by revision, and a profile of its bursts against the reference. It can be compared with the previous revision, with the mean of all the previous ones, with **a revision of its location that you pick** — in the list, or by pressing its bar in the evolution —, with the rest of its revision or with the whole project; the reading also says **why** a deployment is *To review* (what is outside the tolerance of Postvalidation), and the arrows go to the deployment before and after it. Press its **arrow**, or its **images per day**, to see a histogram with a column for each calendar day — the days with none empty — or its **sequences** to see those that began each day and how many there are of each size.
 
@@ -572,7 +574,7 @@ done. **Back** and **Continue** move between them.
 |---|---|
 | 1. **Origin** | The research project and the visit (or the location) the images are of. |
 | 2. **Images** | Which folder, which SD card, which checks, and how the images did. |
-| 3. **Dates and details** | The revision, the period, and what you know of the camera and the site. |
+| 3. **Dates and details** | The revision, the period, and what you know of the camera and the location. |
 | 4. **Check details** | The deployment's names and dates, the images against them, and against the visit. |
 | 5. **Prepare and save** | The preprocessing, and saving the deployment in the collection. |
 
@@ -583,12 +585,12 @@ at the end, the id the deployment will have, its location and its dates.
 
 ![Stage 1 — Origin](img/screenshots/step-origin.png)
 
-Where the images were taken, which tells the app what the deployment is **of**. It is of the **default research project**; choose another using the research project selector in the header. If there is no default one, the step asks for the **research project**: pick one of those in the collections folder, or add a new one **by hand** or **from TRAPPER** (the app uses the account saved in the settings).
+Where the images were taken, which tells WildINTEL Uploader what the deployment is **of**. It is of the **default research project**; choose another using the research project selector in the header. If there is no default one, the step asks for the **research project**: pick one of those in the collections folder, or add a new one **by hand** or **from TRAPPER** (WildINTEL Uploader uses the account saved in the settings).
 
 **When the project has collected visits** the step is **When was it collected?**:
 
-- **Revision** — a revision is one visit to every site. A card for *All revisions* and one for each revision that has visits that can still be given a deployment, with how many. Pick one — or all — to narrow the list below.
-- **Collected visit** — the visits to the project that left a camera and whose card has been [collected](#5-register-the-visits), and that have **no deployment yet** (a visit that already has one is not offered). Picking one gives the deployment its **location**, its **revision** and, later, the camera, the site and the period: the deployment is *of that visit*.
+- **Revision** — a revision is one visit to every location. A card for *All revisions* and one for each revision that has visits that can still be given a deployment, with how many. Pick one — or all — to narrow the list below.
+- **Collected visit** — the visits to the project that left a camera and whose card has been [collected](#5-register-the-visits), and that have **no deployment yet** (a visit that already has one is not offered). Picking one gives the deployment its **location**, its **revision** and, later, the camera, the location and the period: the deployment is *of that visit*.
 
 If you start from a visit — from [Register the visits](#5-register-the-visits), or with **Create the deployment** of the [Deployments dashboard](#deployments-dashboard) — the project and the visit are already chosen.
 
@@ -596,8 +598,8 @@ If you start from a visit — from [Register the visits](#5-register-the-visits)
 
 ### Stage 2 — Images
 
-In this stage you tell the app **which images** you are importing and find out, before anything else is done, **whether they
-are in good shape**. You choose the folder with the images of the camera and the app counts what is in it; then you
+In this stage you tell WildINTEL Uploader **which images** you are importing and find out, before anything else is done, **whether they
+are in good shape**. You choose the folder with the images of the camera and WildINTEL Uploader counts what is in it; then you
 choose which checks to run over the images alone — corrupted files, shooting order, subfolders, a single camera, the
 image data they need and duplicates — and how strict each one is. The result tells you how many images are valid and which
 ones have problems, so you can fix them before going on. **Nothing is copied or changed yet: the source folder is only read.**
@@ -616,7 +618,7 @@ their extension) — *241 images found* — with a warning if the folder is empt
 images. It doesn't open them, which is why it is instant however many there are: reading the
 images is what the next steps are for. A folder you choose is read where it is, and **nothing in it is changed**.
 
-Once the folder is scanned, the app asks the **SD card** the images come from, among the cards of the research project (**Select an SD card…**; optional). If the deployment is
+Once the folder is scanned, WildINTEL Uploader asks the **SD card** the images come from, among the cards of the research project (**Select an SD card…**; optional). If the deployment is
 of a visit, the card is checked against the one the visit left — see [Check details](#stage-4-check-details).
 
 **2. Choose the checks.** Checks over the images alone, before anything is known about the deployment:
@@ -653,21 +655,21 @@ Pressing a card filters the **table of results** below, and each block filters o
 ![The images that failed a check](img/screenshots/validation-failures.png)
 
 Reading the camera's model and id uses ExifTool, because the serial number of a camera trap lives
-in the manufacturer's own metadata. Without it the app falls back to the standard EXIF tags,
+in the manufacturer's own metadata. Without it WildINTEL Uploader falls back to the standard EXIF tags,
 which are less complete — it says which it used.
 
 ### Stage 3 — Dates and details
 
 ![Stage 3 — Dates of the deployment](img/screenshots/step-dates.png)
 
-Here you tell the app **when** the images were taken and what you know of the camera and the site. With this the deployment gets its id
+Here you tell WildINTEL Uploader **when** the images were taken and what you know of the camera and the location. With this the deployment gets its id
 (`R0003-DONA_01`) and its details. **Only the dates are required: the rest can be completed later.** The stage has two steps.
 
 **1. Dates of the deployment** — called *When was it collected?* when the deployment is of no visit.
 
 First, the **revision**. If the deployment is of a visit it is the revision of the visit, and is not asked; otherwise it starts as the next one expected for the location
 — one more than the highest kept — and says so; change it if needed, and the **deployment id** is built (`R0003-DONA_01`). If an earlier revision of this
-deployment is kept, a notice offers to **copy from it** its camera, site and notes — the dates are never copied. If the deployment **already exists** in the
+deployment is kept, a notice offers to **copy from it** its camera, location and notes — the dates are never copied. If the deployment **already exists** in the
 collections folder you are told, and the import would be refused as it would mix two sets of images: choose another revision or location, or move that
 folder away.
 
@@ -680,16 +682,16 @@ If the deployment's collection has a `<COLLECTION>_FileTimestampLog.csv` (the fi
 
 ![Stage 3 — More details](img/screenshots/step-details.png)
 
-After the dates, the app shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format — the same fields as TRAPPER's own deployment form. Most fields are optional and can be completed later in TRAPPER. The app pre-fills available details from the field visit where the SD card was left (and from the previous deployment, when available); you can review or edit them. Each section is a card that says how many of its fields are filled in; open it, with the chevron at its left, to fill it in.
+After the dates, WildINTEL Uploader shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format — the same fields as TRAPPER's own deployment form. Most fields are optional and can be completed later in TRAPPER. WildINTEL Uploader pre-fills available details from the field visit where the SD card was left (and from the previous deployment, when available); you can review or edit them. Each section is a card that says how many of its fields are filled in; open it, with the chevron at its left, to fill it in.
 
 | Section | Fields |
 |---|---|
 | **Camera** | Camera id and model (read from the images when they all share them), delay between triggers, height *or* depth (not both), tilt, heading, detection distance. |
-| **Site** | Feature type (road, trail, burrow, water source…), habitat, set up by, bait used, timestamp issues. |
+| **Location** | Feature type (road, trail, burrow, water source…), habitat, set up by, bait used, timestamp issues. |
 | **Grouping and notes** | Deployment groups, tags, comments. |
 
 **Pre-filled details.** The details are **what the previous deployment of the location says, overwritten with what its visit says** — only the values that are not empty; a visit that was not made, or that is unknown, says nothing. The card **Pre-filled details** says it: *Locked · Previous deployment (R0001-DONA_06) & Visit R0002*, a sentence with where the data comes from — *Data comes from previous deployment **R0001-DONA_06** and field work visit **R0002** (16 Nov 2020, 14:24 UTC). Original records are never modified.* — and a chip for each source with **how many fields it gave**. Under it the sections — **Camera**, **Site** and **Grouping and notes** — are **locked**: each has its padlock, its line says which source gave its values (*From Visit R0002 & R0001-DONA_06*) and how many fields are filled. **Edit details** unlocks them: the fields open for editing without losing the values, and **Restore the pre-filled details** gives back what the sources say (what you changed by hand is lost).
-When Epicollect5 [is turned on](#epicollect) and has an entry, a notice under the revision also offers **Import from Epicollect5**, which fills the camera, the site and the notes
+When Epicollect5 [is turned on](#epicollect) and has an entry, a notice under the revision also offers **Import from Epicollect5**, which fills the camera, the location and the notes
 from it (and leaves the form to be edited by hand); the location's own data are never taken from the entry.
 
 The form is validated as you type, in the browser and again in the server: dates in order, latitude and longitude in range, tilt between −90 and 90, heading between 0 and 360.
@@ -766,7 +768,7 @@ images as thumbnails. The [report](#reports) says what was done to each image. *
 ![Stage 5 — Saved](img/screenshots/step-import.png)
 
 The images are ready, so this step **consolidates** the deployment: it says what is going to be saved, in a card (the deployment, where it was taken, its period, the images and where it is kept), a box with a lock says that *saving seals the deployment* and asks *Do you want to save the deployment … in …?*, and, at the foot, **Back** at the left and **Save to my collection** at the right — as when the visits are saved — writes its
-`deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — the app notices if an image
+`deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — WildINTEL Uploader notices if an image
 or its details change — and it can be uploaded.
 
 Until you save, the images are prepared in a hidden `.staging` folder inside the collection (`<collection>/.staging/<deployment>`): the collection has nothing of the deployment, and
@@ -791,7 +793,7 @@ Once it is saved, the steps before are **locked** (they show a padlock) and the 
 | `seal.json` | Which validation and postvalidation checks the deployment and each image passed, and the hash of everything. |
 
 The **seal** protects against changes by mistake: if an image or `deployment.json` is changed
-after the import, the seal no longer matches, and the app can tell. It is not a signature —
+after the import, the seal no longer matches, and WildINTEL Uploader can tell. It is not a signature —
 whoever edits the files on purpose could seal them again.
 
 ## 7. Import deployments
@@ -802,16 +804,16 @@ Press **📷 Import the images**. It works from the **visits** of the default re
 - **Several visits:** a card **How do you want to import them?** asks for **All at once** or **One after another**.
   - **One after another** (*Start with the first*) runs [Import deployment](#import-a-deployment) for each visit, the first, then the second…: *Deployment 3 of 38* is at the top, with **Skip this one** and **Stop here**, and when one is saved the button is **Next: R0001-DONA_0007 (4 of 38)** — **Finish** on the last. The folder of the images of the first is told to the next: *Beside the one before* proposes `<the folder above>/<the deployment>`.   Stopping leaves the visits that were not imported as they were: they are collected visits without a deployment, and they are offered again.
   - **All at once:** the folder is a **collection**: a folder with **one subfolder per visit**, as follows. A **collection** is a folder with **one subfolder per deployment** — the
-usual way a field trip's images come home. The revision, the checks and the preprocessing are the
+usual way the images of a revision come home. The revision, the checks and the preprocessing are the
 same for all; the location, dates and camera are asked for each deployment.
 
 The stages are those of [Import a deployment](#import-a-deployment), with the differences below.
 
 ![Import deployments — the folders and their visits](img/screenshots/session-folders.png)
 
-1. **Origin** — select the **visits** whose cards have been collected (see [Register the visits](#5-register-the-visits)): those of one revision. The list has a **search** (by site, card, date…). With no collected visits without deployments, register visits before importing.
+1. **Origin** — select the **visits** whose cards have been collected (see [Register the visits](#5-register-the-visits)): those of one revision. The list has a **search** (by location, card, date…). With no collected visits without deployments, register visits before importing.
 2. **Images** — *Revision folder*: choose the folder and **Scan**; its subfolders are listed, each with its images and warnings, and you tick the ones to import.
-   With visits, each folder is **linked to a visit** — a folder named after a site takes the visit of that site by itself; change it if it is not right — and
+   With visits, each folder is **linked to a visit** — a folder named after a location takes the visit of that location by itself; change it if it is not right — and
    says its **SD card** (optional). A header above the list says how many of the ticked folders have a visit, with a progress bar, the tabs *All*, *Missing* and
    *Ready* and a filter by name; a folder with no visit has to be linked or unticked before going on, and a visit is of one folder only.
    Then *Choose the checks* and *Results*: the checks run over every chosen deployment, by folder or by check (with *Only folders with problems*).
@@ -820,7 +822,7 @@ The stages are those of [Import a deployment](#import-a-deployment), with the di
    *When was it collected?*: first the **revision**, common to the import, which names all the deployments (`R0003-DONA_01`, `R0003-DONA_02`…); it is the revision of the
    visits, or is taken from the log's ids. Then the **list** of deployments, each with its period and **where it comes from**
    (*From the visits*, *From R0003_FileTimestampLog.csv*, *From the images*, *Entered by hand*), how many are complete (*"12 of 40 deployments complete"*), a *filter by name* and
-   *Only the incomplete ones*. *More details*: the camera and the site of each; for a deployment of a visit, the same
+   *Only the incomplete ones*. *More details*: the camera and the location of each; for a deployment of a visit, the same
    [source card](#stage-3-dates-and-details) as in a single deployment — the field sheet, the previous deployment or by hand — for each one.
 4. **Check details** — the deployments' checks, by folder or by check; for deployments of visits they include the two checks against the visit (the card and the number of images).
 5. **Prepare and save** — one list of preprocessing steps for all, then each deployment in turn, with its own result.
@@ -914,7 +916,7 @@ and **Back** returns to the list.
 
 For the images of a card copied to a folder whose camera **clock went wrong** — it was reset, or it was never set — and whose dates are not the days they were taken. It works on the **copy**, never on the card. It has a short head with a **Help** button that explains each option, and five steps; the last four are locked until the dates are checked.
 
-1. **Choose the folder and the visit.** The folder (**Browse…** or type it), then the **revision** and, among its visits, the **visit that left the camera**. The research project is the default one, the one in the card at the top right. The visit is optional: without it the time jumps are found, but the dates cannot be checked against a period. With it, the period is the one of the deployment: from that visit to the next one at the site that collected the card, with a margin of a few hours. Press **Check the dates**.
+1. **Choose the folder and the visit.** The folder (**Browse…** or type it), then the **revision** and, among its visits, the **visit that left the camera**. The research project is the default one, the one in the card at the top right. The visit is optional: without it the time jumps are found, but the dates cannot be checked against a period. With it, the period is the one of the deployment: from that visit to the next one at the location that collected the card, with a margin of a few hours. Press **Check the dates**.
 2. **Check the dates.** The images are read in the order the camera numbered them and split into **segments**: a segment is a run of consecutive images taken with the clock in one setting, and a new one starts wherever the time **goes backwards** from one image to the next. You see the number of images, the period, the segments and how many images are outside it, a chart, the problems found (images with no date, jumps, images outside the period) and each segment with its state — *In its period*, *Partly outside* or *Outside its period*.
 3. **Fix the segments.** For each segment that is not in its period you choose what to do with its images: **move them into the period** — the shift is shown and asked before it is made — or **remove them**. The shift suggested takes the first segment to start when the deployment started, and each later one to go on from where the one before ended. The images with **no date** can only be removed.
 4. **Fix the dates.** To shift by hand any run of images — even one — from an image to another, **by an offset** (forward or back, in days, hours, minutes and seconds) or **from an image whose real time you know**. The reason is written down with the fix.
@@ -948,7 +950,7 @@ What is missing is created, one deployment at a time, and a live log says what i
 What is already in the folder is **left as it is**, whatever TRAPPER says. **Nothing is changed in
 TRAPPER**, and **no image is downloaded unless you ask for it** — so there is no `preprocessing.json`, and the size,
 pixels and hashes are missing from `images.json`, which is marked `"source": "trapper"`. A
-deployment synced this way is *read-only* for the app: what TRAPPER holds isn't modified here.
+deployment synced this way is *read-only* for WildINTEL Uploader: what TRAPPER holds isn't modified here.
 New locations synced from TRAPPER are *pending* until a visit starts them; the status of an existing
 location is left unchanged.
 
@@ -1016,11 +1018,11 @@ Press **🧰 Utils**, then **Backup and restore**. It keeps the settings and the
 ## 10. Troubleshooting
 
 **"Backend not reachable — is the server running?"**
-:   The red bar at the top. The window that started the app was closed, or it crashed. Start the app
+:   The red bar at the top. The window that started WildINTEL Uploader was closed, or it crashed. Start WildINTEL Uploader
     again, and look at the log (Settings › General) if it recurs.
 
 **The browser doesn't open**
-:   Open <http://127.0.0.1:8769> yourself. If that port was busy the app took the next free one:
+:   Open <http://127.0.0.1:8769> yourself. If that port was busy WildINTEL Uploader took the next free one:
     the window that started it says which (`Server on http://127.0.0.1:8770`).
 
 **"Incorrect Trapper username or password"**
@@ -1058,7 +1060,7 @@ Press **🧰 Utils**, then **Backup and restore**. It keeps the settings and the
 
 **Files ending in `_exiftool_tmp` in a deployment's folder**
 :   ExifTool writes the metadata of each image through a temporary file; one it was interrupted in
-    (the app stopped in the middle of an import) is left behind. The app removes them when the
+    (WildINTEL Uploader stopped in the middle of an import) is left behind. WildINTEL Uploader removes them when the
     metadata step ends, or fails, but not if it was killed: delete them, and import again.
 
 **An image was skipped**
