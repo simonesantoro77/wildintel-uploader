@@ -6,7 +6,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
  * other). A step that runs has two more: running (a spinner, "In progress")
  * and error (a cross, "Error" — or the badge given). The content stays
  * mounted once reached, so closing a step keeps its choices. */
-export default function WizardStep({ n, title, description, status, summary, canEdit, onEdit, badge, action, expanded = false, lockedSummary = false, sealed = false, children }: {
+export default function WizardStep({ n, title, description, status, summary, canEdit, onEdit, badge, required = false, optional, skipped = false, action, expanded = false, lockedSummary = false, sealed = false, children }: {
   n: number
   title: string
   description: ReactNode
@@ -16,6 +16,12 @@ export default function WizardStep({ n, title, description, status, summary, can
   onEdit: () => void
   /** Replaces the badge of a running or failed step. */
   badge?: string
+  /** A step that has to be done: it says so, with a "Required" label, until it is done. */
+  required?: boolean
+  /** A step that can be left out: it says so, and where else what it asks for can be given, until it is done. */
+  optional?: string
+  /** A step that is done by being left out: its label says Skipped, not Completed. */
+  skipped?: boolean
   /** A button (or the like) at the right of the step's header. */
   action?: ReactNode
   /** A done step that keeps its content showing (the one with the results). */
@@ -66,7 +72,11 @@ export default function WizardStep({ n, title, description, status, summary, can
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap min-h-8">
             <h4 className={`text-base font-semibold ${locked ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>{status === 'done' ? `${n}. ${title}` : title}</h4>
-            {status === 'done' && <span className={`${pill} bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400`}>Completed</span>}
+            {optional && status !== 'done' && <span className={`${pill} border border-zinc-300 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300`}>{optional}</span>}
+            {required && status !== 'done' && <span className={`${pill} border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300`}>Required</span>}
+            {status === 'done' && (skipped
+              ? <span className={`${pill} bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300`}>Skipped</span>
+              : <span className={`${pill} bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400`}>Completed</span>)}
             {status === 'running' && <span className={`${pill} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300`}>{badge ?? 'In progress'}</span>}
             {status === 'error' && <span className={`${pill} bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400`}>{badge ?? 'Error'}</span>}
           </div>
