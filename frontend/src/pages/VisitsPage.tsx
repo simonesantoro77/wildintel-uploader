@@ -57,7 +57,7 @@ const MAPPING_ICONS: Record<string, ReactNode> = {
 
 const SOURCE_OPTIONS: { value: VisitSource; icon: ReactNode; title: string; description: string }[] = [
   { value: 'manual', icon: <><path d="M18 11V6a2 2 0 0 0-4 0v4" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" /></>, title: 'By hand', description: 'Enter one visit at a time: the location, when, who went and what was done.' },
-  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'From a file', description: 'A CSV with one row per visit: the one downloaded from the WildINTEL field form in Epicollect5, or any other spreadsheet. The app detects which one it is.' },
+  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'From a file', description: 'A CSV with one row per visit: the one downloaded from the WildINTEL field form in Epicollect5, or any other spreadsheet. WildINTEL Uploader detects which one it is.' },
 ]
 
 /** The icon of the SD card section, drawn as those of the sections of the details are. */
@@ -160,7 +160,7 @@ function AskTag({ ask }: { ask: Ask }) {
 
 /** What each action is, in a few words. */
 const ACTION_HINTS: Record<string, string> = {
-  SiteStart: 'The site begins here: the revisions before this one do not wait for a visit to it. A site starts once, with its first visit.',
+  SiteStart: 'The location begins here: the revisions before this one do not wait for a visit to it. A location starts once, with its first visit.',
   Installation: 'A camera is put up: nothing is collected, a card is left.',
   Revision: 'The card is collected and another is left; the camera stays.',
   Desinstallation: 'The camera is taken away, with its card.',
@@ -274,7 +274,7 @@ export function visitErrors(v: Visit, first = false): Partial<Record<ErrorKey, s
   if (!v.site.trim()) errors.site = 'Required.'
   if (isNotVisited(v.status)) { /* nothing was done at it: it has no action */ }
   else if (v.actions.length === 0) errors.actions = 'Choose at least one.'
-  else if (first && !isNotVisited(v.status) && !v.actions.every((a) => a === 'Installation' || a === 'SiteStart')) errors.actions = 'The first visit to a site can only be an Installation.'
+  else if (first && !isNotVisited(v.status) && !v.actions.every((a) => a === 'Installation' || a === 'SiteStart')) errors.actions = 'The first visit to a location can only be an Installation.'
   const asked = askedOf(v)
   if (asked.photos !== 'off') {
     if (!v.numPhotos.trim()) { if (asked.photos === 'required') errors.numPhotos = 'Required.' }
@@ -379,7 +379,7 @@ function SummaryTable({ lines, visits }: { lines: [string, ReactNode][]; visits:
           <table aria-label="Visits added" className="w-full text-sm">
             <thead>
               <tr className="text-left text-zinc-500 dark:text-zinc-400">
-                <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th><th className="pr-3 font-medium">Site</th><th className="font-medium">Actions</th>
+                <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th><th className="pr-3 font-medium">Location</th><th className="font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -661,7 +661,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const firstEver = Boolean(allVisits) && visit.site.trim() !== '' && !(allVisits ?? []).some((v) => v.location_id.toLowerCase() === visit.site.trim().toLowerCase())
   const inRevision = revisionNumber(visit.session || nextSession)
   const [siteStarts, setSiteStarts] = useState(false)
-  const pendingSite = projectLocations.find((l) => l.location_id.toLowerCase() === visit.site.trim().toLowerCase())?.status === 'pending'   // in the app, not started: its first visit starts it
+  const pendingSite = projectLocations.find((l) => l.location_id.toLowerCase() === visit.site.trim().toLowerCase())?.status === 'pending'   // in WildINTEL Uploader, not started: its first visit starts it
   const startsSite = guided && noCamera && firstEver && (pendingSite || inRevision === 1 || siteStarts)
   // A camera taken away with no other put up, or stolen with none put up, gives the location up: it is archived — for good — with the reason.
   const archiving = guided && !noCamera && ((seeCamera === 'yes' && afterRevision === 'remove') || (seeCamera === 'stolen' && afterTheft === 'archive'))
@@ -1000,12 +1000,12 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           </div>
         </div>
       )}
-      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Add what the app does not have yet (4)</h6>
+      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Add what WildINTEL Uploader does not have yet (4)</h6>
       {([
         ['locations', 'Create the locations that do not exist', 'A location the file names that the research project does not have yet is added. From the WildINTEL form it takes the coordinates of its first visit; from a custom CSV it needs its coordinates and timezone.'],
-        ['cameras', 'Create the cameras that do not exist', 'A camera the file names that the app does not have yet is added. From a custom CSV it needs its model.'],
-        ['sd_cards', 'Create the SD cards that do not exist', 'A card the file names that the app does not have yet is added, with its name as written: 7b and 7B are two cards. From a custom CSV it needs its brand.'],
-        ['trappers', 'Create the trappers that do not exist', 'A person the file says went who is not a trapper yet is added: the username is made from the name (Ana Pérez becomes ana.perez). Complete them later in Settings › Trappers.'],
+        ['cameras', 'Create the cameras that do not exist', 'A camera the file names that WildINTEL Uploader does not have yet is added. From a custom CSV it needs its model.'],
+        ['sd_cards', 'Create the SD cards that do not exist', 'A card the file names that WildINTEL Uploader does not have yet is added, with its name as written: 7b and 7B are two cards. From a custom CSV it needs its brand.'],
+        ['trappers', 'Create the trappers that do not exist', 'A name in the file that is not a trapper yet is added as one: the username is made from the name (Ana Pérez becomes ana.perez). Complete them later in Settings › Trappers.'],
       ] as const).map(([entity, label, hint]) => {
         const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
         return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
@@ -1020,7 +1020,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // What is still to be matched before the visits can be read: the site, the actions and when — a date and a time, or one column with both, or the time the entry was created.
   const inOneColumn = given('when') || given('created_at')
   const stillToMap = [
-    !given('location_id') && 'the site', !given('actions') && 'the actions',
+    !given('location_id') && 'the location', !given('actions') && 'the actions',
     ...(inOneColumn ? [] : !given('date') && !given('time') ? ['the date and the time (or one column with both)'] : [!given('date') && 'the date', !given('time') && 'the time']),
     ...createdNeeds.filter((f) => !given(f.field) && !['location_id', 'actions', 'date', 'time'].includes(f.field)).map((f) => f.label.replace(/ \(.*$/, '').toLowerCase()),
   ].filter(Boolean) as string[]
@@ -1169,7 +1169,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Bring in the visits to the camera traps. From them the app knows which images belong to which camera, location and period." parent="Menu" onParent={onBack} />
+      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Register the visits to the camera traps, by hand or from a file." parent="Menu" onParent={onBack} />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary
         description="Load them from a file, or enter them one by one."
@@ -1429,7 +1429,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     <input type="checkbox" className="mt-1" checked={siteStarts} onChange={(e) => setSiteStarts(e.target.checked)} />
                     <span>
                       <strong className="font-semibold">This is where {visit.site || 'the site'} starts</strong>
-                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">The site did not exist before this revision, so the revisions before it do not wait for a visit to it. Leave it off if the site was there before and its earlier visits are not here.</span>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">The location did not exist before this revision, so the revisions before it do not wait for a visit to it. Leave it off if the location was there before and its earlier visits are not here.</span>
                     </span>
                   </label>
                 )}
@@ -1616,7 +1616,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       <thead>
                         <tr className="text-left text-zinc-500 dark:text-zinc-400">
                           <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th>
-                          <th className="pr-3 font-medium">Site</th><th className="pr-3 font-medium">Camera</th><th className="font-medium">Actions</th>
+                          <th className="pr-3 font-medium">Location</th><th className="pr-3 font-medium">Camera</th><th className="font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1665,7 +1665,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {!defaultProject && (
             <WizardStep
               n={2} title="Which research project?" status={project ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { setProject(undefined); forgetCsv(); setCsvName(null) }}
-              description="The research project the visits belong to. The locations in the file must be locations of this project, or be added when the file is loaded."
+              description="The research project the visits belong to."
               summary={project?.acronym}
             >
               <ResearchProjectPicker value={project?.acronym ?? ''} onSelect={(picked) => { setProject(picked); forgetCsv(); setCsvName(null) }} />
@@ -1674,7 +1674,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
           <WizardStep
             n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
-            description="The CSV downloaded from the WildINTEL form in Epicollect5, or any other with one row per visit. The app detects which one it is."
+            description="The CSV downloaded from the WildINTEL form in Epicollect5, or any other with one row per visit. WildINTEL Uploader detects which one it is."
             summary={csvName}
           >
             {!(fileReady && csvColumns) && sourcesUsed.epicollect && (
@@ -1723,7 +1723,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{csvName ?? 'No file chosen'}</span>
                 <input id="visits-csv" aria-label="CSV file" type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void readCsv(file) }} />
               </label>
-              <p className={hintClass}>A visit the app already has (the same revision and location) is not loaded again, so the same file can be read more than once. A row with no revision gets the next one of its location.</p>
+              <p className={hintClass}>A visit WildINTEL Uploader already has (the same revision and location) is not loaded again, so the same file can be read more than once. A row with no revision gets the next one of its location.</p>
             </div>
             )}
             {fileReady && (source === 'csv' || source === 'wildintel-new') && (
@@ -1766,7 +1766,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {source === 'csv' && (
             <WizardStep
               n={defaultProject ? 3 : 4} title="Match the columns" status={!csvColumns || !fileConfirmed ? 'locked' : csvResult ? 'done' : 'open'} sealed={csvSaved !== null} summary={csvSaved !== null ? 'The columns of the file' : undefined} canEdit={csvSaved === null} onEdit={() => { setCsvResult(null); setCsvSaved(null) }}
-              description="For each field of a visit, choose the column of the file that has it. Columns with the same name are already chosen. Leave a field empty if the file does not have it."
+              description="Choose the column of your file for each field of a visit. The ones with the same name are already chosen."
             >
               {csvColumns && (
                 <>
@@ -1830,7 +1830,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             </WizardStep>
           )}
 
-          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="The app checks every row. Nothing is saved yet."
+          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="WildINTEL Uploader checks every row. Nothing is saved yet."
                       action={csvResult && csvSaved == null && fileConfirmed && !csvConfirming && (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={rechecking} onClick={() => void recheckCsv()}
                                 title="Check the file again, for example after adding locations in the settings">

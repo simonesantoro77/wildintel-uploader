@@ -499,8 +499,8 @@ describe('UploadDeploymentPage', () => {
       await userEvent.click(screen.getByRole('button', { name: /^R0003-DONA_01/ }))
       const links = screen.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href'), a.getAttribute('target')])
       expect(links).toEqual(expect.arrayContaining([
-        ['Open the location', 'https://trapper.example.org/geomap/location/detail/12/', '_blank'],
-        ['Open the deployment', 'https://trapper.example.org/geomap/deployment/detail/47/', '_blank'],
+        ['Open the location in TRAPPER', 'https://trapper.example.org/geomap/location/detail/12/', '_blank'],
+        ['Open the deployment in TRAPPER', 'https://trapper.example.org/geomap/deployment/detail/47/', '_blank'],
         ['Open in TRAPPER↗', 'https://trapper.example.org/storage/collection/detail/26/', '_blank'],
       ]))
     })

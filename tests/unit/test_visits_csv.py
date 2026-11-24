@@ -414,7 +414,7 @@ def test_the_rows_refused_for_a_rule_say_which_rule_in_their_label():
             "WICP_0002,Installation,2026-09-14,10:05:00,R0001,C1,2\n")       # the camera is at WICP_0001
     mapping = visits_csv.suggest_mapping(text)["mapping"]
     labels = {r["row"]: r["label"] for r in _parse(text, locations, [], mapping)["rows"] if r["result"] == "problem"}
-    assert labels == {3: "Camera installed at another site"}
+    assert labels == {3: "Camera installed at another location"}
 
     text = ("location_id,actions,date,time,session,camera_id,sd,num_photos\n"
             "WICP_0001,Installation,2026-09-14,08:30:00,R0001,C1,1,\n"

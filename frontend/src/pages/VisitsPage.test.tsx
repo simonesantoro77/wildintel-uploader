@@ -865,7 +865,7 @@ describe('the visit filled in from the last one', () => {
       await pickWhen()
 
       expect(await screen.findByText(/TATR_0002 is pending: its first visit starts it/)).toBeInTheDocument()
-      expect(screen.getByText('Site start + Installation', { selector: 'strong' })).toBeInTheDocument()   // the start comes first, before the Installation
+      expect(screen.getByText('Location start + Installation', { selector: 'strong' })).toBeInTheDocument()   // the start comes first, before the Installation
       expect(checkbox()).not.toBeInTheDocument()
     })
 
@@ -1074,7 +1074,7 @@ describe('VisitsPage from a CSV file', () => {
     const customize = screen.getByRole('button', { name: 'Customize' })
     expect(customize.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
     await userEvent.click(customize)
-    expect(screen.getByText('Add what the app does not have yet (4)')).toBeInTheDocument()
+    expect(screen.getByText('Add what WildINTEL Uploader does not have yet (4)')).toBeInTheDocument()
     expect(screen.getByText('Rows with something missing (3)')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('switch', { name: 'The images were not counted' }))
     const done = screen.getByRole('button', { name: 'Done' })
@@ -1759,7 +1759,7 @@ describe('visitErrors', () => {
   })
 
   it('refuses any action but an Installation for the first visit to a site', () => {
-    expect(visitErrors(ok, true)).toEqual({ actions: 'The first visit to a site can only be an Installation.' })
+    expect(visitErrors(ok, true)).toEqual({ actions: 'The first visit to a location can only be an Installation.' })
     expect(visitErrors({ ...ok, actions: ['Installation', 'Revision'] }, true).actions).toBeDefined()
     expect(visitErrors({ ...ok, actions: ['Installation'], sd: 'A13' }, true)).toEqual({})
   })
@@ -1770,8 +1770,8 @@ describe('visitErrors', () => {
     expect(visitErrors({ ...ok, actions: ['SiteStart', 'Revision'] }, true).actions).toBeDefined()
   })
 
-  it('says Site start where the visit does', () => {
-    expect(visitSummary({ ...BLANK, site: 'TATR_0002', when: '2026-10-02T08:14:05', actions: ['SiteStart', 'Installation'], trappers: 'Ana Pérez' } as never, 'R0004', 'UTC').overview.find((r) => r.label === 'Action performed')?.value).toBe('Site start + Installation')
+  it('says Location start where the visit does', () => {
+    expect(visitSummary({ ...BLANK, site: 'TATR_0002', when: '2026-10-02T08:14:05', actions: ['SiteStart', 'Installation'], trappers: 'Ana Pérez' } as never, 'R0004', 'UTC').overview.find((r) => r.label === 'Action performed')?.value).toBe('Location start + Installation')
   })
 
   it('does not require the number of photos when the card was full: it is not counted', () => {
@@ -1859,7 +1859,7 @@ describe('By hand: do you see the camera?', () => {
     expect(within(question).getAllByRole('radio')).toHaveLength(2)
     expect(within(question).getByRole('radio', { name: /Of course not, I am going to install it/ })).toBeChecked()
     expect(within(question).getByRole('radio', { name: /No, I cannot make the visit/ })).not.toBeChecked()
-    expect(screen.getByText('Site start + Installation', { selector: 'strong' })).toBeInTheDocument()   // the first camera at a site: the site starts, and it is said before the Installation
+    expect(screen.getByText('Location start + Installation', { selector: 'strong' })).toBeInTheDocument()   // the first camera at a site: the site starts, and it is said before the Installation
     expect(screen.queryByRole('checkbox', { name: 'Revision' })).not.toBeInTheDocument() // the actions are not asked as boxes
   })
 

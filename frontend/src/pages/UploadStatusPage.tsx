@@ -198,7 +198,7 @@ export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen,
           </MetricsSection>
 
           <TableCard label="Uploads table">
-            <TableToolbar searchLabel="Filter the uploads" placeholder="Search by deployment, site, revision, uploader, status…" text={text} onText={(t) => { setText(t); setPage(1) }}
+            <TableToolbar searchLabel="Filter the uploads" placeholder="Search by deployment, location, revision, uploader, status…" text={text} onText={(t) => { setText(t); setPage(1) }}
               choice={{ label: 'Uploader', value: uploader, onChange: (v) => { setUploader(v); setPage(1) }, options: uploaders.map((u) => ({ value: u, label: destinationLabel(u) })) }}
               trailing={<ViewSwitch view={view} items="uploads" views={['table', 'labels']} onChange={(v) => { setView(v); setPage(1) }} />}
               onReset={() => { setText(''); setUploader(''); setState(''); setRevision(''); setPage(1) }} />
@@ -312,7 +312,7 @@ export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen,
             <HelpDrawer onClose={() => setHelpOpen(false)}>
               <HelpCard title="Uploads" tone="text-blue-600 dark:text-blue-400" icon={HELP_ICONS.upload}><p>An upload is a deployment going to an uploader. Every deployment that will be made has one for each uploader in use, <em>planned</em> from the start — it waits for the deployment to be created. Then it is <em>done</em> or <em>failed</em>, and a failed one is tried again. A deployment of a stolen camera has none: the card is gone.</p></HelpCard>
               <HelpCard title="Progress" tone="text-violet-600 dark:text-violet-400" icon={HELP_ICONS.progress}><p>The bar counts the uploads done over all there are: the deployments of the revision times the uploaders in use (or the one picked). Pick a card to see only the uploads in that status.</p></HelpCard>
-              <HelpCard title="Filters and search" tone="text-sky-600 dark:text-sky-400" icon={HELP_ICONS.filter}><p>Search by deployment, site, revision, uploader or status; pick a revision above, and an uploader in the list.</p></HelpCard>
+              <HelpCard title="Filters and search" tone="text-sky-600 dark:text-sky-400" icon={HELP_ICONS.filter}><p>Search by deployment, location, revision, uploader or status; pick a revision above, and an uploader in the list.</p></HelpCard>
             </HelpDrawer>
           )}
         </>

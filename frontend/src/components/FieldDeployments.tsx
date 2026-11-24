@@ -359,8 +359,8 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
             )}
             {view === 'map' && (
               <>
-                {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
-                <CoordinatesMap name="Deployments on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" markedKey={every.find((d) => d.deployment_id === focus)?.site.toLowerCase() ?? null} />
+                {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the locations are…</p>}
+                <CoordinatesMap name="Deployments on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="locations" markedKey={every.find((d) => d.deployment_id === focus)?.site.toLowerCase() ?? null} />
               </>
             )}
             {view === 'labels' && (
@@ -436,7 +436,7 @@ export default function FieldDeployments({ deployments: every, onShowSd, onShowL
                 </dl>
               </HelpCard>
               <HelpCard title="Creation and uploads" tone="text-violet-600 dark:text-violet-400" icon={HELP_ICONS.upload}><p>A deployment is <em>planned</em> while its card is to be imported and <em>created</em> when its images are stored. <em>Not created</em> is a deployment of a camera that was stolen: the card is gone. Uploading is another thing: each deployment has an upload for every uploader in use, <em>planned</em> from the start, then <em>done</em> or <em>failed</em> — a failed one is tried again.</p></HelpCard>
-              <HelpCard title="Filters and search" tone="text-sky-600 dark:text-sky-400" icon={HELP_ICONS.filter}><p>Search by deployment, site, card or camera, and filter by status; pick a revision above.</p></HelpCard>
+              <HelpCard title="Filters and search" tone="text-sky-600 dark:text-sky-400" icon={HELP_ICONS.filter}><p>Search by deployment, location, card or camera, and filter by status; pick a revision above.</p></HelpCard>
             </HelpDrawer>
           )}
         </>

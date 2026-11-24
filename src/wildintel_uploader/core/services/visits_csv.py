@@ -58,7 +58,7 @@ COLUMN_NAMES: dict[str, tuple[str, ...]] = {
 }
 # The fields of a visit a CSV can give, in the order they are asked for: what each one is, and whether the visit needs it.
 FIELDS: tuple[tuple[str, str, bool], ...] = (
-    ("location_id", "Site (a location of the research project)", True),
+    ("location_id", "Location (of the research project)", True),
     ("actions", "Actions (Installation, Revision, Desinstallation, Stolen, Archive — several with +)", True),
     ("date", "Date (YYYY-MM-DD or DD/MM/YYYY)", False),
     ("time", "Time (HH:MM[:SS])", False),
@@ -117,6 +117,7 @@ ENTITY_ONLY = {f: entity for entity, spec in CREATABLE.items() for f in [*spec["
 ACTIONS = {a.lower(): a for a in ("SiteStart", "Installation", "Revision", "Desinstallation", "Stolen", "Archive")} | {
     # the start of a site, as it is told
     "site start": "SiteStart", "site_start": "SiteStart", "start of site": "SiteStart", "site setup": "SiteStart",
+    "location start": "SiteStart", "location_start": "SiteStart", "start of location": "SiteStart", "location setup": "SiteStart",
     # as the datasheets of the field work write them
     "i": "Installation", "r": "Revision", "d": "Desinstallation", "robada": "Stolen", "uninstallation": "Desinstallation", "removal": "Desinstallation",
 }
@@ -148,29 +149,29 @@ ERROR_LABELS: dict[str, str] = {
     "revision_not_finished": "Revision started before the one before is finished",
     "revision_closed": "Revision closed",
     "revision_order": "Revision out of order",
-    "visit_repeated": "Site visited twice in a revision",
+    "visit_repeated": "Location visited twice in a revision",
     "visit_refused": "Breaks the rules of a visit",
-    "site_not_a_location": "Site is not a location",
+    "site_not_a_location": "Not a location of the research project",
     "visit_at_the_same_time": "Visit already there at that time",
     "first_visit_not_installation": "First visit is not an Installation",
-    "site_start_repeated": "Site started twice",
-    "site_start_not_first": "Site start is not the first visit",
-    "visit_before_site_start": "Visit before the site started",
+    "site_start_repeated": "Location started twice",
+    "site_start_not_first": "Location start is not the first visit",
+    "visit_before_site_start": "Visit before the location started",
     "required_field": "Something its actions ask is missing",
-    "camera_not_at_the_site": "Not the camera at the site",
+    "camera_not_at_the_site": "Not the camera at the location",
     "camera_installed_here": "Camera already installed here",
-    "camera_installed_elsewhere": "Camera installed at another site",
+    "camera_installed_elsewhere": "Camera installed at another location",
     "card_archived": "SD card archived",
     "card_is_the_one_collected": "SD card left is the one collected",
     "card_in_another_camera": "SD card in another camera",
     "card_collected_in_revision": "SD card collected in this revision",
-    "visit_not_after_the_last": "Visit not after the last one of the site",
-    "site_archived": "Site archived",
-    "site_has_a_camera": "Site already has a camera",
-    "site_without_camera": "Site has no camera",
-    "site_planned": "Site planned",
+    "visit_not_after_the_last": "Visit not after the last one of the location",
+    "site_archived": "Location archived",
+    "site_has_a_camera": "Location already has a camera",
+    "site_without_camera": "Location has no camera",
+    "site_planned": "Location planned",
     "archive_with_installation": "Archive with an Installation",
-    "archive_camera_still_there": "Camera still there when the site is archived",
+    "archive_camera_still_there": "Camera still there when the location is archived",
     "camera_unknown": "Camera not in the research project",
     "card_unknown": "SD card not in the research project",
     "trapper_unknown": "Trapper not in the settings",
@@ -558,7 +559,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             if data.get("latitude") is not None and data.get("longitude") is not None and location.get("latitude") is not None and location.get("longitude") is not None:
                 gap = visit_rules.distance_m(data["latitude"], data["longitude"], float(location["latitude"]), float(location["longitude"]))
                 if gap > visit_rules.GPS_TOLERANCE_M:
-                    row_warnings.append((n, f"Row {n} ({site}): the GPS of the note is {round(gap)} m from the location; check that the site is the right one."))
+                    row_warnings.append((n, f"Row {n} ({site}): the GPS of the note is {round(gap)} m from the location; check that the location is the right one."))
             visit = {"location_id": location.get("location_id", site), "date": date, "time": time, "actions": actions, **data}
             visit.setdefault("session", "R0000")  # worked out below, when the order of the visits is known
             record = VisitRecord.model_validate(visit).model_dump(mode="json")
@@ -577,7 +578,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             continue
         if unknown:
             held.setdefault(site, []).append(record)
-            report[n] |= {"result": "new_site", "label": "Site is not a location", "message": f"{site} is not a location of the research project: the visit is held until the site is added or the file corrected."}
+            report[n] |= {"result": "new_site", "label": "Not a location of the research project", "message": f"{site} is not a location of the research project: the visit is held until the location is added or the file corrected."}
             continue
         again = (str(record["session"]).upper(), record["location_id"].lower())
         # two visits are the same when they are of the same revision and the same site, whatever the day: the day is not part of it. Only a row with no revision —
@@ -595,7 +596,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             continue
         # the key of a visit is its site and its revision: a site is visited once in a revision, whatever the day
         if "session" in row and again in in_file:
-            problem(n, f"{record['location_id']} has already a visit in {record['session']} in row {in_file[again]} of the file: a revision is one visit to each site.", "visit_repeated")
+            problem(n, f"{record['location_id']} has already a visit in {record['session']} in row {in_file[again]} of the file: a revision is one visit to each location.", "visit_repeated")
             continue
         if "session" in row:
             in_file[again] = n

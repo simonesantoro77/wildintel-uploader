@@ -214,7 +214,7 @@ describe('DeploymentStatusPage', () => {
     expect(within(panel.getByRole('region', { name: 'Location' })).getByText('37.0123, -6.4412')).toBeInTheDocument()
     expect(within(panel.getByRole('region', { name: 'Location' })).getByText('± 5 m')).toBeInTheDocument()
     const period = within(panel.getByRole('region', { name: 'Period' }))
-    expect(period.getByText('4 Sep 2024, 09:00')).toBeInTheDocument()                     // the wall clock the date says, in the format of the app
+    expect(period.getByText('4 Sep 2024, 09:00')).toBeInTheDocument()                     // the wall clock the date says, in the format of WildINTEL Uploader
     expect(period.getByText('Ana Pérez')).toBeInTheDocument()                             // the mix of the two visits, told as who set it up…
     expect(period.getByText('Luis Gómez')).toBeInTheDocument()                            // …and who retrieved it
     expect(period.getByText('38 days in the field')).toBeInTheDocument()
@@ -312,7 +312,7 @@ describe('DeploymentStatusPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show the deployments on a map' }))
 
     const map = await screen.findByRole('group', { name: 'Deployments on a map' })
-    expect(await within(map).findByText('1 site on the map · 2 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has none, TATR_0003 is not a location here
+    expect(await within(map).findByText('1 location on the map · 2 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has none, TATR_0003 is not a location here
     await userEvent.click(within(map).getByRole('button', { name: /^TATR_0001/ }))
     const card = await within(map).findByRole('region', { name: 'Details of TATR_0001' })
     expect(card).toHaveTextContent('R0004-TATR_0001')                                                    // the latest deployment of the site

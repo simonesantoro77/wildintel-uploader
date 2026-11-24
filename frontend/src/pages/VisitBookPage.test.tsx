@@ -561,7 +561,7 @@ describe('VisitBookPage', () => {
     const map = await screen.findByRole('group', { name: 'Visits on a map' })
     expect(await within(map).findByRole('button', { name: 'TATR_0001: Deployed · R0004. Choose it' })).toBeInTheDocument()   // the latest visit of the site says its colour
     expect(within(map).getByRole('button', { name: 'TATR_0002: Collected · R0003. Choose it' })).toBeInTheDocument()
-    expect(within(map).getByText('2 sites on the map')).toBeInTheDocument()
+    expect(within(map).getByText('2 locations on the map')).toBeInTheDocument()
     const legend = within(map).getByRole('list', { name: 'Legend' })
     expect(within(legend).getByText('Deployed').parentElement).toHaveTextContent('1')
     expect(within(legend).getByText('Collected').parentElement).toHaveTextContent('1')
@@ -672,16 +672,16 @@ describe('VisitBookPage', () => {
     const zoom = () => Number(/openstreetmap\.org\/(\d+)\//.exec((document.querySelector('img[data-tile]') as HTMLImageElement).src)![1])
     const ticks = () => within(map).getAllByText(/°$/).map((t) => t.textContent).join(' ')
     const fitted = zoom(), fittedTicks = ticks()
-    expect(within(map).getByRole('button', { name: 'Show all the sites' })).toBeDisabled()               // already showing them all
+    expect(within(map).getByRole('button', { name: 'Show all the locations' })).toBeDisabled()               // already showing them all
 
     await userEvent.click(within(map).getByRole('button', { name: 'Zoom in' }))
     expect(zoom()).toBeGreaterThan(fitted)                                                                 // closer: more detailed tiles
     expect(ticks()).not.toBe(fittedTicks)
-    expect(within(map).getByRole('button', { name: 'Show all the sites' })).toBeEnabled()
+    expect(within(map).getByRole('button', { name: 'Show all the locations' })).toBeEnabled()
     await userEvent.click(within(map).getByRole('button', { name: 'Zoom out' }))
     await userEvent.click(within(map).getByRole('button', { name: 'Zoom out' }))
     expect(zoom()).toBeLessThan(fitted)                                                                    // further: wider tiles
-    await userEvent.click(within(map).getByRole('button', { name: 'Show all the sites' }))
+    await userEvent.click(within(map).getByRole('button', { name: 'Show all the locations' }))
     expect(zoom()).toBe(fitted)
     expect(ticks()).toBe(fittedTicks)
 
@@ -694,7 +694,7 @@ describe('VisitBookPage', () => {
     pointer('pointerup', 700, 260)
     box.mockRestore()
     expect(ticks()).not.toBe(fittedTicks)
-    expect(within(map).getByRole('button', { name: 'Show all the sites' })).toBeEnabled()
+    expect(within(map).getByRole('button', { name: 'Show all the locations' })).toBeEnabled()
   })
 
   it('draws the map of OpenStreetMap behind the points, with its attribution, and the button of the background turns it off and keeps it off', async () => {
@@ -733,10 +733,10 @@ describe('VisitBookPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Show the visits on a map' }))
 
     const map = await screen.findByRole('group', { name: 'Visits on a map' })
-    expect(await within(map).findByText('1 site on the map · 1 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has no place
+    expect(await within(map).findByText('1 location on the map · 1 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has no place
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Filter the visits' }), 'TATR_0002')
-    expect(await within(await screen.findByRole('group', { name: 'Visits on a map' })).findByText(/None of the 1 sites has coordinates/)).toBeInTheDocument()
+    expect(await within(await screen.findByRole('group', { name: 'Visits on a map' })).findByText(/None of the 1 locations has coordinates/)).toBeInTheDocument()
   })
 
   it('marks a row when it is pressed — and clears it when it is pressed again — without scrolling the page', async () => {
@@ -848,12 +848,12 @@ describe('VisitBookPage', () => {
     expect(await screen.findByText(/has been created/)).toBeInTheDocument()
   })
 
-  it('says Site start for the visit that starts a site', async () => {
+  it('says Location start for the visit that starts a site', async () => {
     mockedApi.visitBook.mockResolvedValue({ results: [visit({ session: 'R0004', actions: ['SiteStart', 'Installation'], deployment: 'R0004-TATR_0001', deployment_status: 'open' })] })
     await pickProject()
 
     const table = await screen.findByRole('table', { name: 'Visits' })
-    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('Site start + Installation')
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('Location start + Installation')
   })
 
   it('shows the visits as a table, as labels or on a map — three buttons at the right of Reset', async () => {

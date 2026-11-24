@@ -1033,7 +1033,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               const target = session ?? (shown[0] ? revisionOfVisit(shown[0]) : null)
               return (
                 <>
-                <FormCard title="Revision" description="A revision is one visit to every site. Pick the one these images are of: only its collected visits without a deployment are offered next.">
+                <FormCard title="Revision" description="A revision is one visit to every location. Pick the one these images are of: only its collected visits without a deployment are offered next.">
                   <RevisionSquares all={{ label: 'All revisions', note: plural(closedVisits.length, 'visit to import', 'visits to import') }} value={session ? String(session) : ''}
                     revisions={revisions.map((r) => ({ id: String(r), label: `R${String(r).padStart(4, '0')}`, note: plural(closedVisits.filter((c) => revisionOfVisit(c) === r).length, 'visit to import', 'visits to import') }))}
                     onPick={(id) => pickRevision(id ? Number(id) : null)} />

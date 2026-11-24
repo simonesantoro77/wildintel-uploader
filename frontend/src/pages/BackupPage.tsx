@@ -217,7 +217,7 @@ export default function BackupPage({ onBack, settingsOpen }: Props) {
   return (
     <div className={PAGE_CLASS}>
       <PageHeader icon={UTIL_ICONS.backup} title="Backup and restore" parent="Utilities" onParent={onBack}
-        description="Keep the settings and the data of a research project — its visits and the deployments you choose, with or without their images — in a file, and restore them from it." />
+        description="Keep a research project in a file, and restore it from there." />
 
       <WizardStep n={1} title="What do you want to do?" status={mode ? 'done' : 'open'} canEdit={!running} onEdit={startOver}
                   summary={mode === 'backup' ? 'Make a backup' : mode === 'restore' ? 'Restore a backup' : undefined} description="Make a copy of what you have, or put back what a copy holds.">

@@ -61,7 +61,7 @@ describe('SetupWizardPage', () => {
     await userEvent.type(await screen.findByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
-    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add the location' }))
     await next()
 
     await userEvent.type(await screen.findByLabelText('Label *'), 'CAM-001')
@@ -89,7 +89,7 @@ describe('SetupWizardPage', () => {
     const summary = screen.getByRole('table', { name: 'Summary' })
     expect(summary).toHaveTextContent('DONA created')
     expect(summary).toHaveTextContent('Trappers addedAna Pérez')
-    expect(summary).toHaveTextContent('Sites addedDONA_01')
+    expect(summary).toHaveTextContent('Locations addedDONA_01')
 
     await userEvent.click(screen.getByRole('button', { name: 'Register the first visit' }))
     expect(onRegisterVisit).toHaveBeenCalled()
@@ -107,7 +107,7 @@ describe('SetupWizardPage', () => {
     await userEvent.type(await screen.findByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
-    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add the location' }))
     await next(); await skip(); await skip()
     await userEvent.click(await screen.findByRole('button', { name: 'Create it' }))
 
@@ -152,17 +152,17 @@ describe('SetupWizardPage', () => {
     await userEvent.type(await screen.findByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '95')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
-    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add the location' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('The coordinates must lie within')
 
     await userEvent.clear(screen.getByLabelText('Latitude *'))
     await userEvent.type(screen.getByLabelText('Latitude *'), '37')
-    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add the location' }))
     await userEvent.type(screen.getByLabelText('Location id *'), 'dona_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6')
-    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('There is a site dona_01 already.')
+    await userEvent.click(screen.getByRole('button', { name: 'Add the location' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('There is a location dona_01 already.')
   })
 
   it('asks whether the cameras of a site ignore summer time — not when the timezone is UTC, which has none', async () => {
@@ -179,7 +179,7 @@ describe('SetupWizardPage', () => {
     await userEvent.type(screen.getByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
-    await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add the location' }))
     await next(); await skip(); await skip()
     await userEvent.click(await screen.findByRole('button', { name: 'Create it' }))
 
@@ -192,7 +192,7 @@ describe('SetupWizardPage', () => {
     await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
     await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
     await next()
-    await waitFor(() => expect(screen.getByLabelText('Data folder')).toHaveValue('/home/ana/wildintel-uploader'))   // the one the app proposes, already there
+    await waitFor(() => expect(screen.getByLabelText('Data folder')).toHaveValue('/home/ana/wildintel-uploader'))   // the one WildINTEL Uploader proposes, already there
 
     await userEvent.clear(screen.getByLabelText('Data folder'))
     expect(screen.getByRole('button', { name: /^Finish setup/ })).toBeDisabled()

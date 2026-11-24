@@ -15,7 +15,7 @@ beforeEach(() => {
 })
 
 describe('WelcomePage', () => {
-  it('says what the app does — from the field to a curated, standard dataset — with its four points, and starts the flow', async () => {
+  it('says what WildINTEL Uploader does — from the field to a curated, standard dataset — with its four points, and starts the flow', async () => {
     const onStart = vi.fn()
     render(<WelcomePage onStart={onStart} onNewProject={vi.fn()} />)
 
