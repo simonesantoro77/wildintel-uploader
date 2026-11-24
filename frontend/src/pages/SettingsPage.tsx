@@ -338,14 +338,14 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
 /** The folders of the app that can be put somewhere of their own; blank, each is a folder inside the data folder. */
 const FOLDERS: { draftKey: 'collectionsDir' | 'reportsDir' | 'packagesDir'; label: string; description: string; hint: string; dialog: string }[] = [
   { draftKey: 'collectionsDir', label: 'Collections folder', dialog: 'Select the folder to keep the collections in',
-    description: 'The images of each deployment, organised by research project and collection.',
-    hint: 'Leave it empty to keep it inside the data folder.' },
+    description: 'The images of each deployment.',
+    hint: 'Empty: inside the data folder.' },
   { draftKey: 'reportsDir', label: 'Reports folder', dialog: 'Select the folder to keep the reports in',
-    description: 'The reports of the checks and of the preparation of the images.',
-    hint: 'Leave it empty to keep it inside the data folder. Reports already made are not moved.' },
+    description: 'The reports of the checks and of the preparation.',
+    hint: 'Empty: inside the data folder.' },
   { draftKey: 'packagesDir', label: 'Packages folder', dialog: 'Select the folder to keep the packages in',
-    description: 'The files prepared to upload a deployment to TRAPPER.',
-    hint: 'Leave it empty to keep it inside the data folder.' },
+    description: 'The files prepared to upload to TRAPPER.',
+    hint: 'Empty: inside the data folder.' },
 ]
 
 type SectionId = 'general' | 'uploader' | 'sources' | 'validation' | 'postvalidation' | 'preprocessing' | 'entities' | 'reports' | 'config'
@@ -2412,19 +2412,19 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
         {draft && saved && section === 'general' && (
           <div className="space-y-5 pt-5">
             <AboutBlock />
-            <GroupCard title="Where files are kept" description="Everything the app makes is kept in the data folder. Change the folders below only to keep a part elsewhere, for example on another disk; left empty, they are inside the data folder.">
+            <GroupCard title="Where files are kept" description="The data folder holds everything. Choose a folder below only to keep a part elsewhere, for example on another disk.">
               <div className="space-y-6">
                 <FolderField
-                  label="Data folder" inputLabel="Folder" description="Where the app keeps everything it makes: the collections, the reports and the packages."
+                  label="Data folder" inputLabel="Folder" description="Where the app keeps everything it makes."
                   value={draft.dataDir} error={dataDirError} browsing={browsing} browseLabel="Browse for the data folder" defaultLabel="Use the default data folder"
-                  hint="By default, a folder named after the app inside your Documents folder." onChange={(v) => set('dataDir', v)} onBrowse={() => handleBrowse('dataDir')}
+                  hint="Default: a folder named after the app in your Documents folder. The folders below, when empty, move with it." onChange={(v) => set('dataDir', v)} onBrowse={() => handleBrowse('dataDir')}
                 />
                 {FOLDERS.map(({ draftKey, label, description, hint }) => {
                   const error = draft[draftKey].trim() !== '' && !isAbsolutePath(draft[draftKey]) ? 'An absolute path (or one starting with ~).' : null
                   const defaultKey = draftKey.replace('Dir', '') as 'collections' | 'reports' | 'packages'
                   return (
                     <FolderField
-                      key={draftKey} label={label} inputLabel={label} description={description} value={draft[draftKey]} placeholder={saved.DATA[`default_${defaultKey}_dir`]} error={error} browsing={browsing}
+                      key={draftKey} label={label} inputLabel={label} description={description} value={draft[draftKey]} placeholder={draft.dataDir.trim() ? `${draft.dataDir.trim().replace(/[\\/]+$/, '')}${draft.dataDir.includes('\\') && !draft.dataDir.includes('/') ? '\\' : '/'}${defaultKey}` : saved.DATA[`default_${defaultKey}_dir`]} error={error} browsing={browsing}
                       browseLabel={`Browse for the ${defaultKey} folder`} defaultLabel={`Use the default ${defaultKey} folder`} hint={hint} onChange={(v) => set(draftKey, v)} onBrowse={() => handleBrowse(draftKey)}
                     />
                   )

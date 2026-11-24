@@ -253,6 +253,26 @@ def test_the_reports_and_the_packages_can_have_a_folder_of_their_own_and_otherwi
     assert config.reports_dir() == tmp_path / "images" / "reports"
 
 
+def test_the_folders_inside_the_data_folder_go_with_it_when_it_changes_and_the_ones_kept_elsewhere_stay(tmp_path: Path):
+    old, new = tmp_path / "old", tmp_path / "new"
+    _put(DATA={"dir": str(old), "collections_dir": str(old / "collections"), "reports_dir": str(old / "kept" / "reports"), "packages_dir": str(tmp_path / "elsewhere")})
+
+    # the page sends the folders as they were, with the new data folder
+    saved = _put(DATA={"dir": str(new), "collections_dir": str(old / "collections"), "reports_dir": str(old / "kept" / "reports"), "packages_dir": str(tmp_path / "elsewhere")})
+
+    assert saved["DATA"]["collections_dir"] is None and config.collections_dir() == new / "collections"   # it was the default one: it still is
+    assert saved["DATA"]["reports_dir"] == str(new / "kept" / "reports")                                  # a folder inside the old one, in the same place of the new one
+    assert saved["DATA"]["packages_dir"] == str(tmp_path / "elsewhere")                                    # one kept elsewhere stays there
+
+
+def test_the_data_folder_of_the_initial_setup_takes_the_folders_inside_the_old_one_with_it(tmp_path: Path):
+    _put(DATA={"dir": str(tmp_path / "old"), "reports_dir": str(tmp_path / "old" / "r")})
+
+    assert _client().put("/api/settings/data-dir", json={"dir": str(tmp_path / "new")}).status_code == 200
+
+    assert config.reports_dir() == tmp_path / "new" / "r"
+
+
 def test_the_sessions_and_the_logs_have_no_setting_and_live_in_the_state_folder():
     body = config.Settings().model_dump(mode="json")
     assert "sessions_dir" not in body["DATA"] and "logs_dir" not in body["DATA"]

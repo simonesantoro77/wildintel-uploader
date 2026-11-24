@@ -92,6 +92,23 @@ def _move_to_the_projects(settings: config.Settings) -> config.Settings:
     return settings
 
 
+def _follow_data_dir(old: config.Settings, new: config.Settings) -> None:
+    """When the data folder changes, the collections, reports and packages folders that were inside the old one go inside the new one: a folder kept elsewhere stays where it is, and one that was
+    just <old data folder>/<its name> goes back to being the default one."""
+    old_dir, new_dir = config.data_dir(old), config.data_dir(new)
+    if old_dir == new_dir:
+        return
+    for key in ("collections", "reports", "packages"):
+        value = getattr(new.DATA, f"{key}_dir")
+        if not value:
+            continue
+        try:
+            inside = Path(value).expanduser().relative_to(old_dir)
+        except ValueError:
+            continue
+        setattr(new.DATA, f"{key}_dir", None if str(inside) == key else str(new_dir / inside))
+
+
 @router.get("")
 def get_settings() -> dict:
     return _shown(_move_to_the_projects(config.load_settings()))
@@ -106,6 +123,7 @@ def save_settings(new: config.Settings) -> dict:
         new.DATA.storage = current.DATA.storage
     if (new.DATA.storage or "json").strip().lower() not in storage.available():
         raise HTTPException(422, f"There is no storage called '{new.DATA.storage}': {', '.join(storage.available())}.")
+    _follow_data_dir(current, new)
     if not new.TRAPPER.user_password:
         new.TRAPPER.user_password = current.TRAPPER.user_password
     if not new.EPICOLLECT5.client_secret:
@@ -197,12 +215,14 @@ class DataDirRequest(BaseModel):
 
 @router.put("/data-dir")
 def set_data_dir(req: DataDirRequest) -> dict:
-    """Changes only the data folder — what the initial setup asks for. Blank is the default one. What is kept in the old one is not moved."""
+    """Changes only the data folder — what the initial setup asks for. Blank is the default one. What is kept in the old one is not moved, and the folders that were inside it go inside the new one."""
     settings = config.load_settings()
+    before = settings.model_copy(deep=True)
     wanted = (req.dir or "").strip()
     if wanted and not (Path(wanted).expanduser().is_absolute()):
         raise HTTPException(422, "The data folder must be an absolute path (or one starting with ~).")
     settings.DATA.dir = wanted or None
+    _follow_data_dir(before, settings)
     config.save_settings(settings)
     return {"dir": str(config.data_dir(settings))}
 
