@@ -2867,7 +2867,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
             </FormCard>
             <FormCard title="Collected visit" description="Select the visit in which the SD card was installed. Only the visits whose SD cards have already been collected are shown.">
               <ClosedVisitsTable
-                visits={closedVisits.filter((c) => revisionPick === null || revisionOfVisit(c) === revisionPick)}
+                researchProject={selectedProjectId} visits={closedVisits.filter((c) => revisionPick === null || revisionOfVisit(c) === revisionPick)}
                 selectedKey={linkedVisit ? visitKey(linkedVisit) : ''} onSelect={selectClosedVisit}
                 locations={localLocations} onOpenSite={onOpenSettings ? (id) => onOpenSettings('locations', selectedProjectId, id) : undefined}
                 sdCards={projectSdCards} onOpenSdCard={onOpenSettings ? (label) => onOpenSettings('sdcards', selectedProjectId, label) : undefined}

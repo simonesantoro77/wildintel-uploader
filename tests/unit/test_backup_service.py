@@ -168,6 +168,28 @@ def test_a_backup_restores_into_a_folder_where_nothing_is(tmp_path: Path):
     assert len(json.loads((pdir / "visits.json").read_text(encoding="utf-8"))) == 2
 
 
+def test_the_history_of_the_status_goes_in_the_backup_and_comes_back_without_repeating_what_is_there(tmp_path: Path):
+    source = tmp_path / "source"
+    source.mkdir()
+    pdir = _project(source)
+    lines = [{"kind": "locations", "name": "DONA_01", "before": None, "after": "active", "at": "2026-06-10T09:00:00Z", "day": "2026-06-10", "reason": "Created."},
+             {"kind": "cameras", "name": "CAM-1", "before": "ready", "after": "active", "at": "2026-06-10T09:01:00Z", "day": "2026-06-10", "reason": "The visit R0001 to DONA_01."}]
+    (pdir / "status_history.json").write_text(json.dumps(lines), encoding="utf-8")
+    dest = tmp_path / "out"
+    dest.mkdir()
+    done = _make(source, dest)
+    target = tmp_path / "target"
+    target.mkdir()
+
+    first = _restore(target, done["path"])
+    again = _restore(target, done["path"])
+
+    assert "project/status_history.json" in zipfile.ZipFile(done["path"]).namelist()
+    assert first["project_files"]["status_history"] == {"added": 2, "replaced": 0, "kept": 0}
+    assert again["project_files"]["status_history"] == {"added": 0, "replaced": 0, "kept": 2}
+    assert json.loads((target / "DONA" / "status_history.json").read_text(encoding="utf-8")) == lines
+
+
 def test_the_images_are_restored_only_when_asked_and_when_the_backup_has_them(tmp_path: Path):
     source = tmp_path / "source"
     source.mkdir()

@@ -4,6 +4,7 @@ import type { SdCard } from '../types'
 import { DetailLine } from './DashboardParts'
 import { formatDay } from '../dateFormat'
 import SidePanel from './SidePanel'
+import StatusHistory from './StatusHistory'
 
 const STATUS: Record<string, string> = { planned: 'Planned', ready: 'Ready', active: 'Active', archived: 'Archived' }
 
@@ -39,6 +40,7 @@ export default function SdCardDetails({ label, card, onClose, onOpenInSettings }
           <p className="text-sm text-zinc-500 dark:text-zinc-400">The SD card {label} is not one of the SD cards of this research project yet.</p>
         )}
       </section>
+      {card && <StatusHistory researchProject={card.research_project} kind="sd_cards" name={label} />}
       {onOpenInSettings && card && (
         <div className="mt-6 border-t border-zinc-200 dark:border-zinc-700 pt-4">
           <button type="button" className={btnOutline} onClick={onOpenInSettings}>Open it in the settings</button>

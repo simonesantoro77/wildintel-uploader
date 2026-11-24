@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DeploymentUploadState, FieldDeployment, UploadEntry } from '../types'
 
-vi.mock('../api', () => ({ api: { fieldDeployments: vi.fn(), listResearchProjects: vi.fn(), getSettings: vi.fn(), listVisits: vi.fn(), listLocalLocations: vi.fn(), collectionPath: vi.fn(), listLocalDeployments: vi.fn() } }))
+vi.mock('../api', () => ({ api: { statusHistory: vi.fn(async () => ({ results: [] })), fieldDeployments: vi.fn(), listResearchProjects: vi.fn(), getSettings: vi.fn(), listVisits: vi.fn(), listLocalLocations: vi.fn(), collectionPath: vi.fn(), listLocalDeployments: vi.fn() } }))
 import { api } from '../api'
 import UploadStatusPage from './UploadStatusPage'
 

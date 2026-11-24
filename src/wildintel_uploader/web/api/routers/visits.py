@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from wildintel_uploader.core import config
 from wildintel_uploader.core.schemas.requests import CreateRevisionRequest, FieldLogsRequest, ImportVisitsCsvRequest, LinkVisitRequest, ListVisitsRequest, MarkNotVisitedRequest, SaveVisitRequest, UpdateVisitRequest, VisitRecord, VisitsCsvColumnsRequest
-from wildintel_uploader.core.services import epicollect_service, audit, local_folder_service, report_service, trapper_upload_service, visit_deployments, visit_rules, visit_time, visits_csv
+from wildintel_uploader.core.services import epicollect_service, audit, local_folder_service, status_history, report_service, trapper_upload_service, visit_deployments, visit_rules, visit_time, visits_csv
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
 
@@ -85,7 +85,8 @@ def _archive_locations(root, research_project_id: str, new: list[dict]) -> list[
             continue
         note = f"Archived in the visit {v.get('session')}" + (f": {v['comments']}" if v.get("comments") else "")
         try:
-            local_folder_service.update_location(root, research_project_id, v["location_id"], {"status": "archived", "status_date": v["date"], "status_note": note}, by_visit=True)
+            with status_history.because(f"The visit {v.get('session')} to {v['location_id']}.", v.get("date")):
+                local_folder_service.update_location(root, research_project_id, v["location_id"], {"status": "archived", "status_date": v["date"], "status_note": note}, by_visit=True)
             done.append(v["location_id"])
         except local_folder_service.LocalFolderError:
             continue
@@ -104,7 +105,8 @@ def _apply_to_entities(root, research_project_id: str, new: list[dict], before: 
         site = next((l for l in local_folder_service.list_locations(root, research_project_id) if str(l.get("location_id", "")).lower() == change["name"].lower()), None)
         if site is not None and site.get("status") in (None, "pending", "ready", "active") and site.get("status") != change["status"]:
             try:
-                local_folder_service.update_location(root, research_project_id, site["location_id"], {"status": change["status"]}, by_visit=True)
+                with status_history.because(f"The visit {visit.get('session')} to {visit['location_id']}.", visit.get("date")):
+                    local_folder_service.update_location(root, research_project_id, site["location_id"], {"status": change["status"]}, by_visit=True)
             except local_folder_service.LocalFolderError:
                 continue
     for kind in ("cameras", "sd_cards"):
@@ -113,18 +115,21 @@ def _apply_to_entities(root, research_project_id: str, new: list[dict], before: 
             continue
         items = local_folder_service.list_field_items(root, research_project_id, kind)
         changed = False
+        why: dict[tuple[str, str], tuple[str, str | None]] = {}
         for visit, change in wanted:
             for item in items:
                 names = {str(item.get("label") or "").strip()} | ({str(item.get("camera_id") or "").strip()} if kind == "cameras" else set())   # as written: 7b and 7B are two
                 if change["name"].strip() not in names or item.get("status") == "archived" or item.get("status") == change["status"]:
                     continue
                 item["status"] = change["status"]
+                why[(kind, str(item.get("label") or item.get("camera_id") or "").lower())] = (f"The visit {visit.get('session')} to {visit['location_id']}.", visit.get("date"))
                 if change["status"] == "archived":
                     item["archive_reason"], item["status_date"] = change["reason"], visit.get("date")
                     item["status_note"] = "Stolen" if kind == "cameras" else "Stolen with the camera"
                 changed = True
         if changed:
-            local_folder_service.write_field_items(root, research_project_id, kind, items)
+            with status_history.because("The visits.", None, why):
+                local_folder_service.write_field_items(root, research_project_id, kind, items)
 
 
 @router.post("/list")

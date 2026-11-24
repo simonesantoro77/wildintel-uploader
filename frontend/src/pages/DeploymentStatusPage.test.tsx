@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
 import DeploymentStatusPage from './DeploymentStatusPage'
 
-vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), fieldDeployments: vi.fn(), getSettings: vi.fn(), collectionPath: vi.fn(), listLocalDeployments: vi.fn(), visitBook: vi.fn(), listVisits: vi.fn(), listLocalLocations: vi.fn() } }))
+vi.mock('../api', () => ({ api: { statusHistory: vi.fn(async () => ({ results: [] })), listResearchProjects: vi.fn(), fieldDeployments: vi.fn(), getSettings: vi.fn(), collectionPath: vi.fn(), listLocalDeployments: vi.fn(), visitBook: vi.fn(), listVisits: vi.fn(), listLocalLocations: vi.fn() } }))
 const mockedApi = vi.mocked(api)
 
 const deployment = (over: object) => ({

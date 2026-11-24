@@ -8,7 +8,7 @@ import { TrailProvider } from '../components/Trail'
 import VisitBookPage from './VisitBookPage'
 import { download } from '../csvFile'
 
-vi.mock('../api', () => ({ api: { listResearchProjects: vi.fn(), trapperGetConfig: vi.fn(), visitBook: vi.fn(), getSettings: vi.fn(), exportVisitsCsv: vi.fn(), updateVisit: vi.fn(), saveVisit: vi.fn(), listLocalLocations: vi.fn(), createRevision: vi.fn(), markNotVisited: vi.fn() } }))
+vi.mock('../api', () => ({ api: { statusHistory: vi.fn(async () => ({ results: [] })), listResearchProjects: vi.fn(), trapperGetConfig: vi.fn(), visitBook: vi.fn(), getSettings: vi.fn(), exportVisitsCsv: vi.fn(), updateVisit: vi.fn(), saveVisit: vi.fn(), listLocalLocations: vi.fn(), createRevision: vi.fn(), markNotVisited: vi.fn() } }))
 vi.mock('../csvFile', () => ({ download: vi.fn() }))
 const mockedApi = vi.mocked(api)
 

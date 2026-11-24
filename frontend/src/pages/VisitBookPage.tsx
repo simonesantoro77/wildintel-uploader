@@ -653,7 +653,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
         <VisitDetails onClose={() => setPanelVisit(null)} closed={closedOf(panelVisit)} researchProjectId={project?.acronym} onOpenSettings={onOpenSettings} />
       )}
       {sitePanel && (
-        <LocationDetails site={sitePanel.site} location={sitePanel.location} onClose={() => setSitePanel(null)}
+        <LocationDetails researchProject={project?.acronym} site={sitePanel.site} location={sitePanel.location} onClose={() => setSitePanel(null)}
           onOpenInSettings={onOpenSettings && project ? () => { setSitePanel(null); onOpenSettings('locations', project.acronym, sitePanel.site) } : undefined} />
       )}
 

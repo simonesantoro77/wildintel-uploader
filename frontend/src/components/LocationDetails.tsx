@@ -6,6 +6,7 @@ import LocationMap from './LocationMap'
 import { formatDay } from '../dateFormat'
 import SidePanel from './SidePanel'
 import { isUtcZone } from '../deploymentValidation'
+import StatusHistory from './StatusHistory'
 
 const STATUS: Record<string, string> = { planned: 'Planned', ready: 'Ready', active: 'Active', archived: 'Archived' }
 
@@ -30,7 +31,8 @@ const PIN_ICON = (
 )
 
 /** The data of a location in a panel at the right. `location` is none when the site is not one of the project's locations yet. */
-export default function LocationDetails({ site, location, onClose, onOpenInSettings }: { site: string; location: LocalLocation | undefined; onClose: () => void; onOpenInSettings?: () => void }) {
+/** `researchProject` is the one the location is of: with it, the panel has its history. */
+export default function LocationDetails({ site, location, onClose, onOpenInSettings, researchProject }: { site: string; location: LocalLocation | undefined; onClose: () => void; onOpenInSettings?: () => void; researchProject?: string | null }) {
   return (
     <SidePanel label={`Details of the location ${site}`} title={site} icon={PIN_ICON} subtitle={location?.name ?? undefined} onClose={onClose}>
       <section aria-label="The location" className="mt-6">
@@ -47,6 +49,7 @@ export default function LocationDetails({ site, location, onClose, onOpenInSetti
           <p className="text-sm text-zinc-500 dark:text-zinc-400">{site} is not one of the locations of this research project yet.</p>
         )}
       </section>
+      {location && <StatusHistory researchProject={researchProject} kind="locations" name={site} />}
       {onOpenInSettings && location && (
         <div className="mt-6 border-t border-zinc-200 dark:border-zinc-700 pt-4">
           <button type="button" className={btnOutline} onClick={onOpenInSettings}>Open it in the settings</button>

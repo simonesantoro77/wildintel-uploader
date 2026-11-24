@@ -892,6 +892,18 @@ def test_a_visit_that_archives_a_location_takes_the_camera_away_and_archives_it_
     assert after.status_code == 422 and "is archived since 2024-10-12" in after.json()["detail"]
 
 
+def test_the_visits_that_change_the_status_of_a_location_are_the_reason_of_its_history(tmp_path: Path):
+    install = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"}
+    with _in(tmp_path):
+        _project(archived=(2, 3))
+        _save(install)
+        _save({**VISIT, "actions": ["Revision", "Desinstallation", "Archive"], "camera_id": "P800", "num_photos": 10, "sd": None, "date": "2024-10-12", "session": "R0002"})
+        history = _client().post("/api/settings/status-history", json={"research_project_id": "DONA", "kind": "locations", "name": "DONA_01"}).json()["results"]
+
+    assert [(l["before"], l["after"], l["reason"], l["day"]) for l in history][-1] == ("active", "archived", "The visit R0002 to DONA_01.", "2024-10-12")
+    assert (history[0]["before"], history[0]["after"], history[0]["reason"]) == (None, "active", "Created.")   # how it was made: the test makes it active
+
+
 def test_a_revision_that_is_not_finished_is_finished_by_marking_what_is_left_as_not_visited(tmp_path: Path):
     install = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"}
     with _in(tmp_path):
