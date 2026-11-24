@@ -214,7 +214,7 @@ describe('DeploymentStatusPage', () => {
     expect(within(panel.getByRole('region', { name: 'Location' })).getByText('37.0123, -6.4412')).toBeInTheDocument()
     expect(within(panel.getByRole('region', { name: 'Location' })).getByText('± 5 m')).toBeInTheDocument()
     const period = within(panel.getByRole('region', { name: 'Period' }))
-    expect(period.getByText('4 Sep 2024, 09:00')).toBeInTheDocument()                     // the wall clock the date says, in the format of the app
+    expect(period.getByText('4 Sep 2024, 09:00')).toBeInTheDocument()                     // the wall clock the date says, in the format of WildINTEL Uploader
     expect(period.getByText('Ana Pérez')).toBeInTheDocument()                             // the mix of the two visits, told as who set it up…
     expect(period.getByText('Luis Gómez')).toBeInTheDocument()                            // …and who retrieved it
     expect(period.getByText('38 days in the field')).toBeInTheDocument()

@@ -82,12 +82,12 @@ describe('SettingsPage', () => {
   })
 
   describe('General', () => {
-    it('shows the data folder — by default a folder named like the app in the documents folder — and what goes in it', async () => {
+    it('shows the data folder — by default a folder named like WildINTEL Uploader in the documents folder — and what goes in it', async () => {
       render(<SettingsPage onClose={vi.fn()} />)
 
       expect(await screen.findByLabelText('Folder')).toHaveValue('/home/me/Documents/wildintel-uploader')
       expect(screen.getByText('Data folder')).toBeInTheDocument()
-      expect(screen.getByText('Where the app keeps everything it makes.')).toBeInTheDocument()
+      expect(screen.getByText('Where WildINTEL Uploader keeps everything it makes.')).toBeInTheDocument()
     })
 
     it('says where the folders inside the data folder will be as the data folder is typed: they move with it', async () => {
@@ -330,12 +330,12 @@ describe('SettingsPage', () => {
     })
   })
 
-  describe('About the app', () => {
-    it('shows the name and the version of the app, and the places to go for help', async () => {
+  describe('About WildINTEL Uploader', () => {
+    it('shows the name and the version of WildINTEL Uploader, and the places to go for help', async () => {
       mockedApi.checkVersion.mockResolvedValue({ current: '0.1.0' })
       render(<SettingsPage onClose={vi.fn()} />)
 
-      const about = within(await screen.findByRole('group', { name: 'About the app' }))
+      const about = within(await screen.findByRole('group', { name: 'About WildINTEL Uploader' }))
       expect(about.getByText('WildINTEL Uploader')).toBeInTheDocument()
       expect(await about.findByLabelText('Version')).toHaveTextContent('0.1.0')
       expect(about.getByRole('button', { name: 'Check for updates' })).toBeInTheDocument()
@@ -1213,7 +1213,7 @@ describe('SettingsPage', () => {
       const dialog = within(screen.getByRole('region', { name: 'Camera' }))
       expect(dialog.getByRole('radio', { name: /Active/ })).toHaveAttribute('aria-checked', 'true')
       expect(dialog.getAllByRole('radio').map((o) => o.textContent)).toEqual([
-        'PlannedOnly in Settings: it is not in the app yet.', 'ReadyAvailable, not in the field yet. Offered when a visit is registered.', 'ActiveIn use in the field. Offered when a visit is registered.', 'ArchivedOut of use for good: lost, stolen, broken… It never goes back to ready or active.',
+        'PlannedOnly in Settings: it is not in WildINTEL Uploader yet.', 'ReadyAvailable, not in the field yet. Offered when a visit is registered.', 'ActiveIn use in the field. Offered when a visit is registered.', 'ArchivedOut of use for good: lost, stolen, broken… It never goes back to ready or active.',
       ])
       expect(dialog.queryByLabelText('Status since')).not.toBeInTheDocument() // asked once it is archived
       await userEvent.click(dialog.getByRole('radio', { name: /Archived/ }))
@@ -1362,7 +1362,7 @@ describe('SettingsPage', () => {
   describe('Update', () => {
     const CHECK = { current: '0.1.0', latest: '0.1.0', update_available: false, release_url: null, download_url: null, error: null }
 
-    it('checks for updates and says when the app is up to date', async () => {
+    it('checks for updates and says when WildINTEL Uploader is up to date', async () => {
       mockedApi.checkForUpdate.mockResolvedValue(CHECK)
       render(<SettingsPage onClose={() => {}} />)
 

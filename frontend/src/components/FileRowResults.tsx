@@ -30,7 +30,7 @@ export interface FileRow {
 /** What the pill of a row says, and its colours: ready to add, skipped (already kept, or ignored) or an error — which one it is, its errors tell. */
 /** A row that is added, with something odd in it to check. */
 const warned = (r: FileRow) => r.result === 'ok' && (r.warnings?.length ?? 0) > 0
-const badgeOf = (r: FileRow) => (r.result === 'ok' ? (warned(r) ? 'New visit · to check' : 'New visit') : r.result === 'already_kept' ? 'Already in the app' : r.result === 'ignored' ? 'Ignored' : 'Error')
+const badgeOf = (r: FileRow) => (r.result === 'ok' ? (warned(r) ? 'New visit · to check' : 'New visit') : r.result === 'already_kept' ? 'Already in WildINTEL Uploader' : r.result === 'ignored' ? 'Ignored' : 'Error')
 /** One colour for each thing a row can be, the same in the figures, the filters, the pills and the tables: ready is green, skipped (already kept, ignored) is amber and an error is red. */
 type Tone = 'ready' | 'skipped' | 'errors'
 const toneKey = (r: FileRow): Tone => (r.result === 'ok' ? 'ready' : r.result === 'already_kept' || r.result === 'ignored' ? 'skipped' : 'errors')
@@ -63,7 +63,7 @@ const FILTERS: { value: Filter; keeps: (r: FileRow) => boolean }[] = [
   { value: 'errors', keeps: (r) => toneKey(r) === 'errors' },
 ]
 
-const FILTER_LABEL: Record<Filter, string> = { all: 'All rows', ready: 'New visits', skipped: 'Already in the app', errors: 'With problems' }
+const FILTER_LABEL: Record<Filter, string> = { all: 'All rows', ready: 'New visits', skipped: 'Already in WildINTEL Uploader', errors: 'With problems' }
 
 /** What became of each row of a file that is read, laid out like the results of the checks of the deployments: the figures, and the rows — each with what
  * went wrong in it — or, by error, each kind of error with the rows that have it, to pick one and see them. */
@@ -123,7 +123,7 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
   const squares: { filter: Filter; label: string; note: string; count: number; tone: string; badge: string; icon: ReactNode }[] = [
     { filter: 'all', label: 'Rows read', note: 'Every row of the file', count: rows.length, tone: 'text-blue-600 dark:text-blue-400', badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300', icon: <Icon path={<><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" /></>} className="h-5 w-5" /> },
     { filter: 'ready', label: 'New visits', note: 'Will be added', count: count('ready'), tone: TONES.ready.text, badge: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', icon: <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></>} className="h-5 w-5" /> },
-    { filter: 'skipped', label: 'Already in the app', note: 'Not loaded again', count: count('skipped'), tone: TONES.skipped.text, badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', icon: <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>} className="h-5 w-5" /> },
+    { filter: 'skipped', label: 'Already in WildINTEL Uploader', note: 'Not loaded again', count: count('skipped'), tone: TONES.skipped.text, badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', icon: <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>} className="h-5 w-5" /> },
     { filter: 'errors', label: 'With problems', note: 'Not added until fixed', count: count('errors'), tone: TONES.errors.text, badge: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300', icon: <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5M12 16h.01" /></>} className="h-5 w-5" /> },
   ]
   const fine = rows.length - count('errors')

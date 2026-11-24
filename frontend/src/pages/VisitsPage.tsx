@@ -57,7 +57,7 @@ const MAPPING_ICONS: Record<string, ReactNode> = {
 
 const SOURCE_OPTIONS: { value: VisitSource; icon: ReactNode; title: string; description: string }[] = [
   { value: 'manual', icon: <><path d="M18 11V6a2 2 0 0 0-4 0v4" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" /></>, title: 'By hand', description: 'Enter one visit at a time: the location, when, who went and what was done.' },
-  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'From a file', description: 'A CSV with one row per visit: the one downloaded from the WildINTEL field form in Epicollect5, or any other spreadsheet. The app detects which one it is.' },
+  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'From a file', description: 'A CSV with one row per visit: the one downloaded from the WildINTEL field form in Epicollect5, or any other spreadsheet. WildINTEL Uploader detects which one it is.' },
 ]
 
 /** The icon of the SD card section, drawn as those of the sections of the details are. */
@@ -661,7 +661,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const firstEver = Boolean(allVisits) && visit.site.trim() !== '' && !(allVisits ?? []).some((v) => v.location_id.toLowerCase() === visit.site.trim().toLowerCase())
   const inRevision = revisionNumber(visit.session || nextSession)
   const [siteStarts, setSiteStarts] = useState(false)
-  const pendingSite = projectLocations.find((l) => l.location_id.toLowerCase() === visit.site.trim().toLowerCase())?.status === 'pending'   // in the app, not started: its first visit starts it
+  const pendingSite = projectLocations.find((l) => l.location_id.toLowerCase() === visit.site.trim().toLowerCase())?.status === 'pending'   // in WildINTEL Uploader, not started: its first visit starts it
   const startsSite = guided && noCamera && firstEver && (pendingSite || inRevision === 1 || siteStarts)
   // A camera taken away with no other put up, or stolen with none put up, gives the location up: it is archived — for good — with the reason.
   const archiving = guided && !noCamera && ((seeCamera === 'yes' && afterRevision === 'remove') || (seeCamera === 'stolen' && afterTheft === 'archive'))
@@ -1000,11 +1000,11 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           </div>
         </div>
       )}
-      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Add what the app does not have yet (4)</h6>
+      <h6 className="pt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Add what WildINTEL Uploader does not have yet (4)</h6>
       {([
         ['locations', 'Create the locations that do not exist', 'A location the file names that the research project does not have yet is added. From the WildINTEL form it takes the coordinates of its first visit; from a custom CSV it needs its coordinates and timezone.'],
-        ['cameras', 'Create the cameras that do not exist', 'A camera the file names that the app does not have yet is added. From a custom CSV it needs its model.'],
-        ['sd_cards', 'Create the SD cards that do not exist', 'A card the file names that the app does not have yet is added, with its name as written: 7b and 7B are two cards. From a custom CSV it needs its brand.'],
+        ['cameras', 'Create the cameras that do not exist', 'A camera the file names that WildINTEL Uploader does not have yet is added. From a custom CSV it needs its model.'],
+        ['sd_cards', 'Create the SD cards that do not exist', 'A card the file names that WildINTEL Uploader does not have yet is added, with its name as written: 7b and 7B are two cards. From a custom CSV it needs its brand.'],
         ['trappers', 'Create the trappers that do not exist', 'A name in the file that is not a trapper yet is added as one: the username is made from the name (Ana Pérez becomes ana.perez). Complete them later in Settings › Trappers.'],
       ] as const).map(([entity, label, hint]) => {
         const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
@@ -1169,7 +1169,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Bring in the visits to the camera traps. From them the app knows which images belong to which camera, location and period." parent="Menu" onParent={onBack} />
+      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Bring in the visits to the camera traps. From them WildINTEL Uploader knows which images belong to which camera, location and period." parent="Menu" onParent={onBack} />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary
         description="Load them from a file, or enter them one by one."
@@ -1674,7 +1674,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
           <WizardStep
             n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
-            description="The CSV downloaded from the WildINTEL form in Epicollect5, or any other with one row per visit. The app detects which one it is."
+            description="The CSV downloaded from the WildINTEL form in Epicollect5, or any other with one row per visit. WildINTEL Uploader detects which one it is."
             summary={csvName}
           >
             {!(fileReady && csvColumns) && sourcesUsed.epicollect && (
@@ -1723,7 +1723,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{csvName ?? 'No file chosen'}</span>
                 <input id="visits-csv" aria-label="CSV file" type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void readCsv(file) }} />
               </label>
-              <p className={hintClass}>A visit the app already has (the same revision and location) is not loaded again, so the same file can be read more than once. A row with no revision gets the next one of its location.</p>
+              <p className={hintClass}>A visit WildINTEL Uploader already has (the same revision and location) is not loaded again, so the same file can be read more than once. A row with no revision gets the next one of its location.</p>
             </div>
             )}
             {fileReady && (source === 'csv' || source === 'wildintel-new') && (
@@ -1830,7 +1830,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             </WizardStep>
           )}
 
-          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="The app checks every row. Nothing is saved yet."
+          <WizardStep n={(source === 'csv' ? 5 : 4) - (defaultProject ? 1 : 0)} title="Check the visits of the file" status={(csvConfirming || csvSaved !== null) && csvResult ? 'done' : (checking || rechecking) ? 'running' : (csvResult && fileConfirmed) ? 'open' : 'locked'} sealed={csvSaved !== null} summary={csvSaved !== null ? `${csvSaved} ${csvSaved === 1 ? 'visit' : 'visits'} added` : csvConfirming && csvResult ? `${csvResult.visits.length} ${csvResult.visits.length === 1 ? 'visit' : 'visits'} to add` : undefined} canEdit={csvSaved === null} onEdit={() => setCsvConfirming(false)} description="WildINTEL Uploader checks every row. Nothing is saved yet."
                       action={csvResult && csvSaved == null && fileConfirmed && !csvConfirming && (
                         <button type="button" className={`${btnOutline} flex items-center gap-2`} disabled={rechecking} onClick={() => void recheckCsv()}
                                 title="Check the file again, for example after adding locations in the settings">

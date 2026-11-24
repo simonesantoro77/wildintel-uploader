@@ -192,7 +192,7 @@ describe('SetupWizardPage', () => {
     await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
     await userEvent.type(screen.getByLabelText('Name *'), 'Doñana')
     await next()
-    await waitFor(() => expect(screen.getByLabelText('Data folder')).toHaveValue('/home/ana/wildintel-uploader'))   // the one the app proposes, already there
+    await waitFor(() => expect(screen.getByLabelText('Data folder')).toHaveValue('/home/ana/wildintel-uploader'))   // the one WildINTEL Uploader proposes, already there
 
     await userEvent.clear(screen.getByLabelText('Data folder'))
     expect(screen.getByRole('button', { name: /^Finish setup/ })).toBeDisabled()

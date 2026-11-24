@@ -56,7 +56,7 @@ create the project; you can add or change the remaining details later in Setting
 
 **Field work**
 
-The app controls the **life cycle** of the visits, the deployments, the SD cards and the cameras, to minimise the typical errors of the field sheets. Locations, cameras and SD cards
+WildINTEL Uploader controls the **life cycle** of the visits, the deployments, the SD cards and the cameras, to minimise the typical errors of the field sheets. Locations, cameras and SD cards
 are *planned*, *ready*, *active* or *archived*, and what a visit does moves them — an Installation makes the site, the camera and the card active; taking them away makes them ready again; a
 theft archives the camera and its card —, so where each camera and each card is, is always worked out from the visits. A visit — entered by hand, or read from a file — is refused, with the reason, when it
 breaks any of these controls:

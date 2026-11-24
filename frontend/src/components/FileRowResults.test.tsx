@@ -16,13 +16,13 @@ describe('FileRowResults', () => {
     const card = (title: string) => screen.getByRole('button', { name: title })
     expect(card('Rows read')).toHaveTextContent('Rows read4Every row of the file')
     expect(card('New visits')).toHaveTextContent('New visits1Will be added')
-    expect(card('Already in the app')).toHaveTextContent('Already in the app2Not loaded again')
+    expect(card('Already in WildINTEL Uploader')).toHaveTextContent('Already in WildINTEL Uploader2Not loaded again')
     expect(card('With problems')).toHaveTextContent('With problems1Not added until fixed')
     const table = screen.getByRole('table', { name: 'Rows of the file' })
     const line = (n: number) => within(table).getByRole('button', { name: `View the contents of Row ${n}` }).closest('tr')!
     expect(line(4)).toHaveTextContent('4—WICP_0003——New visit')
     expect(line(3)).toHaveTextContent('3—WICP_0002——Error')                  // an error says only that: which one is told by its errors
-    expect(line(2)).toHaveTextContent('2R0001WICP_0001Revision + Desinstallation14 Sep 2026, 11:40Already in the app')   // the row, the revision, the location and what became of it
+    expect(line(2)).toHaveTextContent('2R0001WICP_0001Revision + Desinstallation14 Sep 2026, 11:40Already in WildINTEL Uploader')   // the row, the revision, the location and what became of it
     expect(within(table).queryByText('Diagnosis')).not.toBeInTheDocument()
 
     // the figures are the filters: the one pressed keeps its rows, and pressed again lets them all be seen
@@ -86,7 +86,7 @@ describe('FileRowResults', () => {
     // together with the filter of the figure that is pressed
     await userEvent.clear(screen.getByRole('textbox', { name: 'Search the rows' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'wicp')
-    await userEvent.click(screen.getByRole('button', { name: 'Already in the app' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Already in WildINTEL Uploader' }))
     expect(seen()).toEqual(['2', '5'])
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'zzz')
     expect(screen.getByText(/No row matches/)).toBeInTheDocument()
@@ -150,7 +150,7 @@ describe('FileRowResults', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort by When' }))
     expect(order()).toEqual(['3', '4', '5', '2'])   // the rows with no date first, then the oldest day
     await userEvent.click(screen.getByRole('button', { name: 'Sort by Status' }))
-    expect(order()).toEqual(['2', '5', '3', '4'])   // by what the pill says: Already in the app ×2, Error, New visit
+    expect(order()).toEqual(['2', '5', '3', '4'])   // by what the pill says: Already in WildINTEL Uploader ×2, Error, New visit
   })
 
   it('groups the rows by error, and shows the rows of the one that is picked', async () => {

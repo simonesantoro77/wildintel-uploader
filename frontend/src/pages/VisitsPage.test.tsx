@@ -1074,7 +1074,7 @@ describe('VisitsPage from a CSV file', () => {
     const customize = screen.getByRole('button', { name: 'Customize' })
     expect(customize.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
     await userEvent.click(customize)
-    expect(screen.getByText('Add what the app does not have yet (4)')).toBeInTheDocument()
+    expect(screen.getByText('Add what WildINTEL Uploader does not have yet (4)')).toBeInTheDocument()
     expect(screen.getByText('Rows with something missing (3)')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('switch', { name: 'The images were not counted' }))
     const done = screen.getByRole('button', { name: 'Done' })

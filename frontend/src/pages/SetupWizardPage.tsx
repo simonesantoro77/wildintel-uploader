@@ -148,7 +148,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
   const [optional, setOptional] = useState(false)   // the optional steps (3–7) were gone through: the review goes back to the last of them, not to the data folder
   const [acronym, setAcronym] = useState('')
   const [name, setName] = useState('')
-  const [dataDir, setDataDir] = useState('')   // starts as the one the app has now
+  const [dataDir, setDataDir] = useState('')   // starts as the one WildINTEL Uploader has now
   const [currentDir, setCurrentDir] = useState('')
   const [browsing, setBrowsing] = useState(false)
   const [projectCount, setProjectCount] = useState<number | null>(null)   // how many research projects there are: the data folder is asked for only with the first
@@ -272,7 +272,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     <div className={PAGE_CLASS}>
       <datalist id="setup-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
       <PageHeader icon={UTIL_ICONS.setup} title="Initial setup" parent="Utilities" onParent={onBack}
-        description="Set up a research project and say where the app keeps what it makes. The trappers, roles, locations, cameras and SD cards are optional: they can be created later, from the field files or in Settings." />
+        description="Set up a research project and say where WildINTEL Uploader keeps what it makes. The trappers, roles, locations, cameras and SD cards are optional: they can be created later, from the field files or in Settings." />
 
       <WizardStep n={1} title="The research project" required status={status(1)} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(1)}
                   summary={<><span className="font-mono">{code}</span> — {name.trim()}</>} description="A short acronym (it also names its folder, for example DONA_24) and its full name. Everything else can be filled in later in Settings › Entities.">
@@ -300,7 +300,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
 
       {folderStep && (
       <WizardStep n={2} title="The data folder" required status={status(2)} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(2)}
-                  summary={<span className="font-mono">{chosenDir}</span>} description="Where the app keeps everything it makes: the collections, the reports and the packages. You can keep the one it has, or choose another, for example on another disk.">
+                  summary={<span className="font-mono">{chosenDir}</span>} description="Where WildINTEL Uploader keeps everything it makes: the collections, the reports and the packages. You can keep the one it has, or choose another, for example on another disk.">
         {step === 2 && (
           <div className="space-y-3">
             <label className={labelClass} htmlFor="setup-data-dir">Data folder</label>
@@ -311,7 +311,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
               <button type="button" className={btnOutline} onClick={() => setDataDir(currentDir)} disabled={dataDir === currentDir}>Use the proposed one</button>
             </div>
             {dataDirError && dataDir !== '' && <p className="text-xs text-red-600 dark:text-red-400">{dataDirError}</p>}
-            <p className={hintClass}>The one the app proposes is already filled in: keep it, or choose another. What is already kept in another folder is not moved.</p>
+            <p className={hintClass}>The one WildINTEL Uploader proposes is already filled in: keep it, or choose another. What is already kept in another folder is not moved.</p>
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <button type="button" className={btnOutline} onClick={() => setStep(1)}><span aria-hidden="true">← </span>Back</button>
               {choices}
@@ -325,7 +325,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       <WizardStep n={num(3)} title="The trappers" optional="Optional · From visits CSV or Settings" status={status(3)} skipped={trappers.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(3)} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The trappers who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
         {step === 3 && (
           <AddList noun="trapper" added={chips(trappers, (t) => t.name)} onRemove={(k) => setTrappers((l) => l.filter((t) => t.name !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how the app and TRAPPER know the trapper.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
+            fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how WildINTEL Uploader and TRAPPER know the trapper.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
             onAdd={(v) => {
               if (trappers.some((t) => lower(t.username) === lower(v.username))) throw new Error(`There is a trapper with the username ${v.username.trim()} already.`)
               setTrappers((l) => [...l, { username: v.username.trim(), name: v.name.trim(), affiliation: v.affiliation.trim(), email: v.email.trim() }])

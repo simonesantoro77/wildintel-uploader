@@ -124,7 +124,7 @@ export default function SyncCollectionsPage({ onBack }: { onBack?: () => void; o
           <Combobox
             id="sync-research-project" options={projects.map((p) => ({ value: String(p.pk), label: p.acronym ? `${p.acronym} — ${p.name}` : p.name }))}
             value={projectPk} onChange={chooseProject} disabled={syncing}
-            placeholder={projects.length === 0 ? 'No research projects' : 'Select a research project…'} clearLabel="Clear research project"
+            placeholder={projects.length === 0 ? 'No research projects in TRAPPER' : 'Select a research project in TRAPPER…'} clearLabel="Clear research project"
           />
         </div>
 

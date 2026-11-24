@@ -2759,7 +2759,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                                 : <strong className="font-mono font-bold text-zinc-800 dark:text-zinc-100">{defaultProject!.acronym}</strong>}{' '}
                               the SD card that holds the images you want to link to the new deployment was installed.</>
                           : 'Pick the research project, then tell us in which of its visits the SD card that holds the images you want to link to the new deployment was installed.')
-                        : 'The research project and the location the images come from. They are kept in the collections folder — pick one that is already there, or add a new one, by hand or from TRAPPER.'}
+                        : 'The research project and the location the images come from. They are kept in WildINTEL Uploader — pick one that is already there, or add a new one, by hand or from TRAPPER.'}
                       summary={selectedProject && selectedLocation && <>
                         {selectedProject.acronym} · {selectedLocation.location_id}{selectedLocation.name ? `, ${selectedLocation.name}` : ''}<br />
                         {linkedVisit && <>Collected visit: {visitLabel(linkedVisit)}<br /></>}
@@ -3334,7 +3334,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 <div>
                   <p className="text-lg font-semibold">Saving seals the deployment</p>
                   <p className="text-base leading-relaxed">Do you want to save the deployment <strong>{deployment.deployment_id}</strong>{selectedProject?.acronym ? <> in <strong>{selectedProject.acronym}</strong></> : null}?</p>
-                  <p className="text-base leading-relaxed">Its metadata is written and it can&rsquo;t be modified afterwards. The app notices if an image or its details change. Once saved, it can be uploaded.</p>
+                  <p className="text-base leading-relaxed">Its metadata is written and it can&rsquo;t be modified afterwards. WildINTEL Uploader notices if an image or its details change. Once saved, it can be uploaded.</p>
                 </div>
               </div>
               {importError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{importError}</p>}
@@ -3377,7 +3377,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                           <p className="text-base text-zinc-900 dark:text-zinc-100">
                             {done ? `${(done.processed ?? 0).toLocaleString('en-US')} images${did.length ? ` · ${did.join(', ').replace(/, ([^,]*)$/, ' and $1')}` : ''}${done.skipped ? ` · ${done.skipped} skipped` : ''}` : 'Images saved'}
                           </p>
-                          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Metadata written and sealed. The app will notice if an image or its details change.</p>
+                          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Metadata written and sealed. WildINTEL Uploader will notice if an image or its details change.</p>
                           <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">Saved to</p>
                           <p className="font-mono text-sm break-all text-zinc-800 dark:text-zinc-200">{path}</p>
                           <div className="mt-4 flex flex-wrap gap-2">

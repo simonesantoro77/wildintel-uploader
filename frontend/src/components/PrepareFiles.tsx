@@ -251,7 +251,7 @@ export function FilesReady({ collection, items, outputDir, startedAt, finishedAt
             )}
           </ul>
           <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 px-5 py-3 text-sm text-zinc-700 dark:text-zinc-300 mb-4">
-            <strong className="font-semibold">What next?</strong> You can send these files to TRAPPER yourself, or let the app do it with <strong className="font-semibold">Upload to TRAPPER</strong>.
+            <strong className="font-semibold">What next?</strong> You can send these files to TRAPPER yourself, or let WildINTEL Uploader do it with <strong className="font-semibold">Upload to TRAPPER</strong>.
           </div>
         </>
       )}

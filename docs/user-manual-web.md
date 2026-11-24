@@ -24,13 +24,13 @@ first. Part of what the web app does can also be done from a terminal: see the
 
 ## 1. Getting started
 
-[Install](user-manual.md#1-installation) the app and run it with no arguments. It starts a small server on your computer
-and opens the app in your default browser (<http://127.0.0.1:8769>, or the next free port).
+[Install](user-manual.md#1-installation) WildINTEL Uploader and run it with no arguments. It starts a small server on your computer
+and opens WildINTEL Uploader in your default browser (<http://127.0.0.1:8769>, or the next free port).
 
 !!! info
     **Keep the window it opened until you finish** — closing it stops the app. Data is kept on your machine; connections to services such as TRAPPER, Epicollect and map providers depend on the features you use.
 
-The app opens on the welcome screen, which says what it does — *from the field to a curated, standard dataset* — and gives four points:
+WildINTEL Uploader opens on the welcome screen, which says what it does — *from the field to a curated, standard dataset* — and gives four points:
 
 - **Validated**.
 - **Traceable**: each deployment is sealed with the checks it passed and a SHA-256 fingerprint of every image.
@@ -43,10 +43,10 @@ On the first launch, there are no research projects yet. Press **Get started** t
 
 ### Initial setup
 
-The assistant asks for the basic data of the research project and the folder where the app keeps what it makes and, optionally, the trappers and equipment used in the field. For this example we will create `WICP_02`, a project with four locations.
+The assistant asks for the basic data of the research project and the folder where WildINTEL Uploader keeps what it makes and, optionally, the trappers and equipment used in the field. For this example we will create `WICP_02`, a project with four locations.
 
 1. **The research project** — enter its required **Acronym**, `WICP_02`, and **Name**, for example `WICP_02 Doñana census`. The acronym names its folder. Press **Continue**.
-2. **The data folder** — the folder where the app keeps the collections, the reports and the packages. The one the app proposes is already filled in: keep it, or press **Choose folder…** to pick another. The data folder is the same for every research project, so it is asked for only with the first one; when there are projects already, this step does not appear and the folder is changed in **Settings › General**.
+2. **The data folder** — the folder where WildINTEL Uploader keeps the collections, the reports and the packages. The one WildINTEL Uploader proposes is already filled in: keep it, or press **Choose folder…** to pick another. The data folder is the same for every research project, so it is asked for only with the first one; when there are projects already, this step does not appear and the folder is changed in **Settings › General**.
 
 Then choose:
 
@@ -58,7 +58,7 @@ Then choose:
 5. **The locations** — add each location with its **Location id**, latitude, longitude and **Timezone**, for example `WICP_02_001`, `37.0123`, `-6.4412` and the timezone used by its camera. UTC is the default; for a different timezone, say whether the cameras ignore summer time.
 6. **The cameras** — add each camera's **Label**, for example `CAM-001`; serial number and model are optional.
 7. **The SD cards** — add each card's **Label**, for example `1`; brand and capacity are optional.
-8. **Review** — check what is going to be done and press **Create it**; **Back** returns to the step before. The project and the other entries are saved at this point, and the app attempts to make the project the default. Check the result for any entries that could not be saved.
+8. **Review** — check what is going to be done and press **Create it**; **Back** returns to the step before. The project and the other entries are saved at this point, and WildINTEL Uploader attempts to make the project the default. Check the result for any entries that could not be saved.
 
 Until you press **Create it**, any step already passed can be opened again with its pencil to change what you entered.
 
@@ -92,7 +92,7 @@ In **When**, enter the date and time of the visit. The form also shows the GPS c
 ![Entering the visit date and time and checking its location](img/screenshots/quick-start-visit-when.png)
 
 !!! info "GPS coordinates of the visit"
-    These coordinates are where you were when you recorded the visit, **not the location's coordinates**. The app compares them with the selected location's stored coordinates to check that you are nearby. Enter your position or use the **Use my current position** button. The fields initially contain the location's coordinates, so the initial `0 m` match does not confirm where you actually are.
+    These coordinates are where you were when you recorded the visit, **not the location's coordinates**. WildINTEL Uploader compares them with the selected location's stored coordinates to check that you are nearby. Enter your position or use the **Use my current position** button. The fields initially contain the location's coordinates, so the initial `0 m` match does not confirm where you actually are.
 
 Next, say what was done: as no camera is known there yet, the visit is an *Installation*. Open the **Camera** section and choose the camera that is installed, `CAM-001`, say that it was calibrated, and give its height, its tilt and its heading and the delay between triggers; in **SD card**, pick the card that is left in it, the `1`.
 
@@ -112,17 +112,17 @@ Once the first revision is finished, we plan the next round of visits (`R0002`).
 
 ![Register visits › By hand: a Revision at an example location](img/screenshots/visit-revision-form.png)
 
-Once the visit has been registered, the app offers to **Import the images** collected on the SD card and associate them with the visit in revision `R0001`. You can import them now or later from the deployments menu.
+Once the visit has been registered, WildINTEL Uploader offers to **Import the images** collected on the SD card and associate them with the visit in revision `R0001`. You can import them now or later from the deployments menu.
 
 ![Importing images from the SD card collected during the visit](img/screenshots/quick-start-collected-card.png)
 
 ### Managing deployments
 
-The images on the collected card belong to the **deployment** associated with the earlier visit, in `R0001`. The app can import them directly from the SD card or from a folder on your computer.
+The images on the collected card belong to the **deployment** associated with the earlier visit, in `R0001`. WildINTEL Uploader can import them directly from the SD card or from a folder on your computer.
 
 ![Choosing whether images are on an SD card or in a folder](img/screenshots/quick-start-images-source.png)
 
-For this example, choose **No, they are in a folder** and select the folder containing the images. The app scans it and shows how many images it found. It also asks which **SD card** contained them: select the card collected during the visit. The app checks it against the card recorded as left in the camera.
+For this example, choose **No, they are in a folder** and select the folder containing the images. WildINTEL Uploader scans it and shows how many images it found. It also asks which **SD card** contained them: select the card collected during the visit. WildINTEL Uploader checks it against the card recorded as left in the camera.
 
 ![Image count and selection of the SD card the images came from](img/screenshots/quick-start-images-card.png)
 
@@ -134,15 +134,15 @@ Once the checks are complete and all those set to **Must pass** have passed, con
 
 ![Recording period from the visits that left and collected the SD card](img/screenshots/quick-start-recording-period.png)
 
-After the dates, the app shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format. Most fields are optional, and the available details are pre-filled with information from the field visit where the SD card was left. You can review or edit them before continuing.
+After the dates, WildINTEL Uploader shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format. Most fields are optional, and the available details are pre-filled with information from the field visit where the SD card was left. You can review or edit them before continuing.
 
 ![Deployment details pre-filled from the field visit](img/screenshots/quick-start-deployment-details.png)
 
-The app then runs another set of checks on the deployment and the image collection as a whole, rather than examining each image separately. For example, it checks whether the images' dates fit within the deployment's recording period. As before, you choose which checks to run and whether each must pass to continue, or can instead show a warning and let you proceed. The app then imports the images into the collections folder, one **collection** for each revision. See [Import the images](#6-import-the-images) and [Import deployments](#7-import-deployments) for the available import flows.
+WildINTEL Uploader then runs another set of checks on the deployment and the image collection as a whole, rather than examining each image separately. For example, it checks whether the images' dates fit within the deployment's recording period. As before, you choose which checks to run and whether each must pass to continue, or can instead show a warning and let you proceed. WildINTEL Uploader then imports the images into the collections folder, one **collection** for each revision. See [Import the images](#6-import-the-images) and [Import deployments](#7-import-deployments) for the available import flows.
 
 ![Choosing deployment checks and how strict each check should be](img/screenshots/step-checks.png)
 
-Once the checks pass, the app prepares the images before they can be saved:
+Once the checks pass, WildINTEL Uploader prepares the images before they can be saved:
 
 - It copies them into the deployment's collection folder; the originals are not changed.
 - It reads each image's capture date and converts it to UTC using the location's timezone settings. If an image has no EXIF date, it uses the file date.
@@ -154,13 +154,13 @@ Once the checks pass, the app prepares the images before they can be saved:
 **Add metadata.** This optional step writes information such as the creator, owner, publisher, rights, license and location into each image as XMP.
 
 !!! note "Add metadata"
-    The notice under **What gets written into each image** warns when **Owner** or **Publisher** has not been set in **Settings › Preprocessing**. If either is missing, its value will be written as **Unknown**; the notice does not prevent you from continuing. Set these values in Settings if you want the images to carry the correct attribution. This step also needs ExifTool; if it is unavailable, the app disables the step and explains why.
+    The notice under **What gets written into each image** warns when **Owner** or **Publisher** has not been set in **Settings › Preprocessing**. If either is missing, its value will be written as **Unknown**; the notice does not prevent you from continuing. Set these values in Settings if you want the images to carry the correct attribution. This step also needs ExifTool; if it is unavailable, WildINTEL Uploader disables the step and explains why.
 
-When you start preprocessing, the app copies and processes the images. How long this takes depends on the number of images and the processing steps you selected. If everything completes successfully, the app shows a summary of what was done and asks you to confirm saving the deployment in your local collection. Saving seals it so the app can detect later changes.
+When you start preprocessing, WildINTEL Uploader copies and processes the images. How long this takes depends on the number of images and the processing steps you selected. If everything completes successfully, WildINTEL Uploader shows a summary of what was done and asks you to confirm saving the deployment in your local collection. Saving seals it so WildINTEL Uploader can detect later changes.
 
 ![Reviewing the deployment summary and confirming that it should be saved](img/screenshots/quick-start-save-deployment.png)
 
-Once saving is complete, the app offers the option to upload the deployment to a repository. In this example, the **Upload to TRAPPER** button sends it to TRAPPER; you can also upload it later.
+Once saving is complete, WildINTEL Uploader offers the option to upload the deployment to a repository. In this example, the **Upload to TRAPPER** button sends it to TRAPPER; you can also upload it later.
 
 ![Saved deployment with the option to upload it to TRAPPER](img/screenshots/step-import.png)
 
@@ -169,7 +169,7 @@ Once saving is complete, the app offers the option to upload the deployment to a
 !!! note "Before uploading to TRAPPER"
     Configure and test the connection in [Settings › Uploader › TRAPPER](#trapper) before uploading.
 
-When you press **Upload to TRAPPER**, the app takes you to the upload form with this deployment already selected. There, choose the TRAPPER classification project to which you want to link the deployment.
+When you press **Upload to TRAPPER**, WildINTEL Uploader takes you to the upload form with this deployment already selected. There, choose the TRAPPER classification project to which you want to link the deployment.
 
 ![Upload form with deployments selected and the TRAPPER classification project field](img/screenshots/upload.png)
 
@@ -177,7 +177,7 @@ Press **Continue**. Choose **Upload to TRAPPER** and select **Delete the package
 
 ![Choosing to upload to TRAPPER and delete the generated package files after upload](img/screenshots/upload-mode.png)
 
-Press **Continue** to start the upload. The app creates any missing locations and deployments in TRAPPER, then uploads the images. If everything succeeds, it shows a link to the deployment in TRAPPER, where you can view the uploaded images.
+Press **Continue** to start the upload. WildINTEL Uploader creates any missing locations and deployments in TRAPPER, then uploads the images. If everything succeeds, it shows a link to the deployment in TRAPPER, where you can view the uploaded images.
 
 ![Upload results, with a link to open the deployment in TRAPPER](img/screenshots/upload-result.png)
 
@@ -190,17 +190,17 @@ dot marks a section with an invalid value.
 
 ![Settings › General](img/screenshots/settings-general.png)
 
-- **Data folder** — where the app keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
+- **Data folder** — where WildINTEL Uploader keeps what it makes: the collections, the reports and the packages, each in a folder inside it. Blank uses
   `Documents/wildintel-uploader`; a path must be absolute (or start with `~`).
 - **Collections folder**, **Reports folder** and **Packages folder** — where the collections, the reports of the checks and the packages made to upload to TRAPPER are kept. Blank, each is a folder (`collections`, `reports`, `packages`) inside the data folder; set one to keep it somewhere else, on another disk for instance. A path must be absolute (or start with `~`). **When you change the data folder, the folders that are inside it go with it** — the ones left blank, and the ones that were set to a place inside it — and the ones kept elsewhere stay where they are. What is already kept in the old place is not moved: do it by hand.
-- **Welcome page** — on by default: the page that says what the app does is shown when it opens. Turn it off to open straight on the menu (or on the runs left unfinished); the tick **Do not show this page again** of the welcome page does the same. The title of the header then goes to the menu.
+- **Welcome page** — on by default: the page that says what WildINTEL Uploader does is shown when it opens. Turn it off to open straight on the menu (or on the runs left unfinished); the tick **Do not show this page again** of the welcome page does the same. The title of the header then goes to the menu.
 - **Workers** — how many images are validated and preprocessed at once. Up to the number of
   processors of your machine pays off; the default is that number, up to 4.
-- **Log level** — how much the app logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
+- **Log level** — how much WildINTEL Uploader logs (`ERROR`, `WARNING`, `INFO`, `DEBUG`). At `DEBUG` it logs
   every step.
 - **Log file** — download it, or delete it. It lives in the log folder of your system (`~/.local/state/wildintel-uploader/log` on Linux), which can't be changed. It rotates at 5 MB keeping the last 5. Attach it to any
   bug report.
-- **About** — at the top: the app's name and version, **Check for updates** (it offers the download when there is a newer version), and links to **Report a problem** (a GitHub issue that already says the version and your browser), the **Documentation**, the **GitHub** project and **What's new** (the release notes).
+- **About** — at the top: WildINTEL Uploader's name and version, **Check for updates** (it offers the download when there is a newer version), and links to **Report a problem** (a GitHub issue that already says the version and your browser), the **Documentation**, the **GitHub** project and **What's new** (the release notes).
 
 - **Keep the seconds in the logs** — the start and the end of the deployments written in the `FileTimestampLog` and the `FieldworkLog`, for the visits of any origin. Off by default: they are cut to the minute.
 
@@ -357,18 +357,18 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 
 The **Quick guide** button, at the right of the title, opens a panel with the work from end to end: the research project and then the three steps, and where to follow the progress and to fix dates and files. The numbers of the cards are the **typical workflow**: **1 Register the visits**, then **2 Import the images** — which takes the location, the camera and the dates from the visits — and then **3 Upload the images**. *Sync* is for when
 
-The **Glossary** button, beside it, opens a panel with what each word of the app means, in alphabetical order: *camera*, *collection*, *deployment*, *location*, *research project*, *revision*, *SD card*, *trapper* and *visit*. A **revision** is one visit to every location of a research project; a **deployment** is the time a camera stays at a location with an SD card — from the visit that put the card in to the visit that collected it — with the conditions in which it was installed and the images it took; and the deployments of a revision are its **collection**.
+The **Glossary** button, beside it, opens a panel with what each word of WildINTEL Uploader means, in alphabetical order: *camera*, *collection*, *deployment*, *location*, *research project*, *revision*, *SD card*, *trapper* and *visit*. A **revision** is one visit to every location of a research project; a **deployment** is the time a camera stays at a location with an SD card — from the visit that put the card in to the visit that collected it — with the conditions in which it was installed and the images it took; and the deployments of a revision are its **collection**.
 TRAPPER already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this
 documentation, and the sun/moon button switches between dark and light.
 
-If the app was closed in the middle of an import, the first thing you see is the list of
+If WildINTEL Uploader was closed in the middle of an import, the first thing you see is the list of
 **unfinished runs** — see [Unfinished runs](#4-unfinished-runs).
 
 ## 4. Unfinished runs
 
-An import saves its progress as you go. If you close the app, or it fails, the next time you start
+An import saves its progress as you go. If you close WildINTEL Uploader, or it fails, the next time you start
 it the first screen lists the **unfinished runs** — the folder, the research project and when it
 was started — each with **Resume** and **Discard**. Resuming takes you back to the step after the
 folder was chosen. Passwords are never saved with a run.
@@ -424,7 +424,7 @@ the visits come in:
 | Source | What it does |
 |---|---|
 | **By hand** | You fill in each visit yourself, following the field flow: the location, when, who went and what was done. |
-| **From a file** | A CSV with a row per visit, dropped in the page or, when Epicollect is turned on in the settings, **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*). Once the file is read the app says what it detected — **WildINTEL Epicollect CSV**, whose columns are found by the label of their question, or **Custom CSV / Spreadsheet**, where you say which column gives each field — with the header of the file and the fields that matched. **Change type** reads the file as the other one and says why it cannot, if it cannot. |
+| **From a file** | A CSV with a row per visit, dropped in the page or, when Epicollect is turned on in the settings, **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*). Once the file is read WildINTEL Uploader says what it detected — **WildINTEL Epicollect CSV**, whose columns are found by the label of their question, or **Custom CSV / Spreadsheet**, where you say which column gives each field — with the header of the file and the fields that matched. **Change type** reads the file as the other one and says why it cannot, if it cannot. |
 
 *By hand* and *From a file* are always offered.
 
@@ -472,9 +472,9 @@ A visit is a form with these parts:
 1. **Actions** — one or several of *Installation* (a camera is put up and a card left), *Revision* (the card is collected and another left),
    *Desinstallation* (the camera is taken away with its card), *Stolen*, *Archive* (the location is given up) and *Location start* (the location begins here: said once, with its first
    visit, as *Archive* says it ends). In the form that asks questions, the first visit ever to a location in a revision after the first asks whether it is **where the location
-   starts** — off by default, as the location may have been there before with its earlier visits not in the app; in the first revision it is where it starts, and nothing is asked.
+   starts** — off by default, as the location may have been there before with its earlier visits not in WildINTEL Uploader; in the first revision it is where it starts, and nothing is asked.
    A location with a *Location start* is not waited for in the revisions before it: they do not need a visit to it, nor an *unknown* one. A location with none keeps what it had: what
-   came before it is *unknown*. The first visit of an existing location can be edited to add it. It also gives the location its state: *planned* (only in Settings: it cannot be used, a start included) → *pending* (in the app, not started: what a new location is) → *ready* (it started and has no camera) → *active* (it has a camera) → *archived*. A pending location is not waited for in the revisions until a visit to it is known, and the first camera put up at it says *Location start* by itself, so the form does not ask; a *ready* or *active* location, which started before or whose start is not known, is asked in the form (off by default). The rest of the form depends on what is chosen: what the actions do not
+   came before it is *unknown*. The first visit of an existing location can be edited to add it. It also gives the location its state: *planned* (only in Settings: it cannot be used, a start included) → *pending* (in WildINTEL Uploader, not started: what a new location is) → *ready* (it started and has no camera) → *active* (it has a camera) → *archived*. A pending location is not waited for in the revisions until a visit to it is known, and the first camera put up at it says *Location start* by itself, so the form does not ask; a *ready* or *active* location, which started before or whose start is not known, is asked in the form (off by default). The rest of the form depends on what is chosen: what the actions do not
    ask is left out. When the camera was already visited, **the Camera, Site and Grouping sections come filled in from the last visit** (not its notes).
 2. **Camera** — the camera (picked from the active ones of the project, or added from here) and how it is placed and set: height or depth, tilt,
    heading, delay, detection distance, its status, whether the batteries and the clock were right. **It comes before the SD card**.
@@ -490,7 +490,7 @@ The camera and the SD card are picked from those of the research project, and wh
 
 Any spreadsheet with a row per visit. Press **Register the visits › From a file**; the research project is the default one. The steps:
 
-1. **Choose the spreadsheet file.** When Epicollect is turned on in the settings, first say **where the CSV is**: *A file on this computer* or *Epicollect5 project* — with the latter, **Download the entries** reads them from the project of the settings and goes on as a file does. Drop the CSV in the file area or browse for it. The app reads its columns and says what it detected — the download of the WildINTEL form or a custom CSV —; if it is wrong, say it is the other one, and the steps go on as that kind of file does. If you do not know what the file should look like, **Download a template** (at the top right of the file area): a CSV with the columns of a visit and twenty example visits of four locations in five revisions — the installation, revisions, a theft, a camera replaced, one taken away and a location given up — in which several actions are written in one visit, joined with `+` (`Stolen + Installation`, `Revision + Desinstallation + Installation`…). Its columns are matched by themselves; replace its rows with yours. Choosing the file does **not** move on: the step stays open with **Import & auto-creation rules**, where **Customize** opens the switches for entities the file names that are not in the project; each asks for more fields in the matching, where a default can also be given (a location is created with **its own coordinates**, `location_latitude` and `location_longitude`, which are not those of the visit). **Done** closes the options; **Continue** moves on.
+1. **Choose the spreadsheet file.** When Epicollect is turned on in the settings, first say **where the CSV is**: *A file on this computer* or *Epicollect5 project* — with the latter, **Download the entries** reads them from the project of the settings and goes on as a file does. Drop the CSV in the file area or browse for it. WildINTEL Uploader reads its columns and says what it detected — the download of the WildINTEL form or a custom CSV —; if it is wrong, say it is the other one, and the steps go on as that kind of file does. If you do not know what the file should look like, **Download a template** (at the top right of the file area): a CSV with the columns of a visit and twenty example visits of four locations in five revisions — the installation, revisions, a theft, a camera replaced, one taken away and a location given up — in which several actions are written in one visit, joined with `+` (`Stolen + Installation`, `Revision + Desinstallation + Installation`…). Its columns are matched by themselves; replace its rows with yours. Choosing the file does **not** move on: the step stays open with **Import & auto-creation rules**, where **Customize** opens the switches for entities the file names that are not in the project; each asks for more fields in the matching, where a default can also be given (a location is created with **its own coordinates**, `location_latitude` and `location_longitude`, which are not those of the visit). **Done** closes the options; **Continue** moves on.
 2. **Match the columns.** For each field of a visit, the column of the file that gives it. The fields are in groups, as in the form of a visit by hand — *Who*, *Where*, *When*, *The visit*, *SD card*, *Camera*, *Site*, and *Grouping and notes* —, each with an example from the file. Each group is a card with a **chevron at the left** that folds it away, and says how many of its fields are matched (*3 of 5 matched*). What has the name of a field (`location_id`, `session`, `date`, `time`, `actions`, `trappers`, `camera_id`, `sd`, `num_photos`…) is matched by itself; pick the rest, or give a **default** for a field the file has no column for. The location and the actions are required — every row gives them, by a column or a default. The **coordinates of the visit** (`latitude` and `longitude`: where the trapper was when the visit was noted) are required of a visit, but the file need not have them: a row gives them by a column or a default and, when it gives none, takes those of its **location** (a note says how many rows did) — the switch *Use the coordinates of the location when a row has none*, on by default, in the options of the second step; with it off, a row with none is refused —; one of the two alone is refused; the time is a date and a time, or — when the file has it — the instant of an entry (`created_at`), as the *visit sources* setting says. Dates may be written day first. A visit with no revision gets the next one of its location. Press **Read the visits**.
 3. **Check the visits of the file.** The check starts when you press **Continue** in the step of the file, not before. While it runs nothing is shown but that the file is being checked (a long history can take some minutes): a bar that moves — it does not say how far the check is — and the number of the step turns like a clock. Then what the file says, before it is kept: *N visits to add · N already kept · N rows with a problem*, the new locations, what is worth knowing and what is odd. Then the **rows** of the file, laid out like a dashboard:
    - **Revision selection** — a card for *All revisions* and one for each revision the file has (the five most recent as cards, the older ones in the **Older revisions** list, for a file with many). Picking one narrows what is below to its rows.
@@ -585,7 +585,7 @@ at the end, the id the deployment will have, its location and its dates.
 
 ![Stage 1 — Origin](img/screenshots/step-origin.png)
 
-Where the images were taken, which tells the app what the deployment is **of**. It is of the **default research project**; choose another using the research project selector in the header. If there is no default one, the step asks for the **research project**: pick one of those in the collections folder, or add a new one **by hand** or **from TRAPPER** (the app uses the account saved in the settings).
+Where the images were taken, which tells WildINTEL Uploader what the deployment is **of**. It is of the **default research project**; choose another using the research project selector in the header. If there is no default one, the step asks for the **research project**: pick one of those in the collections folder, or add a new one **by hand** or **from TRAPPER** (WildINTEL Uploader uses the account saved in the settings).
 
 **When the project has collected visits** the step is **When was it collected?**:
 
@@ -598,8 +598,8 @@ If you start from a visit — from [Register the visits](#5-register-the-visits)
 
 ### Stage 2 — Images
 
-In this stage you tell the app **which images** you are importing and find out, before anything else is done, **whether they
-are in good shape**. You choose the folder with the images of the camera and the app counts what is in it; then you
+In this stage you tell WildINTEL Uploader **which images** you are importing and find out, before anything else is done, **whether they
+are in good shape**. You choose the folder with the images of the camera and WildINTEL Uploader counts what is in it; then you
 choose which checks to run over the images alone — corrupted files, shooting order, subfolders, a single camera, the
 image data they need and duplicates — and how strict each one is. The result tells you how many images are valid and which
 ones have problems, so you can fix them before going on. **Nothing is copied or changed yet: the source folder is only read.**
@@ -618,7 +618,7 @@ their extension) — *241 images found* — with a warning if the folder is empt
 images. It doesn't open them, which is why it is instant however many there are: reading the
 images is what the next steps are for. A folder you choose is read where it is, and **nothing in it is changed**.
 
-Once the folder is scanned, the app asks the **SD card** the images come from, among the cards of the research project (**Select an SD card…**; optional). If the deployment is
+Once the folder is scanned, WildINTEL Uploader asks the **SD card** the images come from, among the cards of the research project (**Select an SD card…**; optional). If the deployment is
 of a visit, the card is checked against the one the visit left — see [Check details](#stage-4-check-details).
 
 **2. Choose the checks.** Checks over the images alone, before anything is known about the deployment:
@@ -655,14 +655,14 @@ Pressing a card filters the **table of results** below, and each block filters o
 ![The images that failed a check](img/screenshots/validation-failures.png)
 
 Reading the camera's model and id uses ExifTool, because the serial number of a camera trap lives
-in the manufacturer's own metadata. Without it the app falls back to the standard EXIF tags,
+in the manufacturer's own metadata. Without it WildINTEL Uploader falls back to the standard EXIF tags,
 which are less complete — it says which it used.
 
 ### Stage 3 — Dates and details
 
 ![Stage 3 — Dates of the deployment](img/screenshots/step-dates.png)
 
-Here you tell the app **when** the images were taken and what you know of the camera and the location. With this the deployment gets its id
+Here you tell WildINTEL Uploader **when** the images were taken and what you know of the camera and the location. With this the deployment gets its id
 (`R0003-DONA_01`) and its details. **Only the dates are required: the rest can be completed later.** The stage has two steps.
 
 **1. Dates of the deployment** — called *When was it collected?* when the deployment is of no visit.
@@ -682,7 +682,7 @@ If the deployment's collection has a `<COLLECTION>_FileTimestampLog.csv` (the fi
 
 ![Stage 3 — More details](img/screenshots/step-details.png)
 
-After the dates, the app shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format — the same fields as TRAPPER's own deployment form. Most fields are optional and can be completed later in TRAPPER. The app pre-fills available details from the field visit where the SD card was left (and from the previous deployment, when available); you can review or edit them. Each section is a card that says how many of its fields are filled in; open it, with the chevron at its left, to fill it in.
+After the dates, WildINTEL Uploader shows deployment details in the [Camtrap DP](https://camtrap-dp.tdwg.org) format — the same fields as TRAPPER's own deployment form. Most fields are optional and can be completed later in TRAPPER. WildINTEL Uploader pre-fills available details from the field visit where the SD card was left (and from the previous deployment, when available); you can review or edit them. Each section is a card that says how many of its fields are filled in; open it, with the chevron at its left, to fill it in.
 
 | Section | Fields |
 |---|---|
@@ -768,7 +768,7 @@ images as thumbnails. The [report](#reports) says what was done to each image. *
 ![Stage 5 — Saved](img/screenshots/step-import.png)
 
 The images are ready, so this step **consolidates** the deployment: it says what is going to be saved, in a card (the deployment, where it was taken, its period, the images and where it is kept), a box with a lock says that *saving seals the deployment* and asks *Do you want to save the deployment … in …?*, and, at the foot, **Back** at the left and **Save to my collection** at the right — as when the visits are saved — writes its
-`deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — the app notices if an image
+`deployment.json`, moves the deployment to its place in the collection and **seals** it. From then on it can't be modified — WildINTEL Uploader notices if an image
 or its details change — and it can be uploaded.
 
 Until you save, the images are prepared in a hidden `.staging` folder inside the collection (`<collection>/.staging/<deployment>`): the collection has nothing of the deployment, and
@@ -793,7 +793,7 @@ Once it is saved, the steps before are **locked** (they show a padlock) and the 
 | `seal.json` | Which validation and postvalidation checks the deployment and each image passed, and the hash of everything. |
 
 The **seal** protects against changes by mistake: if an image or `deployment.json` is changed
-after the import, the seal no longer matches, and the app can tell. It is not a signature —
+after the import, the seal no longer matches, and WildINTEL Uploader can tell. It is not a signature —
 whoever edits the files on purpose could seal them again.
 
 ## 7. Import deployments
@@ -950,7 +950,7 @@ What is missing is created, one deployment at a time, and a live log says what i
 What is already in the folder is **left as it is**, whatever TRAPPER says. **Nothing is changed in
 TRAPPER**, and **no image is downloaded unless you ask for it** — so there is no `preprocessing.json`, and the size,
 pixels and hashes are missing from `images.json`, which is marked `"source": "trapper"`. A
-deployment synced this way is *read-only* for the app: what TRAPPER holds isn't modified here.
+deployment synced this way is *read-only* for WildINTEL Uploader: what TRAPPER holds isn't modified here.
 New locations synced from TRAPPER are *pending* until a visit starts them; the status of an existing
 location is left unchanged.
 
@@ -1018,11 +1018,11 @@ Press **🧰 Utils**, then **Backup and restore**. It keeps the settings and the
 ## 10. Troubleshooting
 
 **"Backend not reachable — is the server running?"**
-:   The red bar at the top. The window that started the app was closed, or it crashed. Start the app
+:   The red bar at the top. The window that started WildINTEL Uploader was closed, or it crashed. Start WildINTEL Uploader
     again, and look at the log (Settings › General) if it recurs.
 
 **The browser doesn't open**
-:   Open <http://127.0.0.1:8769> yourself. If that port was busy the app took the next free one:
+:   Open <http://127.0.0.1:8769> yourself. If that port was busy WildINTEL Uploader took the next free one:
     the window that started it says which (`Server on http://127.0.0.1:8770`).
 
 **"Incorrect Trapper username or password"**
@@ -1060,7 +1060,7 @@ Press **🧰 Utils**, then **Backup and restore**. It keeps the settings and the
 
 **Files ending in `_exiftool_tmp` in a deployment's folder**
 :   ExifTool writes the metadata of each image through a temporary file; one it was interrupted in
-    (the app stopped in the middle of an import) is left behind. The app removes them when the
+    (WildINTEL Uploader stopped in the middle of an import) is left behind. WildINTEL Uploader removes them when the
     metadata step ends, or fails, but not if it was killed: delete them, and import again.
 
 **An image was skipped**

@@ -35,7 +35,7 @@ quick jobs:
 ### [User Manual](user-manual.md)
 
 What the web app and the command line have in common: installation, the general concepts
-(deployment, revision, location, collection) and the folders and files the app creates. Start here.
+(deployment, revision, location, collection) and the folders and files WildINTEL Uploader creates. Start here.
 
 ### [User Manual — web app](user-manual-web.md)
 
