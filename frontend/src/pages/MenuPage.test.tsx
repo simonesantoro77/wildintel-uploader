@@ -39,6 +39,28 @@ describe('MenuPage', () => {
     expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
   })
 
+  it('has a Glossary button beside the Quick guide that opens a panel with what each word means — and shuts with its cross or Escape', async () => {
+    renderMenu()
+    const header = screen.getByRole('heading', { name: 'What do you want to do?' }).closest('header')!
+    const button = within(header).getByRole('button', { name: 'Glossary' })
+    expect(header.lastElementChild).toContainElement(button)
+    expect(header.lastElementChild).toContainElement(within(header).getByRole('button', { name: 'Quick guide' }))
+    expect(screen.queryByRole('dialog', { name: 'Glossary' })).not.toBeInTheDocument()
+
+    await userEvent.click(button)
+    const panel = within(screen.getByRole('dialog', { name: 'Glossary' }))
+    const words = within(panel.getByRole('region', { name: 'Words' })).getAllByRole('term').map((t) => t.textContent)
+    expect(words).toEqual([...words].sort())   // in alphabetical order
+    expect(words).toEqual(expect.arrayContaining(['Collection', 'Deployment', 'Location', 'Revision', 'Visit']))
+    expect(panel.getByText(/from the visit that put the card in to the visit that collected it/)).toBeInTheDocument()
+
+    await userEvent.click(panel.getByRole('button', { name: 'Close the glossary panel' }))
+    expect(screen.queryByRole('dialog', { name: 'Glossary' })).not.toBeInTheDocument()
+    await userEvent.click(button)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Glossary' })).not.toBeInTheDocument()
+  })
+
   it('has a Quick guide button at the right of the title that opens a panel with the work from end to end — and shuts with its cross or Escape', async () => {
     renderMenu()
     const header = screen.getByRole('heading', { name: 'What do you want to do?' }).closest('header')!

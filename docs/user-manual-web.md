@@ -356,6 +356,8 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 ![The task menu](img/screenshots/menu.png)
 
 The **Quick guide** button, at the right of the title, opens a panel with the work from end to end: the research project and then the three steps, and where to follow the progress and to fix dates and files. The numbers of the cards are the **typical workflow**: **1 Register the visits**, then **2 Import the images** — which takes the location, the camera and the dates from the visits — and then **3 Upload the images**. *Sync* is for when
+
+The **Glossary** button, beside it, opens a panel with what each word of the app means, in alphabetical order: *camera*, *collection*, *deployment*, *location*, *research project*, *revision*, *SD card*, *trapper* and *visit*. A **revision** is one visit to every location of a research project; a **deployment** is the time a camera stays at a location with an SD card — from the visit that put the card in to the visit that collected it — with the conditions in which it was installed and the images it took; and the deployments of a revision are its **collection**.
 TRAPPER already holds deployments that this computer's collections folder doesn't know about (**Utils › Sync**).
 
 The title in the top bar takes you back to the welcome screen at any time; **? Help** opens this
