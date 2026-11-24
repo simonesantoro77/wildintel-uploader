@@ -87,7 +87,19 @@ describe('SettingsPage', () => {
 
       expect(await screen.findByLabelText('Folder')).toHaveValue('/home/me/Documents/wildintel-uploader')
       expect(screen.getByText('Data folder')).toBeInTheDocument()
-      expect(screen.getByText(/Where the app keeps everything it makes: the collections, the reports and the packages./)).toBeInTheDocument()
+      expect(screen.getByText('Where the app keeps everything it makes.')).toBeInTheDocument()
+    })
+
+    it('says where the folders inside the data folder will be as the data folder is typed: they move with it', async () => {
+      render(<SettingsPage onClose={vi.fn()} />)
+      const data = await screen.findByLabelText('Folder')
+
+      await userEvent.clear(data)
+      await userEvent.type(data, '/data/images/')
+
+      expect(screen.getByLabelText('Collections folder')).toHaveAttribute('placeholder', '/data/images/collections')
+      expect(screen.getByLabelText('Reports folder')).toHaveAttribute('placeholder', '/data/images/reports')
+      expect(screen.getByLabelText('Packages folder')).toHaveAttribute('placeholder', '/data/images/packages')
     })
 
     it('changes the data folder by typing it, or with the native folder browser', async () => {
