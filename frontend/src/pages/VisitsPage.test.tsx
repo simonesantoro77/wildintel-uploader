@@ -946,6 +946,35 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(button)
   }
 
+  it('offers a template of the Custom CSV to download — with several visits filled in, the columns that are matched by themselves — and not for the WildINTEL Epicollect CSV', async () => {
+    const createObjectURL = vi.fn(() => 'blob:template')
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }))
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /custom csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download a template' }))
+
+    expect(click).toHaveBeenCalledTimes(1)
+    const blob = (createObjectURL.mock.calls[0] as unknown as [Blob])[0]
+    const lines = (await blob.text()).trim().split('\n')
+    expect(lines[0]).toBe('location_id,session,date,time,actions,trappers,status,camera_id,camera_model,sd,card_batteries_ok,num_photos,date_time_ok,camera_height,camera_interval,comments,latitude,longitude')
+    expect(lines.length - 1).toBeGreaterThanOrEqual(6)   // several rows of visits, not one
+    expect(lines.some((l) => l.includes(',Revision + Desinstallation + Installation,'))).toBe(true)   // and visits that say several actions
+    click.mockRestore()
+  })
+
+  it('does not offer the template for the file of the WildINTEL Epicollect form: Epicollect5 makes its own', async () => {
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /wildintel epicollect csv/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await screen.findByLabelText('Drop CSV file')
+    expect(screen.queryByRole('button', { name: 'Download a template' })).not.toBeInTheDocument()
+  })
+
   it('accepts a dropped CSV, reports invalid drops, and lets the user choose a replacement', async () => {
     mockedApi.visitsCsvColumns.mockResolvedValue(COLUMNS)
     render(<VisitsPage onBack={vi.fn()} />)

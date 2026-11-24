@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Site start** (#129): a visit that says *New site* starts the site whether it already exists or what its status is, in a file or by hand. Revisions before its start do not expect a visit. Locations newly synced from Trapper are pending; locations already kept are not changed.
 
 ### Added
+- **Register the visits** (#172): **Download a template** beside the file area of the *Custom CSV* — a CSV with the columns of a visit and twenty example visits in five revisions, with the visits that say several actions (`Stolen + Installation`, `Revision + Desinstallation + Archive`…), whose columns are matched by themselves. It is the `template.csv` example of `examples/visits_example/custom_csv/wicp_02`, and a test keeps both the same and checks that it is read with no problem.
 - **Logos** (#167): the README, the home page of the documentation and its header show the WildINTEL logo and the icon of the uploader side by side, as `wildintel-trapper-sdk` does with its own. The header takes them from `overrides/partials/logo.html`, since the theme accepts a single logo.
 - **Shared vocabulary** (#126): user-facing text and the manual consistently use images, SD cards and TRAPPER, and name the three main actions Register the visits, Import the images and Upload the images. Data formats, API routes and command names are unchanged.
 - **Register the visits** (#133): choose a CSV by drag and drop or browsing, and customize import and auto-creation rules in a collapsible card.

@@ -1,0 +1,21 @@
+location_id,session,date,time,actions,trappers,status,camera_id,camera_model,sd,card_batteries_ok,num_photos,date_time_ok,camera_height,camera_interval,comments,latitude,longitude
+WICP_02_001,R0001,2026-09-14,08:30:00,Installation,Ana Pérez,,BR5071050724,Browning-BTC-8A,1,OK,,,0.5,30,,37.012340,-6.441230
+WICP_02_002,R0001,2026-09-14,10:05:00,Installation,Ana Pérez,,RE5699252753,Reconyx-PC800,2,OK,,,0.5,30,,37.025750,-6.452680
+WICP_02_003,R0001,2026-09-14,11:40:00,Installation,"Ana Pérez, Luis Gómez",,RE1161042648,Reconyx-HC600,3,OK,,,0.5,30,,37.038420,-6.468850
+WICP_02_004,R0001,2026-09-14,13:15:00,Installation,"Ana Pérez, Luis Gómez",,SP1776213899,Spypoint-Force-Dark,4,OK,,,0.5,30,,37.047070,-6.481540
+WICP_02_001,R0002,2026-10-19,08:30:00,Revision,Luis Gómez,OK,BR5071050724,,5,OK,1420,Yes,,,Card changed,37.012340,-6.441230
+WICP_02_002,R0002,2026-10-19,10:05:00,Revision,Luis Gómez,OK,RE5699252753,,6,OK,980,Yes,,,,37.025750,-6.452680
+WICP_02_003,R0002,2026-10-19,11:40:00,Revision,Luis Gómez,OK,RE1161042648,,7,OK,1105,Yes,,,,37.038420,-6.468850
+WICP_02_004,R0002,2026-10-19,13:15:00,Revision,Luis Gómez,OK,SP1776213899,,8,OK,640,Yes,,,Few photos: the site is quiet,37.047070,-6.481540
+WICP_02_001,R0003,2026-11-23,08:30:00,Revision,Ana Pérez,OK,BR5071050724,,1,OK,2310,Yes,,,,37.012340,-6.441230
+WICP_02_002,R0003,2026-11-23,10:05:00,Stolen + Installation,Ana Pérez,,SP2468013579,Spypoint-Force-Dark,2,OK,,,0.5,30,The camera was stolen and a new one is put up,37.025750,-6.452680
+WICP_02_003,R0003,2026-11-23,11:40:00,Revision,Ana Pérez,OK,RE1161042648,,3,OK,1895,Yes,,,,37.038420,-6.468850
+WICP_02_004,R0003,2026-11-23,13:15:00,Revision,Ana Pérez,OK,SP1776213899,,4,OK,905,Yes,,,,37.047070,-6.481540
+WICP_02_001,R0004,2026-12-28,08:30:00,Revision,Luis Gómez,OK,BR5071050724,,5,OK,1740,Yes,,,,37.012340,-6.441230
+WICP_02_002,R0004,2026-12-28,10:05:00,Revision,Luis Gómez,OK,SP2468013579,,6,OK,1210,Yes,,,,37.025750,-6.452680
+WICP_02_003,R0004,2026-12-28,11:40:00,Stolen,Luis Gómez,,RE1161042648,,,,,,,,The camera was stolen and nothing was put up: the site stays open,37.038420,-6.468850
+WICP_02_004,R0004,2026-12-28,13:15:00,Revision,Luis Gómez,OK,SP1776213899,,7,OK,820,Yes,,,,37.047070,-6.481540
+WICP_02_001,R0005,2027-02-01,08:30:00,Revision + Desinstallation + Installation,Ana Pérez,OK,GA3344556677,GardePro,1,OK,1330,Yes,0.5,30,The camera is replaced by another,37.012340,-6.441230
+WICP_02_002,R0005,2027-02-01,10:05:00,Revision + Desinstallation,Ana Pérez,OK,SP2468013579,,,OK,1480,Yes,,,The camera is taken away: the site stays open,37.025750,-6.452680
+WICP_02_003,R0005,2027-02-01,11:40:00,Installation,Ana Pérez,,BR5071050724,Browning-BTC-8A,2,OK,,,0.5,30,A camera is put up where it was stolen,37.038420,-6.468850
+WICP_02_004,R0005,2027-02-01,13:15:00,Revision + Desinstallation + Archive,Ana Pérez,OK,SP1776213899,,,OK,760,Yes,,,The camera is taken away and the site is given up,37.047070,-6.481540

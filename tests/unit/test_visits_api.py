@@ -2182,3 +2182,33 @@ def test_the_case_of_an_sd_card_counts_where_a_visit_names_it_a_card_that_exists
 
     assert any("The SD card 7b is not one of the SD cards" in p["message"] for p in refused["problems"])   # only 7B exists
     assert [c["label"] for c in created["create"]["sd_cards"]] == ["7b"]                                  # asked to, it is another card
+
+
+def test_the_template_of_the_custom_csv_is_the_valid_example_and_is_read_by_itself_with_no_problem(tmp_path: Path):
+    """What the Custom CSV offers to download (frontend/src/visitsTemplate.csv) is examples/visits_example/custom_csv/wicp_02/template.csv: its columns are matched with no
+    help and its twenty visits — five revisions, with a theft, a camera replaced, one taken away and a site given up —, on the entities of examples/entities_example/wicp_02, are kept with no problem and no warning."""
+    import csv
+
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    root = Path(__file__).parents[2]
+    template = (root / "frontend" / "src" / "visitsTemplate.csv").read_text(encoding="utf-8")
+    assert template == (root / "examples" / "visits_example" / "custom_csv" / "wicp_02" / "template.csv").read_text(encoding="utf-8")
+    rows = lambda name: list(csv.DictReader((root / "examples" / "entities_example" / "wicp_02" / name).open(encoding="utf-8")))
+    with _in(tmp_path), patch("wildintel_uploader.web.api.routers.visits._trapper_names", return_value=["Ana Pérez", "Luis Gómez"]):
+        _client().post("/api/deployment-import/research-projects/save", json={**PROJECT, "name": "WICP_02", "acronym": "WICP_02"})
+        for l in rows("locations.csv"):
+            _client().post("/api/deployment-import/locations/save", json={"research_project_id": "WICP_02", "location": {
+                "location_id": l["location_id"], "name": l["name"], "timezone": l["timezone"], "ignore_dst": l["ignore_dst"] == "true", "latitude": float(l["latitude"]),
+                "longitude": float(l["longitude"]), "coordinate_uncertainty": int(l["coordinate_uncertainty"]), "status": l["status"]}})
+        lfs.write_field_items(tmp_path, "WICP_02", "cameras", [{"label": r["label"], "camera_id": r["camera_id"], "camera_model": r["camera_model"], "status": r["status"]} for r in rows("cameras.csv")])
+        lfs.write_field_items(tmp_path, "WICP_02", "sd_cards", [{"label": r["label"], "brand": r["brand"], "capacity": r["capacity"], "status": r["status"]} for r in rows("sd_cards.csv")])
+        columns = _client().post("/api/visits/csv-columns", json={"csv": template}).json()
+        answer = _client().post("/api/visits/import-csv", json={"research_project_id": "WICP_02", "csv": template, "format": "mapped", "mapping": columns["mapping"], "save": True}).json()
+        kept = _client().post("/api/visits/list", json={"research_project_id": "WICP_02"}).json()["results"]
+
+    assert len(columns["mapping"]) == len(template.splitlines()[0].split(","))   # every column is matched by itself
+    assert answer["problems"] == [] and answer["warnings"] == [] and answer["saved"] == 20
+    several = {(v["session"], v["location_id"]): v["actions"] for v in kept if len(v["actions"]) > 1}
+    assert several == {
+        ("R0003", "WICP_02_002"): ["Stolen", "Installation"], ("R0005", "WICP_02_001"): ["Revision", "Desinstallation", "Installation"],
+        ("R0005", "WICP_02_002"): ["Revision", "Desinstallation"], ("R0005", "WICP_02_004"): ["Revision", "Desinstallation", "Archive"]}

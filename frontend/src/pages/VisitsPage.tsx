@@ -5,6 +5,8 @@ import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
 import { useEffect, useRef, useState } from 'react'
 import TimezoneCombobox from '../components/TimezoneCombobox'
 import { api } from '../api'
+import { download } from '../csvFile'
+import visitsTemplate from '../visitsTemplate.csv?raw'
 import BackButton from '../components/BackButton'
 import PickTable, { LabelFrame, PickedTick } from '../components/PickTable'
 import Combobox from '../components/Combobox'
@@ -1683,7 +1685,14 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
               </div>
             ) : (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 space-y-3">
-              <h5 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Spreadsheet file</h5>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h5 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Spreadsheet file</h5>
+                {source === 'csv' && (
+                  <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} onClick={() => download('visits_template.csv', visitsTemplate)}>
+                    <Glyph className="h-4 w-4"><path d="M12 4v12M7 11l5 5 5-5M4 20h16" /></Glyph>Download a template
+                  </button>
+                )}
+              </div>
               <label htmlFor="visits-csv" aria-label="Drop CSV file" onDragOver={(e) => { e.preventDefault(); setDraggingCsv(true) }}
                      onDragLeave={() => setDraggingCsv(false)}
                      onDrop={(e) => {
