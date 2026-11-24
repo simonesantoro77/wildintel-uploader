@@ -1168,7 +1168,7 @@ export type BackupEvent =
 
 export interface RestoreSummary {
   settings: boolean
-  project_files: { research_project?: 'written' | 'kept'; locations?: { added: number; replaced: number; kept: number }; cameras?: { added: number; replaced: number; kept: number }; sd_cards?: { added: number; replaced: number; kept: number } }
+  project_files: { research_project?: 'written' | 'kept'; locations?: { added: number; replaced: number; kept: number }; cameras?: { added: number; replaced: number; kept: number }; sd_cards?: { added: number; replaced: number; kept: number }; status_history?: { added: number; replaced: number; kept: number } }
   visits: { added?: number; replaced?: number; kept?: number }
   deployments: { restored: string[]; skipped: string[] }
   files: number

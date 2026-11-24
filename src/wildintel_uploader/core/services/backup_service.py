@@ -34,6 +34,7 @@ SETTINGS = "settings.json"
 PROJECT = "research_project.json"
 PROJECT_RECORDS = {"locations": "locations.json", "cameras": "cameras.json", "sd_cards": "sd_cards.json", "roles": "roles.json"}
 VISITS = "visits.json"
+HISTORY = "status_history.json"   # the history of the status of the locations, the cameras and the SD cards: it goes with the data of the project
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif", ".webp", ".mp4", ".avi", ".mov", ".mkv", ".m4v"}
 _COLLECTION = re.compile(r"^R\d+$", re.IGNORECASE)
 # what a settings backup does not hold: the secrets, and the folders of this computer
@@ -137,6 +138,8 @@ def create_backup(
                            else store.read_records(research_project_id, kind))  # type: ignore[arg-type]
                 if records:
                     entries.append((f"project/{name}", None, records))
+            if history := store.read_records(research_project_id, "status_history"):  # type: ignore[arg-type]
+                entries.append((f"project/{HISTORY}", None, history))
             counts.update({"locations": info["locations"], "cameras": info["cameras"], "sd_cards": info["sd_cards"]})
         if visits and (kept_visits := local_folder_service.list_visits(root, research_project_id)):  # type: ignore[arg-type]
             entries.append((f"project/{VISITS}", None, kept_visits))
@@ -325,6 +328,12 @@ def restore_backup(
                     merged, added, replaced, skipped = _merge(current, backed, key, replace=replace)
                     store.write_records(project, kind, merged)  # type: ignore[arg-type]
                 summary["project_files"][label] = {"added": added, "replaced": replaced, "kept": skipped}
+            if f"project/{HISTORY}" in names:   # a line of the history is never changed: the ones the backup has that are not here are added
+                backed = [i for i in json.loads(zf.read(f"project/{HISTORY}")) if isinstance(i, dict)]
+                current = store.read_records(project, "status_history")  # type: ignore[arg-type]
+                merged, added, _, skipped = _merge(current, backed, lambda l: (l.get("kind"), str(l.get("name", "")).lower(), l.get("at"), l.get("before"), l.get("after")), replace=False)
+                store.write_records(project, "status_history", sorted(merged, key=lambda l: str(l.get("at", ""))))  # type: ignore[arg-type]
+                summary["project_files"]["status_history"] = {"added": added, "replaced": 0, "kept": skipped}
         if wants_project and visits:
             yield {"type": "step", "message": f"Restoring the visits of {project}…"}
             if f"project/{VISITS}" not in names:
