@@ -683,9 +683,11 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
                 if close_day < last:
                     close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, before its last visit: it is closed on {last}, the day of its last visit.")
                     close_day = last
-                elif close_day > day:
-                    close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, after R{number:04d} starts: it is closed on {day}, just before the first visit of R{number:04d}.")
-                    close_day = day
+                elif close_day >= day:
+                    # it reaches the revision after it: the day before the first visit of that one — never before its own last visit
+                    before_next = max(last, visit_rules.shifted(day, -1, "days"))
+                    close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, when R{number:04d} has started ({day}): it is closed on {before_next}, the day before.")
+                    close_day = before_next
                 # on the day of the first visit after it, just before that visit
                 earliest = min(str(v.get("time") or "00:00:00") for v in visits if visit_rules._session_number(v.get("session")) == number and str(v["date"]) == day) if close_day == day else None
                 closes = (close_day, _minute_before(earliest) if earliest else "23:59:00")

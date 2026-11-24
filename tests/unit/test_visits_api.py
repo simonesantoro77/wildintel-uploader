@@ -1370,9 +1370,9 @@ def test_a_revision_that_is_closed_marks_what_it_lacks_as_not_visited_on_the_day
     assert two_weeks["problems"] == []
     assert [(m["location_id"], m["session"], m["date"], m["time"]) for m in two_weeks["closed"]] == [("DONA_02", "R0013", "2026-02-15", "23:59:00")]
     assert [(m["location_id"], m["date"]) for m in as_before["closed"]] == [("DONA_02", "2026-02-01")]           # none said: the day of its last visit
-    # two months would end after R0014 starts: it is closed just before the first visit of R0014, and it is said
-    assert too_long["problems"] == [] and [(m["date"], m["time"]) for m in too_long["closed"]] == [("2026-03-01", "07:59:00")]
-    assert any("R0013 would be closed on 2026-04-01" in n and "just before the first visit of R0014" in n for n in too_long["notes"])
+    # two months would end after R0014 starts: it is closed the day before the first visit of R0014, and it is said
+    assert too_long["problems"] == [] and [(m["date"], m["time"]) for m in too_long["closed"]] == [("2026-02-28", "23:59:00")]
+    assert any("R0013 would be closed on 2026-04-01" in n and "it is closed on 2026-02-28, the day before" in n for n in too_long["notes"])
 
 
 def test_a_revision_lasts_so_many_days_weeks_or_months_and_a_month_is_one_of_the_calendar():

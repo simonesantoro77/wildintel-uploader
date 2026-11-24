@@ -35,7 +35,7 @@ export default function CloseDuration({ mode, amount, unit, onMode, onAmount, on
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-prose">
           <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">How long each revision lasted</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Measured from its first visit. Unvisited locations are marked as not visited on that day (or on the last visit day if left unset).</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Measured from its first visit. Unvisited locations are marked as not visited on that day (or on the last visit day if left unset). If it reaches the next revision, the day before its first visit is used.</p>
         </div>
         <div role="radiogroup" aria-label="When a revision is closed" className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 p-1">
           {([['last', 'Last visit date'], ['fixed', 'Fixed duration from 1st visit']] as const).map(([value, label]) => (
@@ -78,7 +78,7 @@ export default function CloseDuration({ mode, amount, unit, onMode, onAmount, on
             ? <span>1st visit: <strong>{short(first)}</strong> + <strong>{count}</strong> → unvisited locations closed on <strong className="text-emerald-600 dark:text-emerald-400">{short(shiftedDay(first, amount, unit))}</strong></span>
             : <span>1st visit: <strong>{short(first)}</strong>, last recorded visit: <strong>{short(shiftedDay(first, 18, 'days'))}</strong> → unvisited locations closed on <strong className="text-emerald-600 dark:text-emerald-400">{short(shiftedDay(first, 18, 'days'))}</strong> (last visit date)</span>}
         </span>
-        <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">Applies to every closed revision · never after the next one starts</span>
+        <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">Applies to every closed revision · if it reaches the next one, the day before its first visit</span>
       </div>
     </section>
   )
