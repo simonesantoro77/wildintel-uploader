@@ -20,7 +20,7 @@ beforeEach(() => {
 })
 
 const next = () => userEvent.click(screen.getByRole('button', { name: /^Continue|^Review/ }))
-const skip = async () => userEvent.click(await screen.findByRole('button', { name: 'Skip, I will do it later' }))
+const skip = async () => userEvent.click(await screen.findByRole('button', { name: 'Skip this step' }))
 
 async function project() {
   await userEvent.type(screen.getByLabelText('Acronym *'), 'DONA')
@@ -53,7 +53,7 @@ describe('SetupWizardPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add the role' }))
     await next()
 
-    await userEvent.type(await screen.findByLabelText('Site id *'), 'DONA_01')
+    await userEvent.type(await screen.findByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
@@ -99,7 +99,7 @@ describe('SetupWizardPage', () => {
     render(<SetupWizardPage onBack={vi.fn()} />)
     await project()
     await skip(); await next()   // trappers; and there is no one for the roles
-    await userEvent.type(await screen.findByLabelText('Site id *'), 'DONA_01')
+    await userEvent.type(await screen.findByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
@@ -144,7 +144,7 @@ describe('SetupWizardPage', () => {
   it('refuses a site with coordinates out of range, and one entered twice', async () => {
     render(<SetupWizardPage onBack={vi.fn()} />)
     await project(); await skip(); await next()
-    await userEvent.type(await screen.findByLabelText('Site id *'), 'DONA_01')
+    await userEvent.type(await screen.findByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '95')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
@@ -153,7 +153,7 @@ describe('SetupWizardPage', () => {
     await userEvent.clear(screen.getByLabelText('Latitude *'))
     await userEvent.type(screen.getByLabelText('Latitude *'), '37')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
-    await userEvent.type(screen.getByLabelText('Site id *'), 'dona_01')
+    await userEvent.type(screen.getByLabelText('Location id *'), 'dona_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))
@@ -171,7 +171,7 @@ describe('SetupWizardPage', () => {
     await userEvent.type(screen.getByLabelText('Timezone *'), 'Europe/Madrid')
     expect(ignore).toBeEnabled()
     await userEvent.click(ignore)
-    await userEvent.type(screen.getByLabelText('Site id *'), 'DONA_01')
+    await userEvent.type(screen.getByLabelText('Location id *'), 'DONA_01')
     await userEvent.type(screen.getByLabelText('Latitude *'), '37.1')
     await userEvent.type(screen.getByLabelText('Longitude *'), '-6.5')
     await userEvent.click(screen.getByRole('button', { name: 'Add the site' }))

@@ -338,14 +338,14 @@ function toUpdate(d: Draft): AppSettingsUpdate | null {
 /** The folders of the app that can be put somewhere of their own; blank, each is a folder inside the data folder. */
 const FOLDERS: { draftKey: 'collectionsDir' | 'reportsDir' | 'packagesDir'; label: string; description: string; hint: string; dialog: string }[] = [
   { draftKey: 'collectionsDir', label: 'Collections folder', dialog: 'Select the folder to keep the collections in',
-    description: 'Where the collections are kept before they are uploaded. Inside it, each research project, visit and deployment has its own folder.',
-    hint: 'Handy to keep the collections on another disk.' },
+    description: 'The images of each deployment, organised by research project and collection.',
+    hint: 'Leave it empty to keep it inside the data folder.' },
   { draftKey: 'reportsDir', label: 'Reports folder', dialog: 'Select the folder to keep the reports in',
-    description: 'Where the reports of the checks and of the image preparation are kept.',
-    hint: 'Reports already made stay where they are: move them by hand if you want them in the new folder.' },
+    description: 'The reports of the checks and of the preparation of the images.',
+    hint: 'Leave it empty to keep it inside the data folder. Reports already made are not moved.' },
   { draftKey: 'packagesDir', label: 'Packages folder', dialog: 'Select the folder to keep the packages in',
-    description: 'Where the packages made to upload a deployment to TRAPPER are written, before and while they are sent.',
-    hint: 'Handy when the packages are big and the data folder is on a small disk.' },
+    description: 'The files prepared to upload a deployment to TRAPPER.',
+    hint: 'Leave it empty to keep it inside the data folder.' },
 ]
 
 type SectionId = 'general' | 'uploader' | 'sources' | 'validation' | 'postvalidation' | 'preprocessing' | 'entities' | 'reports' | 'config'
@@ -2412,12 +2412,12 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
         {draft && saved && section === 'general' && (
           <div className="space-y-5 pt-5">
             <AboutBlock />
-            <GroupCard title="Where files are kept" description="Everything the app makes goes into one data folder. Each research project gets its own folder inside. You can move any part somewhere else, for example to another disk.">
+            <GroupCard title="Where files are kept" description="Everything the app makes is kept in the data folder. Change the folders below only to keep a part elsewhere, for example on another disk; left empty, they are inside the data folder.">
               <div className="space-y-6">
                 <FolderField
-                  label="Data folder" inputLabel="Folder" description="Where the app keeps everything it makes: the collections, the reports and the packages. Each one has its own folder inside it unless you choose another place below."
+                  label="Data folder" inputLabel="Folder" description="Where the app keeps everything it makes: the collections, the reports and the packages."
                   value={draft.dataDir} error={dataDirError} browsing={browsing} browseLabel="Browse for the data folder" defaultLabel="Use the default data folder"
-                  hint="Left as the default, it is a folder named after the app, inside your Documents folder." onChange={(v) => set('dataDir', v)} onBrowse={() => handleBrowse('dataDir')}
+                  hint="By default, a folder named after the app inside your Documents folder." onChange={(v) => set('dataDir', v)} onBrowse={() => handleBrowse('dataDir')}
                 />
                 {FOLDERS.map(({ draftKey, label, description, hint }) => {
                   const error = draft[draftKey].trim() !== '' && !isAbsolutePath(draft[draftKey]) ? 'An absolute path (or one starting with ~).' : null
@@ -2607,7 +2607,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
 
         {draft && saved && section === 'sources' && (
           <div className="space-y-5 pt-5">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">The places the visits of a research project can be taken from, besides entering them by hand. Pick one to set it up. Others may come in a future version.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Where the visits can be loaded from, besides entering them by hand. Pick one to set it up.</p>
             <div role="tablist" aria-label="Visit sources" className="flex flex-wrap gap-2">
               {VISIT_SOURCES.map((d) => {
                 const used = d.id === 'wildintel-new' ? draft.wildintelNewEnabled : d.id === 'epicollect' ? draft.epicollectEnabled : true
@@ -2623,19 +2623,19 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
             {visitSource === 'wildintel-new' && (
               <div className="space-y-5">
                 <ToggleCard title="Use WildINTEL Epicollect CSV" checked={draft.wildintelNewEnabled} onChange={(v) => set('wildintelNewEnabled', v)}
-                            description="Offers to read the visits from the CSV downloaded from the new WildINTEL Epicollect project (the form of the field flow). Turned off, it is not offered in Register the visits." />
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">The columns are found by the label of their question. The form has no date or time to read: a visit happened when its entry was created (UTC), and is told in the timezone of its location.</p>
+                            description="Offers, in Register the visits, the file downloaded from the WildINTEL field form in Epicollect5." />
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">The columns of the form are recognised by themselves. The date and time of a visit are when its entry was created on the phone, in UTC.</p>
               </div>
             )}
             {visitSource === 'csv' && (
               <div className="space-y-5">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Custom CSV is always offered in Register the visits, and cannot be turned off. There is nothing to set up: the columns are matched when each file is read.</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Always offered in Register the visits. Nothing to set up here: you say which column is which each time you load a file.</p>
               </div>
             )}
             {visitSource === 'epicollect' && (
               <div className="space-y-5">
-              <ToggleCard title="Use Epicollect" checked={draft.epicollectEnabled} onChange={(v) => set('epicollectEnabled', v)}
-                              description="Offers Epicollect as a source: of the visits of a research project — its entries are downloaded as a CSV, read as a Custom CSV — and of the details of a deployment — its dates, camera, site and notes — when it is imported. Turned off, nothing is read from Epicollect." />
+              <ToggleCard title="Use the Epicollect5 connection" checked={draft.epicollectEnabled} onChange={(v) => set('epicollectEnabled', v)}
+                              description="Lets the app download the entries of an Epicollect5 project by itself, instead of you downloading the CSV (in Register the visits › Custom CSV), and read the details of a deployment when it is imported." />
               <SettingsCard>
                 <CardBlock title="Project" description="The Epicollect5 project the information is imported from.">
                   <PlainField label="Project name in its web address" hint={`It is the last part of the project's address: five.epicollect.net/project/${draft.epicollectSlug.trim() || 'my-project'}`}>

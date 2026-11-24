@@ -15,14 +15,14 @@ describe('FileRowResults', () => {
     render(<FileRowResults rows={rows} />)
     const card = (title: string) => screen.getByRole('button', { name: title })
     expect(card('Rows read')).toHaveTextContent('Rows read4Every row of the file')
-    expect(card('Ready')).toHaveTextContent('Ready1New visits')
-    expect(card('Skipped / Existing')).toHaveTextContent('Skipped / Existing2Unchanged')
-    expect(card('With problems')).toHaveTextContent('With problems1Needs attention')
+    expect(card('New visits')).toHaveTextContent('New visits1Will be added')
+    expect(card('Already in the app')).toHaveTextContent('Already in the app2Not loaded again')
+    expect(card('With problems')).toHaveTextContent('With problems1Not added until fixed')
     const table = screen.getByRole('table', { name: 'Rows of the file' })
     const line = (n: number) => within(table).getByRole('button', { name: `View the contents of Row ${n}` }).closest('tr')!
-    expect(line(4)).toHaveTextContent('4—WICP_0003——Add')
+    expect(line(4)).toHaveTextContent('4—WICP_0003——New visit')
     expect(line(3)).toHaveTextContent('3—WICP_0002——Error')                  // an error says only that: which one is told by its errors
-    expect(line(2)).toHaveTextContent('2R0001WICP_0001Revision + Desinstallation14 Sep 2026, 11:40Skipped / Existing')   // the row, the revision, the location and what became of it
+    expect(line(2)).toHaveTextContent('2R0001WICP_0001Revision + Desinstallation14 Sep 2026, 11:40Already in the app')   // the row, the revision, the location and what became of it
     expect(within(table).queryByText('Diagnosis')).not.toBeInTheDocument()
 
     // the figures are the filters: the one pressed keeps its rows, and pressed again lets them all be seen
@@ -77,7 +77,7 @@ describe('FileRowResults', () => {
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'wicp_0001')
     expect(seen()).toEqual(['2'])
     await userEvent.clear(screen.getByRole('textbox', { name: 'Search the rows' }))
-    await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'r0001 existing')                // the visit and what became of it
+    await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'r0001 already')                 // the visit and what became of it
     expect(seen()).toEqual(['2', '5'])
     await userEvent.clear(screen.getByRole('textbox', { name: 'Search the rows' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'flying')                       // what is wrong with it
@@ -86,7 +86,7 @@ describe('FileRowResults', () => {
     // together with the filter of the figure that is pressed
     await userEvent.clear(screen.getByRole('textbox', { name: 'Search the rows' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'wicp')
-    await userEvent.click(screen.getByRole('button', { name: 'Skipped / Existing' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Already in the app' }))
     expect(seen()).toEqual(['2', '5'])
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), 'zzz')
     expect(screen.getByText(/No row matches/)).toBeInTheDocument()
@@ -120,7 +120,7 @@ describe('FileRowResults', () => {
     ]
     render(<FileRowResults rows={odd} />)
     const table = screen.getByRole('table', { name: 'Rows of the file' })
-    expect(within(table).getByRole('button', { name: 'View the contents of Row 2' }).closest('tr')).toHaveTextContent('Add · to check')
+    expect(within(table).getByRole('button', { name: 'View the contents of Row 2' }).closest('tr')).toHaveTextContent('New visit · to check')
     expect(within(table).getByRole('button', { name: 'View the contents of Row 3' }).closest('tr')).not.toHaveTextContent('to check')
     expect(screen.queryByRole('button', { name: /^(Show|Hide) the errors of Row 3$/ })).not.toBeInTheDocument()     // nothing odd in it
 
@@ -130,7 +130,7 @@ describe('FileRowResults', () => {
       'To checkR0002 WICP_0001: SD card 1 was collected at WICP_0002 in this revision (R0002).', 'To checkR0002: card 1 is at 2 sites (WICP_0001, WICP_0002).',
     ])
     // it is still a row to add: counted as ready, and found by what is odd in it
-    expect(screen.getByRole('button', { name: 'Ready' })).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: 'New visits' })).toHaveTextContent('2')
     await userEvent.type(screen.getByRole('textbox', { name: 'Search the rows' }), '2 sites')
     expect(within(screen.getByRole('table', { name: 'Rows of the file' })).getAllByRole('button', { name: /^View the contents of Row/ })).toHaveLength(1)
 
@@ -150,7 +150,7 @@ describe('FileRowResults', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort by When' }))
     expect(order()).toEqual(['3', '4', '5', '2'])   // the rows with no date first, then the oldest day
     await userEvent.click(screen.getByRole('button', { name: 'Sort by Status' }))
-    expect(order()).toEqual(['4', '3', '2', '5'])   // by what the pill says: Add, Error, Skipped / Existing ×2
+    expect(order()).toEqual(['2', '5', '3', '4'])   // by what the pill says: Already in the app ×2, Error, New visit
   })
 
   it('groups the rows by error, and shows the rows of the one that is picked', async () => {
