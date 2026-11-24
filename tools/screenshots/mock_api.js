@@ -313,6 +313,12 @@
         ],
         }
       },
+      '/api/deployment-import/validate-images/stream': () => ({
+        events: [
+          { type: 'progress', step: 'cameras', done: 241, total: 241 },
+          { type: 'done', result: { ...VALIDATION, report_id: VALIDATION_REPORT_ID } },
+        ],
+      }),
       '/api/deployment-import/consolidate': () => ({
         events: [
           { type: 'sealing' },

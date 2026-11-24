@@ -1781,7 +1781,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
             <StepHeading>Prepare and save</StepHeading>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection. Nothing is uploaded to TRAPPER yet.
+              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection.
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 
