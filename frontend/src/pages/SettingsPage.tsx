@@ -2431,7 +2431,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 })}
               </div>
             </GroupCard>
-            <GroupCard title="Default research project" description="Filled in for you whenever a research project is asked for, such as when a visit is registered or a deployment imported. You can still change it each time.">
+            <GroupCard title="Default research project" description="Filled in whenever a research project is asked for. You can change it each time.">
               <label className="sr-only" htmlFor="default-research-project">Default research project</label>
               <Combobox
                 id="default-research-project" value={draft.defaultResearchProject} onChange={(v) => set('defaultResearchProject', v)}
@@ -2440,7 +2440,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
               />
             </GroupCard>
             <ToggleCard title="Welcome page" checked={draft.showWelcome} onChange={(v) => set('showWelcome', v)}
-                        description="Shown when WildINTEL Uploader opens, to say what it does. Turn it off to open straight on the menu — the tick of the welcome page does the same." />
+                        description="Shown when WildINTEL Uploader opens. Turn it off to open on the menu." />
             <GroupCard title="Parallel work" description="How many images are checked or prepared at the same time. More at once finishes sooner, up to what this computer can do.">
               <div className="max-w-xs"><NumberBox label="Images at once" value={draft.workers} limits={WORKERS} onChange={(v) => set('workers', v)} unit="at once" /></div>
               <p className={hintClass}>
@@ -2448,7 +2448,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 with a hard disk or a network drive, more may not help, as the files are read slower than they are worked on.
               </p>
             </GroupCard>
-            <GroupCard title="Activity log" description="WildINTEL Uploader writes down what it does, so a problem can be tracked down. Raise the detail only while you look for one, then lower it again. It applies right away.">
+            <GroupCard title="Activity log" description="Writes down what WildINTEL Uploader does, to find problems. It applies right away.">
               <div role="radiogroup" aria-label="Level" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {LOG_LEVELS.map((l) => (
                   <button key={l.value} type="button" role="radio" aria-checked={draft.logLevel === l.value} onClick={() => set('logLevel', l.value)}
@@ -2560,7 +2560,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
                 )}
               </div>
             </CardBlock>
-            <CardBlock title="Uploading deployments" description="The images of a deployment are sent in several packages, none bigger than this. Smaller packages are quicker to retry if the connection drops.">
+            <CardBlock title="Uploading deployments" description="Packages of at most this size. Smaller ones are quicker to retry if the connection drops.">
               <div className="max-w-60"><PlainField label="Largest package"><NumberBox label="Largest package" value={draft.maxZipMb} limits={MAX_ZIP_MB} onChange={(v) => set('maxZipMb', v)} unit="MB" /></PlainField></div>
             </CardBlock>
           </SettingsCard>
@@ -2635,7 +2635,7 @@ export default function SettingsPage({ onClose, initialSection, initialProject, 
             {visitSource === 'epicollect' && (
               <div className="space-y-5">
               <ToggleCard title="Use the Epicollect5 connection" checked={draft.epicollectEnabled} onChange={(v) => set('epicollectEnabled', v)}
-                              description="Lets WildINTEL Uploader download the entries of an Epicollect5 project by itself, instead of you downloading the CSV (in Register the visits › Custom CSV), and read the details of a deployment when it is imported." />
+                              description="Downloads the entries of an Epicollect5 project, so you do not have to download the CSV." />
               <SettingsCard>
                 <CardBlock title="Project" description="The Epicollect5 project the information is imported from.">
                   <PlainField label="Project name in its web address" hint={`It is the last part of the project's address: five.epicollect.net/project/${draft.epicollectSlug.trim() || 'my-project'}`}>

@@ -362,7 +362,7 @@ export default function UploadDeploymentPage({ initial, onOpenSettings, onBack }
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={MENU_ICONS.upload} title="Upload the images" description="Sends the deployments of a revision to TRAPPER. Anything missing there is created, then the images are sent for TRAPPER to process."
+      <PageHeader icon={MENU_ICONS.upload} title="Upload the images" description="Sends the deployments of a revision to TRAPPER."
         parent="Menu" onParent={onBack} />
 
       {trapper === null ? (

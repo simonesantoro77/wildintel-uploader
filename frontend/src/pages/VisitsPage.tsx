@@ -1169,7 +1169,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
   return (
     <div className={PAGE_CLASS}>
-      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Bring in the visits to the camera traps. From them WildINTEL Uploader knows which images belong to which camera, location and period." parent="Menu" onParent={onBack} />
+      <PageHeader icon={<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />} title="Register the visits" description="Register the visits to the camera traps, by hand or from a file." parent="Menu" onParent={onBack} />
       <WizardStep
         n={1} title="Where do the visits come from?" status={justAdded ? 'locked' : source ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={!justAdded && csvSaved === null} onEdit={() => setSource(null)} lockedSummary
         description="Load them from a file, or enter them one by one."
@@ -1665,7 +1665,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {!defaultProject && (
             <WizardStep
               n={2} title="Which research project?" status={project ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { setProject(undefined); forgetCsv(); setCsvName(null) }}
-              description="The research project the visits belong to. The locations in the file must be locations of this project, or be added when the file is loaded."
+              description="The research project the visits belong to."
               summary={project?.acronym}
             >
               <ResearchProjectPicker value={project?.acronym ?? ''} onSelect={(picked) => { setProject(picked); forgetCsv(); setCsvName(null) }} />
@@ -1766,7 +1766,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
           {source === 'csv' && (
             <WizardStep
               n={defaultProject ? 3 : 4} title="Match the columns" status={!csvColumns || !fileConfirmed ? 'locked' : csvResult ? 'done' : 'open'} sealed={csvSaved !== null} summary={csvSaved !== null ? 'The columns of the file' : undefined} canEdit={csvSaved === null} onEdit={() => { setCsvResult(null); setCsvSaved(null) }}
-              description="For each field of a visit, choose the column of the file that has it. Columns with the same name are already chosen. Leave a field empty if the file does not have it."
+              description="Choose the column of your file for each field of a visit. The ones with the same name are already chosen."
             >
               {csvColumns && (
                 <>

@@ -272,7 +272,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     <div className={PAGE_CLASS}>
       <datalist id="setup-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
       <PageHeader icon={UTIL_ICONS.setup} title="Initial setup" parent="Utilities" onParent={onBack}
-        description="Set up a research project and say where WildINTEL Uploader keeps what it makes. The trappers, roles, locations, cameras and SD cards are optional: they can be created later, from the field files or in Settings." />
+        description="Create your first research project and choose where your data is kept. The rest is optional." />
 
       <WizardStep n={1} title="The research project" required status={status(1)} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(1)}
                   summary={<><span className="font-mono">{code}</span> — {name.trim()}</>} description="A short acronym (it also names its folder, for example DONA_24) and its full name. Everything else can be filled in later in Settings › Entities.">
@@ -300,7 +300,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
 
       {folderStep && (
       <WizardStep n={2} title="The data folder" required status={status(2)} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(2)}
-                  summary={<span className="font-mono">{chosenDir}</span>} description="Where WildINTEL Uploader keeps everything it makes: the collections, the reports and the packages. You can keep the one it has, or choose another, for example on another disk.">
+                  summary={<span className="font-mono">{chosenDir}</span>} description="Where WildINTEL Uploader keeps what it makes. Keep the proposed folder or choose another.">
         {step === 2 && (
           <div className="space-y-3">
             <label className={labelClass} htmlFor="setup-data-dir">Data folder</label>
@@ -322,7 +322,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       </WizardStep>
       )}
 
-      <WizardStep n={num(3)} title="The trappers" optional="Optional · From visits CSV or Settings" status={status(3)} skipped={trappers.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(3)} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The trappers who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
+      <WizardStep n={num(3)} title="The trappers" optional="Optional · From visits CSV or Settings" status={status(3)} skipped={trappers.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(3)} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The trappers who go to the field, written as in the field files. Add them now, or skip: they are created when you load the visits.">
         {step === 3 && (
           <AddList noun="trapper" added={chips(trappers, (t) => t.name)} onRemove={(k) => setTrappers((l) => l.filter((t) => t.name !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how WildINTEL Uploader and TRAPPER know the trapper.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
@@ -346,10 +346,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
           ))}
       </WizardStep>
 
-      <WizardStep n={num(5)} title="The locations" optional="Optional · From visits CSV or Settings" status={status(5)} skipped={sites.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(5)} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files. If you add them here, write their ids exactly as the field files do (DONA_0012), or they will be taken as new ones.">
+      <WizardStep n={num(5)} title="The locations" optional="Optional · From visits CSV or Settings" status={status(5)} skipped={sites.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(5)} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up, with the ids of the field files. Add them now, or skip: they come from TRAPPER or are created when you load the visits.">
         {step === 5 && (
           <AddList noun="location" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'id', label: 'Location id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'On if the camera clocks are not changed in summer.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
+            fields={[{ name: 'id', label: 'Location id', required: true, hint: 'As the field files write it, for example DONA_0012: any other is taken as a new location.' }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'On if the camera clocks are not changed in summer.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
             onAdd={(v) => {
               const latitude = Number(v.latitude), longitude = Number(v.longitude)
               if (!(latitude >= -90 && latitude <= 90) || !(longitude >= -180 && longitude <= 180)) throw new Error('The coordinates must lie within −90 to 90 and −180 to 180.')
@@ -359,10 +359,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={num(6)} title="The cameras" optional="Optional · From visits CSV or Settings" status={status(6)} skipped={cameras.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(6)} summary={summary(cameras.map((c) => c.label), 'cameras')} description="Each camera by the name it has in the field, with its serial number and model if you know them. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do.">
+      <WizardStep n={num(6)} title="The cameras" optional="Optional · From visits CSV or Settings" status={status(6)} skipped={cameras.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(6)} summary={summary(cameras.map((c) => c.label), 'cameras')} description="The cameras, with the names they have in the field. Add them now, or skip: they are created when you load the visits.">
         {step === 6 && (
           <AddList noun="camera" added={chips(cameras, (c) => c.label)} onRemove={(k) => setCameras((l) => l.filter((c) => c.label !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'label', label: 'Label', required: true }, { name: 'camera_id', label: 'Serial number' }, { name: 'camera_model', label: 'Model' }]}
+            fields={[{ name: 'label', label: 'Label', required: true, hint: 'As the field files write it.' }, { name: 'camera_id', label: 'Serial number' }, { name: 'camera_model', label: 'Model' }]}
             onAdd={(v) => {
               if (cameras.some((c) => lower(c.label) === lower(v.label))) throw new Error(`There is a camera called ${v.label.trim()} already.`)
               setCameras((l) => [...l, { label: v.label.trim(), a: v.camera_id.trim(), b: v.camera_model.trim() }])
@@ -370,10 +370,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={num(7)} title="The SD cards" optional="Optional · From visits CSV or Settings" status={status(7)} skipped={cards.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(7)} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by the name written on it (7, 7b, 10B). Brand and capacity are optional. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do: 7b and 7B are two cards.">
+      <WizardStep n={num(7)} title="The SD cards" optional="Optional · From visits CSV or Settings" status={status(7)} skipped={cards.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(7)} summary={summary(cards.map((c) => c.label), 'SD cards')} description="The SD cards, with the name written on each. Add them now, or skip: they are created when you load the visits.">
         {step === 7 && (
           <AddList noun="SD card" added={chips(cards, (c) => c.label)} onRemove={(k) => setCards((l) => l.filter((c) => c.label !== k))} onContinue={next} continueLabel="Review" onSkip={next}
-            fields={[{ name: 'label', label: 'Label', required: true }, { name: 'brand', label: 'Brand' }, { name: 'capacity', label: 'Capacity', hint: 'For example 64 GB.' }]}
+            fields={[{ name: 'label', label: 'Label', required: true, hint: 'As it is written on the card, for example 7b: 7b and 7B are two cards.' }, { name: 'brand', label: 'Brand' }, { name: 'capacity', label: 'Capacity', hint: 'For example 64 GB.' }]}
             onAdd={(v) => {
               if (cards.some((c) => lower(c.label) === lower(v.label))) throw new Error(`There is an SD card called ${v.label.trim()} already.`)
               setCards((l) => [...l, { label: v.label.trim(), a: v.brand.trim(), b: v.capacity.trim() }])
