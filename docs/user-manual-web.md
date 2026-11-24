@@ -422,7 +422,7 @@ the visits come in:
 | Source | What it does |
 |---|---|
 | **By hand** | You fill in each visit yourself, following the field flow: the site, when, who went and what was done. |
-| **From a file** | A CSV with a row per visit, dropped in the page or, when Epicollect is turned on in the settings, **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*). Once the file is read the app says what it detected — **the download of the WildINTEL form (Epicollect5)**, whose columns are found by the label of their question, or **a custom CSV**, where you say which column gives each field — and you can say it is the other one. |
+| **From a file** | A CSV with a row per visit, dropped in the page or, when Epicollect is turned on in the settings, **the entries of an Epicollect5 project** (*Epicollect5 project › Download the entries*). Once the file is read the app says what it detected — **WildINTEL Epicollect CSV**, whose columns are found by the label of their question, or **Custom CSV / Spreadsheet**, where you say which column gives each field — with the header of the file and the fields that matched. **Change type** reads the file as the other one and says why it cannot, if it cannot. |
 
 *By hand* and *From a file* are always offered.
 

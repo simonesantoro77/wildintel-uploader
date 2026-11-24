@@ -947,7 +947,7 @@ describe('VisitsPage from a CSV file', () => {
 
   /** The file step stays open, with what it can create, until Continue. */
   async function continueFromTheFile() {
-    const button = await screen.findByRole('button', { name: 'Continue' })
+    const button = await screen.findByRole('button', { name: /^Continue( with .+)?$/ })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.click(button)
   }
@@ -981,13 +981,36 @@ describe('VisitsPage from a CSV file', () => {
     expect(screen.queryByTestId('detected')).not.toBeInTheDocument()
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
 
-    expect(await screen.findByTestId('detected')).toHaveTextContent('Detected: a custom CSV')
-    await userEvent.click(screen.getByRole('button', { name: 'It is the download of the WildINTEL form' }))
-    expect(screen.getByTestId('detected')).toHaveTextContent('Detected: the download of the WildINTEL form (Epicollect5)')
+    expect(await screen.findByTestId('detected')).toHaveTextContent('Detected file type: Custom CSV / Spreadsheet')
+    await userEvent.click(screen.getByRole('button', { name: /^Change type/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /WildINTEL Epicollect CSV/ }))
+    expect(screen.getByTestId('detected')).toHaveTextContent('Detected file type: WildINTEL Epicollect CSV')
     expect(screen.getByText('visits.csv')).toBeInTheDocument()   // the file is still there
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
-    await userEvent.click(screen.getByRole('button', { name: 'It is another CSV' }))
-    expect(screen.getByTestId('detected')).toHaveTextContent('Detected: a custom CSV')
+    expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: /^Change type/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /Custom CSV/ }))
+    expect(screen.getByTestId('detected')).toHaveTextContent('Detected file type: Custom CSV / Spreadsheet')
+  })
+
+  it('shows the header of the file, and tries to read it as the type chosen: a file that is not the form says why and cannot go on as one', async () => {
+    mockedApi.visitsCsvColumns.mockResolvedValue({ ...COLUMNS, kind: 'other', form_columns: {}, form_error: 'The file is not the download of the form of a visit: it has no column for locationID.' })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /^from a file/i }))
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), file)
+
+    const header = await screen.findByRole('list', { name: 'Header of the file' })
+    expect(within(header).getAllByRole('listitem').map((l) => l.textContent)).toEqual(['Lugar', 'Dia', 'Hora', 'Tarea', 'Fotos'])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Change type/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /WildINTEL Epicollect CSV/ }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Cannot read the file as WildINTEL Epicollect CSV: The file is not the download of the form of a visit: it has no column for locationID.')
+    expect(screen.getByRole('button', { name: /^Continue with WildINTEL Epicollect CSV/ })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /Reset to auto-detected/ }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Continue with Custom CSV/ })).toBeEnabled()
   })
 
   it('goes on as the form when it is detected — no columns to match — and as a custom CSV when the user says so', async () => {
@@ -997,7 +1020,8 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
-    await userEvent.click(await screen.findByRole('button', { name: 'It is another CSV' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Change type/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /Custom CSV/ }))
     await continueFromTheFile()
 
     expect(await screen.findByLabelText('Columns of the file and fields of the visit')).toBeInTheDocument()
@@ -1023,15 +1047,17 @@ describe('VisitsPage from a CSV file', () => {
     fireEvent.drop(drop, { dataTransfer: { files: [file] } })
     await waitFor(() => expect(mockedApi.visitsCsvColumns).toHaveBeenCalledWith(expect.stringContaining('Lugar,Dia')))
     expect(screen.getByText('visits.csv')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeEnabled()
 
-    fireEvent.drop(drop, { dataTransfer: { files: [new File(['bad'], 'notes.txt')] } })
+    await userEvent.click(screen.getByRole('button', { name: 'Replace file' }))   // the file area is back
+    const again = screen.getByLabelText('Drop CSV file')
+    fireEvent.drop(again, { dataTransfer: { files: [new File(['bad'], 'notes.txt')] } })
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a CSV file.')
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-    fireEvent.drop(drop, { dataTransfer: { files: [file, file] } })
+    expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeDisabled()
+    fireEvent.drop(again, { dataTransfer: { files: [file, file] } })
     expect(screen.getByRole('alert')).toHaveTextContent('Drop one CSV file.')
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeEnabled())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -1041,7 +1067,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
-    expect(await screen.findByTestId('detected')).toHaveTextContent('Detected: the download of the WildINTEL form (Epicollect5)')
+    expect(await screen.findByTestId('detected')).toHaveTextContent('Detected file type: WildINTEL Epicollect CSV')
     expect(screen.getByLabelText('Options marked')).toHaveTextContent('7 of 7')
     expect(screen.getByText(/Timezone: UTC/)).toBeInTheDocument()
     expect(screen.queryByRole('switch', { name: 'The images were not counted' })).not.toBeInTheDocument()
@@ -1069,7 +1095,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
     if (option.test('from a file')) {   // closing the revision before starts on: most of these tests are of what happens when it is not
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+      await waitFor(() => expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeEnabled())
       await userEvent.click(await screen.findByRole('button', { name: 'Customize' }))
       const close = await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })
       if (close.getAttribute('aria-checked') === 'true') await userEvent.click(close)
@@ -1131,7 +1157,7 @@ describe('VisitsPage from a CSV file', () => {
 
     expect(await screen.findByText('Import & auto-creation rules')).toBeVisible()      // the step did not move on
     expect(screen.queryByLabelText('Columns of the file and fields of the visit')).not.toBeInTheDocument()   // the matching waits for Continue
-    const next = screen.getByRole('button', { name: 'Continue' })
+    const next = screen.getByRole('button', { name: /^Continue( with .+)?$/ })
     await waitFor(() => expect(next).toBeEnabled())
     await userEvent.click(next)
     expect(await screen.findByLabelText('Columns of the file and fields of the visit')).toBeInTheDocument()
@@ -1300,7 +1326,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
 
-    const button = await screen.findByRole('button', { name: 'Continue' })
+    const button = await screen.findByRole('button', { name: /^Continue( with .+)?$/ })
     await waitFor(() => expect(button).toBeEnabled())                // the file is read, and Continue is there to press
     expect(mockedApi.importVisitsCsv).not.toHaveBeenCalled()          // nothing is checked yet
     expect(screen.queryByRole('progressbar', { name: 'Checking the file' })).not.toBeInTheDocument()
@@ -1322,7 +1348,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByLabelText('Research project'))
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeEnabled())
     expect(screen.queryByRole('button', { name: 'Check again' })).not.toBeInTheDocument()      // the file is only chosen: its step is still locked
 
     await continueFromTheFile()

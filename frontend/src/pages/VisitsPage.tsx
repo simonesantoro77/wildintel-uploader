@@ -1,6 +1,7 @@
 import { inTheApp } from '../researchProjects'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { Glyph } from '../components/ViewSwitch'
+import { DetectedFile, FILE_KINDS } from '../components/DetectedFile'
 import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
 import { useEffect, useRef, useState } from 'react'
 import TimezoneCombobox from '../components/TimezoneCombobox'
@@ -637,6 +638,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   }, [csvCreate.locations]) // eslint-disable-line react-hooks/exhaustive-deps
   const csvFormat: VisitsCsvFormat = source === 'wildintel-new' ? 'epicollect-csv' : 'mapped'
   const chosen = SOURCE_OPTIONS.find((o) => o.value === (source === 'wildintel-new' ? 'csv' : source))
+  const continueLabel = fileReady && csvColumns ? `Continue with ${FILE_KINDS[source === 'wildintel-new' ? 'form' : 'other'].title}` : 'Continue'
   const keepFile = useRef(false)   // the type of the file changes after it is read: the file stays
   // A camera put up while it is somewhere else, or a card left while it is in another camera, cannot be kept — said as soon as it is chosen.
   // The revision of the next visit to the location: the latest, when the location is still planned in it, and the one after it otherwise (see nextRevision).
@@ -1675,7 +1677,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             description="The CSV downloaded from the WildINTEL form in Epicollect5, or any other with one row per visit. The app detects which one it is."
             summary={csvName}
           >
-            {sourcesUsed.epicollect && (
+            {!(fileReady && csvColumns) && sourcesUsed.epicollect && (
               <div role="radiogroup" aria-label="Where the CSV is" className="flex gap-2 mb-4">
                 {([['file', 'A file on this computer'], ['epicollect', 'Epicollect5 project']] as const).map(([v, label]) => (
                   <button key={v} type="button" role="radio" aria-checked={csvOrigin === v} onClick={() => { setCsvOrigin(v); forgetCsv(); setCsvName(null) }}
@@ -1683,7 +1685,9 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 ))}
               </div>
             )}
-            {sourcesUsed.epicollect && csvOrigin === 'epicollect' ? (
+            {fileReady && csvColumns && csvText ? (
+              <DetectedFile name={csvName ?? 'file.csv'} text={csvText} found={csvColumns} kind={source === 'wildintel-new' ? 'form' : 'other'} onKind={(k) => chooseKind(k === 'form' ? 'wildintel-new' : 'csv')} onReplace={() => { forgetCsv(); setCsvName(null) }} />
+            ) : sourcesUsed.epicollect && csvOrigin === 'epicollect' ? (
               <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 space-y-3">
                 <h5 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Epicollect5 project</h5>
                 <div className="flex items-center gap-4 flex-wrap">
@@ -1753,19 +1757,9 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
               </fieldset>
             )}
             {csvError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{csvError}</p>}
-            {fileReady && csvColumns && (
-              <div data-testid="detected" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-                <span>{source === 'wildintel-new'
-                  ? <>Detected: <strong>the download of the WildINTEL form (Epicollect5)</strong>. Its columns are recognised by themselves: there is nothing to match.</>
-                  : <>Detected: <strong>a custom CSV</strong>. In the next step you say which column is each field.</>}</span>
-                <button type="button" className={btnOutline} onClick={() => chooseKind(source === 'wildintel-new' ? 'csv' : 'wildintel-new')}>
-                  {source === 'wildintel-new' ? 'It is another CSV' : 'It is the download of the WildINTEL form'}
-                </button>
-              </div>
-            )}
             <div className="flex justify-between items-center mt-4">
               <button type="button" className={btnOutline} onClick={() => { forgetCsv(); setCsvName(null); if (defaultProject) setSource(null); else setProject(undefined) }}><span aria-hidden="true">← </span>Back</button>
-              <button type="button" aria-label="Continue" className={btnPrimary} disabled={!fileReady || downloading || checking} onClick={() => { setFileConfirmed(true); if (source !== 'csv') void checkFile() }}>Continue<span aria-hidden="true"> →</span></button>
+              <button type="button" aria-label={continueLabel} className={btnPrimary} disabled={!fileReady || downloading || checking || (source === 'wildintel-new' && !!csvColumns?.form_error)} onClick={() => { setFileConfirmed(true); if (source !== 'csv') void checkFile() }}>{continueLabel}<span aria-hidden="true"> →</span></button>
             </div>
           </WizardStep>
 

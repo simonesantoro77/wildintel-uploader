@@ -308,7 +308,10 @@ def test_a_csv_is_detected_as_the_download_of_the_wildintel_form_or_as_another(t
     other = "Site,Date,Time,Action\nA,2026-10-02,08:00,Revision\n"
 
     assert _client().post("/api/visits/csv-columns", json={"csv": form}).json()["kind"] == "form"
-    assert _client().post("/api/visits/csv-columns", json={"csv": other}).json()["kind"] == "other"
+    found = _client().post("/api/visits/csv-columns", json={"csv": other}).json()
+    assert found["kind"] == "other" and found["form_columns"] == {} and "no column for" in found["form_error"]
+    columns = _client().post("/api/visits/csv-columns", json={"csv": form}).json()
+    assert columns["form_error"] is None and columns["form_columns"]["created_at"] == "created_at" and "location_id" in columns["form_columns"]
 
 
 def _visit(day: str, actions: list[str], site: str = "DONA_01", **more) -> dict:
