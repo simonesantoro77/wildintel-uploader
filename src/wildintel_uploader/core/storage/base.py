@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 
 # What is kept for each research project, besides the project itself. Each is a list of records, in the order they were kept. (Locations, cameras, SD cards and roles
 # belong to the project; the trappers, the people, are global and are not here.)
-RECORD_KINDS = ("locations", "visits", "unknown_visits", "planned_revisions", "cameras", "sd_cards", "roles", "upload_failures")
+RECORD_KINDS = ("locations", "visits", "unknown_visits", "planned_revisions", "cameras", "sd_cards", "roles", "upload_failures", "status_history")
 
 # What is kept for all of them, belonging to no research project: the trappers, the people.
 GLOBAL_KINDS = ("trappers",)

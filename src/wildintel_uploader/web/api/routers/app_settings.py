@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from wildintel_uploader.core import config
 from wildintel_uploader.core import logging_setup, storage
-from wildintel_uploader.core.services import audit, file_manager, local_folder_service
+from wildintel_uploader.core.services import audit, file_manager, local_folder_service, status_history
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -277,6 +277,22 @@ def set_field_item_status(req: FieldItemStatusRequest) -> dict:
         except local_folder_service.LocalFolderError as exc:
             raise HTTPException(400, str(exc)) from exc
     return {"updated": updated}
+
+
+class StatusHistoryRequest(BaseModel):
+    research_project_id: str
+    kind: Literal["locations", "cameras", "sd_cards"] | None = None
+    name: str | None = None
+
+
+@router.post("/status-history")
+def status_history_of(req: StatusHistoryRequest) -> dict:
+    """The history of the status of the locations, the cameras and the SD cards of a research project — of one kind, and of one of them, when they are given — the oldest first."""
+    try:
+        local_folder_service.require_research_project(_root(config.load_settings()), req.research_project_id)
+    except local_folder_service.LocalFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"results": status_history.list_history(_root(config.load_settings()), req.research_project_id, req.kind, req.name)}
 
 
 class NewConfigRequest(BaseModel):

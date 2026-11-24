@@ -4,6 +4,7 @@ import type { Camera } from '../types'
 import { DetailLine } from './DashboardParts'
 import { formatDay } from '../dateFormat'
 import SidePanel from './SidePanel'
+import StatusHistory from './StatusHistory'
 
 const STATUS: Record<string, string> = { planned: 'Planned', ready: 'Ready', active: 'Active', archived: 'Archived' }
 const CONNECTIVITY: Record<string, string> = { none: 'None', '4g': '4G', '5g': '5G' }
@@ -45,6 +46,7 @@ export default function CameraDetails({ name, camera, onClose, onOpenInSettings 
           <p className="text-sm text-zinc-500 dark:text-zinc-400">The camera {name} is not one of the cameras of this research project yet.</p>
         )}
       </section>
+      {camera && <StatusHistory researchProject={camera.research_project} kind="cameras" name={title} />}
       {onOpenInSettings && camera && (
         <div className="mt-6 border-t border-zinc-200 dark:border-zinc-700 pt-4">
           <button type="button" className={btnOutline} onClick={onOpenInSettings}>Open it in the settings</button>

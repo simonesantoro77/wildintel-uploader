@@ -183,7 +183,7 @@ export default function VisitDetails({ closed, onClose, onOpenVisit, researchPro
       </div>
     </SidePanel>
     {site && (
-      <LocationDetails site={site.name} location={site.location} onClose={() => setSite(null)}
+      <LocationDetails researchProject={researchProjectId} site={site.name} location={site.location} onClose={() => setSite(null)}
         onOpenInSettings={onOpenSettings && researchProjectId ? () => { setSite(null); onClose(); onOpenSettings('locations', researchProjectId, site.name) } : undefined} />
     )}
     {cameraPanel && (

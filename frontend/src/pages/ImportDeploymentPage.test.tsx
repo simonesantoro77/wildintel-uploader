@@ -10,6 +10,7 @@ import { APP_SETTINGS, DETAILED_SESSION, SESSION } from '../test/fixtures'
 
 vi.mock('../api', () => ({
   api: {
+    statusHistory: vi.fn(async () => ({ results: [] })),
     nextRevision: vi.fn(),
     trapperGetConfig: vi.fn(),
     getSettings: vi.fn(),

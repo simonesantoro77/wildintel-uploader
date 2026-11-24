@@ -736,6 +736,19 @@ export interface LocalResearchProject extends ResearchProjectDraft {
 }
 
 /** A location of one of those (locations.json). */
+/** A change of the status of a location, a camera or an SD card, and why: the line of its history. */
+export interface StatusChange {
+  kind: 'locations' | 'cameras' | 'sd_cards'
+  name: string
+  /** What it was: none when it was just made. */
+  before: string | null
+  after: string
+  /** The instant it was written, and the day it is of (the day of the visit that did it). */
+  at: string
+  day: string
+  reason: string
+}
+
 export interface LocalLocation {
   /** Its internal id — a UUID the app generates when it is kept: never typed, never changed; what the other records point to it by. */
   id?: string | null
@@ -1155,7 +1168,7 @@ export type BackupEvent =
 
 export interface RestoreSummary {
   settings: boolean
-  project_files: { research_project?: 'written' | 'kept'; locations?: { added: number; replaced: number; kept: number }; cameras?: { added: number; replaced: number; kept: number }; sd_cards?: { added: number; replaced: number; kept: number } }
+  project_files: { research_project?: 'written' | 'kept'; locations?: { added: number; replaced: number; kept: number }; cameras?: { added: number; replaced: number; kept: number }; sd_cards?: { added: number; replaced: number; kept: number }; status_history?: { added: number; replaced: number; kept: number } }
   visits: { added?: number; replaced?: number; kept?: number }
   deployments: { restored: string[]; skipped: string[] }
   files: number

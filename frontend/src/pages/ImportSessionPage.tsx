@@ -1040,7 +1040,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                 </FormCard>
                 <FormCard title="Visits" description={`Tick the visits in which you put your SD cards, all of one revision. Each image folder will be one of them: it says where and when it was taken.`}>
                   <ClosedVisitsTable
-                    visits={shown}
+                    researchProject={projectId} visits={shown}
                     many={{
                       selected: pickedVisits, onChange: pickVisits, noun: 'visits',
                       selectable: offered,
