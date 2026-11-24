@@ -303,6 +303,17 @@ def test_the_columns_of_a_csv_are_offered_with_the_fields_and_the_column_that_mo
     assert empty.status_code == 400
 
 
+def test_a_csv_is_detected_as_the_download_of_the_wildintel_form_or_as_another(tmp_path: Path):
+    form = (Path(__file__).parents[2] / "examples" / "visits_example" / "wildintel_csv" / "dona" / "revision_1.csv").read_text(encoding="utf-8")
+    other = "Site,Date,Time,Action\nA,2026-10-02,08:00,Revision\n"
+
+    assert _client().post("/api/visits/csv-columns", json={"csv": form}).json()["kind"] == "form"
+    found = _client().post("/api/visits/csv-columns", json={"csv": other}).json()
+    assert found["kind"] == "other" and found["form_columns"] == {} and "no column for" in found["form_error"]
+    columns = _client().post("/api/visits/csv-columns", json={"csv": form}).json()
+    assert columns["form_error"] is None and columns["form_columns"]["created_at"] == "created_at" and "location_id" in columns["form_columns"]
+
+
 def _visit(day: str, actions: list[str], site: str = "DONA_01", **more) -> dict:
     return {**VISIT, "location_id": site, "date": day, "time": "09:00:00", "actions": actions, "num_photos": None, **more}
 

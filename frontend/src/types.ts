@@ -821,6 +821,12 @@ export interface VisitsCsvColumns {
   columns: string[]
   sample: string[][]
   mapping: Record<string, string>
+  /** What the file is: the download of the WildINTEL form of Epicollect5, or a CSV of any other shape. */
+  kind: 'form' | 'other'
+  /** When it is the form: the header of the column that answers each question of a visit. */
+  form_columns?: Record<string, string>
+  /** Why it cannot be read as the form, when it cannot. */
+  form_error?: string | null
   fields: {
     field: string; label: string; required: boolean
     /** The entity this field is of, when it is not a visit's: only asked for when that entity is created (locations, cameras, sd_cards). */

@@ -479,17 +479,8 @@ def _header_key(header: str) -> tuple[str, str | None]:
     return re.sub(r"[\W_]+", "", header).lower(), part
 
 
-def visits_from_csv(text: str) -> str:
-    """The CSV downloaded from the new Epicollect5 project (the form of the field flow), as the text of a CSV with a row per visit and the columns a visit has. Its
-    columns are found by the label of their question, ignoring the number in front, the case and the marks — and a header cut at 20 characters, as Epicollect5 does, by the beginning of it.
-
-    Raises:
-        EpicollectError: the file has no rows, or it is not the form of a visit.
-    """
-    import csv  # noqa: PLC0415
-    import io  # noqa: PLC0415
-    reader = csv.DictReader(io.StringIO(text.lstrip("﻿")))
-    headers = reader.fieldnames or []
+def _form_refs(headers: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+    """The columns of the CSV of the form that answer each question of a visit (the field of the visit, the header of the column) and the ones that say where it was (`lat`, `long`)."""
     questions = {re.sub(r"[\W_]+", "", k).lower(): v for k, v in VISIT_QUESTIONS.items()} | {"npicturescollected": "num_photos"}
     refs: dict[str, str] = {}
     place: dict[str, str] = {}
@@ -510,6 +501,50 @@ def visits_from_csv(text: str) -> str:
             if len(cut) == 1:
                 refs[cut.pop()] = header
                 cut_headers.remove((key, header))
+    return refs, place
+
+
+def form_error(text: str) -> str | None:
+    """Why a CSV cannot be read as the download of the WildINTEL form, or None when it can."""
+    try:
+        visits_from_csv(text)
+    except EpicollectError as exc:
+        return str(exc)
+    return None
+
+
+def form_columns(text: str) -> dict[str, str]:
+    """The columns of a CSV that are the answers of the WildINTEL form — the field of a visit and the header that gives it — with `created_at`, which says when. Empty if it is not the form."""
+    import csv  # noqa: PLC0415
+    import io  # noqa: PLC0415
+    if not is_form_csv(text):
+        return {}
+    headers = csv.DictReader(io.StringIO(text.lstrip("\ufeff"))).fieldnames or []
+    refs, _ = _form_refs(list(headers))
+    return {**refs, "created_at": "created_at"}
+
+
+def is_form_csv(text: str) -> bool:
+    """Whether a CSV is the download of the WildINTEL form of Epicollect5: it has the columns of the form (the location, the status of the camera and created_at)."""
+    try:
+        visits_from_csv(text)
+    except EpicollectError:
+        return False
+    return True
+
+
+def visits_from_csv(text: str) -> str:
+    """The CSV downloaded from the new Epicollect5 project (the form of the field flow), as the text of a CSV with a row per visit and the columns a visit has. Its
+    columns are found by the label of their question, ignoring the number in front, the case and the marks — and a header cut at 20 characters, as Epicollect5 does, by the beginning of it.
+
+    Raises:
+        EpicollectError: the file has no rows, or it is not the form of a visit.
+    """
+    import csv  # noqa: PLC0415
+    import io  # noqa: PLC0415
+    reader = csv.DictReader(io.StringIO(text.lstrip("﻿")))
+    headers = reader.fieldnames or []
+    refs, place = _form_refs(headers)
     # the day and the time of a visit are when its entry was created (created_at): the form has no date or time to ask for
     missing = [name for name, field in (("locationID", "location_id"), ("Status of the camera", "camera_status")) if field not in refs]
     if "created_at" not in (reader.fieldnames or []):
