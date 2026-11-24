@@ -1988,10 +1988,10 @@ describe('ImportDeploymentPage', () => {
     it('says where the deployment is saved once the preparing is gone over, not before', async () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
-      expect(screen.queryByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: /What (is going to be saved|was saved)/ })).not.toBeInTheDocument()
 
       await runPreprocessingAndContinue()
-      expect((await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`))[0]).toBeInTheDocument()
+      expect(await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })).toBeInTheDocument()
     })
 
     it('says how the dates are read: in the deployment\'s timezone, ignoring summer time, converted to UTC', async () => {
@@ -2091,7 +2091,7 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       expect(screen.queryByRole('button', { name: 'Open folder' })).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
@@ -2111,7 +2111,7 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument() // not before it is imported
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
@@ -2144,7 +2144,7 @@ describe('ImportDeploymentPage', () => {
       await waitFor(() => expect(screen.getByText('1600 px')).toBeInTheDocument())
       await userEvent.click(screen.getByRole('checkbox', { name: 'Resize the images' })) // not this time
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2185,7 +2185,7 @@ describe('ImportDeploymentPage', () => {
       expect(metadata).not.toBeChecked()
 
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
       await screen.findByText(/Deployment saved/)
       expect(mockedApi.preprocess.mock.calls[0][4]).toEqual(expect.objectContaining({ rename: true, resize: true, metadata: false }))
@@ -2278,7 +2278,7 @@ describe('ImportDeploymentPage', () => {
       await walkToImportStep()
 
       expect(mockedApi.collectionPath).toHaveBeenCalledWith('DONA', 'R0001-DONA_01')
-      expect((await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`))[0]).toBeInTheDocument()
+      expect(await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })).toBeInTheDocument()
     })
 
     it('imports into a collection that does not exist yet, naming it after the deployment\'s prefix, and shows its progress', async () => {
@@ -2287,7 +2287,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
 
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
@@ -2314,7 +2314,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2326,7 +2326,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2353,7 +2353,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.type(screen.getByLabelText('Tags'), 'forest{Enter}')
     await userEvent.type(screen.getByLabelText('Tags'), 'north{Enter}')
       })
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2380,7 +2380,7 @@ describe('ImportDeploymentPage', () => {
     it('shows the error when the import fails', async () => {
       mockedApi.consolidate.mockRejectedValue(new Error('No space left on device'))
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       expect(await screen.findByText('No space left on device')).toBeInTheDocument()
@@ -2396,7 +2396,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
       await screen.findByText(/Deployment saved/)
 
@@ -2416,7 +2416,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
       await screen.findByText(/Deployment saved/)
 

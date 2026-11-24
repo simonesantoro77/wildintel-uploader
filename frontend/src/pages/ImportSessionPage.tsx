@@ -973,7 +973,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   return (
     <div className={PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.deployment} title={title}
-        description="Imports a folder of images — one subfolder each — into their revision: the one in which the SD card was put in the camera. The time between the visit that put the SD card in the camera and the visit that collected it, together with the conditions in which the camera was installed and the photos collected from it, make up a deployment. The deployments of a revision make up a collection."
+        description="Imports a folder of images — one subfolder each — into their collection. The images are validated and processed before they are stored."
         parent="Menu" onParent={onBack} />
 
       {/* Step indicator */}
@@ -1002,12 +1002,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         <div>
           <StepHeading>Origin</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            {fixedProject ? 'Pick the revision in which the SD cards with your images were collected, and the visits of it.' : 'Say which research project the revision belongs to.'} Next you pick the folder with the deployments.
+            {fixedProject ? 'First pick the visits in which you put your SD cards in the cameras; then the folder with their images.' : 'First say which research project it is and pick the visits in which you put your SD cards in the cameras; then the folder with their images.'}
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
-          <WizardStep n={1} title={fixedProject ? 'Which visits are they of?' : 'Which research project?'} status="open" canEdit={false} onEdit={() => {}}
+          <WizardStep n={1} title={fixedProject ? 'When did you put the SD cards in the cameras?' : 'Which research project?'} status="open" canEdit={false} onEdit={() => {}}
                       description={fixedProject
-                        ? <>The <span className="font-mono font-semibold">{defaultProject?.acronym ?? defaultAcronym}</span> revision and the specific visits during which the SD cards containing the images we are interested in were collected.</>
+                        ? <>The <span className="font-mono font-semibold">{defaultProject?.acronym ?? defaultAcronym}</span> revision and the visits during which you put the SD cards that contain the images.</>
                         : 'The research project is the same for all of them. Research projects are kept in the collections folder.'}>
             {!fixedProject && <ResearchProjectPicker value={projectId} onSelect={(picked) => { setProject(picked); setDrafts({}) }} />}
             {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
@@ -1033,12 +1033,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               const target = session ?? (shown[0] ? revisionOfVisit(shown[0]) : null)
               return (
                 <>
-                <FormCard title="Revision in which the cards were collected" description="A revision consists of one visit to each site. Select the revision in which the SD cards containing these images were collected—next, you'll only see the visits from that revision that have a collected card and no deployment yet.">
+                <FormCard title="During which revision?" description="Only the visits that have no deployment yet are offered.">
                   <RevisionSquares all={{ label: 'All revisions', note: plural(closedVisits.length, 'visit to import', 'visits to import') }} value={session ? String(session) : ''}
                     revisions={revisions.map((r) => ({ id: String(r), label: `R${String(r).padStart(4, '0')}`, note: plural(closedVisits.filter((c) => revisionOfVisit(c) === r).length, 'visit to import', 'visits to import') }))}
                     onPick={(id) => pickRevision(id ? Number(id) : null)} />
                 </FormCard>
-                <FormCard title="Visits" description={`The visits to ${projectId} in which SD cards were collected, with no deployment yet. Tick the visits where you collected the cards that contain the images — all of one revision. Each folder will be one of them: it says where and when it was taken.`}>
+                <FormCard title="Visits" description={`Tick the visits in which you put your SD cards, all of one revision. Each folder will be one of them: it says where and when it was taken.`}>
                   <ClosedVisitsTable
                     visits={shown}
                     many={{

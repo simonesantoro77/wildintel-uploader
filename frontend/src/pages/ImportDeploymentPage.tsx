@@ -560,10 +560,9 @@ export function fillFromClosedVisit(d: DeploymentFields, c: ClosedVisit): Deploy
 
 /** A closed visit as an option: when it was, where, which session, what was done there, and when its card was collected — and how many photos it had. */
 /** The period of a deployment as ISO 8601, each end with the offset from UTC it was stamped with (2026-10-19T08:30:00+02:00) — the timezone is in them. An end with no offset says the timezone of the location after it. */
-export const isoPeriod = (start: string | null | undefined, end: string | null | undefined, timezone: string) => {
-  const stamped = (v: string) => (/(Z|[+-]\d\d:\d\d)$/.test(v) || !timezone ? v : `${v} ${timezone}`)
-  return start ? `${stamped(start)} → ${end ? stamped(end) : '…'}` : '—'
-}
+export const isoStamp = (v: string, timezone: string) => (/(Z|[+-]\d\d:\d\d)$/.test(v) || !timezone ? v : `${v} ${timezone}`)
+export const isoPeriod = (start: string | null | undefined, end: string | null | undefined, timezone: string) =>
+  start ? `${isoStamp(start, timezone)} → ${end ? isoStamp(end, timezone) : '…'}` : '—'
 export const visitKey = closedVisitKey
 export const visitLabel = (c: ClosedVisit) =>
   `${formatVisitWhen(c.visit)} · ${c.visit.location_id} · ${c.visit.session} · ${c.visit.actions.join(' + ')}${c.visit.sd ? ` · card ${c.visit.sd}` : ''} · collected on ${formatVisitWhen(c.end)}${c.end.num_photos != null ? ` (${c.end.num_photos} images)` : ''}`
@@ -3299,7 +3298,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               {!destDir && (
               <>
               <p className="text-base text-zinc-600 dark:text-zinc-300 mb-4">
-                Everything is ready. This saves the deployment in your local collection. Nothing is uploaded to TRAPPER yet.
+                Everything is ready. This saves the deployment in your local collection{plannedCollection ? <> <strong className="font-mono">{plannedCollection.collection}</strong></> : ''}.
               </p>
               <section aria-label="What is going to be saved" className="mb-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5">
               <h6 className="mb-4 flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100">
@@ -3312,10 +3311,26 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                 const did = [effectivePreprocessSteps.has('rename') && 'renamed', effectivePreprocessSteps.has('resize') && 'resized', effectivePreprocessSteps.has('metadata') && 'tagged'].filter(Boolean) as string[]
                 const rows: [string, ReactNode][] = [
                   ['Deployment', <span className="font-mono font-semibold">{deployment.deployment_id}</span>],
-                  ['Taken at', [selectedProject?.acronym, [deployment.location_id, savedLocation?.name].filter(Boolean).join(', ')].filter(Boolean).join(' · ')],
-                  ['Period', <span className="font-mono text-xs">{isoPeriod(deployment.start_date, deployment.end_date, timezone)}</span>],
+                  ['Location', [selectedProject?.acronym, [deployment.location_id, savedLocation?.name].filter(Boolean).join(', ')].filter(Boolean).join(' · ')],
+                  ['Period', linkedVisit && deployment.start_date ? (
+                    <ol aria-label="Period of the deployment" className="relative ml-2 space-y-4 border-l-2 border-zinc-300 dark:border-zinc-600">
+                      {([['SD card put in the camera', linkedVisit.visit, deployment.start_date], ['SD card collected', linkedVisit.end, deployment.end_date]] as const).map(([what, visit, when]) => (
+                        <li key={what} className="relative ml-5">
+                          <span aria-hidden="true" className="absolute -left-[1.65rem] top-1 h-3 w-3 rounded-full border-2 border-emerald-500 bg-white dark:bg-zinc-900" />
+                          <p className="font-semibold">{what}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">Visit {visit.session} · {visit.actions.join(' + ')}</p>
+                          <p className="font-mono text-xs">{when ? isoStamp(when, timezone) : '…'}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : <span className="font-mono text-xs">{isoPeriod(deployment.start_date, deployment.end_date, timezone)}</span>],
                   ['Images', done ? `${(done.processed ?? 0).toLocaleString('en-US')} prepared${did.length ? ` · ${did.join(', ').replace(/, ([^,]*)$/, ' and $1')}` : ''}${done.skipped ? ` · ${done.skipped} skipped` : ''}` : ''],
-                  ['Saved to', plannedCollection ? <span className="font-mono break-all">{`${plannedCollection.path}/${deployment.deployment_id}`}</span> : ''],
+                  ['Collection', plannedCollection ? (
+                    <>
+                      <strong className="font-mono">{plannedCollection.collection}</strong>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">It has all the deployments whose SD cards were put in the revision <span className="font-mono">{plannedCollection.collection}</span>.</p>
+                    </>
+                  ) : ''],
                 ]
                 return (
                   <dl className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
@@ -3354,7 +3369,7 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
               {destDir && (
                 <div className="space-y-4">
                   <div role="status" className="rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
-                    <p className="text-lg font-semibold">Deployment saved</p>
+                    <p className="text-lg font-semibold">Deployment saved to collection{plannedCollection ? <> <strong className="font-mono">{plannedCollection.collection}</strong></> : ''}</p>
                     <p className="text-sm text-emerald-800/90 dark:text-emerald-200/80">
                       <span className="font-mono font-semibold">{deployment.deployment_id}</span> is now in your local collection.
                       {events.some((e) => e.type === 'done' && e.sealed === false) && ' It could not be sealed — see the log.'}
@@ -3378,8 +3393,17 @@ export default function ImportDeploymentPage({ resumeSession, closedVisit, resea
                             {done ? `${(done.processed ?? 0).toLocaleString('en-US')} images${did.length ? ` · ${did.join(', ').replace(/, ([^,]*)$/, ' and $1')}` : ''}${done.skipped ? ` · ${done.skipped} skipped` : ''}` : 'Images saved'}
                           </p>
                           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Metadata written and sealed. The app will notice if an image or its details change.</p>
-                          <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">Saved to</p>
-                          <p className="font-mono text-sm break-all text-zinc-800 dark:text-zinc-200">{path}</p>
+                          {linkedVisit && (
+                            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                              Obtained from the SD card{(sdCard || linkedVisit.visit.sd) ? <> <strong>{sdCard || linkedVisit.visit.sd}</strong></> : ''} that was put in the camera in the field during the visit <strong>{linkedVisit.visit.session}</strong> at <strong>{linkedVisit.visit.location_id}</strong> (<strong>{formatVisitWhen(linkedVisit.visit)}</strong>) and collected from the field during the visit <strong>{linkedVisit.end.session}</strong> at <strong>{linkedVisit.end.location_id}</strong> (<strong>{formatVisitWhen(linkedVisit.end)}</strong>).
+                            </p>
+                          )}
+                          {plannedCollection && (
+                            <>
+                              <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">Collection</p>
+                              <p className="text-sm text-zinc-800 dark:text-zinc-200"><strong className="font-mono">{plannedCollection.collection}</strong>, which has all the deployments whose SD cards were put in the revision <span className="font-mono">{plannedCollection.collection}</span>.</p>
+                            </>
+                          )}
                           <div className="mt-4 flex flex-wrap gap-2">
                             <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} onClick={handleOpenFolder}>
                               <Glyph className="h-4 w-4"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></Glyph>Open folder
