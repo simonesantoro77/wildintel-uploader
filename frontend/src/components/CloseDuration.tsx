@@ -5,31 +5,13 @@ export type CloseMode = 'last' | 'fixed'
 const UNITS: { value: CloseAfter['unit']; label: string; short: string }[] = [{ value: 'days', label: 'Days', short: 'd' }, { value: 'weeks', label: 'Weeks', short: 'w' }, { value: 'months', label: 'Months', short: 'm' }]
 const PRESETS: Record<CloseAfter['unit'], number[]> = { days: [7, 14, 21, 30], weeks: [1, 2, 3, 4], months: [1, 2, 3, 6] }
 
-/** The day `amount` days, weeks or months after `day` — the 31st of a month that has fewer days is its last one —, as the server works it out. */
-export function shiftedDay(day: Date, amount: number, unit: CloseAfter['unit']): Date {
-  const d = new Date(day)
-  if (unit === 'days') d.setDate(d.getDate() + amount)
-  else if (unit === 'weeks') d.setDate(d.getDate() + 7 * amount)
-  else {
-    const target = new Date(d.getFullYear(), d.getMonth() + amount, 1)
-    const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
-    return new Date(target.getFullYear(), target.getMonth(), Math.min(d.getDate(), last))
-  }
-  return d
-}
-
-const short = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 const pill = (on: boolean) => `px-3 h-8 rounded-md text-sm font-semibold transition-colors ${on ? 'bg-blue-600 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`
 
 /** How long each revision that is closed lasted, from its first visit: the day its locations still to be visited are marked as not visited — or the day of its last visit. */
-export default function CloseDuration({ mode, amount, unit, onMode, onAmount, onUnit, example }: {
+export default function CloseDuration({ mode, amount, unit, onMode, onAmount, onUnit }: {
   mode: CloseMode; amount: number; unit: CloseAfter['unit']; onMode: (m: CloseMode) => void; onAmount: (n: number) => void; onUnit: (u: CloseAfter['unit']) => void
-  /** The first visit the live rule is told with: an example when none is given. */
-  example?: Date
 }) {
-  const first = example ?? new Date(new Date().getFullYear(), 2, 1)
   const unitLabel = UNITS.find((u) => u.value === unit)!
-  const count = `${amount} ${amount === 1 ? unitLabel.label.toLowerCase().replace(/s$/, '') : unitLabel.label.toLowerCase()}`
   return (
     <section aria-label="How long each revision lasted" className="border-t border-zinc-200 dark:border-zinc-700 border-l-4 border-l-blue-500 px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -71,15 +53,6 @@ export default function CloseDuration({ mode, amount, unit, onMode, onAmount, on
           ))}
         </div>
       )}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm">
-        <span className="flex flex-wrap items-center gap-2" data-testid="close-rule">
-          <span className="rounded border border-emerald-400 px-1.5 text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">Live rule</span>
-          {mode === 'fixed'
-            ? <span>1st visit: <strong>{short(first)}</strong> + <strong>{count}</strong> → unvisited locations closed on <strong className="text-emerald-600 dark:text-emerald-400">{short(shiftedDay(first, amount, unit))}</strong></span>
-            : <span>1st visit: <strong>{short(first)}</strong>, last recorded visit: <strong>{short(shiftedDay(first, 18, 'days'))}</strong> → unvisited locations closed on <strong className="text-emerald-600 dark:text-emerald-400">{short(shiftedDay(first, 18, 'days'))}</strong> (last visit date)</span>}
-        </span>
-        <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">Applies to every closed revision · if it reaches the next one, the day before its first visit</span>
-      </div>
     </section>
   )
 }

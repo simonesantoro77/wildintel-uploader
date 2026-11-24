@@ -1454,7 +1454,6 @@ describe('VisitsPage from a CSV file', () => {
     expect(card.getByRole('radio', { name: /Fixed duration from 1st visit/ })).toBeChecked()
     expect(card.getByRole('textbox', { name: 'How long each revision lasted' })).toHaveValue('2')
     expect(card.getByRole('radio', { name: 'Months' })).toBeChecked()
-    expect(card.getByTestId('close-rule')).toHaveTextContent(/\+ 2 months → unvisited locations closed on/)
 
     await userEvent.click(card.getByRole('radio', { name: 'Days' }))
     await userEvent.click(card.getByRole('button', { name: '14d' }))
