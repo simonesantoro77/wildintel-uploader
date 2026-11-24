@@ -198,7 +198,7 @@ def test_visits_are_read_from_a_csv_and_only_kept_when_asked(tmp_path: Path):
     assert shown.status_code == 200 and body["saved"] is None and nothing == []
     assert body["problems"] == [] and body["skipped"] == 0
     first, third, second = body["visits"]  # by the day of the visit
-    assert (first["location_id"], first["session"], first["actions"], first["latitude"]) == ("DONA_01", "R0001", ["Installation"], 37.0)
+    assert (first["location_id"], first["session"], first["actions"], first["latitude"]) == ("DONA_01", "R0001", ["SiteStart", "Installation"], 37.0)   # a new location is pending: its first visit starts it
     assert (second["session"], second["actions"], second["card_status"], second["num_photos"], second["time"]) == ("R0002", ["Revision", "Installation"], "OK", 1620, "09:00:00")
     assert (third["location_id"], third["session"], third["actions"], third["latitude"]) == ("DONA_02", "R0001", ["Installation"], 37.0)   # the default of the sample: its rows give no coordinates
 
@@ -281,7 +281,7 @@ def test_a_csv_with_columns_of_its_own_is_read_with_the_columns_each_field_is_ma
 
     assert body["problems"] == []
     first, second = body["visits"]
-    assert (first["location_id"], first["date"], first["time"], first["actions"], first["trappers"], first["sd"], first["num_photos"]) == ("DONA_01", "2026-10-02", "08:14:00", ["Installation"], "Ana", "A13", None)
+    assert (first["location_id"], first["date"], first["time"], first["actions"], first["trappers"], first["sd"], first["num_photos"]) == ("DONA_01", "2026-10-02", "08:14:00", ["SiteStart", "Installation"], "Ana", "A13", None)
     assert (second["location_id"], second["date"], second["actions"], second["num_photos"]) == ("DONA_02", "2026-10-03", ["Installation"], 1620)
 
 
@@ -1370,8 +1370,9 @@ def test_a_revision_that_is_closed_marks_what_it_lacks_as_not_visited_on_the_day
     assert two_weeks["problems"] == []
     assert [(m["location_id"], m["session"], m["date"], m["time"]) for m in two_weeks["closed"]] == [("DONA_02", "R0013", "2026-02-15", "23:59:00")]
     assert [(m["location_id"], m["date"]) for m in as_before["closed"]] == [("DONA_02", "2026-02-01")]           # none said: the day of its last visit
-    assert len(too_long["visits"]) == 1 and {p["row"] for p in too_long["problems"]} == {3, 4}                 # R0013 is kept — R0012 is finished: no day is asked of it —; R0014 cannot start
-    assert "R0013 would be closed on 2026-04-01" in too_long["problems"][0]["message"] and "(2026-03-01)" in too_long["problems"][0]["message"]
+    # two months would end after R0014 starts: it is closed just before the first visit of R0014, and it is said
+    assert too_long["problems"] == [] and [(m["date"], m["time"]) for m in too_long["closed"]] == [("2026-03-01", "07:59:00")]
+    assert any("R0013 would be closed on 2026-04-01" in n and "just before the first visit of R0014" in n for n in too_long["notes"])
 
 
 def test_a_revision_lasts_so_many_days_weeks_or_months_and_a_month_is_one_of_the_calendar():
@@ -2074,14 +2075,14 @@ def test_a_research_project_goes_back_to_planned_only_without_visits_and_an_arch
     assert shown.status_code == 400 and "archived" in shown.json()["detail"]
 
 
-def test_a_planned_site_is_not_in_the_app_and_a_ready_one_is(tmp_path: Path):
+def test_a_planned_site_is_not_in_the_app_and_a_pending_one_is(tmp_path: Path):
     from wildintel_uploader.core.services import local_folder_service as svc
 
     with _in(tmp_path):
         _project(archived=(2, 3))
         svc.update_location(tmp_path, "DONA", "DONA_01", {"status": "planned"})
         planned = _save({**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"})
-        svc.update_location(tmp_path, "DONA", "DONA_01", {"status": "ready"})
+        svc.update_location(tmp_path, "DONA", "DONA_01", {"status": "pending"})
         ready = _save({**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"})
 
     assert planned.status_code == 422 and "is planned" in planned.json()["detail"]
@@ -2100,15 +2101,16 @@ def test_the_status_of_a_site_by_hand_follows_what_the_visits_say(tmp_path: Path
     with _in(tmp_path):
         _project(archived=(2, 3))
         empty = (change("planned"), change("ready"), change("active"))                  # nothing has been done at the site
+        change("pending")                                                               # back in WildINTEL Uploader: its first visit starts it
         install = {**VISIT, "actions": ["Installation"], "num_photos": None, "sd": "A13", "camera_id": "P800", "date": "2024-09-04", "session": "R0001"}
         _save(install)                                                                  # a camera is put up: the site is active
         out = (change("ready"), change("planned"), change("archived"))                  # a camera is out
         _save({**VISIT, "actions": ["Revision", "Desinstallation"], "camera_id": "P800", "num_photos": 5, "sd": None, "date": "2024-10-12", "session": "R0002"})
         after = (change("active"), change("planned"), change("ready"), change("archived"))
 
-    assert empty[0] == "planned" and empty[1] == "ready" and "a visit puts it up" in empty[2]
+    assert empty[0] == "planned" and "when a visit says Location start" in empty[1] and "a visit puts it up" in empty[2]   # ready and active are made by a visit
     assert all("has a camera out" in o for o in out)
-    assert "a visit puts it up" in after[0] and after[1] == "planned" and after[2] == "ready" and after[3] == "archived"
+    assert "a visit puts it up" in after[0] and after[1] == "planned" and "when a visit says Location start" in after[2] and after[3] == "archived"
 
 
 def test_a_site_with_a_visit_still_to_be_made_in_a_revision_that_has_begun_does_not_leave_the_app(tmp_path: Path):

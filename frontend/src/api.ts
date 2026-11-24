@@ -229,8 +229,8 @@ export const api = {
   setupFieldItems: (researchProjectId: string, kind: 'cameras' | 'sd_cards', items: { label: string; camera_id?: string; camera_model?: string; brand?: string; capacity?: string }[]) =>
     post<{ added: string[]; skipped: string[] }>('/api/setup/field-items', { research_project_id: researchProjectId, kind, items }),
 
-  saveLocalLocation: (researchProjectId: string, location: LocalLocation) =>
-    post<LocalLocation>('/api/deployment-import/locations/save', { research_project_id: researchProjectId, location }),
+  saveLocalLocation: (researchProjectId: string, location: LocalLocation, byHand = false) =>
+    post<LocalLocation>('/api/deployment-import/locations/save', { research_project_id: researchProjectId, location, ...(byHand ? { by_hand: true } : {}) }),
 
   // Changes a kept location: the fields given are the ones that change (null clears one).
   /** Deletes a location of a research project — refused while visits were made to it, or when it comes from Trapper. */

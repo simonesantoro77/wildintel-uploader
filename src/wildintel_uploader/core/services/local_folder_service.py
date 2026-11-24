@@ -295,7 +295,7 @@ def _index_of(locations: list[dict], location_id: str, deleted: bool = False) ->
     return next((i for i, l in enumerate(locations) if str(l.get("location_id", "")).lower() == location_id.lower() and audit.is_deleted(l) == deleted), None)
 
 
-def write_location(root: Path, research_project_id: str, location: dict) -> dict:
+def write_location(root: Path, research_project_id: str, location: dict, by_hand: bool = False) -> dict:
     """Adds a location to a research project that's already kept here, with the day it was created. One that was deleted comes back, as the one now said.
 
     Raises:
@@ -304,6 +304,8 @@ def write_location(root: Path, research_project_id: str, location: dict) -> dict
     """
     _require_modifiable(root, research_project_id)
     require_research_project(root, research_project_id)
+    if by_hand and (location.get("status") or "pending") not in ("pending", "planned"):
+        raise LocalFolderError(f"A new location is pending, or planned: a visit makes it ready (Location start) or active (an Installation), and {location['location_id']} cannot start as {location['status']}.")
     locations = list_locations(root, research_project_id, include_deleted=True)
     if _index_of(locations, location["location_id"]) is not None:
         raise LocalFolderError(f"The location '{location['location_id']}' already exists in {research_project_id}.")
@@ -369,6 +371,8 @@ def _site_status_refusal(root: Path, research_project_id: str, locations: list[d
         return f"{site} is active when it has a camera: a visit puts it up (an Installation); the status cannot be set to active by hand."
     if wanted in ("ready", "planned", "archived") and camera is not None:
         return f"{site} has a camera out (put up in {camera.get('session')}): take it away with a visit — a Desinstallation, or a Stolen visit — before it is {wanted}."
+    if wanted == "ready" and location.get("status") != "ready":
+        return f"{site} is ready when a visit says Location start: its status cannot be set to ready by hand."
     if wanted in ("planned", "archived"):
         numbers = sorted({n for n in (visit_rules._session_number(v.get("session")) for v in visits) if n is not None})
         pending = [f"R{n:04d}" for n in numbers if any(str(s).lower() == site.lower() for s in visit_rules.revision_missing(n, visits, locations, "", list_unknown(root, research_project_id)))]

@@ -173,14 +173,14 @@ A location is always in one of five states:
 
 </div>
 
-The diagram shows the main transitions. Settings can also change non-archived states, subject to the visits and the restrictions described below.
+The diagram shows the transitions. **A new site is pending** — or planned, when it is not to be used yet —: it cannot be made ready or active, which only a visit does. In Settings a site can be set **Pending, Planned or Archived**, as the visits allow; *Ready* and *Active* are made by a visit.
 
 ![The life of a location: planned, pending, ready, active and archived, and the transitions between them](img/location.svg)
 
 The **actions done in a visit** (see [the actions of a visit](#the-actions-of-a-visit)) can change the state of a site, and so can the **settings** of the application, where you can set it by hand. In particular, what moves a location from one state to another:
 
 - **Planned → Pending**: you say so in Settings, when the site is ready to be used.
-- **Pending → Ready or Active**: a visit starts the site; if it also installs a camera, the site becomes active.
+- **Pending → Ready or Active**: a visit starts the site (*Location start*); if it also installs a camera, the site becomes active. It cannot be set to ready by hand: a site made ready by hand would be waited for in every revision before, as if it had always been there.
 - **Ready → Active**: a visit does an **Installation**, which puts a camera up. Only a visit makes a site active: it cannot be set by hand.
 - **Active → Ready**: a visit takes the camera away (**Desinstallation**) or finds it stolen (**Stolen**), and puts no other one up. A replacement — the camera is taken away and another put up — keeps it active.
 - **Ready or Pending → Planned**: in Settings, to take the site out of the app again.

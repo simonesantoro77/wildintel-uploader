@@ -1118,7 +1118,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.selectOptions(screen.getByLabelText('Photos on the card collected'), 'Fotos')
     await userEvent.click(screen.getByRole('button', { name: 'Read the visits' }))
 
-    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING, { close_revisions: true }))
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', expect.any(String), false, 'mapped', MAPPING, { close_revisions: true, close_after: { amount: 2, unit: 'months' } }))
   })
 
   it('shows the columns of the file with the ones that match already picked, and an example of each', async () => {
@@ -1214,11 +1214,12 @@ describe('VisitsPage from a CSV file', () => {
       create: { locations: true, cameras: true, sd_cards: false, trappers: false },
       defaults: { latitude: '40.1', longitude: '-3.2', timezone: 'UTC', daylight_saving: 'no' },
       close_revisions: true,   // starts on
+      close_after: { amount: 2, unit: 'months' },   // two months, at first
     }))
   })
 
   // in the WildINTEL CSV every option of what is created starts marked: the timezone of the new locations is UTC, and summer time does not apply
-  const EVERYTHING = { create: { locations: true, cameras: true, sd_cards: true, trappers: true }, defaults: { timezone: 'UTC', daylight_saving: 'no' }, close_revisions: true, photos_not_counted: true }
+  const EVERYTHING = { create: { locations: true, cameras: true, sd_cards: true, trappers: true }, defaults: { timezone: 'UTC', daylight_saving: 'no' }, close_revisions: true, close_after: { amount: 2, unit: 'months' }, photos_not_counted: true }
 
   it('reads the file downloaded from the new WildINTEL Epicollect project, as its own source', async () => {
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
@@ -1438,10 +1439,10 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(toggle)
     await continueFromTheFile()
 
-    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_revisions: undefined }))
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_revisions: undefined, close_after: undefined }))
   })
 
-  it('asks how long each revision that is closed lasted, and sends it with the closing — and nothing when it is left empty', async () => {
+  it('asks how long each revision that is closed lasted — two months at first, in days, weeks or months, or the day of its last visit — and tells the rule as it is', async () => {
     mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
     render(<VisitsPage onBack={vi.fn()} />)
     await chooseTheForm()
@@ -1449,14 +1450,34 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
-    await userEvent.type(screen.getByLabelText('How long each revision lasted'), '3x')            // only the digits are kept
-    await userEvent.selectOptions(screen.getByLabelText('Unit of how long each revision lasted'), 'months')
-    expect(screen.getByLabelText('How long each revision lasted')).toHaveValue('3')
+    const card = within(screen.getByRole('region', { name: 'How long each revision lasted' }))
+    expect(card.getByRole('radio', { name: /Fixed duration from 1st visit/ })).toBeChecked()
+    expect(card.getByRole('textbox', { name: 'How long each revision lasted' })).toHaveValue('2')
+    expect(card.getByRole('radio', { name: 'Months' })).toBeChecked()
+    expect(card.getByTestId('close-rule')).toHaveTextContent(/\+ 2 months → unvisited locations closed on/)
+
+    await userEvent.click(card.getByRole('radio', { name: 'Days' }))
+    await userEvent.click(card.getByRole('button', { name: '14d' }))
+    await userEvent.click(card.getByRole('button', { name: 'One more' }))
+    expect(card.getByRole('textbox', { name: 'How long each revision lasted' })).toHaveValue('15')
+    await continueFromTheFile()
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenLastCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_after: { amount: 15, unit: 'days' } }))
+  })
+
+  it('closes a revision on the day of its last visit when it is asked so', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await chooseTheForm()
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    await userEvent.click(screen.getByRole('radio', { name: /Last visit date/ }))
+    expect(screen.queryByRole('textbox', { name: 'How long each revision lasted' })).not.toBeInTheDocument()
     await continueFromTheFile()
 
-    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_after: { amount: 3, unit: 'months' } }))
-    await userEvent.click(screen.getByRole('switch', { name: 'Close the revision before when it has locations still planned' }))
-    expect(screen.queryByLabelText('How long each revision lasted')).not.toBeInTheDocument()   // only with the closing
+    const { close_after: _, ...withoutDuration } = EVERYTHING
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenLastCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, withoutDuration))
   })
 
   it('reads the visits with the columns as they are mapped, says what it found, and keeps them with the same mapping', async () => {

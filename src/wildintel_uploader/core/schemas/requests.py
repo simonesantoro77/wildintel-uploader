@@ -322,8 +322,9 @@ class LocationRecord(BaseModel):
     # The day it was put into production (YYYY-MM-DD).
     in_service: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     trapper_pk: Optional[int] = None
-    # Whether it is in use; an archived or a planned one is not offered for a visit. When it changed (YYYY-MM-DD) and why are free to leave out.
-    status: Literal["planned", "pending", "ready", "active", "archived"] = "ready"
+    # Whether it is in use; an archived or a planned one is not offered for a visit. When it changed (YYYY-MM-DD) and why are free to leave out. A new one is pending: its first
+    # visit starts it — it is not waited for in the revisions before.
+    status: Literal["planned", "pending", "ready", "active", "archived"] = "pending"
     status_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     status_note: Optional[str] = None
 
@@ -357,6 +358,8 @@ class DeleteLocationRequest(LocalLocationsRequest):
 
 class SaveLocationRequest(LocalLocationsRequest):
     location: LocationRecord
+    # A person making it in the settings: it can only start as pending, or planned — a visit makes it ready (Location start) or active (an Installation).
+    by_hand: bool = False
 
 
 class VisitRecord(BaseModel):

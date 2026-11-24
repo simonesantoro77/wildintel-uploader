@@ -1,6 +1,7 @@
 import { inTheApp } from '../researchProjects'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { Glyph } from '../components/ViewSwitch'
+import CloseDuration, { type CloseMode } from '../components/CloseDuration'
 import { DetectedFile, FILE_KINDS } from '../components/DetectedFile'
 import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
 import { useEffect, useRef, useState } from 'react'
@@ -628,8 +629,9 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // The revision before the ones of the file is closed when it has locations still planned: they are marked as not visited, as when a visit by hand asks for it.
   const [csvClose, setCsvClose] = useState(false)
   // how long each revision that is closed lasted, from its first visit: none closes it on the day of its last visit
-  const [csvCloseAmount, setCsvCloseAmount] = useState('')
-  const [csvCloseUnit, setCsvCloseUnit] = useState<CloseAfter['unit']>('weeks')
+  const [csvCloseMode, setCsvCloseMode] = useState<CloseMode>('fixed')
+  const [csvCloseAmount, setCsvCloseAmount] = useState(2)
+  const [csvCloseUnit, setCsvCloseUnit] = useState<CloseAfter['unit']>('months')
   // A row with no coordinates of the visit takes those of its location: on, unless it is turned off.
   const [csvLocationCoordinates, setCsvLocationCoordinates] = useState(true)
   // The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted as it is.
@@ -808,7 +810,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
   // (in the WildINTEL CSV the defaults are the timezone of the new locations: nothing is said of it when no location is created)
   const defaultsGiven = source === 'wildintel-new' && !csvCreate.locations ? {} : Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
-  const closeAfter: CloseAfter | null = /^\d+$/.test(csvCloseAmount.trim()) ? { amount: Number(csvCloseAmount.trim()), unit: csvCloseUnit } : null
+  const closeAfter: CloseAfter | null = csvCloseMode === 'fixed' ? { amount: csvCloseAmount, unit: csvCloseUnit } : null
   const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose || !csvLocationCoordinates || csvPhotosNotCounted)
     ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true, ...(closeAfter ? { close_after: closeAfter } : {}) } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }), ...(csvPhotosNotCounted ? { photos_not_counted: true } : {}) } : undefined
   // What follows the mapping in the call that reads the file: the options, when there are any (so none is sent when none is given)
@@ -934,7 +936,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   useEffect(() => {
     if (source !== 'wildintel-new' || !csvText || !csvResult) return
     if (readWith.current !== JSON.stringify(csvOptions ?? null)) void recheckCsv()
-  }, [csvCreate, csvDefaults, csvClose, csvCloseAmount, csvCloseUnit, csvLocationCoordinates, csvPhotosNotCounted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [csvCreate, csvDefaults, csvClose, csvCloseMode, csvCloseAmount, csvCloseUnit, csvLocationCoordinates, csvPhotosNotCounted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** From another CSV file: reads the visits with the columns as they are mapped. */
   async function readMapped() {
@@ -1017,19 +1019,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       <h6 className="pt-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Rows with something missing (3)</h6>
       <SwitchRow label="The images were not counted" hint="For old datasheets: a visit that collected a card but has no image count is accepted, and the count is left empty." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="A row with no coordinates takes those of its location. Off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
-      <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision can only be added when the one before it is complete. On, the locations with no visit in the revision before are marked as not visited." checked={csvClose} onChange={setCsvClose} />
-      {csvClose && (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-5 py-4">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">How long each revision lasted</p>
-          <p className={hintClass}>From its first visit. The locations it still has to visit are marked as not visited on that day. The same for every revision the file closes; empty, on the day of its last visit.</p>
-          <div className="mt-2 flex items-center gap-2">
-            <input aria-label="How long each revision lasted" inputMode="numeric" className={`${inputClass} w-24`} value={csvCloseAmount} placeholder="—" onChange={(e) => setCsvCloseAmount(e.target.value.replace(/[^\d]/g, ''))} />
-            <select aria-label="Unit of how long each revision lasted" className={`${inputClass} w-32`} value={csvCloseUnit} onChange={(e) => setCsvCloseUnit(e.target.value as CloseAfter['unit'])}>
-              <option value="days">days</option><option value="weeks">weeks</option><option value="months">months</option>
-            </select>
-          </div>
-        </div>
-      )}
+      <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40">
+        <div className="px-5"><SwitchRow plain label="Close the revision before when it has locations still planned" hint="A revision can only be added when the one before it is complete. On, the locations with no visit in the revision before are marked as not visited." checked={csvClose} onChange={setCsvClose} /></div>
+        {csvClose && <CloseDuration mode={csvCloseMode} amount={csvCloseAmount} unit={csvCloseUnit} onMode={setCsvCloseMode} onAmount={setCsvCloseAmount} onUnit={setCsvCloseUnit} />}
+      </div>
     </div>
   )
   const mappedEnough = given('location_id') && given('actions') && (given('when') || given('created_at') || (given('date') && given('time'))) && createdNeeds.every((f) => given(f.field))

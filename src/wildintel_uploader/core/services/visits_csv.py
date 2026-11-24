@@ -148,7 +148,6 @@ ERROR_LABELS: dict[str, str] = {
     "session_invalid": "Revision not valid",
     "revision_not_finished": "Revision started before the one before is finished",
     "revision_without_previous": "Revision before it has no visit",
-    "revision_close_day": "Day to close the revision before out of it",
     "revision_closed": "Revision closed",
     "revision_order": "Revision out of order",
     "visit_repeated": "Location visited twice in a revision",
@@ -653,6 +652,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     all_locations = [*locations, *new_locations.values()]
     floor = 1
     close_after = options.get("close_after") or None
+    close_notes: list[str] = []
     accepted, gate, closing = visit_rules.History(kept), {}, []
     unknown_kept_keys = {(str(u["location_id"]).lower(), str(u["session"]).upper()) for u in unknown_kept}
 
@@ -678,12 +678,17 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
                 # the day it is closed on: so long after its first visit, from its last visit to the first of the revision after it
                 first, last = min(str(v["date"]) for v in before), max(str(v["date"]) for v in before)
                 close_day = visit_rules.shifted(first, int(close_after["amount"]), str(close_after["unit"]))
-                if not last <= close_day <= day:
-                    gate[number] = visit_rules._reason("revision_close_day", f"R{number - 1:04d} would be closed on {close_day}, {close_after['amount']} {close_after['unit']} after its first visit: it has to be between its last visit ({last}) and the first visit of R{number:04d} ({day}).")
-                else:
-                    # on the day of the first visit after it, just before that visit
-                    earliest = min(str(v.get("time") or "00:00:00") for v in visits if visit_rules._session_number(v.get("session")) == number and str(v["date"]) == day) if close_day == day else None
-                    closes = (close_day, _minute_before(earliest) if earliest else "23:59:00")
+                lasted = f"{close_after['amount']} {close_after['unit']} after its first visit ({first})"
+                # it cannot end before its last visit, nor after the revision after it starts: the day is taken to the nearest one it can be
+                if close_day < last:
+                    close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, before its last visit: it is closed on {last}, the day of its last visit.")
+                    close_day = last
+                elif close_day > day:
+                    close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, after R{number:04d} starts: it is closed on {day}, just before the first visit of R{number:04d}.")
+                    close_day = day
+                # on the day of the first visit after it, just before that visit
+                earliest = min(str(v.get("time") or "00:00:00") for v in visits if visit_rules._session_number(v.get("session")) == number and str(v["date"]) == day) if close_day == day else None
+                closes = (close_day, _minute_before(earliest) if earliest else "23:59:00")
             if number not in gate and options.get("close_revisions"):
                 # the revision before is closed as the form does when asked: its locations still planned are marked as not visited
                 marks = visit_rules.not_visited_records(number - 1, [*accepted, *(v for v in visits if visit_rules.SITE_START in (v.get('actions') or []))], in_use, [*unknown_kept, *unknown], closes=closes)
@@ -739,6 +744,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         if location["location_id"].lower() in made_here:
             notes.append(f"The location {location['location_id']} is made because its visit says New site: its place is the one of the visit and its timezone is {location['timezone']} — "
                          f"change it in the settings if it is not that one.")
+    notes += close_notes
     closed = [m for m in closing if any(visit_rules._session_number(v.get("session")) == visit_rules._session_number(m["session"]) + 1 for v in visits)]
     for session in sorted({m["session"] for m in closed}):
         notes.append(f"{session} is closed to start the revision after it: {', '.join(m['location_id'] for m in closed if m['session'] == session)} still planned in it, marked as not visited.")
