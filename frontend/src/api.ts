@@ -192,6 +192,7 @@ export const api = {
     post<VisitsCsvResult>('/api/visits/import-csv', {
       research_project_id: researchProjectId, csv, save, format, mapping: mapping ?? null,
       ...(options?.create ? { create: options.create } : {}), ...(options?.defaults ? { defaults: options.defaults } : {}), ...(options?.close_revisions ? { close_revisions: true } : {}),
+      ...(options?.coordinates_from_location === false ? { coordinates_from_location: false } : {}), ...(options?.photos_not_counted ? { photos_not_counted: true } : {}),
     }),
 
   // The columns of a CSV file, a few of its rows, the fields of a visit it can give and the column that most likely gives each.
