@@ -479,6 +479,15 @@ def _header_key(header: str) -> tuple[str, str | None]:
     return re.sub(r"[\W_]+", "", header).lower(), part
 
 
+def is_form_csv(text: str) -> bool:
+    """Whether a CSV is the download of the WildINTEL form of Epicollect5: it has the columns of the form (the location, the status of the camera and created_at)."""
+    try:
+        visits_from_csv(text)
+    except EpicollectError:
+        return False
+    return True
+
+
 def visits_from_csv(text: str) -> str:
     """The CSV downloaded from the new Epicollect5 project (the form of the field flow), as the text of a CSV with a row per visit and the columns a visit has. Its
     columns are found by the label of their question, ignoring the number in front, the case and the marks — and a header cut at 20 characters, as Epicollect5 does, by the beginning of it.

@@ -56,8 +56,7 @@ const MAPPING_ICONS: Record<string, ReactNode> = {
 
 const SOURCE_OPTIONS: { value: VisitSource; icon: ReactNode; title: string; description: string }[] = [
   { value: 'manual', icon: <><path d="M18 11V6a2 2 0 0 0-4 0v4" /><path d="M14 10V4a2 2 0 0 0-4 0v6" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" /></>, title: 'By hand', description: 'Enter one visit at a time: the location, when, who went and what was done.' },
-  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'Custom CSV', description: 'Any other spreadsheet saved as CSV, with one row per visit. In the next step you say which column is which.' },
-  { value: 'wildintel-new', icon: <><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></>, title: 'WildINTEL Epicollect CSV', description: 'The file downloaded from the WildINTEL field form in Epicollect5. Nothing to set up: the columns of the form are recognised.' },
+  { value: 'csv', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></>, title: 'From a file', description: 'A CSV with one row per visit: the one downloaded from the WildINTEL field form in Epicollect5, or any other spreadsheet. The app detects which one it is.' },
 ]
 
 /** The icon of the SD card section, drawn as those of the sections of the details are. */
@@ -593,7 +592,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // And the cameras, to pick the one of the visit from.
   const [allCameras, setCameras] = useState<Camera[]>([])
   // Which sources of visits are used, as the settings say: one that is not, is not offered.
-  const [sourcesUsed, setSourcesUsed] = useState({ wildintelNew: true, epicollect: false })
+  const [sourcesUsed, setSourcesUsed] = useState({ epicollect: false })
   // Only those of the research project: each belongs to one.
   const ofProject = (rp: string | null) => !!project && (rp ?? '').toLowerCase() === project.acronym.toLowerCase()
   // ...and only those still in use: an archived one (lost, stolen, broken…) is not offered, unless the visit already has it.
@@ -637,7 +636,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
     if (csvCreate.locations) setCsvDefaults((d) => ({ timezone: 'UTC', daylight_saving: 'no', ...Object.fromEntries(Object.entries(d).filter(([, v]) => v !== '')) }))
   }, [csvCreate.locations]) // eslint-disable-line react-hooks/exhaustive-deps
   const csvFormat: VisitsCsvFormat = source === 'wildintel-new' ? 'epicollect-csv' : 'mapped'
-  const chosen = SOURCE_OPTIONS.find((o) => o.value === source)
+  const chosen = SOURCE_OPTIONS.find((o) => o.value === (source === 'wildintel-new' ? 'csv' : source))
+  const keepFile = useRef(false)   // the type of the file changes after it is read: the file stays
   // A camera put up while it is somewhere else, or a card left while it is in another camera, cannot be kept — said as soon as it is chosen.
   // The revision of the next visit to the location: the latest, when the location is still planned in it, and the one after it otherwise (see nextRevision).
   const nextOne = allVisits && visit.site.trim() ? nextRevision(allVisits, visit.site.trim()) : null
@@ -744,7 +744,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         setTrappers((settings.FIELDWORK?.trappers ?? []).filter((t) => !t.status || t.status === 'active'))
         setSdCards(settings.FIELDWORK?.sd_cards ?? [])
         setCameras(settings.FIELDWORK?.cameras ?? [])
-        setSourcesUsed({ wildintelNew: settings.EPICOLLECTCSV?.enabled ?? true, epicollect: settings.EPICOLLECT5?.enabled ?? false })
+        setSourcesUsed({ epicollect: settings.EPICOLLECT5?.enabled ?? false })
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -791,7 +791,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
   // Another way to read the visits starts again from the file.
   useEffect(() => {
-    forgetCsv(); setCsvName(null)
+    if (keepFile.current) keepFile.current = false
+    else { forgetCsv(); setCsvName(null) }
     setImportRulesOpen(false)
     // the options of what is created start all marked in the WildINTEL CSV, where the form says everything but the timezone; in a custom CSV creating asks for more columns, so they start off
     const on = source === 'wildintel-new'
@@ -837,14 +838,23 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       if (reading !== csvReading.current) return
       setCsvText(text)
       // the file of another CSV has its columns matched next; the others are checked when Continue is pressed
-      if (source === 'csv') {
-        const found = await api.visitsCsvColumns(text)
-        if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping) }
-      }
-      if (reading === csvReading.current) setFileReady(true)
+      const found = await api.visitsCsvColumns(text)
+      if (reading === csvReading.current) { applyDetected(found); setFileReady(true) }
     } catch (e) {
       if (reading === csvReading.current) { setCsvError(e instanceof Error ? e.message : 'Could not read the file.'); setChecking(false) }
     }
+  }
+
+  /** The file is read: its columns are kept and the type detected is the one to go on with, unless the user says the other. */
+  function applyDetected(found: VisitsCsvColumns) {
+    setCsvColumns(found); setCsvMapping(found.mapping)
+    chooseKind(found.kind === 'form' ? 'wildintel-new' : 'csv')
+  }
+
+  /** Goes on as the field form of Epicollect5 or as another CSV, with the file already read. */
+  function chooseKind(next: 'wildintel-new' | 'csv') {
+    if (next !== source) keepFile.current = true
+    setSource(next)
   }
 
   /** Checks the file chosen — what Continue of the step of the file does for the ones that have no columns to match. */
@@ -875,7 +885,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       if (reading !== csvReading.current) return
       setCsvText(csv)
       const found = await api.visitsCsvColumns(csv)
-      if (reading === csvReading.current) { setCsvColumns(found); setCsvMapping(found.mapping); setFileReady(true) }
+      if (reading === csvReading.current) { applyDetected(found); setFileReady(true) }
     } catch (e) {
       if (reading === csvReading.current) setCsvError(e instanceof Error ? e.message : 'Could not read Epicollect5.')
     } finally { setDownloading(false) }
@@ -1164,7 +1174,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         summary={chosen?.title}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {SOURCE_OPTIONS.filter((o) => (o.value === 'wildintel-new' ? sourcesUsed.wildintelNew : true)).map((o) => <TaskCard key={o.value} icon={o.icon} title={o.title} description={o.description} selected={source === o.value} onClick={() => setSource(o.value)} />)}
+          {SOURCE_OPTIONS.map((o) => <TaskCard key={o.value} icon={o.icon} title={o.title} description={o.description} selected={chosen?.value === o.value} onClick={() => setSource(o.value)} />)}
         </div>
       </WizardStep>
 
@@ -1662,11 +1672,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
 
           <WizardStep
             n={defaultProject ? 2 : 3} title={'Choose the spreadsheet file'} status={!project ? 'locked' : (csvResult || csvColumns || checking) && fileConfirmed ? 'done' : 'open'} sealed={csvSaved !== null} canEdit={csvSaved === null} onEdit={() => { forgetCsv(); setCsvName(null) }}
-            description={source === 'wildintel-new' ? 'The CSV downloaded from the WildINTEL form in Epicollect5. Its columns are recognised by themselves: there is nothing to match.'
-              : 'A CSV with one row per visit. In the next step you say which column is each field.'}
+            description="The CSV downloaded from the WildINTEL form in Epicollect5, or any other with one row per visit. The app detects which one it is."
             summary={csvName}
           >
-            {source === 'csv' && sourcesUsed.epicollect && (
+            {sourcesUsed.epicollect && (
               <div role="radiogroup" aria-label="Where the CSV is" className="flex gap-2 mb-4">
                 {([['file', 'A file on this computer'], ['epicollect', 'Epicollect5 project']] as const).map(([v, label]) => (
                   <button key={v} type="button" role="radio" aria-checked={csvOrigin === v} onClick={() => { setCsvOrigin(v); forgetCsv(); setCsvName(null) }}
@@ -1674,7 +1683,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 ))}
               </div>
             )}
-            {source === 'csv' && sourcesUsed.epicollect && csvOrigin === 'epicollect' ? (
+            {sourcesUsed.epicollect && csvOrigin === 'epicollect' ? (
               <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 space-y-3">
                 <h5 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Epicollect5 project</h5>
                 <div className="flex items-center gap-4 flex-wrap">
@@ -1687,11 +1696,9 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-6 py-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h5 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Spreadsheet file</h5>
-                {source === 'csv' && (
-                  <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} onClick={() => download('visits_template.csv', visitsTemplate)}>
-                    <Glyph className="h-4 w-4"><path d="M12 4v12M7 11l5 5 5-5M4 20h16" /></Glyph>Download a template
-                  </button>
-                )}
+                <button type="button" className={`${btnOutline} inline-flex items-center gap-2`} onClick={() => download('visits_template.csv', visitsTemplate)}>
+                  <Glyph className="h-4 w-4"><path d="M12 4v12M7 11l5 5 5-5M4 20h16" /></Glyph>Download a template
+                </button>
               </div>
               <label htmlFor="visits-csv" aria-label="Drop CSV file" onDragOver={(e) => { e.preventDefault(); setDraggingCsv(true) }}
                      onDragLeave={() => setDraggingCsv(false)}
@@ -1707,7 +1714,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                 <span className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 text-zinc-600 dark:text-zinc-300">
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
                 </span>
-                <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Drag &amp; drop your {source === 'wildintel-new' ? 'Epicollect ' : ''}.csv file here</span>
+                <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Drag &amp; drop your .csv file here</span>
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">or click to <span className="text-blue-600 dark:text-blue-400 underline">browse</span></span>
                 <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{csvName ?? 'No file chosen'}</span>
                 <input id="visits-csv" aria-label="CSV file" type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void readCsv(file) }} />
@@ -1715,7 +1722,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
               <p className={hintClass}>A visit the app already has (the same revision and location) is not loaded again, so the same file can be read more than once. A row with no revision gets the next one of its location.</p>
             </div>
             )}
-            {(source === 'csv' || source === 'wildintel-new') && (
+            {fileReady && (source === 'csv' || source === 'wildintel-new') && (
               <fieldset className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 mt-4">
                 <legend className="sr-only">Create what does not exist yet</legend>
                 <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
@@ -1746,6 +1753,16 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
               </fieldset>
             )}
             {csvError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{csvError}</p>}
+            {fileReady && csvColumns && (
+              <div data-testid="detected" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                <span>{source === 'wildintel-new'
+                  ? <>Detected: <strong>the download of the WildINTEL form (Epicollect5)</strong>. Its columns are recognised by themselves: there is nothing to match.</>
+                  : <>Detected: <strong>a custom CSV</strong>. In the next step you say which column is each field.</>}</span>
+                <button type="button" className={btnOutline} onClick={() => chooseKind(source === 'wildintel-new' ? 'csv' : 'wildintel-new')}>
+                  {source === 'wildintel-new' ? 'It is another CSV' : 'It is the download of the WildINTEL form'}
+                </button>
+              </div>
+            )}
             <div className="flex justify-between items-center mt-4">
               <button type="button" className={btnOutline} onClick={() => { forgetCsv(); setCsvName(null); if (defaultProject) setSource(null); else setProject(undefined) }}><span aria-hidden="true">← </span>Back</button>
               <button type="button" aria-label="Continue" className={btnPrimary} disabled={!fileReady || downloading || checking} onClick={() => { setFileConfirmed(true); if (source !== 'csv') void checkFile() }}>Continue<span aria-hidden="true"> →</span></button>

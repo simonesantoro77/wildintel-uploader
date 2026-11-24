@@ -403,10 +403,11 @@ def epicollect_download() -> dict:
 
 @router.post("/csv-columns")
 def csv_columns(req: VisitsCsvColumnsRequest) -> dict:
-    """The columns of a CSV file, a few of its rows, the fields of a visit it can give and the column that most likely gives each."""
+    """The columns of a CSV file, whether it is the download of the WildINTEL form ("form") or any other ("other"), a few of its rows, the fields of a visit it can give and the column that most likely gives each."""
     try:
         needed_by = {f: [e for e, spec in visits_csv.CREATABLE.items() if f in spec["required"]] for f, _, _ in visits_csv.FIELDS}
-        return {**visits_csv.suggest_mapping(req.csv), "fields": [
+        kind = "form" if epicollect_service.is_form_csv(req.csv) else "other"
+        return {**visits_csv.suggest_mapping(req.csv), "kind": kind, "fields": [
             {"field": f, "label": label, "required": required, "entity": visits_csv.ENTITY_ONLY.get(f), "required_with": needed_by[f]} for f, label, required in visits_csv.FIELDS]}
     except visits_csv.VisitsCsvError as exc:
         raise HTTPException(400, str(exc)) from exc
