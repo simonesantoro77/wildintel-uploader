@@ -2083,6 +2083,34 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getByRole('checkbox', { name: 'Add metadata' })).not.toBeChecked()
     })
 
+    it('shows the period as a timeline of the two visits and the collection with no path — before and after saving — and where the images come from', async () => {
+      mockedApi.consolidate.mockImplementation(async (_src, _dir, _dep, onEvent) => {
+        onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01`, processed: 12, skipped: 0 })
+      })
+      await goToPostvalidation()
+      await advanceToPreprocessing()
+      await runPreprocessingAndContinue()
+
+      const summary = await screen.findByRole('region', { name: 'What is going to be saved' })
+      const period = within(summary).getByRole('list', { name: 'Period of the deployment' })
+      const [put, collected] = within(period).getAllByRole('listitem')
+      expect(put).toHaveTextContent('SD card put in the camera')
+      expect(put).toHaveTextContent('Visit R0001 · Installation')
+      expect(collected).toHaveTextContent('SD card collected')
+      expect(collected).toHaveTextContent('Visit R0002 · Revision')
+      expect(summary).toHaveTextContent('CollectionR0001')
+      expect(summary).not.toHaveTextContent(COLLECTIONS_DIR)   // the path is not said: the buttons of the result open or copy it
+      expect(within(summary).queryByText('Taken at')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
+      expect(await screen.findByText(/Deployment saved to collection/)).toHaveTextContent('Deployment saved to collection R0001')
+      await userEvent.click(screen.getByRole('button', { name: 'What was saved' }))
+      const saved = screen.getByRole('region', { name: 'What was saved' })
+      expect(saved).toHaveTextContent('Obtained from the SD card A13 that was put in the camera in the field during the visit R0001 at DONA_01')
+      expect(saved).toHaveTextContent('collected from the field during the visit R0002 at DONA_01')
+      expect(saved).not.toHaveTextContent(COLLECTIONS_DIR)
+    })
+
     it('offers to open the created folder in the file explorer once imported', async () => {
       mockedApi.openFolder.mockResolvedValue({ opened: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       mockedApi.consolidate.mockImplementation(async (_src, _dir, _dep, onEvent) => {
