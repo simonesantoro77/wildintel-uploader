@@ -300,7 +300,7 @@ export default function UploadStatusPage({ onBack, onOpenSettings, settingsOpen,
               onOpen={onShowDeployment ? () => { setDeploymentPanel(null); onShowDeployment(deploymentPanel.deployment.deployment_id) } : undefined} />
           )}
           {sitePanel && (
-            <LocationDetails site={sitePanel.site} location={sitePanel.location} onClose={() => setSitePanel(null)}
+            <LocationDetails researchProject={project?.acronym} site={sitePanel.site} location={sitePanel.location} onClose={() => setSitePanel(null)}
               onOpenInSettings={onOpenSettings && project ? () => { setSitePanel(null); onOpenSettings('locations', project.acronym, sitePanel.site) } : undefined} />
           )}
           {visitPanel && (

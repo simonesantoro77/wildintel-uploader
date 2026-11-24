@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 PROJECT_FILE = "research_project.json"
 RECORD_FILES = {
     "locations": "locations.json", "visits": "visits.json", "unknown_visits": "unknown_visits.json", "planned_revisions": "planned_revisions.json",
-    "cameras": "cameras.json", "sd_cards": "sd_cards.json", "roles": "roles.json", "upload_failures": "upload_failures.json",
+    "cameras": "cameras.json", "sd_cards": "sd_cards.json", "roles": "roles.json", "upload_failures": "upload_failures.json", "status_history": "status_history.json",
 }
 GLOBAL_FILES = {"trappers": "trappers.json"}   # beside the folders of the research projects, in the collections folder itself
 assert set(RECORD_FILES) == set(RECORD_KINDS) and set(GLOBAL_FILES) == set(GLOBAL_KINDS)

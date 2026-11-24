@@ -3,7 +3,7 @@ import type {
   AppSettings, AppSettingsUpdate, ConfigInfo, UpdateCheck, PreviousDeployment, ClassificationProject, PreprocessingOptions, CollectionCheck, CollectionPath, LocalLocation, LocalResearchProject, StoredVisit, DeploymentCheck, DeploymentCheckResult, DeploymentFields,
   DeploymentSelection, ExistingDeployment, ImageCheck, ImportEvent, Location, LocalDeployment, ResearchProject,
   AccessCheck, CardCopyEvent, GuessedDetails, ScanResult, SessionSummary, StatisticsParams, SyncCollection, SyncEvent, TimestampLogResult, LogEntry, SessionScan, UploadCollection, UploadEvent, UploadMode, ValidationResult,
-  ClosedVisit, VisitCheckInfo, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, ImportCsvOptions, Report, ReportSummary, RepairCollection, RepairEvent, Timeline, TimeFixTarget, RepairState, RevisionCreated, StatisticsRow, EpicollectForm, FieldworkVisits, FieldLogsResult, FieldDeployment, BookVisit, BackupProjectInfo, BackupRead, BackupCreateRequest, BackupRestoreRequest, BackupEvent, RestoreEvent } from './types'
+  ClosedVisit, StatusChange, VisitCheckInfo, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, ImportCsvOptions, Report, ReportSummary, RepairCollection, RepairEvent, Timeline, TimeFixTarget, RepairState, RevisionCreated, StatisticsRow, EpicollectForm, FieldworkVisits, FieldLogsResult, FieldDeployment, BookVisit, BackupProjectInfo, BackupRead, BackupCreateRequest, BackupRestoreRequest, BackupEvent, RestoreEvent } from './types'
 
 /** A failed response's message — FastAPI's `detail` when there is one. */
 async function errorMessage(r: Response): Promise<string> {
@@ -197,6 +197,8 @@ export const api = {
 
   // The columns of a CSV file, a few of its rows, the fields of a visit it can give and the column that most likely gives each.
   epicollectVisitsDownload: () => post<{ csv: string; count: number }>('/api/visits/epicollect-download', {}),
+  statusHistory: (researchProjectId: string, kind: StatusChange['kind'], name: string) =>
+    post<{ results: StatusChange[] }>('/api/settings/status-history', { research_project_id: researchProjectId, kind, name }),
   visitsCsvColumns: (csv: string) => post<VisitsCsvColumns>('/api/visits/csv-columns', { csv }),
 
   // The revision a new deployment at this location is expected to have: one after the highest kept for it, or 1.

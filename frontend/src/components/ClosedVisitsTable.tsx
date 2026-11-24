@@ -89,7 +89,9 @@ function VisitLabel({ visit, picked, onPress }: { visit: ClosedVisit; picked: bo
 }
 
 /** The closed visits in the table of a dashboard, or as labels: pressing one picks its visit, and pressing it again lets it go. `visits` are those to show, newest first. */
-export default function ClosedVisitsTable({ visits, selectedKey = '', onSelect, many, locations, onOpenSite, sdCards, onOpenSdCard, filters, total }: {
+export default function ClosedVisitsTable({ visits, selectedKey = '', onSelect, many, locations, onOpenSite, sdCards, onOpenSdCard, filters, total, researchProject }: {
+  /** The research project of the visits: the location panel has its history when it is given. */
+  researchProject?: string | null
   visits: ClosedVisit[]; selectedKey?: string; onSelect?: (visit: ClosedVisit | undefined) => void
   /** Several can be picked, not one: each row has its box. */
   many?: PickMany<ClosedVisit>
@@ -117,7 +119,7 @@ export default function ClosedVisitsTable({ visits, selectedKey = '', onSelect, 
     {details && <VisitDetails closed={details} onClose={() => setDetails(null)} />}
     {card && <SdCardDetails label={card} card={sdCards?.find((c) => c.label === card)} onClose={() => setCard(null)}
       onOpenInSettings={onOpenSdCard ? () => { setCard(null); onOpenSdCard(card) } : undefined} />}
-    {site && <LocationDetails site={site} location={locations?.find((l) => l.location_id.toLowerCase() === site.toLowerCase())} onClose={() => setSite(null)}
+    {site && <LocationDetails researchProject={researchProject} site={site} location={locations?.find((l) => l.location_id.toLowerCase() === site.toLowerCase())} onClose={() => setSite(null)}
       onOpenInSettings={onOpenSite ? () => { setSite(null); onOpenSite(site) } : undefined} />}
     </>
   )

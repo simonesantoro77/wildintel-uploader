@@ -366,6 +366,10 @@
       'POST /api/upload/report': () => ({ report_id: '20261006-101500_upload_R0003' }),
       'GET /api/version': () => ({ current: '0.1.0' }),
       'GET /api/version/check': () => ({ current: '0.1.0', latest: '0.1.0', update_available: false, release_url: null, download_url: null, error: null }),
+      'POST /api/settings/status-history': (body) => ({ results: body.name?.toLowerCase() === 'dona_01' && body.kind === 'locations' ? [
+        { kind: 'locations', name: 'DONA_01', before: null, after: 'pending', at: '2024-08-20T09:00:00Z', day: '2024-08-20', reason: 'Created.' },
+        { kind: 'locations', name: 'DONA_01', before: 'pending', after: 'active', at: '2024-09-04T13:20:00Z', day: '2024-09-04', reason: 'The visit R0003 to DONA_01.' },
+      ] : [] }),
       'GET /api/settings': () => SETTINGS,
       'PUT /api/settings': () => SETTINGS,
       'GET /api/settings/configs': () => [

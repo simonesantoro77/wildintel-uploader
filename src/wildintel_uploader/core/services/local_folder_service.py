@@ -19,7 +19,7 @@ from pathlib import Path
 
 from wildintel_uploader.core import config, identity, storage
 from wildintel_uploader.core.config import migrate_gear
-from wildintel_uploader.core.services import audit, ids, visit_rules, visit_time
+from wildintel_uploader.core.services import audit, ids, status_history, visit_rules, visit_time
 
 logger = logging.getLogger(__name__)
 
@@ -316,6 +316,7 @@ def write_location(root: Path, research_project_id: str, location: dict) -> dict
     else:
         locations.append(kept)
     _store(root).write_records(research_project_id, "locations", locations)
+    status_history.record_changes(root, research_project_id, "locations", [], [kept], lambda l: str(l["location_id"]), lambda item, old: None)
     return kept
 
 
@@ -352,8 +353,10 @@ def update_location(root: Path, research_project_id: str, location_id: str, chan
                 raise LocalFolderError(f"The {label} of a location can't be changed once it is created: {location_id} is {now[key]}.")
             changes = {k: v for k, v in changes.items() if k != key}
     changes = {k: v for k, v in changes.items() if k not in audit.AUDIT_FIELDS}
+    before = locations[index]
     locations[index] = audit.stamped({**locations[index], **changes}, locations[index])
     _store(root).write_records(research_project_id, "locations", locations)
+    status_history.record_changes(root, research_project_id, "locations", [before], [locations[index]], lambda l: str(l["location_id"]), lambda item, old: old[0])
     return locations[index]
 
 
@@ -455,6 +458,8 @@ def _kept_list(root: Path, research_project_id: str, kind: str, items: list[dict
         out.append(audit.stamped({n: v for n, v in item.items() if n != "research_project"}, before, at))
     out += [audit.deleted(r, at) for r in kept if r["id"] not in listed]   # what is no longer listed is not forgotten
     store.write_records(research_project_id, kind, out)
+    if kind in status_history.KINDS:
+        status_history.record_changes(root, research_project_id, kind, kept, out, lambda r: str(r.get("label") or r.get("camera_id") or ""), lambda item, old: next((r for r in old if r.get("id") and r.get("id") == item.get("id")), None))
 
 
 def write_field_items(root: Path, research_project_id: str, kind: str, items: list[dict], by_hand: bool = False) -> None:
