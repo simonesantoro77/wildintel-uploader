@@ -460,6 +460,14 @@ export const api = {
       body: JSON.stringify({ acronym }),
     }),
 
+  /** Changes only the data folder (blank: the default one) — what the initial setup does. */
+  setDataDir: (dir: string) =>
+    req<{ dir: string }>('/api/settings/data-dir', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dir: dir.trim() || null }),
+    }),
+
   saveSettings: (settings: AppSettingsUpdate) =>
     req<AppSettings>('/api/settings', {
       method: 'PUT',

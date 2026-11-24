@@ -191,6 +191,22 @@ def set_show_welcome(req: ShowWelcomeRequest) -> dict:
     return {"show_welcome": req.show}
 
 
+class DataDirRequest(BaseModel):
+    dir: str | None = None
+
+
+@router.put("/data-dir")
+def set_data_dir(req: DataDirRequest) -> dict:
+    """Changes only the data folder — what the initial setup asks for. Blank is the default one. What is kept in the old one is not moved."""
+    settings = config.load_settings()
+    wanted = (req.dir or "").strip()
+    if wanted and not (Path(wanted).expanduser().is_absolute()):
+        raise HTTPException(422, "The data folder must be an absolute path (or one starting with ~).")
+    settings.DATA.dir = wanted or None
+    config.save_settings(settings)
+    return {"dir": str(config.data_dir(settings))}
+
+
 @router.get("/log")
 def download_log() -> FileResponse:
     """The current log file — to attach to a bug report."""

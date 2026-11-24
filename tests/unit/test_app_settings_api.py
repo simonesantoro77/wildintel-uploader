@@ -730,3 +730,25 @@ def test_the_welcome_page_is_shown_by_default_and_the_tick_turns_it_off_and_on_c
     assert saved.TRAPPER.base_url == "https://trapper.example"   # nothing else is touched
     assert _client().put("/api/settings/show-welcome", json={"show": True}).json() == {"show_welcome": True}
     assert config.load_settings().GENERAL.show_welcome is True
+
+
+def test_the_data_folder_is_changed_alone_and_blank_goes_back_to_the_default(tmp_path: Path):
+    _put(TRAPPER={"enabled": False, "base_url": "https://trapper.example", "user_name": "ana@example.org", "user_password": "", "max_zip_mb": 100})
+    wanted = str(tmp_path / "my-data")
+
+    response = _client().put("/api/settings/data-dir", json={"dir": wanted})
+
+    assert response.status_code == 200 and response.json() == {"dir": wanted}
+    saved = config.load_settings()
+    assert saved.DATA.dir == wanted
+    assert saved.TRAPPER.base_url == "https://trapper.example"   # nothing else is touched
+    back = _client().put("/api/settings/data-dir", json={"dir": "  "})
+    assert back.json() == {"dir": str(config.default_data_dir())}
+    assert config.load_settings().DATA.dir is None
+
+
+def test_the_data_folder_must_be_an_absolute_path():
+    response = _client().put("/api/settings/data-dir", json={"dir": "relative/folder"})
+
+    assert response.status_code == 422
+    assert config.load_settings().DATA.dir is None

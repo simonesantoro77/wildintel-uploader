@@ -95,6 +95,8 @@ def initial_setup(page: Page) -> None:
     expect(heading(page, "Initial setup")).to_be_visible()
     page.get_by_label("Acronym", exact=False).fill("WICP_02")
     page.get_by_label("Name", exact=False).fill("WICP_02 Doñana census")
+    button(page, "Continue", exact=False).click()
+    expect(page.get_by_label("Data folder", exact=True)).to_be_visible()
     save(page, "initial-setup")
 
 

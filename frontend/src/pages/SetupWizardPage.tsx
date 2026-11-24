@@ -10,6 +10,7 @@ import { isUtcZone } from '../deploymentValidation'
 import { validateResearchProject } from '../researchProjectValidation'
 import { btnOutline, btnPrimary, hintClass, inputClass, labelClass } from './ImportDeploymentPage'
 import { PAGE_CLASS } from '../components/PageBar'
+import { Glyph } from '../components/ViewSwitch'
 
 const ROLES: { value: TrapperRoleName; label: string }[] = [
   { value: 'principalInvestigator', label: 'Principal investigator' },
@@ -124,10 +125,12 @@ function AddList({ noun, fields, onAdd, added, onRemove, onContinue, continueLab
 }
 
 interface Outcome { added: string[]; skipped: string[]; problems: string[] }
-interface Result { project: Outcome; trappers: Outcome; roles: Outcome; sites: Outcome; cameras: Outcome; cards: Outcome; made: boolean }
+interface Result { project: Outcome; trappers: Outcome; roles: Outcome; sites: Outcome; cameras: Outcome; cards: Outcome; made: boolean; dataDir?: string }
 
 const CARD = 'rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/30 p-5'
 const HEAD = 'flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3 mb-4 text-sm font-bold uppercase tracking-wide text-zinc-800 dark:text-zinc-100'
+/** The book that heads the cards of what is going to be done and of what was done, as in the review of the visits. */
+const BOOK = <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
 const BIG = `${btnPrimary} inline-flex w-full items-center justify-center gap-2 !h-14 text-base`
 
 const none = (): Outcome => ({ added: [], skipped: [], problems: [] })
@@ -142,8 +145,13 @@ interface ItemIn { label: string; a: string; b: string }   // a camera: its seri
 /** The initial setup: a guide that asks, step by step, for the research project, its trappers and their roles, its sites, its cameras and its SD cards; then says what it is going to do, does it, and says what was done. */
 export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }: { onBack: () => void; onMainMenu?: () => void; onRegisterVisit?: () => void }) {
   const [step, setStep] = useState(1)
+  const [optional, setOptional] = useState(false)   // the optional steps (3–7) were gone through: the review goes back to the last of them, not to the data folder
   const [acronym, setAcronym] = useState('')
   const [name, setName] = useState('')
+  const [dataDir, setDataDir] = useState('')   // starts as the one the app has now
+  const [currentDir, setCurrentDir] = useState('')
+  const [browsing, setBrowsing] = useState(false)
+  const [projectCount, setProjectCount] = useState<number | null>(null)   // how many research projects there are: the data folder is asked for only with the first
   const [known, setKnown] = useState<string[]>([])   // the trappers that exist, to give roles to
   const [trappers, setTrappers] = useState<TrapperIn[]>([])
   const [roles, setRoles] = useState<RoleIn[]>([])
@@ -154,23 +162,40 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
   const [result, setResult] = useState<Result | null>(null)
 
   useEffect(() => {
-    api.getSettings().then((s) => setKnown((s.FIELDWORK?.trappers ?? []).map((t) => t.name))).catch(() => {})
+    api.listResearchProjects().then((r) => setProjectCount(r.results.length)).catch(() => setProjectCount(0))
+    api.getSettings().then((s) => { setKnown((s.FIELDWORK?.trappers ?? []).map((t) => t.name)); setCurrentDir(s.DATA?.dir ?? ''); setDataDir((d) => d || (s.DATA?.dir ?? '')) }).catch(() => {})
   }, [])
 
   const code = acronym.trim()
   const draft = { ...EMPTY_RESEARCH_PROJECT, name, acronym: code }
   const errors = validateResearchProject(draft)
   const projectOk = !errors.name && !errors.acronym
+  const folderStep = !(projectCount && projectCount > 0)   // the data folder is common to every research project: it is asked for with the first one, and not again
+  const num = (n: number) => (folderStep ? n : n - 1)   // the number a step shows
+  const range = `${num(3)}–${num(7)}`
+  const dataDirError = dataDir.trim() === '' ? 'The data folder is needed.' : !/^(\/|~|[A-Za-z]:[\\/]|\\\\)/.test(dataDir.trim()) ? 'An absolute path (or one starting with ~).' : null
+  const chosenDir = dataDir.trim()
+  const choices = (
+    <div className="flex flex-wrap gap-2">
+      <button type="button" className={btnOutline} disabled={dataDirError !== null} onClick={() => { setOptional(true); setStep(3) }}>Configure optional entities ({range})<span aria-hidden="true"> →</span></button>
+      <button type="button" className={btnPrimary} disabled={dataDirError !== null} onClick={() => { setOptional(false); setStep(8) }}>Finish setup &amp; skip optional steps<span aria-hidden="true"> →</span></button>
+    </div>
+  )
+  const optionalNote = <p className={hintClass}>Steps {range} are optional: the trappers, roles, locations, cameras and SD cards are created automatically when you load your first field file.</p>
   const people = [...new Set([...known, ...trappers.map((t) => t.name)])]
 
   const status = (n: number) => (n < step ? 'done' : n === step ? 'open' : 'locked') as 'done' | 'open' | 'locked'
   const summary = (list: string[], noun: string): ReactNode => (list.length === 0 ? 'Skipped: they can be added later in Settings › Entities, or created from the field files.' : `${list.length} ${list.length === 1 ? noun.slice(0, -1) : noun} entered: ${list.join(', ')}`)
   const next = () => setStep((s) => s + 1)
+  /** A step passed is opened again, to change what was entered, until the setup is made: the ones after it wait for it again, with what they had. */
+  const canEdit = step <= 8 && !applying
+  const edit = (n: number) => { if (n >= 3) setOptional(true); setStep(n) }
   const lower = (x: string) => x.trim().toLowerCase()
 
   /** What the review says is going to be done, line by line. */
   const plan: [string, ReactNode][] = [
     ['Research project', <><span className="font-mono">{code}</span> — {name.trim()}</>],
+    ['Data folder', <span className="font-mono">{chosenDir || '—'}</span>],
     ['Trappers', trappers.length ? trappers.map((t) => t.name).join(', ') : '—'],
     ['Roles', roles.length ? roles.map((r) => `${r.trapper} · ${roleName(r.role)}`).join(', ') : '—'],
     ['Sites', sites.length ? sites.map((x) => x.id).join(', ') : '—'],
@@ -182,13 +207,20 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
   async function apply() {
     setApplying(true)
     const r: Result = { project: none(), trappers: none(), roles: none(), sites: none(), cameras: none(), cards: none(), made: false }
+    if (dataDir.trim() && dataDir.trim() !== currentDir) {
+      try { await api.setDataDir(dataDir); r.dataDir = dataDir.trim() } catch (e) {
+        r.project.problems.push(message(e, 'The data folder could not be changed.'))
+        setResult(r); setStep(9); setApplying(false)
+        return   // the research project would be made in the wrong folder
+      }
+    }
     try {
       const { results } = await api.listResearchProjects()
       if (results.some((p) => lower(p.acronym) === lower(code))) r.project.skipped.push(code)
       else { await api.saveResearchProject({ ...draft, trapper_pk: null }); r.project.added.push(code) }
     } catch (e) {
       r.project.problems.push(message(e, 'The research project could not be kept.'))
-      setResult(r); setStep(8); setApplying(false)
+      setResult(r); setStep(9); setApplying(false)
       return   // nothing else can be kept without it
     }
     if (trappers.length) {
@@ -216,11 +248,12 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       } catch (e) { out.problems.push(message(e, `The ${kind === 'cameras' ? 'cameras' : 'SD cards'} could not be kept.`)) }
     }
     try { await api.setDefaultResearchProject(code); window.dispatchEvent(new Event(DEFAULT_PROJECT_CHANGED)); r.made = true } catch { /* the project is kept: it is chosen in the header */ }
-    setResult(r); setStep(8); setApplying(false)
+    setResult(r); setStep(9); setApplying(false)
   }
 
   const lines: [string, ReactNode][] = result ? [
     ['Research project', result.project.added.length ? `${code} created` : result.project.skipped.length ? `${code} was kept already — left as it is` : '—'],
+    ...(result.dataDir ? [['Data folder', result.dataDir] as [string, ReactNode]] : []),
     ['Trappers added', result.trappers.added.join(', ') || '—'],
     ...(result.trappers.skipped.length ? [['Trappers kept already — left as they are', result.trappers.skipped.join(', ')] as [string, ReactNode]] : []),
     ['Roles added', result.roles.added.join(', ') || '—'],
@@ -239,12 +272,12 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     <div className={PAGE_CLASS}>
       <datalist id="setup-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
       <PageHeader icon={UTIL_ICONS.setup} title="Initial setup" parent="Utilities" onParent={onBack}
-        description="Set up a research project, once. Only its name is needed now: the trappers, locations, cameras and SD cards can also be created later, from the field files." />
+        description="Set up a research project and say where the app keeps what it makes. The trappers, roles, locations, cameras and SD cards are optional: they can be created later, from the field files or in Settings." />
 
-      <WizardStep n={1} title="The research project" status={status(1)} canEdit={false} onEdit={() => {}}
+      <WizardStep n={1} title="The research project" required status={status(1)} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(1)}
                   summary={<><span className="font-mono">{code}</span> — {name.trim()}</>} description="A short acronym (it also names its folder, for example DONA_24) and its full name. Everything else can be filled in later in Settings › Entities.">
         {step === 1 && (
-          <form onSubmit={(e) => { e.preventDefault(); if (projectOk) next() }} className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="The research project">
+          <form onSubmit={(e) => { e.preventDefault(); if (projectOk && folderStep) next() }} className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="The research project">
             <div>
               <label className={labelClass} htmlFor="setup-acronym">Acronym *</label>
               <input id="setup-acronym" className={inputClass} value={acronym} onChange={(e) => setAcronym(e.target.value)} />
@@ -254,13 +287,43 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
               <label className={labelClass} htmlFor="setup-name">Name *</label>
               <input id="setup-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            <div className="sm:col-span-2"><button type="submit" className={btnPrimary} disabled={!projectOk}>Continue<span aria-hidden="true"> →</span></button></div>
+            {folderStep
+              ? <div className="sm:col-span-2"><button type="submit" className={btnPrimary} disabled={!projectOk || projectCount === null}>Continue<span aria-hidden="true"> →</span></button></div>
+              : <div className="space-y-3 sm:col-span-2">
+                  <p className={hintClass}>The data folder is <span className="font-mono">{currentDir}</span>, the same for every research project: it is changed in Settings › General.</p>
+                  <div className="flex justify-end">{projectOk ? choices : <button type="button" className={btnPrimary} disabled>Continue<span aria-hidden="true"> →</span></button>}</div>
+                  {optionalNote}
+                </div>}
           </form>
         )}
       </WizardStep>
 
-      <WizardStep n={2} title="The trappers" status={status(2)} canEdit={false} onEdit={() => {}} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The people who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
+      {folderStep && (
+      <WizardStep n={2} title="The data folder" required status={status(2)} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(2)}
+                  summary={<span className="font-mono">{chosenDir}</span>} description="Where the app keeps everything it makes: the collections, the reports and the packages. You can keep the one it has, or choose another, for example on another disk.">
         {step === 2 && (
+          <div className="space-y-3">
+            <label className={labelClass} htmlFor="setup-data-dir">Data folder</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input id="setup-data-dir" className={`${inputClass} font-mono !w-auto min-w-0 flex-1 basis-72`} value={dataDir} onChange={(e) => setDataDir(e.target.value)} />
+              <button type="button" className={btnOutline} aria-label="Browse for the data folder" disabled={browsing}
+                      onClick={async () => { setBrowsing(true); try { const { path } = await api.browseFolder('Select the data folder'); if (path) setDataDir(path) } catch { /* no native dialog: the path can be typed */ } finally { setBrowsing(false) } }}>{browsing ? 'Browsing…' : 'Choose folder…'}</button>
+              <button type="button" className={btnOutline} onClick={() => setDataDir(currentDir)} disabled={dataDir === currentDir}>Use the proposed one</button>
+            </div>
+            {dataDirError && dataDir !== '' && <p className="text-xs text-red-600 dark:text-red-400">{dataDirError}</p>}
+            <p className={hintClass}>The one the app proposes is already filled in: keep it, or choose another. What is already kept in another folder is not moved.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <button type="button" className={btnOutline} onClick={() => setStep(1)}><span aria-hidden="true">← </span>Back</button>
+              {choices}
+            </div>
+            {optionalNote}
+          </div>
+        )}
+      </WizardStep>
+      )}
+
+      <WizardStep n={num(3)} title="The trappers" optional="Optional · From visits CSV or Settings" status={status(3)} skipped={trappers.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(3)} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The people who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
+        {step === 3 && (
           <AddList noun="trapper" added={chips(trappers, (t) => t.name)} onRemove={(k) => setTrappers((l) => l.filter((t) => t.name !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how the app and TRAPPER know the person.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
             onAdd={(v) => {
@@ -270,8 +333,8 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={3} title="Their roles in the research project" status={status(3)} canEdit={false} onEdit={() => {}} summary={summary(roles.map((r) => `${r.trapper} · ${roleName(r.role)}`), 'roles')} description="Optional. What each person is in the research project (principal investigator, contact, rights holder…), as it will appear in the published data.">
-        {step === 3 && (people.length === 0
+      <WizardStep n={num(4)} title="Their roles in the research project" optional="Optional · In Settings" status={status(4)} skipped={roles.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(4)} summary={summary(roles.map((r) => `${r.trapper} · ${roleName(r.role)}`), 'roles')} description="Optional. What each person is in the research project (principal investigator, contact, rights holder…), as it will appear in the published data.">
+        {step === 4 && (people.length === 0
           ? <><p className="text-sm text-zinc-600 dark:text-zinc-300">There are no trappers to give a role to.</p><div className="mt-4"><button type="button" className={btnOutline} onClick={next}>Continue<span aria-hidden="true"> →</span></button></div></>
           : (
             <AddList noun="role" added={chips(roles, (r) => `${r.trapper} · ${roleName(r.role)}`)} onRemove={(k) => setRoles((l) => l.filter((r) => `${r.trapper} · ${roleName(r.role)}` !== k))} onContinue={next} onSkip={next}
@@ -283,8 +346,8 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
           ))}
       </WizardStep>
 
-      <WizardStep n={4} title="The locations" status={status(4)} canEdit={false} onEdit={() => {}} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files. If you add them here, write their ids exactly as the field files do (DONA_0012), or they will be taken as new ones.">
-        {step === 4 && (
+      <WizardStep n={num(5)} title="The locations" optional="Optional · From visits CSV or Settings" status={status(5)} skipped={sites.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(5)} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files. If you add them here, write their ids exactly as the field files do (DONA_0012), or they will be taken as new ones.">
+        {step === 5 && (
           <AddList noun="site" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'id', label: 'Location id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'On if the camera clocks are not changed in summer.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
             onAdd={(v) => {
@@ -296,8 +359,8 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={5} title="The cameras" status={status(5)} canEdit={false} onEdit={() => {}} summary={summary(cameras.map((c) => c.label), 'cameras')} description="Each camera by the name it has in the field, with its serial number and model if you know them. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do.">
-        {step === 5 && (
+      <WizardStep n={num(6)} title="The cameras" optional="Optional · From visits CSV or Settings" status={status(6)} skipped={cameras.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(6)} summary={summary(cameras.map((c) => c.label), 'cameras')} description="Each camera by the name it has in the field, with its serial number and model if you know them. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do.">
+        {step === 6 && (
           <AddList noun="camera" added={chips(cameras, (c) => c.label)} onRemove={(k) => setCameras((l) => l.filter((c) => c.label !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'label', label: 'Label', required: true }, { name: 'camera_id', label: 'Serial number' }, { name: 'camera_model', label: 'Model' }]}
             onAdd={(v) => {
@@ -307,8 +370,8 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={6} title="The SD cards" status={status(6)} canEdit={false} onEdit={() => {}} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by the name written on it (7, 7b, 10B). Brand and capacity are optional. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do: 7b and 7B are two cards.">
-        {step === 6 && (
+      <WizardStep n={num(7)} title="The SD cards" optional="Optional · From visits CSV or Settings" status={status(7)} skipped={cards.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(7)} summary={summary(cards.map((c) => c.label), 'SD cards')} description="Each card by the name written on it (7, 7b, 10B). Brand and capacity are optional. Skip this step to create them from the field files. If you add them here, write their names exactly as the field files do: 7b and 7B are two cards.">
+        {step === 7 && (
           <AddList noun="SD card" added={chips(cards, (c) => c.label)} onRemove={(k) => setCards((l) => l.filter((c) => c.label !== k))} onContinue={next} continueLabel="Review" onSkip={next}
             fields={[{ name: 'label', label: 'Label', required: true }, { name: 'brand', label: 'Brand' }, { name: 'capacity', label: 'Capacity', hint: 'For example 64 GB.' }]}
             onAdd={(v) => {
@@ -318,34 +381,49 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      {step >= 7 && (
-        <WizardStep n={7} title="Review" status={step === 7 ? 'open' : 'done'} canEdit={false} onEdit={() => {}} summary="What was going to be done was done." description="Check what is going to be created. Nothing is created until you confirm.">
-          {step === 7 && (
+      {step >= 8 && (
+        <WizardStep n={num(8)} title="Review" status={step === 8 ? 'open' : 'done'} canEdit={false} sealed onEdit={() => {}} summary="What was going to be done was done." description="Check what is going to be created. Nothing is created until you confirm.">
+          {step === 8 && (
             <div className="space-y-4">
               <section aria-label="What is going to be done" className={CARD}>
-                <h6 className={HEAD}>What is going to be done</h6>
+                <h6 className={HEAD}>{BOOK}What is going to be done</h6>
                 <table aria-label="Plan" className="w-full text-sm">
                   <tbody>
                     {plan.map(([label, value]) => (
                       <tr key={label} className="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0">
                         <th scope="row" className="py-2 pr-4 text-left font-medium text-zinc-500 dark:text-zinc-400">{label}</th>
-                        <td className="py-2 text-zinc-900 dark:text-zinc-100">{value}</td>
+                        <td className="py-2 font-mono text-zinc-900 dark:text-zinc-100">{value}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">What is kept already is left as it is. <span className="font-mono">{code}</span> becomes the default research project.</p>
               </section>
-              <div className="flex justify-end">
-                <button type="button" className={btnPrimary} disabled={applying} onClick={() => void apply()}>{applying ? 'Creating…' : 'Create it'}</button>
+              <div role="status" className="flex items-start gap-4 rounded-2xl border border-sky-300 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-950/30 px-6 py-5 text-sky-900 dark:text-sky-200">
+                <span className="mt-0.5 text-sky-500"><Glyph className="h-6 w-6"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></Glyph></span>
+                <div>
+                  <p className="text-lg font-semibold">Nothing is created until you confirm</p>
+                  <p className="text-base leading-relaxed">Do you want to create <strong>{code}</strong> in <span className="font-mono">{chosenDir}</span>?</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <button type="button" className={`${btnOutline} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={applying} onClick={() => setStep(optional ? 7 : folderStep ? 2 : 1)}>
+                  <Glyph className="h-5 w-5"><path d="M19 12H5M11 6l-6 6 6 6" /></Glyph>Back
+                </button>
+                <button type="button" className={`${btnPrimary} flex items-center gap-2 !h-14 !px-6 text-lg`} disabled={applying} aria-busy={applying} onClick={() => void apply()}>
+                  {applying
+                    ? <span aria-hidden="true" className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none" />
+                    : <Glyph className="h-5 w-5"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 3v5h7V3M7 21v-7h10v7" /></Glyph>}
+                  {applying ? 'Creating…' : 'Create it'}
+                </button>
               </div>
             </div>
           )}
         </WizardStep>
       )}
 
-      {step === 8 && result && (
-        <WizardStep n={8} title="Review and continue" status="open" canEdit={false} onEdit={() => {}} description="What was saved, and what to do next.">
+      {step === 9 && result && (
+        <WizardStep n={num(9)} title="Review and continue" status="open" canEdit={false} onEdit={() => {}} description="What was saved, and what to do next.">
           <div className="space-y-4">
             {result.project.problems.length === 0 ? (
               <div role="status" className="rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
@@ -360,7 +438,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
             )}
 
             <section aria-label="What was saved" className={CARD}>
-              <h6 className={HEAD}>What was saved</h6>
+              <h6 className={HEAD}>{BOOK}What was saved</h6>
               <table aria-label="Summary" className="w-full text-sm">
                 <tbody>
                   {lines.map(([label, value]) => (
@@ -390,7 +468,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
                 </div>
               </div>
             )}
-            {result.project.problems.length > 0 && <div><button type="button" className={btnOutline} onClick={() => { setResult(null); setStep(7) }}>Back to the review</button></div>}
+            {result.project.problems.length > 0 && <div><button type="button" className={btnOutline} onClick={() => { setResult(null); setStep(8) }}>Back to the review</button></div>}
           </div>
         </WizardStep>
       )}

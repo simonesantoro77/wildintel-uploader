@@ -43,23 +43,32 @@ On the first launch, there are no research projects yet. Press **Get started** t
 
 ### Initial setup
 
-The assistant asks for the basic data of the research project and, optionally, the people and equipment used in the field. For this example we will create `WICP_02`, a project with four sites.
+The assistant asks for the basic data of the research project and the folder where the app keeps what it makes and, optionally, the people and equipment used in the field. For this example we will create `WICP_02`, a project with four sites.
 
 1. **The research project** — enter its required **Acronym**, `WICP_02`, and **Name**, for example `WICP_02 Doñana census`. The acronym names its folder. Press **Continue**.
-2. **The trappers** — add the people who go to the field, for example `Pedro Pérez`. Each needs a unique **Username** and **Full name**; affiliation and email are optional.
-3. **Their roles in the research project** — assign roles to the trappers, such as principal investigator, contact or contributor.
-4. **The sites** — add each location with its **Site id**, latitude, longitude and **Timezone**, for example `WICP_02_001`, `37.0123`, `-6.4412` and the timezone used by its camera. UTC is the default; for a different timezone, say whether the cameras ignore summer time.
-5. **The cameras** — add each camera's **Label**, for example `CAM-001`; serial number and model are optional.
-6. **The SD cards** — add each card's **Label**, for example `1`; brand and capacity are optional.
-7. **Review** — check the summary and press **Create it**. The project and the other entries are saved at this point, and the app attempts to make the project the default. Check the result for any entries that could not be saved.
+2. **The data folder** — the folder where the app keeps the collections, the reports and the packages. The one the app proposes is already filled in: keep it, or press **Choose folder…** to pick another. The data folder is the same for every research project, so it is asked for only with the first one; when there are projects already, this step does not appear and the folder is changed in **Settings › General**.
 
-In steps 2–6 you can add entries one by one or use **Import from CSV** and **Download a template**. You can also skip them and add them later in **Settings › Entities**. Project details such as description, keywords and sampling design can be filled in there as well. See [Entities](#entities) and the examples in `examples/entities_example/wicp_02`.
+Then choose:
+
+- **Finish setup & skip optional steps** goes straight to the review. The trappers, locations, cameras and SD cards are created automatically when you load your first field file.
+- **Configure optional entities** goes through the optional steps, one by one. Each says that it is optional and where else it can be given.
+
+3. **The trappers** — add the people who go to the field, for example `Pedro Pérez`. Each needs a unique **Username** and **Full name**; affiliation and email are optional.
+4. **Their roles in the research project** — assign roles to the trappers, such as principal investigator, contact or contributor. Roles can also be given later in **Settings › Entities**.
+5. **The locations** — add each location with its **Location id**, latitude, longitude and **Timezone**, for example `WICP_02_001`, `37.0123`, `-6.4412` and the timezone used by its camera. UTC is the default; for a different timezone, say whether the cameras ignore summer time.
+6. **The cameras** — add each camera's **Label**, for example `CAM-001`; serial number and model are optional.
+7. **The SD cards** — add each card's **Label**, for example `1`; brand and capacity are optional.
+8. **Review** — check what is going to be done and press **Create it**; **Back** returns to the step before. The project and the other entries are saved at this point, and the app attempts to make the project the default. Check the result for any entries that could not be saved.
+
+Until you press **Create it**, any step already passed can be opened again with its pencil to change what you entered.
+
+In the optional steps you can add entries one by one or use **Import from CSV** and **Download a template**. You can also skip them and add them later in **Settings › Entities**. Project details such as description, keywords and sampling design can be filled in there as well. See [Entities](#entities) and the examples in `examples/entities_example/wicp_02`.
 
 New sites are **Pending**: their first visit starts them, and earlier revisions do not wait for them. The timezone is important for interpreting camera dates and cannot be changed after the site is created; see [Locations](user-manual.md#23-locations).
 
 After setup, choose **Register the first visit** or return to **Main menu**. To create another project later, use **Create a new research project** on the welcome screen or in the research project selector.
 
-![Initial setup: enter the research project's acronym and name](img/screenshots/initial-setup.png)
+![Initial setup: the research project, the data folder and the way to finish or to configure the optional entities](img/screenshots/initial-setup.png)
 
 ### Managing visits
 
