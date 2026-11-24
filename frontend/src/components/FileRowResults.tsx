@@ -51,7 +51,7 @@ const PER_PAGE = 10
 
 type SortKey = 'row' | 'site' | 'visit' | 'actions' | 'date' | 'status'
 const COLUMNS: { key: SortKey; label: string }[] = [
-  { key: 'row', label: 'Row' }, { key: 'visit', label: 'Visit' }, { key: 'site', label: 'Site ID' }, { key: 'actions', label: 'Actions' }, { key: 'date', label: 'When' }, { key: 'status', label: 'Status' },
+  { key: 'row', label: 'Row' }, { key: 'visit', label: 'Visit' }, { key: 'site', label: 'Location ID' }, { key: 'actions', label: 'Actions' }, { key: 'date', label: 'When' }, { key: 'status', label: 'Status' },
 ]
 
 type Filter = 'all' | 'ready' | 'skipped' | 'errors'
@@ -148,7 +148,7 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
       </MetricsSection>
 
       <TableCard label="Results of the file">
-        <TableToolbar searchLabel="Search the rows" placeholder="Search by row, site, visit, action…" text={query} onText={(t) => { setQuery(t); setOpened(null) }}
+        <TableToolbar searchLabel="Search the rows" placeholder="Search by row, location, visit, action…" text={query} onText={(t) => { setQuery(t); setOpened(null) }}
           choice={{ label: 'Group by', value: view, onChange: (v) => { setView(v as 'row' | 'error'); setOpened(null) }, options: [{ value: 'row', label: 'Row' }, { value: 'error', label: 'Error' }], all: null }}
           onReset={() => { setQuery(''); setFilter('all'); setRevision(''); setView('row'); setSort({ key: 'row', descending: false }); setOpened(null); setPicked(null) }} />
         <ActiveFilters
@@ -177,7 +177,7 @@ export default function FileRowResults({ rows: allRows, labels = {} }: {
                         <DetailsRow colSpan={3}>
                           <table className="w-full text-sm" aria-label={`Rows with ${kind}`}>
                             <thead className="text-xs text-zinc-500 dark:text-zinc-400">
-                              <tr>{['Row', 'Revision', 'Site', 'What went wrong'].map((h) => <th key={h} scope="col" className="px-3 py-2 text-left font-medium">{h}</th>)}</tr>
+                              <tr>{['Row', 'Revision', 'Location', 'What went wrong'].map((h) => <th key={h} scope="col" className="px-3 py-2 text-left font-medium">{h}</th>)}</tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                               {of.map((r) => (

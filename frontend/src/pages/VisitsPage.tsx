@@ -160,7 +160,7 @@ function AskTag({ ask }: { ask: Ask }) {
 
 /** What each action is, in a few words. */
 const ACTION_HINTS: Record<string, string> = {
-  SiteStart: 'The site begins here: the revisions before this one do not wait for a visit to it. A site starts once, with its first visit.',
+  SiteStart: 'The location begins here: the revisions before this one do not wait for a visit to it. A location starts once, with its first visit.',
   Installation: 'A camera is put up: nothing is collected, a card is left.',
   Revision: 'The card is collected and another is left; the camera stays.',
   Desinstallation: 'The camera is taken away, with its card.',
@@ -274,7 +274,7 @@ export function visitErrors(v: Visit, first = false): Partial<Record<ErrorKey, s
   if (!v.site.trim()) errors.site = 'Required.'
   if (isNotVisited(v.status)) { /* nothing was done at it: it has no action */ }
   else if (v.actions.length === 0) errors.actions = 'Choose at least one.'
-  else if (first && !isNotVisited(v.status) && !v.actions.every((a) => a === 'Installation' || a === 'SiteStart')) errors.actions = 'The first visit to a site can only be an Installation.'
+  else if (first && !isNotVisited(v.status) && !v.actions.every((a) => a === 'Installation' || a === 'SiteStart')) errors.actions = 'The first visit to a location can only be an Installation.'
   const asked = askedOf(v)
   if (asked.photos !== 'off') {
     if (!v.numPhotos.trim()) { if (asked.photos === 'required') errors.numPhotos = 'Required.' }
@@ -379,7 +379,7 @@ function SummaryTable({ lines, visits }: { lines: [string, ReactNode][]; visits:
           <table aria-label="Visits added" className="w-full text-sm">
             <thead>
               <tr className="text-left text-zinc-500 dark:text-zinc-400">
-                <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th><th className="pr-3 font-medium">Site</th><th className="font-medium">Actions</th>
+                <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th><th className="pr-3 font-medium">Location</th><th className="font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1005,7 +1005,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
         ['locations', 'Create the locations that do not exist', 'A location the file names that the research project does not have yet is added. From the WildINTEL form it takes the coordinates of its first visit; from a custom CSV it needs its coordinates and timezone.'],
         ['cameras', 'Create the cameras that do not exist', 'A camera the file names that the app does not have yet is added. From a custom CSV it needs its model.'],
         ['sd_cards', 'Create the SD cards that do not exist', 'A card the file names that the app does not have yet is added, with its name as written: 7b and 7B are two cards. From a custom CSV it needs its brand.'],
-        ['trappers', 'Create the trappers that do not exist', 'A person the file says went who is not a trapper yet is added: the username is made from the name (Ana Pérez becomes ana.perez). Complete them later in Settings › Trappers.'],
+        ['trappers', 'Create the trappers that do not exist', 'A name in the file that is not a trapper yet is added as one: the username is made from the name (Ana Pérez becomes ana.perez). Complete them later in Settings › Trappers.'],
       ] as const).map(([entity, label, hint]) => {
         const toSet = (on: boolean) => setCsvCreate((c) => ({ ...c, [entity]: on }))
         return <SwitchRow key={entity} label={label} hint={hint} checked={csvCreate[entity]} onChange={toSet} />
@@ -1020,7 +1020,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // What is still to be matched before the visits can be read: the site, the actions and when — a date and a time, or one column with both, or the time the entry was created.
   const inOneColumn = given('when') || given('created_at')
   const stillToMap = [
-    !given('location_id') && 'the site', !given('actions') && 'the actions',
+    !given('location_id') && 'the location', !given('actions') && 'the actions',
     ...(inOneColumn ? [] : !given('date') && !given('time') ? ['the date and the time (or one column with both)'] : [!given('date') && 'the date', !given('time') && 'the time']),
     ...createdNeeds.filter((f) => !given(f.field) && !['location_id', 'actions', 'date', 'time'].includes(f.field)).map((f) => f.label.replace(/ \(.*$/, '').toLowerCase()),
   ].filter(Boolean) as string[]
@@ -1429,7 +1429,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                     <input type="checkbox" className="mt-1" checked={siteStarts} onChange={(e) => setSiteStarts(e.target.checked)} />
                     <span>
                       <strong className="font-semibold">This is where {visit.site || 'the site'} starts</strong>
-                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">The site did not exist before this revision, so the revisions before it do not wait for a visit to it. Leave it off if the site was there before and its earlier visits are not here.</span>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">The location did not exist before this revision, so the revisions before it do not wait for a visit to it. Leave it off if the location was there before and its earlier visits are not here.</span>
                     </span>
                   </label>
                 )}
@@ -1616,7 +1616,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
                       <thead>
                         <tr className="text-left text-zinc-500 dark:text-zinc-400">
                           <th className="pr-3 py-1 font-medium">Revision</th><th className="pr-3 font-medium">When</th>
-                          <th className="pr-3 font-medium">Site</th><th className="pr-3 font-medium">Camera</th><th className="font-medium">Actions</th>
+                          <th className="pr-3 font-medium">Location</th><th className="pr-3 font-medium">Camera</th><th className="font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>

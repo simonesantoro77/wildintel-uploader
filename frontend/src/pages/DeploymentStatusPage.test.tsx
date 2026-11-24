@@ -312,7 +312,7 @@ describe('DeploymentStatusPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show the deployments on a map' }))
 
     const map = await screen.findByRole('group', { name: 'Deployments on a map' })
-    expect(await within(map).findByText('1 site on the map · 2 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has none, TATR_0003 is not a location here
+    expect(await within(map).findByText('1 location on the map · 2 with no coordinates, not drawn')).toBeInTheDocument()   // TATR_0002 has none, TATR_0003 is not a location here
     await userEvent.click(within(map).getByRole('button', { name: /^TATR_0001/ }))
     const card = await within(map).findByRole('region', { name: 'Details of TATR_0001' })
     expect(card).toHaveTextContent('R0004-TATR_0001')                                                    // the latest deployment of the site

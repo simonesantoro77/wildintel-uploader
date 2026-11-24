@@ -198,7 +198,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     ['Data folder', <span className="font-mono">{chosenDir || '—'}</span>],
     ['Trappers', trappers.length ? trappers.map((t) => t.name).join(', ') : '—'],
     ['Roles', roles.length ? roles.map((r) => `${r.trapper} · ${roleName(r.role)}`).join(', ') : '—'],
-    ['Sites', sites.length ? sites.map((x) => x.id).join(', ') : '—'],
+    ['Locations', sites.length ? sites.map((x) => x.id).join(', ') : '—'],
     ['Cameras', cameras.length ? cameras.map((c) => c.label).join(', ') : '—'],
     ['SD cards', cards.length ? cards.map((c) => c.label).join(', ') : '—'],
   ]
@@ -257,7 +257,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
     ['Trappers added', result.trappers.added.join(', ') || '—'],
     ...(result.trappers.skipped.length ? [['Trappers kept already — left as they are', result.trappers.skipped.join(', ')] as [string, ReactNode]] : []),
     ['Roles added', result.roles.added.join(', ') || '—'],
-    ['Sites added', result.sites.added.join(', ') || '—'],
+    ['Locations added', result.sites.added.join(', ') || '—'],
     ['Cameras added', result.cameras.added.join(', ') || '—'],
     ...(result.cameras.skipped.length ? [['Cameras kept already — left as they are', result.cameras.skipped.join(', ')] as [string, ReactNode]] : []),
     ['SD cards added', result.cards.added.join(', ') || '—'],
@@ -322,10 +322,10 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       </WizardStep>
       )}
 
-      <WizardStep n={num(3)} title="The trappers" optional="Optional · From visits CSV or Settings" status={status(3)} skipped={trappers.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(3)} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The people who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
+      <WizardStep n={num(3)} title="The trappers" optional="Optional · From visits CSV or Settings" status={status(3)} skipped={trappers.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(3)} summary={summary(trappers.map((t) => t.name), 'trappers')} description="The trappers who go to the field. Add them now, load them from a CSV, or skip this step: they are created from the field files when the visits are loaded. If you add them here, write their full names exactly as the field files do.">
         {step === 3 && (
           <AddList noun="trapper" added={chips(trappers, (t) => t.name)} onRemove={(k) => setTrappers((l) => l.filter((t) => t.name !== k))} onContinue={next} onSkip={next}
-            fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how the app and TRAPPER know the person.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
+            fields={[{ name: 'username', label: 'Username', required: true, hint: 'Short, with no spaces, for example ana.perez. It is how the app and TRAPPER know the trapper.' }, { name: 'name', label: 'Full name', required: true, hint: 'As it is written in the field form, for example Ana Pérez.' }, { name: 'affiliation', label: 'Affiliation' }, { name: 'email', label: 'Email' }]}
             onAdd={(v) => {
               if (trappers.some((t) => lower(t.username) === lower(v.username))) throw new Error(`There is a trapper with the username ${v.username.trim()} already.`)
               setTrappers((l) => [...l, { username: v.username.trim(), name: v.name.trim(), affiliation: v.affiliation.trim(), email: v.email.trim() }])
@@ -333,7 +333,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
         )}
       </WizardStep>
 
-      <WizardStep n={num(4)} title="Their roles in the research project" optional="Optional · In Settings" status={status(4)} skipped={roles.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(4)} summary={summary(roles.map((r) => `${r.trapper} · ${roleName(r.role)}`), 'roles')} description="Optional. What each person is in the research project (principal investigator, contact, rights holder…), as it will appear in the published data.">
+      <WizardStep n={num(4)} title="Their roles in the research project" optional="Optional · In Settings" status={status(4)} skipped={roles.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(4)} summary={summary(roles.map((r) => `${r.trapper} · ${roleName(r.role)}`), 'roles')} description="Optional. What each trapper is in the research project (principal investigator, contact, rights holder…), as it will appear in the published data.">
         {step === 4 && (people.length === 0
           ? <><p className="text-sm text-zinc-600 dark:text-zinc-300">There are no trappers to give a role to.</p><div className="mt-4"><button type="button" className={btnOutline} onClick={next}>Continue<span aria-hidden="true"> →</span></button></div></>
           : (
@@ -348,12 +348,12 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
 
       <WizardStep n={num(5)} title="The locations" optional="Optional · From visits CSV or Settings" status={status(5)} skipped={sites.length === 0} canEdit={canEdit} sealed={step === 9} onEdit={() => edit(5)} summary={summary(sites.map((x) => x.id), 'sites')} description="The places where the cameras are put up: an id, the coordinates and the timezone. Skip this step if they come from TRAPPER or from the field files. If you add them here, write their ids exactly as the field files do (DONA_0012), or they will be taken as new ones.">
         {step === 5 && (
-          <AddList noun="site" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
+          <AddList noun="location" added={chips(sites, (x) => x.id)} onRemove={(k) => setSites((l) => l.filter((x) => x.id !== k))} onContinue={next} onSkip={next}
             fields={[{ name: 'id', label: 'Location id', required: true }, { name: 'name', label: 'Name' }, { name: 'latitude', label: 'Latitude', required: true, type: 'number', hint: 'Decimal degrees, −90 to 90.' }, { name: 'longitude', label: 'Longitude', required: true, type: 'number', hint: 'Decimal degrees, −180 to 180.' }, { name: 'timezone', label: 'Timezone', type: 'zone', initial: 'UTC', required: true }, { name: 'ignore_dst', label: 'The cameras here ignore summer time', type: 'check', hint: 'On if the camera clocks are not changed in summer.', off: (v) => (isUtcZone(v.timezone) ? 'Summer time is not applied in UTC.' : null) }]}
             onAdd={(v) => {
               const latitude = Number(v.latitude), longitude = Number(v.longitude)
               if (!(latitude >= -90 && latitude <= 90) || !(longitude >= -180 && longitude <= 180)) throw new Error('The coordinates must lie within −90 to 90 and −180 to 180.')
-              if (sites.some((x) => lower(x.id) === lower(v.id))) throw new Error(`There is a site ${v.id.trim()} already.`)
+              if (sites.some((x) => lower(x.id) === lower(v.id))) throw new Error(`There is a location ${v.id.trim()} already.`)
               setSites((l) => [...l, { id: v.id.trim(), name: v.name.trim(), latitude, longitude, timezone: v.timezone.trim(), ignoreDst: v.ignore_dst === 'yes' && !isUtcZone(v.timezone) }])
             }} />
         )}

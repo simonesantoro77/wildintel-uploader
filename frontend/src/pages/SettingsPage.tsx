@@ -1080,7 +1080,7 @@ function ItemForm<T extends object>({ same, caseSensitive = false, noun, backLab
               <div className="flex flex-wrap gap-2" role="group" aria-label={f.label}>
                 {(f.options ?? []).map((o) => (
                   <button key={o.value} type="button" aria-pressed={picked === o.value} onClick={() => change(f, i)(o.value)}
-                          disabled={!!f.byAppOnly?.includes(o.value) && wasStatus !== o.value} title={f.byAppOnly?.includes(o.value) && wasStatus !== o.value ? 'Only a visit does this: an Installation makes a site active.' : undefined}
+                          disabled={!!f.byAppOnly?.includes(o.value) && wasStatus !== o.value} title={f.byAppOnly?.includes(o.value) && wasStatus !== o.value ? 'Only a visit does this: an Installation makes a location active.' : undefined}
                           className={`px-3 py-1.5 rounded-full text-sm border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${picked === o.value ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>{o.label}</button>
                 ))}
               </div>,
@@ -1814,7 +1814,7 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
   const inProject = (project: string) => owner === null || project.toLowerCase() === owner.toLowerCase()
   const TAB_INTRO: Record<EntityTab, string> = {
     projects: 'The research projects the field work belongs to. Each one keeps its own locations, cameras and SD cards.',
-    trappers: 'The people who go to the field — one can be in several research projects. When a visit is registered, they are the ones to pick as who went.',
+    trappers: 'The trappers who go to the field — one can be in several research projects. When a visit is registered, they are the ones to pick as who went.',
     roles: 'What each trapper is in a research project, with the roles of the contributors of Camtrap DP. They go into the metadata of the datasets.',
     locations: 'The places where cameras are set up. Each research project has its own locations, cameras and SD cards.',
     cameras: 'The camera traps. Each one is called by its label, so no two of a project have the same; its serial number is kept when it is known.',
@@ -1895,9 +1895,9 @@ function EntitiesSection({ trappers, roles, cameras, sdCards, onTrappers, onRole
           searchLabel="Search by username, name or affiliation"
           fields={[
             { key: 'username', label: 'Username', placeholder: 'e.g. ana.perez', hint: 'What the trapper is called in the app: required, with no spaces, and no two trappers have the same.', section: 'Who is it?', sectionIcon: <UsersIcon />,
-              sectionHint: 'The username tells one person from another; the full name is how a visit says who went to the field. Where they work and how to write to them are optional.',
+              sectionHint: 'The username tells one trapper from another; the full name is how a visit says who went to the field. Where they work and how to write to them are optional.',
               strict: true, validate: (v) => (/^\S+$/.test(v) ? null : 'Required, with no spaces.') },
-            { key: 'name', label: 'Full name', required: true, strict: true, placeholder: 'e.g. Ana Pérez', hint: 'The name of the person, as it should be on a visit.', validate: (v) => (v ? null : 'A full name is required.') },
+            { key: 'name', label: 'Full name', required: true, strict: true, placeholder: 'e.g. Ana Pérez', hint: 'The name of the trapper, as it should be on a visit.', validate: (v) => (v ? null : 'A full name is required.') },
             { key: 'affiliation', label: 'Affiliation', placeholder: 'e.g. University of Huelva', hint: 'Where the trapper works. Free text.' },
             { key: 'email', label: 'Email', placeholder: 'e.g. ana@example.org', hint: 'How to write to them. Optional.', validate: (v) => (v === '' || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? null : 'Not an email address.') },
             ...statusFields<Trapper>(['active', 'inactive', 'archived'], false, { active: 'Offered when a visit is registered.', inactive: 'Not offered when a visit is registered. It can be active again.', archived: 'Out of use for good: never offered again, and it never goes back. Past visits keep their name.' })]}

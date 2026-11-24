@@ -58,7 +58,7 @@ const control = 'flex h-8 w-8 items-center justify-center rounded border border-
  * coloured by what the legend says. The map is zoomed with the buttons at its corner and moved by dragging it; pointing at a point shows its details, and choosing it — pressing it, or Enter —
  * keeps it open. The card has the buttons of what can be done with the site. The map behind is switched off with its button — then the points are drawn on their own, which needs no connection and
  * asks nothing of a provider. Each point can be reached with the keyboard and says its state in its name. */
-export default function CoordinatesMap({ name, points, legend, missing = 0, noun = 'sites', markedKey = null }: {
+export default function CoordinatesMap({ name, points, legend, missing = 0, noun = 'locations', markedKey = null }: {
   name: string; points: MapPoint[]; legend: MapLegend[]; missing?: number; noun?: string
   /** The site that is marked in the table or the cards: it is the chosen point, with its card open. */
   markedKey?: string | null
@@ -265,7 +265,7 @@ export default function CoordinatesMap({ name, points, legend, missing = 0, noun
           <div className="absolute z-20 flex flex-col gap-1" style={{ left: `calc(${(VIEW.left / VIEW.width) * 100}% + 10px)`, top: `calc(${(VIEW.top / plot.viewHeight) * 100}% + 10px)` }} role="group" aria-label="Zoom">
             <button type="button" className={control} aria-label="Zoom in" title="Zoom in" disabled={!canZoomIn} onClick={() => zoomBy(1)}>+</button>
             <button type="button" className={control} aria-label="Zoom out" title="Zoom out" disabled={!canZoomOut} onClick={() => zoomBy(-1)}>−</button>
-            <button type="button" className={control} aria-label="Show all the sites" title="Show all the sites" disabled={camera.zoom === 0 && camera.center === null} onClick={() => setCamera({ zoom: 0, center: null })}>
+            <button type="button" className={control} aria-label="Show all the locations" title="Show all the sites" disabled={camera.zoom === 0 && camera.center === null} onClick={() => setCamera({ zoom: 0, center: null })}>
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
             </button>
           </div>

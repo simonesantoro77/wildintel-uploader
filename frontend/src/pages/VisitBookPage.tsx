@@ -532,7 +532,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
           )}
 
           <TableCard label="Visits table">
-          <TableToolbar searchLabel="Filter the visits" placeholder="Search by site, revision, camera, card, who, deployment…" text={filter} onText={(t) => { setFilter(t); setPage(1); setMarked(null) }}
+          <TableToolbar searchLabel="Filter the visits" placeholder="Search by location, revision, camera, card, who, deployment…" text={filter} onText={(t) => { setFilter(t); setPage(1); setMarked(null) }}
             choice={{ label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v as StatusFilter); setPage(1); setMarked(null) }, options: SQUARES.map((q) => ({ value: q.filter, label: q.label })) }}
             trailing={<ViewSwitch view={view} items="visits" views={['table', 'labels', 'map']} onChange={(v) => { setView(v); setPage(1) }} />}
             onReset={() => { setFilter(''); setStatusFilter(''); setRevision(''); setSort(null); setPage(1); setMarked(null) }} />
@@ -612,8 +612,8 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
               )}
               {view === 'map' && (
                 <>
-                  {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the sites are…</p>}
-                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="sites" markedKey={marked ? marked.split('|')[1]?.toLowerCase() ?? null : null} />
+                  {locations === null && shown.length > 0 && <p className="px-4 pt-4 text-sm text-zinc-500 dark:text-zinc-400">Reading where the locations are…</p>}
+                  <CoordinatesMap name="Visits on a map" points={mapSites.points} legend={mapSites.legend} missing={mapSites.missing} noun="locations" markedKey={marked ? marked.split('|')[1]?.toLowerCase() ?? null : null} />
                 </>
               )}
               {view === 'labels' && (
@@ -662,7 +662,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
           <HelpCard title="Overall progress" tone="text-blue-600 dark:text-blue-400" icon={HELP_ICONS.progress}><p>The share of the visits done, over the revision picked or over all of them, with the ones still pending.</p></HelpCard>
           <HelpCard title="Visit states" tone="text-emerald-600 dark:text-emerald-400" icon={HELP_ICONS.tags}>
             <dl className="space-y-2">
-              {[...SQUARES.map((q) => ({ key: q.filter, label: q.label, note: q.note, badge: q.badge })), { key: 'unknown', label: 'Unknown', note: 'Nothing is known of it: a revision before the first visit kept to a site', badge: PHASE_BADGE.unknown }].map((q) => (
+              {[...SQUARES.map((q) => ({ key: q.filter, label: q.label, note: q.note, badge: q.badge })), { key: 'unknown', label: 'Unknown', note: 'Nothing is known of it: a revision before the first visit kept to a location', badge: PHASE_BADGE.unknown }].map((q) => (
                 <div key={q.key} className="flex items-baseline gap-3">
                   <dt className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${q.badge}`}>{q.label}</dt>
                   <dd>{q.note}</dd>
@@ -671,7 +671,7 @@ export default function VisitBookPage({ onBack, onImportImages, onOpenSettings, 
             </dl>
           </HelpCard>
           <HelpCard title="Data states" tone="text-violet-600 dark:text-violet-400" icon={HELP_ICONS.images}><p><span className="font-medium text-zinc-700 dark:text-zinc-200">Images</span>: once the deployment of the visit is made its images are stored, whatever the state of the visit, and its tick opens the details of that deployment in the deployments dashboard. A visit whose camera was stolen is <em>Stolen</em>: there are no images, and nothing to create.</p></HelpCard>
-          <HelpCard title="Filters and search" tone="text-sky-600 dark:text-sky-400" icon={HELP_ICONS.filter}><p>Search by site, revision, camera or card, and filter by status; pick a revision above.</p></HelpCard>
+          <HelpCard title="Filters and search" tone="text-sky-600 dark:text-sky-400" icon={HELP_ICONS.filter}><p>Search by location, revision, camera or card, and filter by status; pick a revision above.</p></HelpCard>
         </HelpDrawer>
       )}
 

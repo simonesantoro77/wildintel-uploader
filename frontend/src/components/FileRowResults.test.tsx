@@ -145,7 +145,7 @@ describe('FileRowResults', () => {
     expect(order()).toEqual(['2', '3', '4', '5'])
     await userEvent.click(screen.getByRole('button', { name: 'Sort by Row' }))
     expect(order()).toEqual(['5', '4', '3', '2'])
-    await userEvent.click(screen.getByRole('button', { name: 'Sort by Site ID' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sort by Location ID' }))
     expect(order()).toEqual(['2', '3', '4', '5'])
     await userEvent.click(screen.getByRole('button', { name: 'Sort by When' }))
     expect(order()).toEqual(['3', '4', '5', '2'])   // the rows with no date first, then the oldest day

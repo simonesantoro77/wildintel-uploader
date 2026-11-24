@@ -219,7 +219,7 @@ export const DESCRIPTIONS = {
   longitude: 'Longitude of the deployment location in decimal degrees, using the WGS84 datum.',
   coordinateUncertainty: 'Horizontal distance from the given latitude and longitude describing the smallest circle containing the deployment location. Expressed in meters. Especially relevant when coordinates are rounded to protect sensitive species.',
   timezone: "IANA timezone the camera's clock was set to (e.g. Europe/Madrid). It gives both dates their timezone designator.",
-  setupBy: 'Name or identifier of the person or organization that deployed the camera.',
+  setupBy: 'Name or identifier of the trapper or organization that deployed the camera.',
   cameraID: 'The camera’s serial number.',
   cameraModel: 'Manufacturer and model, written as manufacturer-model.',
   cameraDelay: 'Predefined duration after detection when further activity is ignored.',

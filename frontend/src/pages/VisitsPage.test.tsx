@@ -1759,7 +1759,7 @@ describe('visitErrors', () => {
   })
 
   it('refuses any action but an Installation for the first visit to a site', () => {
-    expect(visitErrors(ok, true)).toEqual({ actions: 'The first visit to a site can only be an Installation.' })
+    expect(visitErrors(ok, true)).toEqual({ actions: 'The first visit to a location can only be an Installation.' })
     expect(visitErrors({ ...ok, actions: ['Installation', 'Revision'] }, true).actions).toBeDefined()
     expect(visitErrors({ ...ok, actions: ['Installation'], sd: 'A13' }, true)).toEqual({})
   })

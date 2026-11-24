@@ -947,11 +947,11 @@ describe('SettingsPage', () => {
     it('takes the title of the page and the text over the list away while a trapper is added or edited', async () => {
       await open([LUIS])
       expect(screen.getByRole('heading', { name: 'Entities' })).toBeInTheDocument()
-      expect(screen.getByText(/The people who go to the field/)).toBeInTheDocument()
+      expect(screen.getByText(/The trappers who go to the field/)).toBeInTheDocument()
 
       await userEvent.click(screen.getByRole('button', { name: 'Add trapper' }))
       expect(screen.queryByRole('heading', { name: 'Entities' })).not.toBeInTheDocument()
-      expect(screen.queryByText(/The people who go to the field/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/The trappers who go to the field/)).not.toBeInTheDocument()
 
       expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument() // the one of the settings waits until the form is closed
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))

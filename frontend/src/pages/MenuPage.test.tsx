@@ -35,7 +35,7 @@ describe('MenuPage', () => {
     expect(screen.queryByText('Typical workflow')).not.toBeInTheDocument()
     const cards = ['Register the visits', 'Import the images', 'Upload the images'].map((name) => screen.getByRole('button', { name: new RegExp(`^${name}`) }))
     expect(cards.map((c) => c.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['1', '2', '3'])
-    expect(screen.getByText(/Who went, when, to which site and what was done\./)).toBeInTheDocument()   // the visits are not said to be by hand or from a file
+    expect(screen.getByText(/Who went, when, to which location and what was done\./)).toBeInTheDocument()   // the visits are not said to be by hand or from a file
     expect(screen.queryByText(/by hand or from a file/i)).not.toBeInTheDocument()
   })
 
@@ -72,7 +72,7 @@ describe('MenuPage', () => {
     const panel = within(screen.getByRole('dialog', { name: 'Quick guide' }))
     expect(panel.getByText('End-to-end workflow')).toBeInTheDocument()
     expect(panel.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Create a research project', 'Register the visits', 'Import the images', 'Upload the images'])
-    expect(panel.getByText('Define trappers, sites, cameras and SD cards once, or switch anytime from the top bar.')).toBeInTheDocument()
+    expect(panel.getByText('Define trappers, locations, cameras and SD cards once, or switch anytime from the top bar.')).toBeInTheDocument()
     expect(panel.getByText('Send curated local deployments to your remote repository (e.g., TRAPPER).')).toBeInTheDocument()
     expect(panel.getByText('Dashboards')).toBeInTheDocument()
     expect(panel.getByText('Utils')).toBeInTheDocument()

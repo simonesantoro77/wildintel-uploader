@@ -43,7 +43,7 @@ On the first launch, there are no research projects yet. Press **Get started** t
 
 ### Initial setup
 
-The assistant asks for the basic data of the research project and the folder where the app keeps what it makes and, optionally, the people and equipment used in the field. For this example we will create `WICP_02`, a project with four sites.
+The assistant asks for the basic data of the research project and the folder where the app keeps what it makes and, optionally, the trappers and equipment used in the field. For this example we will create `WICP_02`, a project with four sites.
 
 1. **The research project** — enter its required **Acronym**, `WICP_02`, and **Name**, for example `WICP_02 Doñana census`. The acronym names its folder. Press **Continue**.
 2. **The data folder** — the folder where the app keeps the collections, the reports and the packages. The one the app proposes is already filled in: keep it, or press **Choose folder…** to pick another. The data folder is the same for every research project, so it is asked for only with the first one; when there are projects already, this step does not appear and the folder is changed in **Settings › General**.
@@ -53,7 +53,7 @@ Then choose:
 - **Finish setup & skip optional steps** goes straight to the review. The trappers, locations, cameras and SD cards are created automatically when you load your first field file.
 - **Configure optional entities** goes through the optional steps, one by one. Each says that it is optional and where else it can be given.
 
-3. **The trappers** — add the people who go to the field, for example `Pedro Pérez`. Each needs a unique **Username** and **Full name**; affiliation and email are optional.
+3. **The trappers** — add the trappers who go to the field, for example `Pedro Pérez`. Each needs a unique **Username** and **Full name**; affiliation and email are optional.
 4. **Their roles in the research project** — assign roles to the trappers, such as principal investigator, contact or contributor. Roles can also be given later in **Settings › Entities**.
 5. **The locations** — add each location with its **Location id**, latitude, longitude and **Timezone**, for example `WICP_02_001`, `37.0123`, `-6.4412` and the timezone used by its camera. UTC is the default; for a different timezone, say whether the cameras ignore summer time.
 6. **The cameras** — add each camera's **Label**, for example `CAM-001`; serial number and model are optional.
@@ -83,7 +83,7 @@ To register the visit to the first location, pick `WICP_02_001` in the form.
 
 ![Selecting the location of the visit](img/screenshots/quick-start-visit-location.png)
 
-In **Who**, select the people who went, for example `Pedro Pérez`. You can search for a trapper by name.
+In **Who**, select the trappers who went, for example `Pedro Pérez`. You can search for a trapper by name.
 
 ![Searching for a trapper in the visit form](img/screenshots/quick-start-visit-trapper.png)
 
@@ -347,7 +347,7 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 
 | Task | What it's for |
 |---|---|
-| 📋 **Register the visits** | Record the visits to the camera traps: who went, when, to which site and what was done — one by one, or from a file. |
+| 📋 **Register the visits** | Record the visits to the camera traps: who went, when, to which location and what was done — one by one, or from a file. |
 | 📷 **Import the images** | Import the images collected in a visit: pick the collected visits whose images you have and create their deployments — one, several at once, or one after another. |
 | ☁️ **Upload the images** | Upload deployments to platforms: send a deployment already kept locally to TRAPPER. |
 | 📊 **Dashboards and statistics** | A bar that opens, under it, the list with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on TRAPPER — and the **statistics**. |
@@ -388,7 +388,7 @@ The dashboard is of the **default research project**. Choose another project usi
 - **Export visits (CSV)** — downloads the visits kept as a CSV that [Register the visits › Custom CSV](#custom-csv) reads back as they are (it is there when the project has visits).
 - **Register the visits** — goes to [Register the visits](#5-register-the-visits) without going back to the menu.
 - **Select visits and create their deployments** — each row has a box (and one in the header selects the page). Once visits are ticked a bar appears over the table: *N selected*, **Select all N matching**, **Clear** and **Create deployments →**. The button is only active when the card of every visit ticked was **collected** (*Collected*), they have no deployment yet and they are of **one revision**; the bar says why when it is not. With one visit it goes to Import deployment; with several, to Import deployments, with those visits ticked.
-- **Create the next revision** — plans the next trip: the visit book gets the next revision (`R0003` after `R0002`) with a **planned visit to each location that can be visited** — the ones that are not archived and not only planned in the settings, that is, *ready* or *active* —, and opens on it. A revision is one visit to every location, so the one before has to be **finished** for visits to be made in the new one: if it is not, a message says which locations are still to be visited in it and that no visit can be made in the new revision until it is finished — make those visits, or press **Mark them as not visited** (it asks again before it does it: the visit book of that revision is then consolidated and cannot be modified). That message is not only for the moment the revision is created: **whenever the book has a planned revision with no visit and the revision before it is not finished, it is shown**, with its button, so the revision before can be finished from there. The next revision is not planned again until the one planned has its first visit — the button then says why, and the message about the revision before stays beside it. With no visits yet it plans the first, `R0001`.
+- **Create the next revision** — plans it: the visit book gets the next revision (`R0003` after `R0002`) with a **planned visit to each location that can be visited** — the ones that are not archived and not only planned in the settings, that is, *ready* or *active* —, and opens on it. A revision is one visit to every location, so the one before has to be **finished** for visits to be made in the new one: if it is not, a message says which locations are still to be visited in it and that no visit can be made in the new revision until it is finished — make those visits, or press **Mark them as not visited** (it asks again before it does it: the visit book of that revision is then consolidated and cannot be modified). That message is not only for the moment the revision is created: **whenever the book has a planned revision with no visit and the revision before it is not finished, it is shown**, with its button, so the revision before can be finished from there. The next revision is not planned again until the one planned has its first visit — the button then says why, and the message about the revision before stays beside it. With no visits yet it plans the first, `R0001`.
 - **Help & Legend** — opens a panel at the right with the legend: the *overall progress*, the *visit states*, the *data states* and the *filters and search*. It closes with its cross, with **Got it, close**, by pressing the background or with Escape.
 
 Under the head are three blocks, in this order:
@@ -428,7 +428,7 @@ the visits come in:
 
 *By hand* and *From a file* are always offered.
 
-Besides the visits and the rows with problems, reading a file says what is **worth knowing** without being wrong — the sites visited on the trip before and not on this one (their cameras are still out and
+Besides the visits and the rows with problems, reading a file says what is **worth knowing** without being wrong — the locations visited in the revision before and not on this one (their cameras are still out and
 their deployments stay open), visits where nothing was collected (*Not revised*), visits with no image count —, and warns of a **jump in the revision numbers** and of a row whose **session, site, camera and actions** are those of a
 visit already kept (it is that visit, left as it is). When the visits are kept, **a report** of the import is written beside them (`visits_import_<day>_<time>.txt`), and **Show the deployments** lists, by collection, the deployments the
 visits say: the closed ones and the ones whose camera is still out.
@@ -804,7 +804,7 @@ Press **📷 Import the images**. It works from the **visits** of the default re
 - **Several visits:** a card **How do you want to import them?** asks for **All at once** or **One after another**.
   - **One after another** (*Start with the first*) runs [Import deployment](#import-a-deployment) for each visit, the first, then the second…: *Deployment 3 of 38* is at the top, with **Skip this one** and **Stop here**, and when one is saved the button is **Next: R0001-DONA_0007 (4 of 38)** — **Finish** on the last. The folder of the images of the first is told to the next: *Beside the one before* proposes `<the folder above>/<the deployment>`.   Stopping leaves the visits that were not imported as they were: they are collected visits without a deployment, and they are offered again.
   - **All at once:** the folder is a **collection**: a folder with **one subfolder per visit**, as follows. A **collection** is a folder with **one subfolder per deployment** — the
-usual way a field trip's images come home. The revision, the checks and the preprocessing are the
+usual way the images of a revision come home. The revision, the checks and the preprocessing are the
 same for all; the location, dates and camera are asked for each deployment.
 
 The stages are those of [Import a deployment](#import-a-deployment), with the differences below.

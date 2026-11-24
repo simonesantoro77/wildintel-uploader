@@ -12,8 +12,8 @@ It runs on your own computer, with a guided interface in your browser — and a 
 quick jobs:
 
 - **Register the visits** — the visits to the camera traps (who went, when, to which site and what was done), by hand
-  or from a CSV file. A **revision** is one visit to every site of a research project, and each visit is checked
-  against the rules of a field trip: a revision does not start until the one before it is finished, a camera is
+  or from a CSV file. A **revision** is one visit to every location of a research project, and each visit is checked
+  against the rules of a revision: a revision does not start until the one before it is finished, a camera is
   not put up where it already is, a card is not left in two cameras… The deployments are worked out from the
   visits (one goes from the visit that left a camera to the one that collected its card), and the **visit
   dashboard** shows, revision by revision, what is planned and what is done.
