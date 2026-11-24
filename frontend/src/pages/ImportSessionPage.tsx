@@ -973,7 +973,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   return (
     <div className={PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.deployment} title={title}
-        description="Imports a folder of deployments — one subfolder each — into their revision. The revision, the checks and the preprocessing are the same for all of them; the location, the dates and the camera are asked for each."
+        description="Imports a folder of images — one subfolder each — into their collection. The images are validated and processed before they are stored."
         parent="Menu" onParent={onBack} />
 
       {/* Step indicator */}
@@ -1002,12 +1002,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
         <div>
           <StepHeading>Origin</StepHeading>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-            {fixedProject ? 'Pick the revision and the visits whose images you have.' : 'Say which research project the revision belongs to.'} Next you pick the folder with the deployments.
+            {fixedProject ? 'First pick the visits in which you put your SD cards in the cameras; then the folder with their images.' : 'First say which research project it is and pick the visits in which you put your SD cards in the cameras; then the folder with their images.'}
           </p>
           <div className="border-t border-zinc-200 dark:border-zinc-700" />
-          <WizardStep n={1} title={fixedProject ? 'Which visits are they of?' : 'Which research project?'} status="open" canEdit={false} onEdit={() => {}}
+          <WizardStep n={1} title={fixedProject ? 'When did you put the SD cards in the cameras?' : 'Which research project?'} status="open" canEdit={false} onEdit={() => {}}
                       description={fixedProject
-                        ? <>The revision of <span className="font-mono font-semibold">{defaultProject?.acronym ?? defaultAcronym}</span>, and the visits of it whose images you have.</>
+                        ? <>The <span className="font-mono font-semibold">{defaultProject?.acronym ?? defaultAcronym}</span> revision and the visits during which you put the SD cards that contain the images.</>
                         : 'The research project is the same for all of them. Research projects are kept in the collections folder.'}>
             {!fixedProject && <ResearchProjectPicker value={projectId} onSelect={(picked) => { setProject(picked); setDrafts({}) }} />}
             {originError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{originError}</p>}
@@ -1033,12 +1033,12 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
               const target = session ?? (shown[0] ? revisionOfVisit(shown[0]) : null)
               return (
                 <>
-                <FormCard title="Revision" description="A revision is one visit to every location. Pick the one these images are of: only its collected visits without a deployment are offered next.">
+                <FormCard title="Revisions" description="Pick one to see only its visits, or all of them.">
                   <RevisionSquares all={{ label: 'All revisions', note: plural(closedVisits.length, 'visit to import', 'visits to import') }} value={session ? String(session) : ''}
                     revisions={revisions.map((r) => ({ id: String(r), label: `R${String(r).padStart(4, '0')}`, note: plural(closedVisits.filter((c) => revisionOfVisit(c) === r).length, 'visit to import', 'visits to import') }))}
                     onPick={(id) => pickRevision(id ? Number(id) : null)} />
                 </FormCard>
-                <FormCard title="Visits" description={`The visits to ${projectId} that left a camera and whose card has been collected, with no deployment yet. Tick the ones the images are of — all of one revision. Each folder will be one of them: it says where and when it was taken.`}>
+                <FormCard title="Visits" description={`Tick the visits in which you put your SD cards, all of one revision. Each image folder will be one of them: it says where and when it was taken.`}>
                   <ClosedVisitsTable
                     visits={shown}
                     many={{
@@ -1056,7 +1056,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
                   <FormCard title="How do you want to import them?" description="All at once takes a folder with a subfolder of images for each. One after another asks for each deployment in turn, the first, then the second…">
                     <div role="radiogroup" aria-label="How to import them" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {([['all', 'All at once', 'One folder with a subfolder for each visit: the checks, the details and the preparation are done for all of them together.'],
-                         ['one', 'One after another', 'Each deployment goes through the whole flow before the next one: its folder, its checks, its details and its saving.']] as const).map(([value, label, hint]) => (
+                         ['one', 'One after another', 'Each visit goes through the whole flow before the next one: its image folder, its checks, its details and its saving.']] as const).map(([value, label, hint]) => (
                         <label key={value} className={`block cursor-pointer rounded-xl border px-4 py-3 ${how === value ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-zinc-200 dark:border-zinc-700'}`}>
                           <span className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100"><input type="radio" name="how-to-import" checked={how === value} onChange={() => setHow(value)} />{label}</span>
                           <span className="mt-1 block text-sm text-zinc-600 dark:text-zinc-300">{hint}</span>
@@ -1781,7 +1781,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
 
             <StepHeading>Prepare and save</StepHeading>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection. Nothing is uploaded to TRAPPER yet.
+              Choose what is done to the images of every deployment, see how it went, and save the revision in your local collection.
             </p>
             <div className="border-t border-zinc-200 dark:border-zinc-700" />
 

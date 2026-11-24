@@ -796,7 +796,7 @@ describe('an import session of visits', () => {
     render(<ImportSessionPage {...pageProps} title="Import deployments" onSingleVisit={onSingleVisit} />)
 
     // the research project is the default one: it is not asked, nor said — the step asks for the revision and the visits
-    expect(await screen.findByText('Which visits are they of?')).toBeInTheDocument()
+    expect(await screen.findByText('When did you put the SD cards in the cameras?')).toBeInTheDocument()
     expect(screen.queryByText('Which research project?')).not.toBeInTheDocument()
     expect(screen.queryByText(/The import is of the default research project/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Research project')).not.toBeInTheDocument()

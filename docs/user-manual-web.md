@@ -348,7 +348,7 @@ Once it is configured, the menu is where you choose what you want to do. The thr
 | Task | What it's for |
 |---|---|
 | 📋 **Register the visits** | Record the visits to the camera traps: who went, when, to which location and what was done — one by one, or from a file. |
-| 📷 **Import the images** | Import the images collected in a visit: pick the collected visits whose images you have and create their deployments — one, several at once, or one after another. |
+| 📷 **Import the images** | Import the images collected in a visit: pick the visits in which you put the SD cards with your images and create their deployments — one, several at once, or one after another. |
 | ☁️ **Upload the images** | Upload deployments to platforms: send a deployment already kept locally to TRAPPER. |
 | 📊 **Dashboards and statistics** | A bar that opens, under it, the list with the **visit dashboard**, the **deployments dashboard**, the **uploads dashboard** — each revision with how many of its deployments are on TRAPPER — and the **statistics**. |
 | 🧰 **Utils** | *Check and fix dates and times* compares the dates of a folder's images with the period of the visit, when the camera clock went wrong, and shifts or removes the ones that cannot be trusted (every fix is written down). Maintenance of the local collections: *Sync local collections* brings the collections folder up to date with what TRAPPER already has, and *Repair local deployments* checks which deployments are still valid and writes the metadata files of the others again from their folders. |
@@ -798,7 +798,7 @@ whoever edits the files on purpose could seal them again.
 
 ## 7. Import deployments
 
-Press **📷 Import the images**. It works from the **visits** of the default research project: choose a **revision** — a square for each one (*All revisions*, *R0003*…) with how many collected visits without a deployment it has — and the **visits** whose images you have. **The latest revision is picked, with all its visits ticked**; picking another ticks its visits, and you take off the ones you do not have. The visits are in the same **table as the dashboards**, filtered by *Collected*, with a box in each row. With **no visit whose card was collected** it says so and offers **Register the visits**: a deployment is always of a visit.
+Press **📷 Import the images**. It works from the **visits** of the default research project: choose the **revision in which you put the SD cards with your images** — a square for each one (*All revisions*, *R0003*…) with how many visits whose card was collected, without a deployment, it has — and the **visits** in which you put them. **The latest revision is picked, with all its visits ticked**; picking another ticks its visits, and you take off the ones you do not have. The visits are in the same **table as the dashboards**, filtered by *Collected*, with a box in each row. With **no visit whose card was collected** it says so and offers **Register the visits**: a deployment is always of a visit.
 
 - **One visit:** it works as [Import deployment](#import-a-deployment): the folder is the deployment's, with its images in it (no subfolders), and it is linked to the one visit. Only its SD card is asked beside it.
 - **Several visits:** a card **How do you want to import them?** asks for **All at once** or **One after another**.

@@ -366,7 +366,7 @@ def step_import(page: Page) -> None:
     expect(button(page, "Continue to save")).to_be_visible()
     button(page, "Continue to save").click()
     button(page, "Save to my collection").click()
-    expect(page.get_by_text("Deployment saved", exact=True)).to_be_visible()
+    expect(page.get_by_text(re.compile(r"^Deployment saved to collection"))).to_be_visible()
     save(page, "step-import")
 
 

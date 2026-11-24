@@ -1988,10 +1988,10 @@ describe('ImportDeploymentPage', () => {
     it('says where the deployment is saved once the preparing is gone over, not before', async () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
-      expect(screen.queryByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: /What (is going to be saved|was saved)/ })).not.toBeInTheDocument()
 
       await runPreprocessingAndContinue()
-      expect((await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`))[0]).toBeInTheDocument()
+      expect(await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })).toBeInTheDocument()
     })
 
     it('says how the dates are read: in the deployment\'s timezone, ignoring summer time, converted to UTC', async () => {
@@ -2083,6 +2083,34 @@ describe('ImportDeploymentPage', () => {
       expect(screen.getByRole('checkbox', { name: 'Add metadata' })).not.toBeChecked()
     })
 
+    it('shows the period as a timeline of the two visits and the collection with no path — before and after saving — and where the images come from', async () => {
+      mockedApi.consolidate.mockImplementation(async (_src, _dir, _dep, onEvent) => {
+        onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01`, processed: 12, skipped: 0 })
+      })
+      await goToPostvalidation()
+      await advanceToPreprocessing()
+      await runPreprocessingAndContinue()
+
+      const summary = await screen.findByRole('region', { name: 'What is going to be saved' })
+      const period = within(summary).getByRole('list', { name: 'Period of the deployment' })
+      const [put, collected] = within(period).getAllByRole('listitem')
+      expect(put).toHaveTextContent('SD card put in the camera')
+      expect(put).toHaveTextContent('Visit R0001 · Installation')
+      expect(collected).toHaveTextContent('SD card collected')
+      expect(collected).toHaveTextContent('Visit R0002 · Revision')
+      expect(summary).toHaveTextContent('CollectionR0001')
+      expect(summary).not.toHaveTextContent(COLLECTIONS_DIR)   // the path is not said: the buttons of the result open or copy it
+      expect(within(summary).queryByText('Taken at')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
+      expect(await screen.findByText(/Deployment saved to collection/)).toHaveTextContent('Deployment saved to collection R0001')
+      await userEvent.click(screen.getByRole('button', { name: 'What was saved' }))
+      const saved = screen.getByRole('region', { name: 'What was saved' })
+      expect(saved).toHaveTextContent('Obtained from the SD card A13 that was put in the camera in the field during the visit R0001 at DONA_01')
+      expect(saved).toHaveTextContent('collected from the field during the visit R0002 at DONA_01')
+      expect(saved).not.toHaveTextContent(COLLECTIONS_DIR)
+    })
+
     it('offers to open the created folder in the file explorer once imported', async () => {
       mockedApi.openFolder.mockResolvedValue({ opened: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       mockedApi.consolidate.mockImplementation(async (_src, _dir, _dep, onEvent) => {
@@ -2091,7 +2119,7 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       expect(screen.queryByRole('button', { name: 'Open folder' })).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
@@ -2111,7 +2139,7 @@ describe('ImportDeploymentPage', () => {
       await goToPostvalidation()
       await advanceToPreprocessing()
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       expect(screen.queryByRole('button', { name: 'Upload to TRAPPER' })).not.toBeInTheDocument() // not before it is imported
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
@@ -2144,7 +2172,7 @@ describe('ImportDeploymentPage', () => {
       await waitFor(() => expect(screen.getByText('1600 px')).toBeInTheDocument())
       await userEvent.click(screen.getByRole('checkbox', { name: 'Resize the images' })) // not this time
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2185,7 +2213,7 @@ describe('ImportDeploymentPage', () => {
       expect(metadata).not.toBeChecked()
 
       await runPreprocessingAndContinue()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
       await screen.findByText(/Deployment saved/)
       expect(mockedApi.preprocess.mock.calls[0][4]).toEqual(expect.objectContaining({ rename: true, resize: true, metadata: false }))
@@ -2278,7 +2306,7 @@ describe('ImportDeploymentPage', () => {
       await walkToImportStep()
 
       expect(mockedApi.collectionPath).toHaveBeenCalledWith('DONA', 'R0001-DONA_01')
-      expect((await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`))[0]).toBeInTheDocument()
+      expect(await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })).toBeInTheDocument()
     })
 
     it('imports into a collection that does not exist yet, naming it after the deployment\'s prefix, and shows its progress', async () => {
@@ -2287,7 +2315,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
 
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
@@ -2314,7 +2342,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2326,7 +2354,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2353,7 +2381,7 @@ describe('ImportDeploymentPage', () => {
         await userEvent.type(screen.getByLabelText('Tags'), 'forest{Enter}')
     await userEvent.type(screen.getByLabelText('Tags'), 'north{Enter}')
       })
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       await screen.findByText(/Deployment saved/)
@@ -2380,7 +2408,7 @@ describe('ImportDeploymentPage', () => {
     it('shows the error when the import fails', async () => {
       mockedApi.consolidate.mockRejectedValue(new Error('No space left on device'))
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
 
       expect(await screen.findByText('No space left on device')).toBeInTheDocument()
@@ -2396,7 +2424,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
       await screen.findByText(/Deployment saved/)
 
@@ -2416,7 +2444,7 @@ describe('ImportDeploymentPage', () => {
         onEvent({ type: 'done', dest_dir: `${COLLECTIONS_DIR}/R0001-DONA_01` })
       })
       await walkToImportStep()
-      await screen.findAllByText(`${COLLECTIONS_DIR}/R0001-DONA_01`)
+      await screen.findByRole('region', { name: /What (is going to be saved|was saved)/ })
       await userEvent.click(screen.getByRole('button', { name: 'Save to my collection' }))
       await screen.findByText(/Deployment saved/)
 
