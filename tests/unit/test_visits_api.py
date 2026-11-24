@@ -235,12 +235,13 @@ def test_what_a_visit_has_of_a_deployment_is_read_too(tmp_path: Path):
     text = (
         "location_id,session,date,time,actions,trappers,status,card_batteries_ok,num_photos,sd,date_time_ok,camera_id,comments,longitude,latitude,"
         "camera_model,camera_interval,camera_height,camera_tilt,camera_heading,detection_distance,timestamp_issues,bait_use,feature_type,habitat,deployment_groups,tags\n"
-        "DONA_01,13,2026-10-02,08:14,Revision,Ana,OK,SinPilas,1620,A13,Yes,P800,pilas cambiadas,-6.4,37.1,"
+        "DONA_01,1,2026-09-01,08:00,Installation,Ana,OK,,,A12,Yes,P800,,-6.4,37.1,,,,,,,,,,,,\n"   # R0001, so that R0002 has the revision before it
+        "DONA_01,2,2026-10-02,08:14,Revision,Ana,OK,SinPilas,1620,A13,Yes,P800,pilas cambiadas,-6.4,37.1,"
         "Reconyx-PC800,120,1.2,-90,45,9.5,no,yes,trailHiking,forest,north,forest edge|oak\n"
     )
-    visit = _import(tmp_path, text).json()["visits"][0]
+    visit = _import(tmp_path, text, given_up="2000-01-01").json()["visits"][1]
 
-    assert (visit["session"], visit["actions"], visit["battery_status"], visit["num_photos"], visit["date_time_ok"], visit["comments"]) == ("R0013", ["Revision"], "NoBatteries", 1620, "Yes", "pilas cambiadas")
+    assert (visit["session"], visit["actions"], visit["battery_status"], visit["num_photos"], visit["date_time_ok"], visit["comments"]) == ("R0002", ["Revision"], "NoBatteries", 1620, "Yes", "pilas cambiadas")
     assert (visit["longitude"], visit["latitude"]) == (-6.4, 37.1)
     assert (visit["camera_model"], visit["camera_interval"], visit["camera_height"], visit["camera_tilt"], visit["camera_heading"], visit["detection_distance"]) == ("Reconyx-PC800", 120, 1.2, -90, 45, 9.5)
     assert (visit["timestamp_issues"], visit["bait_use"], visit["feature_type"], visit["habitat"], visit["deployment_groups"], visit["tags"]) == (False, True, "trailHiking", "forest", "north", ["forest edge", "oak"])
@@ -254,8 +255,8 @@ def test_the_dates_may_be_written_day_first(tmp_path: Path):
 
 EPICOLLECT = (
     "ec5_uuid,created_at,1_Responsable,2_Collection,3_Date,4_Location,5_Camera,6_Action,7_Status_of_the_came,8_Card_Batteries,9_Number_of_pictures,10_SD,11_Date_and_hour,12_Observation,lat_13_Coordenates,long_13_Coordenates,14_Hour\n"
-    "a1,2026-09-04T10:16:31.000Z,Ana,13,04/09/2026,DONA_01,5,Revision,OK,OK,1620,A13,Yes,all well,37.2,-6.5,12:16\n"
-    "a2,2026-09-04T11:00:00.000Z,Ana,13,04/09/2026,DONA_02,7,Installation,,,,B2,Yes,,,,\n"
+    "a1,2026-09-04T10:16:31.000Z,Ana,1,04/09/2026,DONA_01,5,Installation,OK,OK,,A13,Yes,all well,37.2,-6.5,12:16\n"
+    "a2,2026-09-04T11:00:00.000Z,Ana,1,04/09/2026,DONA_02,7,Installation,,,,B2,Yes,,,,\n"
 )
 
 
@@ -604,13 +605,13 @@ def test_the_folder_of_a_collection_and_its_logs_are_made_when_a_visit_closes_a_
 
 
 def test_the_visits_of_a_csv_make_the_folders_and_the_logs_of_their_collections_when_they_are_kept(tmp_path: Path):
-    text = "location_id,date,time,actions,session,num_photos,sd,camera_id\nDONA_01,2024-09-04,09:00,Installation,R0003,,A13,P800\nDONA_01,2024-10-12,09:00,Revision,R0004,241,B2,P800\n"
+    text = "location_id,date,time,actions,session,num_photos,sd,camera_id\nDONA_01,2024-09-04,09:00,Installation,R0001,,A13,P800\nDONA_01,2024-10-12,09:00,Revision,R0002,241,B2,P800\n"
     shown = _import(tmp_path, text, given_up="2000-01-01")
-    assert not (tmp_path / "DONA" / "R0003").exists()                               # only reading: nothing is made
+    assert not (tmp_path / "DONA" / "R0001").exists()                               # only reading: nothing is made
     kept = _import(tmp_path, text, save=True, given_up="2000-01-01").json()
 
-    assert kept["saved"] == 2 and [c["collection"] for c in kept["field_logs"]["collections"]] == ["R0003", "R0004"]
-    assert (tmp_path / "DONA" / "R0003" / "R0003_FileTimestampLog.csv").is_file() and (tmp_path / "DONA" / "R0004" / "R0004_FieldworkLog.csv").is_file()
+    assert kept["saved"] == 2 and [c["collection"] for c in kept["field_logs"]["collections"]] == ["R0001", "R0002"]
+    assert (tmp_path / "DONA" / "R0001" / "R0001_FileTimestampLog.csv").is_file() and (tmp_path / "DONA" / "R0002" / "R0002_FieldworkLog.csv").is_file()
     assert shown.status_code == 200
 
 
@@ -638,7 +639,7 @@ EPI_HEADER = "created_at,1_Responsable,2_Collection,3_Date,4_Location,5_Camera,6
 
 
 def test_the_time_of_a_visit_is_when_its_entry_was_created_or_the_date_and_the_hour_typed(tmp_path: Path):
-    text = EPI_HEADER + "2024-09-04T11:10:00.000Z,Ana,R0003,2024-09-04,DONA_01,P800,Installation,,A13,12:30\n"
+    text = EPI_HEADER + "2024-09-04T11:10:00.000Z,Ana,R0001,2024-09-04,DONA_01,P800,Installation,,A13,12:30\n"
 
     created = _parse(text)["visits"][0]
     typed = _parse(text, options={"time_source": "hour"})["visits"][0]
@@ -647,15 +648,15 @@ def test_the_time_of_a_visit_is_when_its_entry_was_created_or_the_date_and_the_h
     assert (typed["date"], typed["time"], typed["when"]) == ("2024-09-04", "12:30:00", "2024-09-04T12:30:00Z")   # the hour typed in the form
 
 
-def test_the_session_numbers_that_jump_are_warned_of_and_the_sites_not_visited_are_told_as_notes():
+def test_a_revision_that_jumps_over_one_is_not_imported_and_the_sites_not_visited_are_told_as_notes():
     kept = [{"location_id": "DONA_01", "session": "R0003", "when": "2024-09-04T09:00:00Z", "date": "2024-09-04", "time": "09:00:00", "actions": ["Installation"], "camera_id": "P800", "sd": "A13"},
             {"location_id": "DONA_02", "session": "R0003", "when": "2024-09-04T10:00:00Z", "date": "2024-09-04", "time": "10:00:00", "actions": ["Installation"], "camera_id": "P900", "sd": "B2"}]
     sites = ("DONA_01", "DONA_02")
     text = (EPI_HEADER + "2024-11-05T09:00:00.000Z,Ana,R0005,2024-11-05,DONA_01,P800,Revision,50,C7,09:00\n"
-            "2024-11-05T10:00:00.000Z,Ana,R0005,2024-11-05,DONA_02,P900,Revision,50,D8,10:00\n")   # R0004 is unknown for both: R0005 can start
+            "2024-11-05T10:00:00.000Z,Ana,R0005,2024-11-05,DONA_02,P900,Revision,50,D8,10:00\n")   # R0004 has no visit: R0005 cannot start
     result = _parse(text, kept=kept, sites=sites)
 
-    assert "Revision numbers jump from R0003 to R0005." in result["warnings"]
+    assert result["visits"] == [] and all("R0005 cannot start: R0004 has no visit" in p["message"] for p in result["problems"])
     text = EPI_HEADER + "2024-10-12T09:00:00.000Z,Ana,R0004,2024-10-12,DONA_01,P800,Revision,50,C7,09:00\n"
     assert any(n.startswith("The revision R0004 has no visit to DONA_02, which was visited in R0003: the camera stays out in the field") for n in _parse(text, kept=kept, sites=sites)["notes"])
 
@@ -673,21 +674,21 @@ def test_the_seconds_are_cut_from_the_logs_unless_they_are_kept_and_an_import_le
     from unittest.mock import patch
 
     from wildintel_uploader.core import config
-    text = ("location_id,date,time,actions,session,num_photos,sd,camera_id\nDONA_01,2024-09-04,09:00:41,Installation,R0003,,A13,P800\n"
-            "DONA_01,2024-10-12,09:05:17,Revision,R0004,241,B2,P800\n")
+    text = ("location_id,date,time,actions,session,num_photos,sd,camera_id\nDONA_01,2024-09-04,09:00:41,Installation,R0001,,A13,P800\n"
+            "DONA_01,2024-10-12,09:05:17,Revision,R0002,241,B2,P800\n")
     for keep, expected in ((False, "09:00:00,2024:10:12,09:05:00"), (True, "09:00:41,2024:10:12,09:05:17")):
         root = tmp_path / str(keep)
         root.mkdir()
         settings = config.Settings.model_validate({"FIELDLOG": {"keep_seconds": keep}})
         with patch("wildintel_uploader.web.api.routers.visits.config.load_settings", return_value=settings):
             body = _import(root, text, save=True, given_up="2000-01-01").json()
-        stamp = (root / "DONA" / "R0003" / "R0003_FileTimestampLog.csv").read_text(encoding="utf-8-sig").splitlines()[1]
+        stamp = (root / "DONA" / "R0001" / "R0001_FileTimestampLog.csv").read_text(encoding="utf-8-sig").splitlines()[1]
         assert stamp.endswith(expected), (keep, stamp)
     # the report is kept with the other reports, with an entry for each row of the file
     from wildintel_uploader.core.services import report_service
     report = report_service.read(body["report"], reports)
     assert report["kind"] == "visits" and report["title"] == "Visits imported to DONA" and report["checked"] == 2 and report["parameters"]["saved"] == 2
-    assert [e["identifier"] for e in report["entries"]][:2] == ["Row 2 · DONA_01 · R0003 · 2024-09-04 09:00", "Row 3 · DONA_01 · R0004 · 2024-10-12 09:05"]
+    assert [e["identifier"] for e in report["entries"]][:2] == ["Row 2 · DONA_01 · R0001 · 2024-09-04 09:00", "Row 3 · DONA_01 · R0002 · 2024-10-12 09:05"]
     assert not list(root.glob("DONA/visits_import_*"))                                          # nothing is left beside the visits
 
 
@@ -1113,7 +1114,7 @@ def test_a_revision_starts_after_the_last_visit_of_the_one_before(tmp_path: Path
     assert in_time.status_code == 200
 
 
-def test_a_file_that_starts_after_the_first_revision_leaves_the_ones_before_unknown_and_a_known_visit_takes_the_place(tmp_path: Path):
+def test_a_file_that_starts_after_the_first_revision_is_not_imported_when_the_revision_before_it_has_no_visit(tmp_path: Path):
     from wildintel_uploader.core.services import local_folder_service
     with _in(tmp_path):
         _project(archived=(3,))
@@ -1121,20 +1122,12 @@ def test_a_file_that_starts_after_the_first_revision_leaves_the_ones_before_unkn
                 "DONA_01,Installation,2026-10-19,11:40:00,R0003,C1,S1\n"
                 "DONA_02,Installation,2026-10-19,12:40:00,R0003,C2,S2\n")
         mapping = {"location_id": "location_id", "actions": "actions", "date": "date", "time": "time", "session": "session", "camera_id": "camera_id", "sd": "sd"}
-        body = {"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}
-        shown = _client().post("/api/visits/import-csv", json=body).json()
-        assert [(u["location_id"], u["session"]) for u in shown["unknown"]] == [("DONA_01", "R0001"), ("DONA_02", "R0001"), ("DONA_01", "R0002"), ("DONA_02", "R0002")]
-        assert local_folder_service.list_unknown(tmp_path, "DONA") == []   # reading keeps nothing
-        kept = _client().post("/api/visits/import-csv", json={**body, "save": True}).json()
-        assert kept["saved"] == 2 and not kept["problems"]
-        assert len(local_folder_service.list_unknown(tmp_path, "DONA")) == 4
-        # a visit that is known takes the place of the unknown one of its site in its revision
-        local_folder_service.write_visits(tmp_path, "DONA", [{"location_id": "DONA_01", "session": "R0001", "date": "2026-08-01", "time": "10:00:00", "when": "2026-08-01T10:00:00Z", "actions": ["Installation"], "camera_id": "C0"}])
-        left = local_folder_service.list_unknown(tmp_path, "DONA")
-        assert ("DONA_01", "R0001") not in {(u["location_id"], u["session"]) for u in left} and len(left) == 3
+        shown = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "save": True}).json()
+        kept = local_folder_service.list_visits(tmp_path, "DONA")
 
+    assert shown["unknown"] == [] and kept == []
+    assert [p["row"] for p in shown["problems"]] == [2, 3] and "R0003 cannot start: R0002 has no visit" in shown["problems"][0]["message"]
 
-# ── editing a visit ──────────────────────────────────────────────────────────
 
 def _edit(visit: dict, location_id: str = "DONA_01", session: str | None = None):
     return _client().post("/api/visits/update", json={"research_project_id": "DONA", "location_id": location_id, "session": session or visit["session"], "visit": visit})
@@ -1260,34 +1253,23 @@ def _read(text: str, save: bool = False) -> dict:
     return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": csv, "save": save, "format": "mapped", "mapping": {c: c for c in _COLUMNS}}).json()
 
 
-def test_a_site_that_the_revision_given_later_does_not_have_is_put_up_in_the_next_one_and_nothing_is_said_when_it_is(tmp_path: Path):
+def test_a_revision_cannot_be_given_before_the_one_before_it(tmp_path: Path):
     with _in(tmp_path):
         _project()
-        _read("DONA_01,Revision,2026-03-01,10:00:00,R0002,C1,S2,100\nDONA_02,Revision,2026-03-01,11:00:00,R0002,C2,S2b,100\nDONA_03,Installation,2026-03-01,12:00:00,R0002,C3,S2c,\n", save=True)
-        # R1 has two of the three sites: the third is the one that R2 puts up
-        said = _read("DONA_01,Installation,2026-01-10,10:00:00,R0001,C1,S1,\nDONA_02,Installation,2026-01-10,11:00:00,R0001,C2,S1b,\n")
-        assert not any("DONA_03" in w for w in said["warnings"])
+        early = _read("DONA_01,Revision,2026-03-01,10:00:00,R0002,C1,S2,100\n", save=True)
 
-
-def test_a_site_that_the_revision_given_later_does_not_have_and_the_next_one_only_revises_is_told(tmp_path: Path):
-    with _in(tmp_path):
-        _project()
-        _read("DONA_01,Revision,2026-03-01,10:00:00,R0002,C1,S2,100\nDONA_03,Revision,2026-03-01,12:00:00,R0002,C3,S2c,100\n", save=True)
-        said = _read("DONA_01,Installation,2026-01-10,10:00:00,R0001,C1,S1,\nDONA_02,Installation,2026-01-10,11:00:00,R0001,C2,S1b,\n")   # R0001 is finished with the two sites: DONA_03 is unknown in it
-        assert any("R0002 DONA_03" in w and "Installation" in w for w in said["warnings"]), said["warnings"]
-        assert not any("DONA_01" in w and "has to be put up" in w for w in said["warnings"])
+    assert early["visits"] == [] and "R0002 cannot start: R0001 has no visit" in early["problems"][0]["message"]
 
 
 def test_a_visit_of_a_revision_is_after_those_of_the_revisions_before_it_and_before_those_after_it_in_a_file_too(tmp_path: Path):
     with _in(tmp_path):
         _project()
-        _read("DONA_01,Revision,2026-03-01,10:00:00,R0002,C1,S2,100\n", save=True)
-        late = _read("DONA_02,Installation,2026-05-10,10:00:00,R0001,C2,S1b,\nDONA_03,Installation,2026-01-10,10:00:00,R0001,C3,S1c,\n")
-        assert [(p["row"], "R0001 has to be before R0002" in p["message"]) for p in late["problems"]] == [(2, True)]
-        assert [v["location_id"] for v in late["visits"]] == ["DONA_03"]
         # in the same file, when two visits are at odds both are told
         both = _read("DONA_02,Installation,2026-05-10,10:00:00,R0001,C2,S1b,\nDONA_03,Revision,2026-04-01,10:00:00,R0002,C3,S2c,5\n")
         assert sorted(p["row"] for p in both["problems"]) == [2, 3]
+        _read("DONA_01,Installation,2026-03-01,10:00:00,R0001,C1,S1,\nDONA_02,Installation,2026-03-01,11:00:00,R0001,C2,S1b,\nDONA_03,Installation,2026-03-01,12:00:00,R0001,C3,S1c,\n", save=True)
+        early = _read("DONA_01,Revision,2026-02-01,10:00:00,R0002,C1,S2,100\n")                 # before the visits of R0001
+        assert [p["row"] for p in early["problems"]] == [2] and "R0001" in early["problems"][0]["message"] and early["visits"] == []
 
 
 # ── the new form of Epicollect: its cut headers, the inactive site and the camera removed after a theft ─────────
@@ -1370,6 +1352,36 @@ def _read_file(rows: list[str], save: bool = False, close: bool = True) -> dict:
     return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": close, "save": save}).json()
 
 
+def _close_file(rows: list[str], close_after: dict | None) -> dict:
+    text = "location_id,session,date,time,actions,num_photos\n" + "\n".join(rows) + "\n"
+    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
+    return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": True, "close_after": close_after}).json()
+
+
+def test_a_revision_that_is_closed_marks_what_it_lacks_as_not_visited_on_the_day_it_lasted_until(tmp_path: Path):
+    rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_02,R0014,2026-03-01,09:00,Revision,5"]
+    with _in(tmp_path):
+        _project(archived=(3,))
+        _installed((1, 2))                                   # R0012: both
+        two_weeks = _close_file(rows, {"amount": 2, "unit": "weeks"})
+        as_before = _close_file(rows, None)
+        too_long = _close_file(rows, {"amount": 2, "unit": "months"})
+
+    assert two_weeks["problems"] == []
+    assert [(m["location_id"], m["session"], m["date"], m["time"]) for m in two_weeks["closed"]] == [("DONA_02", "R0013", "2026-02-15", "23:59:00")]
+    assert [(m["location_id"], m["date"]) for m in as_before["closed"]] == [("DONA_02", "2026-02-01")]           # none said: the day of its last visit
+    assert len(too_long["visits"]) == 1 and {p["row"] for p in too_long["problems"]} == {3, 4}                 # R0013 is kept — R0012 is finished: no day is asked of it —; R0014 cannot start
+    assert "R0013 would be closed on 2026-04-01" in too_long["problems"][0]["message"] and "(2026-03-01)" in too_long["problems"][0]["message"]
+
+
+def test_a_revision_lasts_so_many_days_weeks_or_months_and_a_month_is_one_of_the_calendar():
+    from wildintel_uploader.core.services import visit_rules
+    assert visit_rules.shifted("2026-01-31", 10, "days") == "2026-02-10"
+    assert visit_rules.shifted("2026-01-31", 2, "weeks") == "2026-02-14"
+    assert visit_rules.shifted("2026-01-31", 1, "months") == "2026-02-28"       # its last day
+    assert visit_rules.shifted("2026-11-15", 3, "months") == "2027-02-15"
+
+
 def test_a_site_whose_camera_was_stolen_and_given_up_is_out_of_use_in_the_revisions_after_it_in_the_file(tmp_path: Path):
     rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_02,R0013,2026-02-01,09:00,Stolen + Archive,",
             "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_01,R0015,2026-04-01,08:00,Revision,5"]
@@ -1381,7 +1393,7 @@ def test_a_site_whose_camera_was_stolen_and_given_up_is_out_of_use_in_the_revisi
     assert answer["problems"] == [] and answer["closed"] == []
 
 
-def test_a_site_given_up_late_in_the_file_is_not_marked_as_not_visited_before_it_either_its_earlier_gap_is_unknown(tmp_path: Path):
+def test_a_site_not_visited_before_it_is_given_up_late_in_the_file_is_marked_as_not_visited_then(tmp_path: Path):
     """The site is out of use *from* the revision that gives it up. Before it the file has no visit of it, but a visit of it comes later, so what the revision before has of it is unknown — not a false
     "not visited" — as it is without this fix; and after it nothing is waited for."""
     rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5",
@@ -1392,9 +1404,8 @@ def test_a_site_given_up_late_in_the_file_is_not_marked_as_not_visited_before_it
         _installed((1, 2))
         answer = _read_file(rows)
 
-    assert answer["problems"] == []
-    assert answer["closed"] == []                                                                       # no "not visited" in R0013, R0014 (it gave it up) nor R0015
-    assert any("R0013 is created, but there is no data of its visits to DONA_02" in n for n in answer["notes"])
+    assert answer["problems"] == [] and answer["unknown"] == []
+    assert [(m["location_id"], m["session"]) for m in answer["closed"]] == [("DONA_02", "R0013")]       # not visited in R0013; nothing is waited for it after it gave it up in R0014
 
 
 def test_a_site_given_up_in_the_file_does_not_stop_the_revisions_after_it_from_starting_when_the_revision_is_not_closed_by_the_file(tmp_path: Path):
@@ -1458,7 +1469,7 @@ def test_a_site_whose_camera_was_stolen_and_given_up_is_out_of_use_in_the_revisi
     assert answer["problems"] == [] and answer["closed"] == []
 
 
-def test_a_site_given_up_late_in_the_file_is_not_marked_as_not_visited_before_it_either_its_earlier_gap_is_unknown(tmp_path: Path):
+def test_a_site_not_visited_before_it_is_given_up_late_in_the_file_is_marked_as_not_visited_then(tmp_path: Path):
     """The site is out of use *from* the revision that gives it up. Before it the file has no visit of it, but a visit of it comes later, so what the revision before has of it is unknown — not a false
     "not visited" — as it is without this fix; and after it nothing is waited for."""
     rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5",
@@ -1469,9 +1480,8 @@ def test_a_site_given_up_late_in_the_file_is_not_marked_as_not_visited_before_it
         _installed((1, 2))
         answer = _read_file(rows)
 
-    assert answer["problems"] == []
-    assert answer["closed"] == []                                                                       # no "not visited" in R0013, R0014 (it gave it up) nor R0015
-    assert any("R0013 is created, but there is no data of its visits to DONA_02" in n for n in answer["notes"])
+    assert answer["problems"] == [] and answer["unknown"] == []
+    assert [(m["location_id"], m["session"]) for m in answer["closed"]] == [("DONA_02", "R0013")]       # not visited in R0013; nothing is waited for it after it gave it up in R0014
 
 
 def test_a_site_given_up_in_the_file_does_not_stop_the_revisions_after_it_from_starting_when_the_revision_is_not_closed_by_the_file(tmp_path: Path):
@@ -1600,7 +1610,7 @@ def _read_with_gear(rows: list[str], save: bool = False) -> dict:
     return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": False, "save": save}).json()
 
 
-def test_a_site_that_says_site_start_has_nothing_unknown_before_it_and_one_that_does_not_say_it_has(tmp_path: Path):
+def test_a_site_that_says_site_start_is_not_waited_for_before_it_and_one_that_does_not_say_it_is(tmp_path: Path):
     started = ["DONA_01,R0013,2026-02-01,08:00,Revision,5,,", "DONA_02,R0013,2026-02-01,09:00,Revision,5,,",
                "DONA_01,R0014,2026-03-01,08:00,Revision,5,,", "DONA_02,R0014,2026-03-01,09:00,Revision,5,,", "DONA_03,R0014,2026-03-01,10:00,Site start + Installation,,C9,S9"]
     plain = [*started[:4], "DONA_03,R0014,2026-03-01,10:00,Installation,,C9,S9"]
@@ -1611,8 +1621,8 @@ def test_a_site_that_says_site_start_has_nothing_unknown_before_it_and_one_that_
         with_start = _read_with_gear(started)
         without = _read_with_gear(plain)
 
-    assert with_start["problems"] == [] and not any("DONA_03" in n and "unknown" in n for n in with_start["notes"])
-    assert without["problems"] == [] and any("DONA_03" in n and "unknown" in n for n in without["notes"])
+    assert with_start["problems"] == [] and with_start["unknown"] == []                         # it starts in R0014: it is not waited for before
+    assert without["problems"] and "DONA_03" in without["problems"][0]["message"]                 # with no start it was there before: R0012 waits for it
 
 
 def test_the_words_site_start_are_an_action_of_a_file():
@@ -1693,7 +1703,7 @@ def test_new_site_in_a_manual_visit_starts_the_site_regardless_of_status(tmp_pat
 def test_new_site_in_an_import_is_saved_for_a_trapper_location_without_a_status(tmp_path: Path):
     from wildintel_uploader.core.services import local_folder_service
 
-    text = "location_id,session,date,time,actions,camera_status,camera_id,sd\nDONA_04,R0004,2026-04-10,09:00,Installation,New site,C4,S4\n"
+    text = "location_id,session,date,time,actions,camera_status,camera_id,sd\nDONA_04,R0001,2026-04-10,09:00,Installation,New site,C4,S4\n"
     mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "camera_status", "camera_id", "sd")}
     with _in(tmp_path):
         _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
@@ -1857,16 +1867,6 @@ def test_the_question_action_after_inspection_of_the_form_is_found_whole_and_cut
         assert row["actions"] == "Revision + Desinstallation"
 
 
-def test_the_revisions_in_a_row_that_are_unknown_are_told_once(tmp_path: Path):
-    text = "location_id,session,date,time,actions,num_photos\nDONA_01,R0005,2026-10-02,08:00,Revision,5\n"
-    mapping = {c: c for c in ("location_id", "session", "date", "time", "actions", "num_photos")}
-    with _in(tmp_path):
-        _project()
-        notes = _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping}).json()["notes"]
-
-    assert [n for n in notes if "unknown visits" in n] == ["The revisions R0001–R0004 are created, but there is no data of their visits to DONA_01: they are created as unknown visits, and the visits after them cannot be checked against them."]
-
-
 def test_the_examples_of_the_new_form_for_wicp_02_are_imported_in_order_with_no_problem(tmp_path: Path):
     """The six downloads of examples/visits_example/wildintel_csv/wicp_02, one after the other on the entities of examples/entities_example/wicp_02: the last makes a new site."""
     import csv
@@ -1899,11 +1899,32 @@ def test_the_examples_of_the_new_form_for_wicp_02_are_imported_in_order_with_no_
     assert [l["location_id"] for l in made["locations"]] == ["WICP_02_005"] and [c["camera_id"] for c in made["cameras"]] == ["GP1122334455"] and [c["label"] for c in made["sd_cards"]] == ["9"]
 
 
+def _wicp_02_until(root: Path, last: int) -> None:
+    """The research project WICP_02 with the entities of examples/entities_example/wicp_02, and the downloads of examples/visits_example/wildintel_csv/wicp_02 kept up to revision `last`."""
+    import csv
+
+    from wildintel_uploader.core.services import local_folder_service as lfs
+    examples = Path(__file__).parents[2] / "examples"
+    rows = lambda name: list(csv.DictReader((examples / "entities_example" / "wicp_02" / name).open(encoding="utf-8")))
+    order = ["revision_1_installation", "revision_2_all_revised", "revision_3_theft_replaced", "revision_4_theft_not_replaced", "revision_5_replacement_removal_and_site_given_up"][:last]
+    _client().post("/api/deployment-import/research-projects/save", json={**PROJECT, "name": "WICP_02", "acronym": "WICP_02"})
+    for l in rows("locations.csv"):
+        _client().post("/api/deployment-import/locations/save", json={"research_project_id": "WICP_02", "location": {
+            "location_id": l["location_id"], "name": l["name"], "timezone": l["timezone"], "ignore_dst": l["ignore_dst"] == "true", "latitude": float(l["latitude"]),
+            "longitude": float(l["longitude"]), "coordinate_uncertainty": int(l["coordinate_uncertainty"]), "status": l["status"]}})
+    lfs.write_field_items(root, "WICP_02", "cameras", [{"label": r["label"], "camera_id": r["camera_id"], "camera_model": r["camera_model"], "status": r["status"]} for r in rows("cameras.csv")])
+    lfs.write_field_items(root, "WICP_02", "sd_cards", [{"label": r["label"], "brand": r["brand"], "capacity": r["capacity"], "status": r["status"]} for r in rows("sd_cards.csv")])
+    for name in order:
+        text = (examples / "visits_example" / "wildintel_csv" / "wicp_02" / f"{name}.csv").read_text(encoding="utf-8")
+        answer = _client().post("/api/visits/import-csv", json={"research_project_id": "WICP_02", "csv": text, "format": "epicollect-csv", "save": True}).json()
+        assert answer["problems"] == [], (name, answer["problems"])
+
+
 def test_a_visit_that_says_new_site_makes_its_site_with_no_need_of_the_switch_and_says_which_timezone_it_has(tmp_path: Path):
     examples = Path(__file__).parents[2] / "examples" / "visits_example" / "wildintel_csv" / "wicp_02"
     text = (examples / "revision_6_new_site.csv").read_text(encoding="utf-8")
     with _in(tmp_path), patch("wildintel_uploader.web.api.routers.visits._trapper_names", return_value=["Ana Pérez", "Luis Gómez"]):
-        _client().post("/api/deployment-import/research-projects/save", json={**PROJECT, "name": "WICP_02", "acronym": "WICP_02"})
+        _wicp_02_until(tmp_path, 5)                      # R0006 needs the revisions before it
         asked = _client().post("/api/visits/import-csv", json={"research_project_id": "WICP_02", "csv": text, "format": "epicollect-csv", "create": {"cameras": True, "sd_cards": True}}).json()
         given = _client().post("/api/visits/import-csv", json={"research_project_id": "WICP_02", "csv": text, "format": "epicollect-csv", "create": {"cameras": True, "sd_cards": True},
                                                                  "defaults": {"timezone": "Europe/Madrid", "daylight_saving": "yes"}}).json()

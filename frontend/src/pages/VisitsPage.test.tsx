@@ -1441,6 +1441,24 @@ describe('VisitsPage from a CSV file', () => {
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_revisions: undefined }))
   })
 
+  it('asks how long each revision that is closed lasted, and sends it with the closing — and nothing when it is left empty', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await chooseTheForm()
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    await userEvent.type(screen.getByLabelText('How long each revision lasted'), '3x')            // only the digits are kept
+    await userEvent.selectOptions(screen.getByLabelText('Unit of how long each revision lasted'), 'months')
+    expect(screen.getByLabelText('How long each revision lasted')).toHaveValue('3')
+    await continueFromTheFile()
+
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_after: { amount: 3, unit: 'months' } }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Close the revision before when it has locations still planned' }))
+    expect(screen.queryByLabelText('How long each revision lasted')).not.toBeInTheDocument()   // only with the closing
+  })
+
   it('reads the visits with the columns as they are mapped, says what it found, and keeps them with the same mapping', async () => {
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit(), visit({ session: 'R0002', date: '2026-11-05', actions: ['Revision', 'Installation'] })], problems: [{ row: 4, message: "'many' is not a whole number." }], skipped: 1, saved: null, new_sites: [{ site: 'X', session: null, actions: ['Revision'], date: '2026-10-02', time: '08:00:00', latitude: 37.1, longitude: -6.4, visits: 1, nearest: { location_id: 'DONA_01', distance_m: 40 }, similar: ['DONA_01'] }], warnings: [] })
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: 2, new_sites: [], warnings: [] })

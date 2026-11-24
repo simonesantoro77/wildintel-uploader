@@ -785,10 +785,10 @@ def archive_errors(visit: dict, kept: list[dict], location: dict | None, unknown
     return errors
 
 
-def not_visited_records(previous: int, visits: list[dict], locations: list[dict], unknown: list[dict] | None = None, on: str | None = None) -> list[dict]:
+def not_visited_records(previous: int, visits: list[dict], locations: list[dict], unknown: list[dict] | None = None, on: str | None = None, closes: tuple[str, str] | None = None) -> list[dict]:
     """The visits that finish revision `previous` as not visited: one for each location that is not archived when it starts and has no visit in it —
     status "Not revised", on the last day of the revision, with the camera that is at the site (none is asked of them). A revision with no visit at all — a planned
-    one — is marked on the day `on`, when it is given."""
+    one — is marked on the day `on`, when it is given. `closes` is the day and the time the revision is closed on, when it is said: the marks are of then."""
     of = [v for v in visits if _session_number(v.get("session")) == previous]
     if not of and not on:
         return []
@@ -802,9 +802,25 @@ def not_visited_records(previous: int, visits: list[dict], locations: list[dict]
         if not site or site.lower() in visited or l.get("status") == "planned" or starts.get(site.lower(), 0) > previous or not _in_play(l, visits) or (l.get("status") == "archived" and (not l.get("status_date") or str(l["status_date"]) <= start)):
             continue
         camera = camera_at_site(visits, site, f"{last}T23:59:59")
-        records.append({"location_id": site, "session": f"R{previous:04d}", "date": last, "time": "23:59:00", "actions": [], "camera_status": "Not revised",
+        day, time = closes or (last, "23:59:00")
+        camera = camera_at_site(visits, site, f"{day}T23:59:59") if closes else camera
+        records.append({"location_id": site, "session": f"R{previous:04d}", "date": day, "time": time, "actions": [], "camera_status": "Not revised",
                         "camera_id": camera["camera"] if camera else None, "comments": "Marked as not visited when the next revision was started."})
     return records
+
+
+def shifted(day: str, amount: int, unit: str) -> str:
+    """The day `amount` days, weeks or months after `day` (YYYY-MM-DD): a month is a month of the calendar, and the 31st of a month that has fewer days is its last day."""
+    import calendar  # noqa: PLC0415
+    import datetime as dt  # noqa: PLC0415
+    start = dt.date.fromisoformat(day)
+    if unit == "days":
+        return (start + dt.timedelta(days=amount)).isoformat()
+    if unit == "weeks":
+        return (start + dt.timedelta(weeks=amount)).isoformat()
+    month = start.month - 1 + amount
+    year, month = start.year + month // 12, month % 12 + 1
+    return dt.date(year, month, min(start.day, calendar.monthrange(year, month)[1])).isoformat()
 
 
 def _unknown_keys(unknown: list[dict] | None) -> set[tuple[int | None, str]]:

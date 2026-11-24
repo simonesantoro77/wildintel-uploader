@@ -53,22 +53,24 @@ def test_new_site_starts_existing_locations_and_does_not_create_unknown_visits_b
     from wildintel_uploader.core.services import visit_rules, visits_csv
 
     locations = [{"location_id": f"WICP_000{n}", "timezone": "UTC", **({"status": status} if status else {})}
-                 for n, status in enumerate((None, "ready", "active", "pending"), start=1)]
+                 for n, status in enumerate((None, "ready", "active", "pending"), start=1)] + [{"location_id": "WICP_0005", "timezone": "UTC", "status": "active"}]
+    # R0003 is known — a visit to WICP_0005 —, so R0004 can be imported: the four sites start in it, and are not waited for in R0003
+    kept = [{"location_id": "WICP_0005", "session": "R0003", "date": "2026-03-01", "time": "09:00:00", "when": "2026-03-01T09:00:00Z", "actions": ["Installation"], "camera_id": "C5", "sd": "S5"}]
     text = ("site,what,day,hour,session,cam,sd,status\n"
             "WICP_0001,Installation,2026-04-01,09:00,R0004,C1,S1,New site\n"
             "WICP_0002,Installation,2026-04-01,10:00,R0004,C2,S2,new site\n"
             "WICP_0003,Installation,2026-04-01,11:00,R0004,C3,S3,New site\n"
             "WICP_0004,Installation,2026-04-01,12:00,R0004,C4,S4,New site\n")
     mapping = {"location_id": "site", "actions": "what", "date": "day", "time": "hour", "session": "session", "camera_id": "cam", "sd": "sd", "camera_status": "status"}
-    result = _parse(text, locations, [], mapping)
+    result = _parse(text, locations, kept, mapping)
 
     assert result["problems"] == []
     assert len(result["visits"]) == 4
     assert all(v["actions"] == ["SiteStart", "Installation"] for v in result["visits"])
     assert all(row["actions"] == "SiteStart + Installation" for row in result["rows"])
     assert result["unknown"] == []
-    assert visit_rules.revision_missing(3, result["visits"], locations) == []
-    assert visit_rules.not_visited_records(3, result["visits"], locations, on="2026-03-01") == []
+    assert visit_rules.revision_missing(3, [*kept, *result["visits"]], locations) == []
+    assert visit_rules.not_visited_records(3, [*kept, *result["visits"]], locations, on="2026-03-01") == []
 
 
 def test_new_site_in_a_history_is_not_expected_in_earlier_revisions():
@@ -267,12 +269,12 @@ def test_a_cell_that_is_not_what_its_field_takes_is_refused_with_the_code_of_the
 def test_a_cell_is_read_as_its_field_takes_it():
     from wildintel_uploader.core.services import visits_csv
     mapping = {"location_id": "site", "actions": "what", "date": "day", "time": "hour", "camera_id": "cam", "card_batteries_ok": "card", "bait_use": "bait", "tags": "tags", "camera_tilt": "tilt", "session": "rev", "sd": "sd"}
-    text = "site,what,day,hour,cam,card,bait,tags,tilt,rev,sd\nWICP_0001,Install+Revision,2026-10-14,11:40,12.0,carfull,SI,a;b,-15.0,3,5\n"
+    text = "site,what,day,hour,cam,card,bait,tags,tilt,rev,sd\nWICP_0001,Install+Revision,2026-10-14,11:40,12.0,carfull,SI,a;b,-15.0,1,5\n"
     visit = _parse(text, [{"location_id": "WICP_0001", "timezone": "UTC"}], [], mapping)["visits"]
     assert visit == [] or True   # "Install" is not an action: the row is refused
-    text = text.replace("Install+Revision", "Installation+Revision")
+    text = text.replace("Install+Revision", "Installation")   # R0001: the first visit of a site puts its camera up
     visit = _parse(text, [{"location_id": "WICP_0001", "timezone": "UTC"}], [], mapping)["visits"][0]
-    assert (visit["camera_id"], visit["card_status"], visit["bait_use"], visit["tags"], visit["camera_tilt"], visit["session"]) == ("12.0", "CardFull", True, ["a", "b"], -15, "R0003")
+    assert (visit["camera_id"], visit["card_status"], visit["bait_use"], visit["tags"], visit["camera_tilt"], visit["session"]) == ("12.0", "CardFull", True, ["a", "b"], -15, "R0001")
 
 
 def test_what_is_odd_goes_to_the_rows_that_make_it_odd_and_what_is_about_no_row_is_said_apart():
@@ -342,15 +344,15 @@ def test_an_unknown_revision_is_a_finished_one_for_the_next_to_start():
     assert not visit_rules.revision_gate(new, kept, _LOCS, visit_rules.unknown_records(new, kept))
 
 
-def test_a_file_says_what_it_leaves_unknown_and_creates_nothing_else_of_it():
+def test_a_revision_whose_revision_before_has_no_visit_is_not_imported_and_nothing_is_left_unknown():
     from wildintel_uploader.core.services import visits_csv
     text = ("location_id,actions,date,time,session,camera_id,sd\n"
             "WICP_0001,Installation,2026-10-19,11:40:00,R0003,CAM1,1\n")
     mapping = visits_csv.suggest_mapping(text)["mapping"]
     result = _parse(text, _LOCS, [], mapping)
-    assert not result["problems"] and len(result["visits"]) == 1
-    assert [u["session"] for u in result["unknown"]] == ["R0001", "R0002"]
-    assert any("R0001" in n and "unknown" in n for n in result["notes"])
+    assert result["visits"] == [] and result["unknown"] == []
+    assert [r["label"] for r in result["rows"]] == ["Revision before it has no visit"]
+    assert "R0003 cannot start: R0002 has no visit" in result["problems"][0]["message"]
 
 
 def test_a_site_is_visited_once_in_a_revision_even_on_another_day_in_the_same_file():
@@ -422,7 +424,7 @@ def test_the_rows_refused_for_a_rule_say_which_rule_in_their_label():
             "WICP_0001,Revision,2026-10-20,08:30:00,R0003,C1,3,10\n")          # R0002 is not kept: the revision before is not finished
     mapping = visits_csv.suggest_mapping(text)["mapping"]
     labels = {r["row"]: r["label"] for r in _parse(text, locations[:1], [], mapping)["rows"] if r["result"] == "problem"}
-    assert labels == {3: "Something its actions ask is missing", 4: "Revision started before the one before is finished"}
+    assert labels == {3: "Something its actions ask is missing", 4: "Revision before it has no visit"}   # R0002 is not kept: R0003 has no revision before it
 
 
 # ── two visits are the same when they are of the same revision and the same site: the day is no part of it ──────

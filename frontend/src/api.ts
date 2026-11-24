@@ -191,7 +191,7 @@ export const api = {
   importVisitsCsv: (researchProjectId: string, csv: string, save = false, format: VisitsCsvFormat = 'mapped', mapping?: Record<string, string>, options?: ImportCsvOptions) =>
     post<VisitsCsvResult>('/api/visits/import-csv', {
       research_project_id: researchProjectId, csv, save, format, mapping: mapping ?? null,
-      ...(options?.create ? { create: options.create } : {}), ...(options?.defaults ? { defaults: options.defaults } : {}), ...(options?.close_revisions ? { close_revisions: true } : {}),
+      ...(options?.create ? { create: options.create } : {}), ...(options?.defaults ? { defaults: options.defaults } : {}), ...(options?.close_revisions ? { close_revisions: true } : {}), ...(options?.close_revisions && options.close_after ? { close_after: options.close_after } : {}),
       ...(options?.coordinates_from_location === false ? { coordinates_from_location: false } : {}), ...(options?.photos_not_counted ? { photos_not_counted: true } : {}),
     }),
 

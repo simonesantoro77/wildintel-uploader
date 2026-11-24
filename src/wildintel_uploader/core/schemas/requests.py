@@ -537,6 +537,12 @@ class LinkVisitRequest(LocalLocationsRequest):
     deployment_id: str = Field(min_length=1)
 
 
+class CloseAfter(BaseModel):
+    """How long a revision lasted, from its first visit: so many days, weeks or months."""
+    amount: int = Field(ge=0)
+    unit: Literal["days", "weeks", "months"] = "days"
+
+
 class ImportVisitsCsvRequest(LocalLocationsRequest):
     """The text of a CSV file with visits — only read and checked unless `save` is set, then the visits that can be kept are."""
 
@@ -551,6 +557,9 @@ class ImportVisitsCsvRequest(LocalLocationsRequest):
     create: Optional[dict[str, bool]] = None
     # The revision before the ones the file starts is closed when it has locations still planned: each is marked as not visited (an unknown one is not).
     close_revisions: bool = False
+    # How long a revision that is closed lasted, from its first visit: the locations still to be visited in it are marked as not visited on that day. The same for every revision
+    # the file closes; none closes them on the day of their last visit.
+    close_after: Optional[CloseAfter] = None
     # A row with no coordinates of the visit takes those of its location — unless this is off: then it is refused.
     coordinates_from_location: bool = True
     # The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted, and the deployment is not checked against a count it has not.
