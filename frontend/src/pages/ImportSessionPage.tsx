@@ -973,7 +973,7 @@ export default function ImportSessionPage({ onUpload, onOpenSettings, settingsOp
   return (
     <div className={PAGE_CLASS}>
       <PageHeader icon={MENU_ICONS.deployment} title={title}
-        description="Imports a folder of deployments — one subfolder each — into their revision. The revision, the checks and the preprocessing are the same for all of them; the location, the dates and the camera are asked for each."
+        description="Imports a folder of images — one subfolder each — into their revision: the one in which the SD card was put in the camera. The time between the visit that put the SD card in the camera and the visit that collected it, together with the conditions in which the camera was installed and the photos collected from it, make up a deployment. The deployments of a revision make up a collection."
         parent="Menu" onParent={onBack} />
 
       {/* Step indicator */}
