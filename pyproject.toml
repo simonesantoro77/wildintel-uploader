@@ -36,6 +36,7 @@ dev = [
     "debugpy>=1.8",
     "mike>=2.0",
     "mkdocs-material>=9.7",
+    "mkdocs-static-i18n>=1.2",
     "playwright>=1.63.0",
     "pyinstaller>=6.21.0",
     "pytest>=8.0",
