@@ -63,17 +63,18 @@ app.command("tc", hidden=True, help="Alias for test-connection.")(test_connectio
 config_app = typer.Typer(help="Show or change the settings — the same settings.toml as the web app's ⚙️ page.", no_args_is_help=True)
 app.add_typer(config_app, name="config")
 
-_SECRET = ("user_password",)
+# every setting marked secret in the schema of the settings: never shown, and hidden while it is typed
+_SECRET = frozenset(config.secret_fields())
 
 
 @config_app.command("show")
 def config_show() -> None:
-    """Show every setting (the password never shown)."""
+    """Show every setting (the passwords and the secrets never shown)."""
     settings = config.load_settings()
     for section, values in settings.model_dump().items():
         table = Table(title=section, title_justify="left", show_header=False, box=None, padding=(0, 2))
         for key, value in values.items():
-            shown = ("(saved)" if value else "(not set)") if key in _SECRET else ("—" if value is None else str(value))
+            shown = ("(saved)" if value else "(not set)") if (section, key) in _SECRET else ("—" if value is None else str(value))
             table.add_row(f"{section}.{key}", shown)
         console.print(table)
     console.print(f"[dim]{config.active_config_file()}[/dim]")
@@ -93,7 +94,7 @@ def config_path() -> None:
 @config_app.command("set")
 def config_set(
     key: Annotated[str, typer.Argument(help="SECTION.field — e.g. TRAPPER.base_url, TRAPPER.user_password, DATA.dir.")],
-    value: Annotated[Optional[str], typer.Argument(help="The new value — asked for (hidden for a password) if left out.")] = None,
+    value: Annotated[Optional[str], typer.Argument(help="The new value — asked for (hidden for a password or a secret) if left out.")] = None,
 ) -> None:
     """Change one setting."""
     section, _, field = key.partition(".")
@@ -102,7 +103,7 @@ def config_set(
     if section not in data or field not in data[section]:
         raise fail(f"No setting {key}. See: wildintel-uploader config show")
     if value is None:
-        value = typer.prompt(key, hide_input=field in _SECRET)
+        value = typer.prompt(key, hide_input=(section, field) in _SECRET)
     data[section][field] = value if value != "" else None
     try:
         new = config.Settings.model_validate(data)

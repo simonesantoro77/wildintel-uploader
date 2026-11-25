@@ -18,11 +18,15 @@ from wildintel_uploader.core.services import audit, file_manager, local_folder_s
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
+# what the settings page reads for each secret: whether it is saved
+_HAS = {"user_password": "has_password", "client_secret": "has_secret", "api_key": "has_api_key"}
+
+
 def _public(settings: config.Settings) -> dict:
     data = settings.model_dump(mode="json")
-    data["TRAPPER"]["has_password"] = bool(data["TRAPPER"].pop("user_password"))
-    data["EPICOLLECT5"]["has_secret"] = bool(data["EPICOLLECT5"].pop("client_secret"))
-    data["AGOUTI"]["has_api_key"] = bool(data["AGOUTI"].pop("api_key"))
+    # no secret goes to the frontend: only whether it is saved, with the name the page reads
+    for section, field in config.secret_fields():
+        data[section][_HAS.get(field, f"has_{field}")] = bool(data[section].pop(field))
     data["FIELDWORK"]["roles"] = audit.alive(data["FIELDWORK"]["roles"])
     data["DATA"]["dir"] = data["DATA"]["dir"] or str(config.default_data_dir())
     # What the collections folder is when no folder of its own is set — shown as the default.
@@ -124,12 +128,10 @@ def save_settings(new: config.Settings) -> dict:
     if (new.DATA.storage or "json").strip().lower() not in storage.available():
         raise HTTPException(422, f"There is no storage called '{new.DATA.storage}': {', '.join(storage.available())}.")
     _follow_data_dir(current, new)
-    if not new.TRAPPER.user_password:
-        new.TRAPPER.user_password = current.TRAPPER.user_password
-    if not new.EPICOLLECT5.client_secret:
-        new.EPICOLLECT5.client_secret = current.EPICOLLECT5.client_secret
-    if not new.AGOUTI.api_key:
-        new.AGOUTI.api_key = current.AGOUTI.api_key
+    # a secret left blank keeps the saved one: the page never has it
+    for section, field in config.secret_fields():
+        if not getattr(getattr(new, section), field):
+            setattr(getattr(new, section), field, getattr(getattr(current, section), field))
     for section, fields in ((new.TRAPPER, ("base_url", "user_name")), (new.EPICOLLECT5, ("project_slug", "client_id")), (new.AGOUTI, ("base_url", "project_id"))):
         for field in fields:
             if not getattr(section, field):
