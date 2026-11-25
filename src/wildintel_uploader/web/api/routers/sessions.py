@@ -20,7 +20,10 @@ def list_sessions() -> list[dict]:
 def save_scan(req: SaveScanRequest) -> dict:
     """Saves the source folder and its scan result — the wizard's first
     step, so this creates the session on the first call."""
-    return session_store.write_scan_phase(req.task_id, source_dir=req.source_dir, scan=req.scan.model_dump())
+    try:
+        return session_store.write_scan_phase(req.task_id, source_dir=req.source_dir, scan=req.scan.model_dump())
+    except session_store.InvalidTaskId as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.post("/selection")
@@ -45,5 +48,8 @@ def save_details(req: SaveDetailsRequest) -> dict:
 
 @router.delete("/{task_id}")
 def discard(task_id: str) -> dict:
-    session_store.discard_session(task_id)
+    try:
+        session_store.discard_session(task_id)
+    except session_store.InvalidTaskId as exc:
+        raise HTTPException(400, str(exc)) from exc
     return {"status": "discarded"}

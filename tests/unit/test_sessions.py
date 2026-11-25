@@ -148,3 +148,34 @@ def test_sessions_left_where_they_used_to_be_are_moved_to_where_they_are_kept_no
     assert old.name in [s["task_id"] for s in listed]
     assert not old.exists() and (config.get_sessions_dir() / old.name / "session.json").is_file()
     assert not config.legacy_sessions_dir().exists()  # nothing left in the old folder
+
+
+def test_an_id_that_is_not_one_the_app_makes_names_no_session_and_nothing_out_of_the_sessions_folder_is_touched():
+    from wildintel_uploader.core import config
+
+    state = config.get_sessions_dir().parent
+    state.mkdir(parents=True, exist_ok=True)
+    kept = state / "kept.txt"
+    kept.write_text("x")
+    client = _client()
+
+    for task_id in ("%2E%2E", "..%5Cx", "not-a-uuid", "11111111111111111111111111111111"):   # not the canonical form of a UUID either
+        assert client.delete(f"/api/sessions/{task_id}").status_code == 400
+    for task_id in ("..", "../outside", "..\\outside", "/tmp/outside"):
+        assert client.post("/api/sessions/scan", json={"task_id": task_id, "source_dir": "/home/me/DONA_01", "scan": SCAN}).status_code == 400
+        assert client.post("/api/sessions/selection", json={"task_id": task_id, "selection": SELECTION}).status_code == 404
+
+    assert kept.read_text() == "x"
+    assert not (state / "outside").exists() and not (state.parent / "outside").exists()
+
+
+def test_a_folder_of_the_sessions_folder_that_is_not_named_as_a_session_is_not_listed():
+    import json
+
+    from wildintel_uploader.core import config
+
+    odd = config.get_sessions_dir() / "odd"
+    odd.mkdir(parents=True)
+    (odd / "session.json").write_text(json.dumps({"task_id": "odd", "phase": "scanned"}), encoding="utf-8")
+
+    assert "odd" not in [s["task_id"] for s in _client().get("/api/sessions").json()]
