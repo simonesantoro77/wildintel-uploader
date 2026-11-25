@@ -12,7 +12,7 @@ describe('StatusHistoryPage', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mockedApi.getSettings.mockResolvedValue({ GENERAL: { default_research_project: 'DONA' } } as never)   // the default research project: it is not asked
-    mockedApi.listResearchProjects.mockResolvedValue({ results: [{ ...EMPTY_RESEARCH_PROJECT, name: 'Doñana', acronym: 'DONA' }] })
+    mockedApi.listResearchProjects.mockResolvedValue({ results: [{ ...EMPTY_RESEARCH_PROJECT, name: 'Doñana', acronym: 'DONA', trapper_pk: 2 }] })
   })
 
   it('rebuilds the history of the default research project from its visits and says how many lines it added', async () => {
