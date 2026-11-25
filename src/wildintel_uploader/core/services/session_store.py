@@ -35,11 +35,29 @@ from typing import Any
 from wildintel_uploader.core import config
 
 
+class InvalidTaskId(ValueError):
+    """A task_id that is not one the app makes: it names no session, and it is never used as a folder."""
+
+
 def new_task_id() -> str:
     return str(uuid.uuid4())
 
 
+def valid_task_id(task_id: object) -> bool:
+    """Whether it is a task_id as the app makes them: the canonical form of a UUID — so it is the name of one folder, and nothing else."""
+    try:
+        return isinstance(task_id, str) and str(uuid.UUID(task_id)) == task_id
+    except ValueError:
+        return False
+
+
 def session_dir(task_id: str) -> Path:
+    """The folder of a session, inside the sessions folder.
+
+    Raises:
+        InvalidTaskId: the id is not one the app makes."""
+    if not valid_task_id(task_id):
+        raise InvalidTaskId(f"{task_id!r} is not the id of a session.")
     return config.get_sessions_dir() / task_id
 
 
@@ -48,6 +66,9 @@ def now_iso() -> str:
 
 
 def read_manifest(task_id: str) -> dict[str, Any] | None:
+    """The manifest of a session — None when there is none, or the id is not one of a session."""
+    if not valid_task_id(task_id):
+        return None
     path = session_dir(task_id) / "session.json"
     if not path.is_file():
         return None
@@ -123,7 +144,7 @@ def migrate_legacy_sessions() -> None:
     if not old.is_dir() or old.resolve() == new.resolve():
         return
     for entry in old.iterdir():
-        if entry.is_dir() and (entry / "session.json").is_file() and not (new / entry.name).exists():
+        if entry.is_dir() and valid_task_id(entry.name) and (entry / "session.json").is_file() and not (new / entry.name).exists():
             new.mkdir(parents=True, exist_ok=True)
             shutil.move(str(entry), str(new / entry.name))
     try:
@@ -148,4 +169,8 @@ def list_sessions() -> list[dict[str, Any]]:
 
 
 def discard_session(task_id: str) -> None:
+    """Removes the folder of a session.
+
+    Raises:
+        InvalidTaskId: the id is not one the app makes: nothing is removed."""
     shutil.rmtree(session_dir(task_id), ignore_errors=True)
