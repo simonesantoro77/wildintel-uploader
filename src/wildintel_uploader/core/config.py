@@ -562,6 +562,18 @@ class Settings(BaseModel):
     FIELDLOG: FieldlogSettings = Field(default_factory=FieldlogSettings)
 
 
+def secret_fields() -> tuple[tuple[str, str], ...]:
+    """The settings that are secrets — `(section, field)` of each one marked `json_schema_extra={"secret": True}` —: never shown, never sent to the frontend,
+    never put in a backup. Read from the schema, so a secret added later is one by marking it."""
+    out = []
+    for section, info in Settings.model_fields.items():
+        model = info.annotation
+        for name, field in getattr(model, "model_fields", {}).items():
+            if isinstance(field.json_schema_extra, dict) and field.json_schema_extra.get("secret"):
+                out.append((section, name))
+    return tuple(out)
+
+
 class ConfigInfo(BaseModel):
     """One settings file the user can switch to — see list_configs."""
     id: str

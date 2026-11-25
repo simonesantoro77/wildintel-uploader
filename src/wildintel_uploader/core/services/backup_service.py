@@ -38,7 +38,7 @@ HISTORY = "status_history.json"   # the history of the status of the locations, 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif", ".webp", ".mp4", ".avi", ".mov", ".mkv", ".m4v"}
 _COLLECTION = re.compile(r"^R\d+$", re.IGNORECASE)
 # what a settings backup does not hold: the secrets, and the folders of this computer
-_SECRETS = (("TRAPPER", "user_password"), ("EPICOLLECT5", "client_secret"), ("AGOUTI", "api_key"))
+_SECRETS = config.secret_fields()   # never in a backup, and the ones here are kept when its settings are restored
 
 
 class BackupError(ValueError):
