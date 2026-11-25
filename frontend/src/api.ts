@@ -199,6 +199,7 @@ export const api = {
   epicollectVisitsDownload: () => post<{ csv: string; count: number }>('/api/visits/epicollect-download', {}),
   statusHistory: (researchProjectId: string, kind: StatusChange['kind'], name: string) =>
     post<{ results: StatusChange[] }>('/api/settings/status-history', { research_project_id: researchProjectId, kind, name }),
+  rebuildStatusHistory: (researchProjectId: string) => post<{ added: number }>('/api/settings/status-history/rebuild', { research_project_id: researchProjectId }),
   visitsCsvColumns: (csv: string) => post<VisitsCsvColumns>('/api/visits/csv-columns', { csv }),
 
   // The revision a new deployment at this location is expected to have: one after the highest kept for it, or 1.

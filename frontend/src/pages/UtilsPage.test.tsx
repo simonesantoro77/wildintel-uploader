@@ -49,5 +49,11 @@ describe('UtilsPage', () => {
 
     expect(screen.getByRole('button', { name: /backup and restore/i })).toBeEnabled()
   })
+
+  it('offers to rebuild the history of the states from the visits', () => {
+    render(<UtilsPage onBack={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /rebuild the history of the states/i })).toBeEnabled()
+  })
 })
 
