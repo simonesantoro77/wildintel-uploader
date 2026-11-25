@@ -322,8 +322,9 @@ class LocationRecord(BaseModel):
     # The day it was put into production (YYYY-MM-DD).
     in_service: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     trapper_pk: Optional[int] = None
-    # Whether it is in use; an archived or a planned one is not offered for a visit. When it changed (YYYY-MM-DD) and why are free to leave out.
-    status: Literal["planned", "pending", "ready", "active", "archived"] = "ready"
+    # Whether it is in use; an archived or a planned one is not offered for a visit. When it changed (YYYY-MM-DD) and why are free to leave out. A new one is pending: its first
+    # visit starts it — it is not waited for in the revisions before.
+    status: Literal["planned", "pending", "ready", "active", "archived"] = "pending"
     status_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     status_note: Optional[str] = None
 
@@ -357,6 +358,8 @@ class DeleteLocationRequest(LocalLocationsRequest):
 
 class SaveLocationRequest(LocalLocationsRequest):
     location: LocationRecord
+    # A person making it in the settings: it can only start as pending, or planned — a visit makes it ready (Location start) or active (an Installation).
+    by_hand: bool = False
 
 
 class VisitRecord(BaseModel):
@@ -537,6 +540,13 @@ class LinkVisitRequest(LocalLocationsRequest):
     deployment_id: str = Field(min_length=1)
 
 
+class CloseAfter(BaseModel):
+    """The day a revision is closed on: so many days, weeks or months after its last visit (`after_last`), or before the first visit of the revision after it (`before_next`)."""
+    amount: int = Field(ge=0)
+    unit: Literal["days", "weeks", "months"] = "days"
+    anchor: Literal["after_last", "before_next"] = "after_last"
+
+
 class ImportVisitsCsvRequest(LocalLocationsRequest):
     """The text of a CSV file with visits — only read and checked unless `save` is set, then the visits that can be kept are."""
 
@@ -551,6 +561,9 @@ class ImportVisitsCsvRequest(LocalLocationsRequest):
     create: Optional[dict[str, bool]] = None
     # The revision before the ones the file starts is closed when it has locations still planned: each is marked as not visited (an unknown one is not).
     close_revisions: bool = False
+    # The day a revision that is closed is closed on — so long after its last visit, or before the first visit of the revision after it —: the locations still to be visited in
+    # it are marked as not visited on that day. The same for every revision the file closes; none closes them on the day of their last visit.
+    close_after: Optional[CloseAfter] = None
     # A row with no coordinates of the visit takes those of its location — unless this is off: then it is refused.
     coordinates_from_location: bool = True
     # The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted, and the deployment is not checked against a count it has not.

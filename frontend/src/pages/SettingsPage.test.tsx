@@ -1600,7 +1600,7 @@ describe('SettingsPage — Entities', () => {
 
       await waitFor(() => expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', {
         location_id: 'DONA_02', name: null, latitude: 37.01, longitude: -6.44, coordinate_uncertainty: null, timezone: 'Europe/Madrid', ignore_dst: true, in_service: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), trapper_pk: null, status: 'pending', status_date: null, status_note: null,
-      }))
+      }, true))   // by hand
     })
 
     it('does not ask about summer time while the timezone is UTC, which has none, and turns it off when UTC is picked', async () => {
@@ -1627,7 +1627,7 @@ describe('SettingsPage — Entities', () => {
       await userEvent.click(dialog.getByRole('option', { name: 'UTC' }))
       expect(dialog.getByLabelText('The cameras here ignore summer time')).not.toBeChecked()
       await userEvent.click(dialog.getByRole('button', { name: 'Add' }))
-      await waitFor(() => expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ timezone: 'UTC', ignore_dst: false })))
+      await waitFor(() => expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ timezone: 'UTC', ignore_dst: false }), true))
     })
 
     it('shows the QR code of a location in its page', async () => {
@@ -1681,7 +1681,7 @@ describe('SettingsPage — Entities', () => {
 
       expect(await screen.findByText(/1 added, 1 updated in DONA/)).toBeInTheDocument()
       expect(mockedApi.updateLocalLocation).toHaveBeenCalledWith('DONA', 'DONA_01', expect.objectContaining({ name: 'Ridge 2', latitude: 37.2 }))
-      expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_03', latitude: null, longitude: -6.1 }))
+      expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_03', latitude: null, longitude: -6.1 }), true)   // from the CSV: not from TRAPPER
       expect(screen.getByText(/latitude “95”/)).toBeInTheDocument()
     })
 
@@ -1704,7 +1704,7 @@ describe('SettingsPage — Entities', () => {
       expect(panel.getByRole('status')).toHaveTextContent('“DONA_08” has no coordinates in TRAPPER')
       expect(mockedApi.trapperLocations).toHaveBeenCalledWith({}, 2)
       expect(mockedApi.saveLocalLocation).toHaveBeenCalledTimes(1)
-      expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_07', latitude: 37.3, longitude: -6.2, timezone: 'Europe/Madrid', trapper_pk: 12, status: 'pending' }))
+      expect(mockedApi.saveLocalLocation).toHaveBeenCalledWith('DONA', expect.objectContaining({ location_id: 'DONA_07', latitude: 37.3, longitude: -6.2, timezone: 'Europe/Madrid', trapper_pk: 12, status: 'pending' }), false)   // from TRAPPER
       expect(mockedApi.updateLocalLocation).not.toHaveBeenCalled()
     })
 

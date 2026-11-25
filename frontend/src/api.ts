@@ -191,7 +191,7 @@ export const api = {
   importVisitsCsv: (researchProjectId: string, csv: string, save = false, format: VisitsCsvFormat = 'mapped', mapping?: Record<string, string>, options?: ImportCsvOptions) =>
     post<VisitsCsvResult>('/api/visits/import-csv', {
       research_project_id: researchProjectId, csv, save, format, mapping: mapping ?? null,
-      ...(options?.create ? { create: options.create } : {}), ...(options?.defaults ? { defaults: options.defaults } : {}), ...(options?.close_revisions ? { close_revisions: true } : {}),
+      ...(options?.create ? { create: options.create } : {}), ...(options?.defaults ? { defaults: options.defaults } : {}), ...(options?.close_revisions ? { close_revisions: true } : {}), ...(options?.close_revisions && options.close_after ? { close_after: options.close_after } : {}),
       ...(options?.coordinates_from_location === false ? { coordinates_from_location: false } : {}), ...(options?.photos_not_counted ? { photos_not_counted: true } : {}),
     }),
 
@@ -229,8 +229,8 @@ export const api = {
   setupFieldItems: (researchProjectId: string, kind: 'cameras' | 'sd_cards', items: { label: string; camera_id?: string; camera_model?: string; brand?: string; capacity?: string }[]) =>
     post<{ added: string[]; skipped: string[] }>('/api/setup/field-items', { research_project_id: researchProjectId, kind, items }),
 
-  saveLocalLocation: (researchProjectId: string, location: LocalLocation) =>
-    post<LocalLocation>('/api/deployment-import/locations/save', { research_project_id: researchProjectId, location }),
+  saveLocalLocation: (researchProjectId: string, location: LocalLocation, byHand = false) =>
+    post<LocalLocation>('/api/deployment-import/locations/save', { research_project_id: researchProjectId, location, ...(byHand ? { by_hand: true } : {}) }),
 
   // Changes a kept location: the fields given are the ones that change (null clears one).
   /** Deletes a location of a research project — refused while visits were made to it, or when it comes from Trapper. */

@@ -1441,6 +1441,28 @@ describe('VisitsPage from a CSV file', () => {
     await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_revisions: undefined }))
   })
 
+  it('asks when each revision that is closed is closed — the day of its last visit at first, so long after it, or so long before the next revision — and sends it', async () => {
+    mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
+    render(<VisitsPage onBack={vi.fn()} />)
+    await chooseTheForm()
+    await userEvent.click(await screen.findByLabelText('Research project'))
+    await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
+    await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    const card = within(screen.getByRole('region', { name: 'When each revision is closed' }))
+    expect(card.getByRole('radio', { name: /After its last visit/ })).toBeChecked()
+    expect(card.getByRole('textbox', { name: 'How long' })).toHaveValue('0')
+    expect(card.getByLabelText('The day')).toHaveTextContent('On the day of the last visit of the revision.')
+
+    await userEvent.click(card.getByRole('radio', { name: /Before the next revision/ }))
+    await userEvent.click(card.getByRole('radio', { name: 'Weeks' }))
+    await userEvent.click(card.getByRole('button', { name: '2w' }))
+    await userEvent.click(card.getByRole('button', { name: 'One more' }))
+    expect(card.getByLabelText('The day')).toHaveTextContent('3 weeks before the first visit of the next revision.')
+    await continueFromTheFile()
+    await waitFor(() => expect(mockedApi.importVisitsCsv).toHaveBeenLastCalledWith('TATR', 'locationID,Date\n', false, 'epicollect-csv', undefined, { ...EVERYTHING, close_after: { amount: 3, unit: 'weeks', anchor: 'before_next' } }))
+  })
+
   it('reads the visits with the columns as they are mapped, says what it found, and keeps them with the same mapping', async () => {
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit(), visit({ session: 'R0002', date: '2026-11-05', actions: ['Revision', 'Installation'] })], problems: [{ row: 4, message: "'many' is not a whole number." }], skipped: 1, saved: null, new_sites: [{ site: 'X', session: null, actions: ['Revision'], date: '2026-10-02', time: '08:00:00', latitude: 37.1, longitude: -6.4, visits: 1, nearest: { location_id: 'DONA_01', distance_m: 40 }, similar: ['DONA_01'] }], warnings: [] })
     mockedApi.importVisitsCsv.mockResolvedValueOnce({ visits: [visit()], problems: [], skipped: 0, saved: 2, new_sites: [], warnings: [] })

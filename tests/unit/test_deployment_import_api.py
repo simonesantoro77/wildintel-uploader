@@ -1038,13 +1038,25 @@ def test_the_status_of_a_location_and_of_a_research_project_is_kept_and_defaults
     assert wrong.status_code == 422 and bad_day.status_code == 422
 
 
-def test_a_research_project_starts_active_and_a_location_ready_to_have_a_camera(tmp_path: Path):
+def test_a_research_project_starts_active_and_a_location_pending_until_its_first_visit(tmp_path: Path):
     with _in(tmp_path):
         project = _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
         location = _client().post("/api/deployment-import/locations/save", json={"research_project_id": "DONA", "location": {"location_id": "DONA_01", "timezone": "UTC", "ignore_dst": False, "latitude": 37.0, "longitude": -6.5}})
 
-    assert project.json()["status"] == "active" and location.json()["status"] == "ready"
+    assert project.json()["status"] == "active" and location.json()["status"] == "pending"
 
+
+
+def test_a_location_made_by_hand_starts_pending_or_planned(tmp_path: Path):
+    def make(location_id: str, status: str):
+        return _client().post("/api/deployment-import/locations/save", json={"research_project_id": "DONA", "by_hand": True, "location": {
+            "location_id": location_id, "timezone": "UTC", "ignore_dst": False, "latitude": 37.0, "longitude": -6.4, "status": status}})
+    with _in(tmp_path):
+        _client().post("/api/deployment-import/research-projects/save", json=PROJECT)
+        pending, planned, ready, active = make("DONA_01", "pending"), make("DONA_02", "planned"), make("DONA_03", "ready"), make("DONA_04", "active")
+
+    assert pending.status_code == planned.status_code == 200
+    assert ready.status_code == active.status_code == 400 and "a visit makes it ready (Location start)" in ready.json()["detail"]
 
 def test_a_research_project_can_be_changed_but_not_renamed(tmp_path: Path):
     with _in(tmp_path):

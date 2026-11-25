@@ -47,8 +47,7 @@ def generate():
         '<path d="M420 230 H485" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<path d="M650 230 H715" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<text x="225" y="208" text-anchor="middle" font-size="11" fill="#475569">Settings</text>',
-        '<text x="455" y="202" text-anchor="middle" font-size="11" fill="#475569">Location start</text>',
-        '<text x="455" y="217" text-anchor="middle" font-size="11" fill="#475569">or Settings</text>',
+        '<text x="455" y="208" text-anchor="middle" font-size="11" fill="#475569">Location start</text>',
         '<text x="685" y="208" text-anchor="middle" font-size="11" fill="#475569">Install</text>',
         '<path d="M340 190 V132 H800 V185" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<rect x="463" y="119" width="215" height="24" rx="8" fill="#fff"/>',
@@ -66,13 +65,13 @@ def generate():
         '<text x="480" y="380" text-anchor="middle" font-size="12" fill="#475569">Archive: Settings * from any state, or an Archive visit</text>',
         '<path d="M480 388 V400" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>',
         '<text x="30" y="502" font-size="12" fill="#64748b">* Settings can mark a location Planned or Archived only when no camera is out and no visit is still due.</text>',
-        '<text x="30" y="522" font-size="12" fill="#64748b">Settings can also change non-archived states subject to visit history. Archived is final.</text>',
+        '<text x="30" y="522" font-size="12" fill="#64748b">A new location is Pending, or Planned. Ready and Active are made by a visit, never by hand. Archived is final.</text>',
         '</svg>',
     ]
     vertex("archived", "<b>Archived</b><br><font style='font-size:12px'>Out of use for good</font>", 365, 405, 230, 65,
            "rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#64748b;strokeWidth=2;fontColor=#334155;fontSize=17;")
     edge("planned-pending", "planned", "pending", "Settings")
-    edge("pending-ready", "pending", "ready", "Location start or Settings")
+    edge("pending-ready", "pending", "ready", "Location start")
     edge("ready-active", "ready", "active", "Installation")
     edge("pending-active", "pending", "active", "Location start + Installation", [(340, 132), (800, 132)],
          "exitX=0.5;exitY=0;entryX=0.5;entryY=0;")

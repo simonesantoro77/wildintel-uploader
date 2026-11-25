@@ -1,6 +1,7 @@
 import { inTheApp } from '../researchProjects'
 import { formatLocal, formatVisitWhen } from '../dateFormat'
 import { Glyph } from '../components/ViewSwitch'
+import CloseDuration from '../components/CloseDuration'
 import { DetectedFile, FILE_KINDS } from '../components/DetectedFile'
 import { actionLabel, actionsLabel, revisionNumber } from '../visitActions'
 import { useEffect, useRef, useState } from 'react'
@@ -26,7 +27,7 @@ import { CamtrapDpContext, CamtrapDpTag, DateTimeField, FormCard, MoreDetailsFor
 import { shownErrors, validateDeployment } from '../deploymentValidation'
 import { availabilityErrors, cameraAtSite, cardBlock, nextRevision, unfinishedRevision } from '../visitAvailability'
 import { EMPTY_DEPLOYMENT_FIELDS } from '../types'
-import type { Camera, DeploymentFields, LocalLocation, LocalResearchProject, SdCard, StoredVisit, Trapper, ClosedVisit, ClosedVisitTarget, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, CsvCreate, ImportCsvOptions } from '../types'
+import type { Camera, DeploymentFields, LocalLocation, LocalResearchProject, SdCard, StoredVisit, Trapper, ClosedVisit, ClosedVisitTarget, VisitsCsvColumns, VisitsCsvFormat, VisitsCsvResult, CsvCreate, ImportCsvOptions, CloseAfter } from '../types'
 import { PAGE_CLASS } from '../components/PageBar'
 
 export type VisitSource = 'manual' | 'wildintel-new' | 'csv'
@@ -627,6 +628,8 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   const [csvDefaults, setCsvDefaults] = useState<Record<string, string>>({})
   // The revision before the ones of the file is closed when it has locations still planned: they are marked as not visited, as when a visit by hand asks for it.
   const [csvClose, setCsvClose] = useState(false)
+  // the day each revision that is closed is closed on: so long after its last visit, or before the first visit of the next one (none: the day of its last visit)
+  const [csvCloseOn, setCsvCloseOn] = useState<CloseAfter>({ amount: 0, unit: 'days', anchor: 'after_last' })
   // A row with no coordinates of the visit takes those of its location: on, unless it is turned off.
   const [csvLocationCoordinates, setCsvLocationCoordinates] = useState(true)
   // The photos on the cards were not counted (an old datasheet): a Revision or a Desinstallation with no count is accepted as it is.
@@ -805,8 +808,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   // What a custom CSV is asked besides its columns — the entities to create and the defaults —, said only when there is something.
   // (in the WildINTEL CSV the defaults are the timezone of the new locations: nothing is said of it when no location is created)
   const defaultsGiven = source === 'wildintel-new' && !csvCreate.locations ? {} : Object.fromEntries(Object.entries(csvDefaults).filter(([, v]) => v.trim()).map(([f, v]) => [f, v.trim()]))
+  // the day of its last visit is what the server does with none: nothing is sent for it
+  const closeAfter: CloseAfter | null = csvCloseOn.anchor === 'after_last' && csvCloseOn.amount === 0 ? null : csvCloseOn
   const csvOptions: ImportCsvOptions | undefined = (source === 'csv' || source === 'wildintel-new') && (Object.values(csvCreate).some(Boolean) || Object.keys(defaultsGiven).length > 0 || csvClose || !csvLocationCoordinates || csvPhotosNotCounted)
-    ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }), ...(csvPhotosNotCounted ? { photos_not_counted: true } : {}) } : undefined
+    ? { ...(Object.values(csvCreate).some(Boolean) ? { create: csvCreate } : {}), ...(Object.keys(defaultsGiven).length > 0 ? { defaults: defaultsGiven } : {}), ...(csvClose ? { close_revisions: true, ...(closeAfter ? { close_after: closeAfter } : {}) } : {}), ...(csvLocationCoordinates ? {} : { coordinates_from_location: false }), ...(csvPhotosNotCounted ? { photos_not_counted: true } : {}) } : undefined
   // What follows the mapping in the call that reads the file: the options, when there are any (so none is sent when none is given)
   const readTail: [options?: ImportCsvOptions] = csvOptions ? [csvOptions] : []
   const csvReading = useRef(0)
@@ -930,7 +935,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
   useEffect(() => {
     if (source !== 'wildintel-new' || !csvText || !csvResult) return
     if (readWith.current !== JSON.stringify(csvOptions ?? null)) void recheckCsv()
-  }, [csvCreate, csvDefaults, csvClose, csvLocationCoordinates, csvPhotosNotCounted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [csvCreate, csvDefaults, csvClose, csvCloseOn, csvLocationCoordinates, csvPhotosNotCounted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** From another CSV file: reads the visits with the columns as they are mapped. */
   async function readMapped() {
@@ -1013,7 +1018,10 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       <h6 className="pt-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Rows with something missing (3)</h6>
       <SwitchRow label="The images were not counted" hint="For old datasheets: a visit that collected a card but has no image count is accepted, and the count is left empty." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="A row with no coordinates takes those of its location. Off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
-      <SwitchRow label="Close the revision before when it has locations still planned" hint="A revision can only be added when the one before it is complete. On, the locations with no visit in the revision before are marked as not visited." checked={csvClose} onChange={setCsvClose} />
+      <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40">
+        <div className="px-5"><SwitchRow plain label="Close the revision before when it has locations still planned" hint="A revision can only be added when the one before it is complete. On, the locations with no visit in the revision before are marked as not visited." checked={csvClose} onChange={setCsvClose} /></div>
+        {csvClose && <CloseDuration value={csvCloseOn} onChange={setCsvCloseOn} />}
+      </div>
     </div>
   )
   const mappedEnough = given('location_id') && given('actions') && (given('when') || given('created_at') || (given('date') && given('time'))) && createdNeeds.every((f) => given(f.field))

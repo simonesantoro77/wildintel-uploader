@@ -123,7 +123,7 @@ def save_location(req: SaveLocationRequest) -> dict:
     """Adds a location to a research project already kept in the collections
     folder (by hand, or as filled in from Trapper) — 409 if its id is used."""
     try:
-        return local_folder_service.write_location(config.collections_dir(), req.research_project_id, req.location.model_dump())
+        return local_folder_service.write_location(config.collections_dir(), req.research_project_id, req.location.model_dump(), by_hand=req.by_hand)
     except local_folder_service.LocalFolderError as exc:
         raise HTTPException(409 if "already exists" in str(exc) else 400, str(exc)) from exc
 

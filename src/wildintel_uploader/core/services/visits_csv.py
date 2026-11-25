@@ -147,6 +147,7 @@ ERROR_LABELS: dict[str, str] = {
     "camera_status_invalid": "Status of the camera not valid",
     "session_invalid": "Revision not valid",
     "revision_not_finished": "Revision started before the one before is finished",
+    "revision_without_previous": "Revision before it has no visit",
     "revision_closed": "Revision closed",
     "revision_order": "Revision out of order",
     "visit_repeated": "Location visited twice in a revision",
@@ -449,6 +450,13 @@ def _archived_by(locations: list[dict], visits: list[dict]) -> list[dict]:
     return out
 
 
+def _minute_before(time: str) -> str:
+    """The minute before a time of the day (HH:MM[:SS]), and the first of the day for the first."""
+    h, m = (int(x) for x in time.split(":")[:2])
+    total = max(h * 60 + m - 1, 0)
+    return f"{total // 60:02d}:{total % 60:02d}:00"
+
+
 def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: dict[str, str] | None = None, options: dict | None = None) -> dict:
     """The visits in the CSV `text` that can be kept, and what is wrong with the rest.
 
@@ -637,11 +645,14 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
     # a visit of a file follows the rules of a visit by hand (see visit_rules.refusals): the visits are taken in the order of their instants, each against the ones kept and
     # the ones of the file before it that were kept, and the one that breaks them is refused with the row it comes from. What cannot be checked is not: the revisions a site
     # lacks before its first visit are unknown (nothing is known of them — no day, no camera, no card), so a first visit to a site after R0001 may be any.
+    # A revision is imported only when the one before it is known — it has a visit, kept or in the file — and closed: only R0001 has none before it. So an import
+    # makes no unknown visit: what a revision lacks is a visit to be made, marked as not visited when the revision is closed.
     unknown_kept = options.get("unknown") or []
-    unknown = visit_rules.unknown_records(visits, kept, unknown_kept)
+    unknown: list[dict] = []
     all_locations = [*locations, *new_locations.values()]
-    numbers = [n for n in (visit_rules._session_number(v.get("session")) for v in [*kept, *visits]) if n is not None]
-    floor = min(numbers) if numbers else 1
+    floor = 1
+    close_after = options.get("close_after") or None
+    close_notes: list[str] = []
     accepted, gate, closing = visit_rules.History(kept), {}, []
     unknown_kept_keys = {(str(u["location_id"]).lower(), str(u["session"]).upper()) for u in unknown_kept}
 
@@ -658,16 +669,42 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             day = min(str(v["date"]) for v in visits if visit_rules._session_number(v.get("session")) == number)
             # a site given up by a visit taken so far (an Archive) is out of use from then on, as if the revisions had come in one file each: archiving is only kept when saving
             in_use = _archived_by(all_locations, accepted)
-            if options.get("close_revisions"):
-                # the revision before is closed as the form does when asked: its locations still planned are marked as not visited (the unknown ones are not: nothing is known of them)
-                marks = visit_rules.not_visited_records(number - 1, [*accepted, *(v for v in visits if visit_rules.SITE_START in (v.get('actions') or []))], in_use, [*unknown_kept, *unknown])
+            before = [v for v in accepted if visit_rules._session_number(v.get("session")) == number - 1]
+            if number > 1 and not before:
+                gate[number] = visit_rules._reason("revision_without_previous", f"R{number:04d} cannot start: R{number - 1:04d} has no visit. Import the visits of R{number - 1:04d} first.")
+            closes = None
+            # the day to close on matters only to a revision that has locations still to be visited: one that is finished is left as it is
+            if number > 1 and before and options.get("close_revisions") and close_after and visit_rules.revision_missing(number - 1, accepted, in_use, day, [*unknown_kept, *unknown], visits):
+                # the day it is closed on: so long after its last visit, or so long before the first visit of the revision after it
+                last = max(str(v["date"]) for v in before)
+                amount, unit = int(close_after["amount"]), str(close_after["unit"])
+                if close_after.get("anchor") == "before_next":
+                    close_day, lasted = visit_rules.shifted(day, -amount, unit), f"{amount} {unit} before the first visit of R{number:04d} ({day})"
+                else:
+                    close_day, lasted = visit_rules.shifted(last, amount, unit), f"{amount} {unit} after its last visit ({last})"
+                # it cannot end before its last visit, nor after the revision after it starts: the day is taken to the nearest one it can be
+                if close_day < last:
+                    close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, before its last visit: it is closed on {last}, the day of its last visit.")
+                    close_day = last
+                elif close_day >= day:
+                    # it reaches the revision after it: the day before the first visit of that one — never before its own last visit
+                    before_next = max(last, visit_rules.shifted(day, -1, "days"))
+                    close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, when R{number:04d} has started ({day}): it is closed on {before_next}, the day before.")
+                    close_day = before_next
+                # on the day of the first visit after it, just before that visit
+                earliest = min(str(v.get("time") or "00:00:00") for v in visits if visit_rules._session_number(v.get("session")) == number and str(v["date"]) == day) if close_day == day else None
+                closes = (close_day, _minute_before(earliest) if earliest else "23:59:00")
+            if number not in gate and options.get("close_revisions"):
+                # the revision before is closed as the form does when asked: its locations still planned are marked as not visited
+                marks = visit_rules.not_visited_records(number - 1, [*accepted, *(v for v in visits if visit_rules.SITE_START in (v.get('actions') or []))], in_use, [*unknown_kept, *unknown], closes=closes)
                 for mark in marks:
                     location = next((l for l in all_locations if str(l.get("location_id", "")).lower() == mark["location_id"].lower()), None)
                     mark["when"] = visit_time.to_when(mark["date"], mark["time"], location)
                     mark["comments"] = "Marked as not visited when the revision after it was added from a file."
                 accepted.extend(marks)
                 closing.extend(marks)
-            gate[number] = visit_rules.unfinished_revision(number, accepted, in_use, floor, day, [*unknown_kept, *unknown], visits)
+            if number not in gate:
+                gate[number] = visit_rules.unfinished_revision(number, accepted, in_use, floor, day, [*unknown_kept, *unknown], visits)
         n = row_of[id(visit)]
         reasons = [gate[number]] if number is not None and not fills and gate.get(number) else []
         # a visit that takes the place of an unknown one is put where its instant says, among the visits kept (as in the form)
@@ -692,7 +729,6 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             accepted.append(visit)
     refused_ids = {id(v) for v in visits} - {id(v) for v in accepted}
     visits = [v for v in visits if id(v) not in refused_ids]
-    unknown = visit_rules.unknown_records(visits, kept, unknown_kept)
     new_sites = [visit_rules.new_site(site, records, locations) for site, records in sorted(held.items())]
     # what is odd and still kept, said once and told in the rows it is about: the visits that make it odd are rows of the file
     said: list[tuple[str, list[int]]] = [(message, [n]) for n, message in row_warnings]
@@ -713,6 +749,7 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
         if location["location_id"].lower() in made_here:
             notes.append(f"The location {location['location_id']} is made because its visit says New site: its place is the one of the visit and its timezone is {location['timezone']} — "
                          f"change it in the settings if it is not that one.")
+    notes += close_notes
     closed = [m for m in closing if any(visit_rules._session_number(v.get("session")) == visit_rules._session_number(m["session"]) + 1 for v in visits)]
     for session in sorted({m["session"] for m in closed}):
         notes.append(f"{session} is closed to start the revision after it: {', '.join(m['location_id'] for m in closed if m['session'] == session)} still planned in it, marked as not visited.")

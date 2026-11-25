@@ -86,7 +86,7 @@ def test_creates_the_expected_structure(tmp_path: Path):
 
 def test_leaves_what_is_already_there_as_it_is(tmp_path: Path):
     _run(tmp_path)
-    local_folder_service.update_location(tmp_path, "DONA", "DONA_01", {"status": "ready"})
+    local_folder_service.update_location(tmp_path, "DONA", "DONA_01", {"status": "ready"}, by_visit=True)
     deployment = tmp_path / "DONA" / "R0003" / "R0003-DONA_01" / "deployment.json"
     deployment.write_text('{"edited": true}', encoding="utf-8")
 

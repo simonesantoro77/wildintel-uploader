@@ -1327,7 +1327,7 @@ const LOCATION_FIELDS: ItemField<LocationDraft>[] = [
   { key: 'coordinate_uncertainty', label: 'Coordinate uncertainty', placeholder: 'e.g. 100', unit: 'metres', hint: 'How far off the position could be.', validate: (v) => (v === '' || (/^\d+$/.test(v) && Number(v) >= 1) ? null : 'A whole number, 1 or more.') },
   { key: 'timezone', label: 'Time zone', required: true, placeholder: 'e.g. Europe/Madrid', section: 'Time', sectionIcon: <ClockIcon />, sectionHint: 'The time zone the location is in, and whether its cameras follow summer time. Every visit and deployment here is read with them.', kind: 'timezone', fixed: true, alsoSets: (v) => (isUtcZone(v) ? { ignore_dst: null } : {}), hint: "The location's own time zone, required. Every visit and deployment here is read in it, so it cannot be changed once the location is created.", validate: (v) => (!v ? 'Required.' : isValidTimezone(v) ? null : 'Not a known IANA time zone (e.g. Europe/Madrid).') },
   { key: 'ignore_dst', label: 'The cameras here ignore summer time', kind: 'bool', fixed: true, off: (l) => (isUtcZone(l.timezone ?? '') ? 'Summer time is not applied in UTC.' : null), hint: 'Turn it on if their clocks stay the same all year; off, they follow summer time. Like the time zone, it cannot be changed once the location is created.' },
-  ...statusFields<LocationDraft>(['planned', 'pending', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in WildINTEL Uploader yet.', pending: 'In WildINTEL Uploader, waiting to start: its first visit starts it. It is not waited for in the revisions before.', ready: 'It has started and has no camera yet: a visit that says Location start makes it so.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active']),
+  ...statusFields<LocationDraft>(['planned', 'pending', 'ready', 'active', 'archived'], true, { planned: 'Only in Settings: it is not in WildINTEL Uploader yet.', pending: 'In WildINTEL Uploader, waiting to start: its first visit starts it. It is not waited for in the revisions before.', ready: 'It has started and has no camera yet: a visit that says Location start makes it so.', active: 'It has a camera: a visit makes it so.', archived: 'Out of use for good: it never goes back.' }, false, ['active', 'ready']),
 ]
 
 /** What a research project is when it is added by hand, or read from a CSV file: its acronym and name, and the fields free text. */
@@ -1625,7 +1625,7 @@ function LocationsTab({ project, onDetail, used, openItem }: { project: LocalRes
     const found = there(openItem)
     if (found) { openedItem.current = true; setEditing({ item: locationDraft(found), isNew: false }) }
   }, [openItem, locations]) // eslint-disable-line react-hooks/exhaustive-deps
-  const keep = (d: LocationDraft, trapperPk: number | null = null) => api.saveLocalLocation(project.acronym, { location_id: d.location_id.trim(), ...locationFields(d), trapper_pk: trapperPk })
+  const keep = (d: LocationDraft, trapperPk: number | null = null) => api.saveLocalLocation(project.acronym, { location_id: d.location_id.trim(), ...locationFields(d), trapper_pk: trapperPk }, trapperPk === null)
 
   async function done() {
     if (!editing) return
