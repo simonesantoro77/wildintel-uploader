@@ -140,6 +140,57 @@ def test_a_backup_with_a_path_that_leaves_it_is_not_restored(tmp_path: Path):
         backup_service.read_backup(tmp_path, evil)
 
 
+def _crafted(path: Path, collection: str, entries: dict[str, str], deployment: str = "D1") -> Path:
+    """A backup made by hand: its manifest names a deployment of `collection`, and it holds `entries`."""
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("manifest.json", json.dumps({"format": backup_service.FORMAT, "version": 1, "scope": {"research_project": "DONA", "deployments": [{"collection": collection, "id": deployment}]}}))
+        for name, text in entries.items():
+            zf.writestr(name, text)
+    return path
+
+
+@pytest.mark.parametrize("collection", ["{outside}", "../../outside", "..", "a/b", "a\\b", "C:outside", ""])
+def test_a_backup_whose_manifest_names_a_collection_that_is_not_a_folder_of_the_project_is_neither_read_nor_restored(tmp_path: Path, collection: str):
+    _project(tmp_path / "root")
+    outside = tmp_path / "outside"
+    collection = collection.format(outside=outside)
+    evil = _crafted(tmp_path / "evil.zip", collection, {f"deployments/{collection}/D1/file.txt": "x"})
+
+    refused = "not the name of a folder|goes out of it"   # a name with `..` is refused already for the files of the .zip that go with it
+    with pytest.raises(backup_service.BackupError, match=refused):
+        backup_service.read_backup(tmp_path / "root", evil)
+    with pytest.raises(backup_service.BackupError, match=refused):
+        list(backup_service.restore_backup(tmp_path / "root", evil, settings=False, project_files=False, visits=False, deployments=["D1"], images=True, replace=True))
+    assert not outside.exists()
+
+
+def test_a_backup_whose_manifest_names_a_deployment_that_is_not_a_folder_is_refused(tmp_path: Path):
+    _project(tmp_path / "root")
+    evil = _crafted(tmp_path / "evil.zip", "R0001", {}, deployment="../../D1")
+
+    with pytest.raises(backup_service.BackupError, match="not the name of a folder"):
+        backup_service.read_backup(tmp_path / "root", evil)
+
+
+@pytest.mark.parametrize("name", ["deployments/R0001/D1/x\\..\\..\\..\\..\\outside.txt", "deployments/R0001/..\\..\\outside.txt", "\\outside.txt", "C:\\outside.txt"])
+def test_a_backslash_in_the_name_of_a_file_of_the_backup_is_a_separator_as_on_windows(tmp_path: Path, name: str):
+    _project(tmp_path / "root")
+    evil = _crafted(tmp_path / "evil.zip", "R0001", {name: "x"})
+
+    with pytest.raises(backup_service.BackupError, match="goes out of it"):
+        backup_service.read_backup(tmp_path / "root", evil)
+
+
+def test_no_file_of_a_backup_is_written_out_of_the_research_project(tmp_path: Path):
+    _project(tmp_path / "root")
+    (tmp_path / "root" / "DONA" / "R0001" / "link").symlink_to(tmp_path)   # a folder of the project that leads out of it
+    evil = _crafted(tmp_path / "evil.zip", "R0001", {"deployments/R0001/link/escaped.txt": "x", "deployments/R0001/D1/fine.txt": "y"}, deployment="link")
+
+    with pytest.raises(backup_service.BackupError, match="goes out of it"):
+        list(backup_service.restore_backup(tmp_path / "root", evil, settings=False, project_files=False, visits=False, deployments=["link"], images=True, replace=True))
+    assert not (tmp_path / "escaped.txt").exists() and not (tmp_path / "root" / "DONA" / "R0001" / "D1" / "fine.txt").exists()   # none is written
+
+
 def _restore(root: Path, path: str, **options) -> dict:
     kwargs = dict(settings=False, project_files=True, visits=True, deployments=["R0001-DONA_01"], images=True, replace=False)
     events = list(backup_service.restore_backup(root, Path(path), **{**kwargs, **options}))
