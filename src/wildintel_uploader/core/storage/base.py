@@ -102,6 +102,10 @@ class ProjectStore(ABC):
         Raises:
             StorageError: the research project is not kept, or the kind is not one of RECORD_KINDS."""
 
+    def has_records(self, research_project_id: str, kind: str) -> bool:
+        """Whether records of this kind were ever kept for the research project — kept empty is kept. A store that cannot tell an empty list from none says whether it has any."""
+        return bool(self.read_records(research_project_id, kind))
+
     @abstractmethod
     def delete_records(self, research_project_id: str, kind: str) -> None:
         """Forgets every record of this kind of the research project — as if none were ever kept."""

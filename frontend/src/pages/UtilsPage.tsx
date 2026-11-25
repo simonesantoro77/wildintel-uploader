@@ -3,12 +3,13 @@ import type { ReactNode } from 'react'
 import TaskCard, { ArrowIcon, MENU_ICONS, PageHeader, UTIL_ICONS } from '../components/TaskCard'
 import BackupPage from './BackupPage'
 import RepairPage from './RepairPage'
+import StatusHistoryPage from './StatusHistoryPage'
 import SyncCollectionsPage from './SyncCollectionsPage'
 import SetupWizardPage from './SetupWizardPage'
 import TimeFixPage from './TimeFixPage'
 import { PAGE_CLASS } from '../components/PageBar'
 
-export type Util = 'setup' | 'timefix' | 'repair' | 'sync' | 'backup'
+export type Util = 'setup' | 'timefix' | 'repair' | 'sync' | 'backup' | 'history'
 
 const UTILS: { value: Util; icon: ReactNode; title: string; description: string }[] = [
   { value: 'setup', icon: UTIL_ICONS.setup, title: 'Initial setup', description: 'A guide that asks, step by step, for the research project, its trappers and their roles, its locations, its cameras and its SD cards.' },
@@ -16,6 +17,7 @@ const UTILS: { value: Util; icon: ReactNode; title: string; description: string 
   { value: 'repair', icon: UTIL_ICONS.repair, title: 'Repair local deployments', description: 'Check which deployments of a local collection are still valid, and write the description files of the others again from what their folders hold.' },
   { value: 'sync', icon: UTIL_ICONS.sync, title: 'Sync local collections', description: 'Check the local folders against what TRAPPER has for a classification project, and create what is missing: research project, locations, collections and deployments.' },
   { value: 'backup', icon: UTIL_ICONS.backup, title: 'Backup and restore', description: 'Keep the settings and the data of a research project — its visits and the deployments you choose, with or without their images — in a file, and restore them from it.' },
+  { value: 'history', icon: UTIL_ICONS.history, title: 'Rebuild the history of the states', description: 'Work out the changes of status of the locations, the cameras and the SD cards from the visits kept, for what was kept before the history was. Nothing of the history is lost.' },
 ]
 
 interface Props {
@@ -38,7 +40,7 @@ export default function UtilsPage({ onBack, onOpenSettings, settingsOpen, start,
   if (util) {
     return (
       <div>
-        {util === 'setup' ? <SetupWizardPage onBack={() => setUtil(null)} onMainMenu={onMainMenu} onRegisterVisit={onRegisterVisit} /> : util === 'timefix' ? <TimeFixPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'backup' ? <BackupPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : <SyncCollectionsPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
+        {util === 'setup' ? <SetupWizardPage onBack={() => setUtil(null)} onMainMenu={onMainMenu} onRegisterVisit={onRegisterVisit} /> : util === 'timefix' ? <TimeFixPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'repair' ? <RepairPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'backup' ? <BackupPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : util === 'history' ? <StatusHistoryPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} /> : <SyncCollectionsPage onBack={() => setUtil(null)} onOpenSettings={onOpenSettings} settingsOpen={settingsOpen} />}
       </div>
     )
   }

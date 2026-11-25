@@ -23,6 +23,17 @@ describe('StatusHistory', () => {
     expect(lines[1]).toHaveTextContent('Created as Active')
   })
 
+  it('says that a line was rebuilt from the visits, and that the status before the first one is not known', async () => {
+    mocked.statusHistory.mockResolvedValue({ results: [
+      { kind: 'cameras', name: 'CAM1', before: 'unknown', after: 'active', at: '2026-11-25T10:00:00Z', day: '2026-01-10', reason: 'The visit R0001 to DONA_01.', reconstructed: true },
+    ] })
+    render(<StatusHistory researchProject="DONA" kind="cameras" name="CAM1" />)
+
+    const [line] = await screen.findAllByRole('listitem')
+    expect(line).toHaveTextContent('Unknown → Active')
+    expect(line).toHaveTextContent('The visit R0001 to DONA_01. · rebuilt from the visits')
+  })
+
   it('says nothing when there is no history or the research project is not known', async () => {
     mocked.statusHistory.mockResolvedValue({ results: [] })
     const { container, rerender } = render(<StatusHistory researchProject="DONA" kind="cameras" name="CAM1" />)

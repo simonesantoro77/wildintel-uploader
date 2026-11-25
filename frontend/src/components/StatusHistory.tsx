@@ -3,7 +3,7 @@ import { api } from '../api'
 import { formatDay } from '../dateFormat'
 import type { StatusChange } from '../types'
 
-const STATUS: Record<string, string> = { planned: 'Planned', pending: 'Pending', ready: 'Ready', active: 'Active', archived: 'Archived', OK: 'OK', Altered: 'Altered', Stolen: 'Stolen' }
+const STATUS: Record<string, string> = { planned: 'Planned', pending: 'Pending', ready: 'Ready', active: 'Active', archived: 'Archived', OK: 'OK', Altered: 'Altered', Stolen: 'Stolen', unknown: 'Unknown' }
 const say = (status: string) => STATUS[status] ?? status
 
 /** What a location, a camera or an SD card was and why it changed: its history, the latest first. It says nothing when there is none, or when the research project is not known. */
@@ -26,7 +26,7 @@ export default function StatusHistory({ researchProject, kind, name }: { researc
             <p className="font-semibold text-zinc-900 dark:text-zinc-100">
               {l.before === null ? <>Created as {say(l.after)}</> : <>{say(l.before)} → {say(l.after)}</>}
             </p>
-            <p className="text-zinc-500 dark:text-zinc-400">{formatDay(l.day)}{l.before !== null && <> · {l.reason}</>}</p>
+            <p className="text-zinc-500 dark:text-zinc-400">{formatDay(l.day)}{l.before !== null && <> · {l.reason}</>}{l.reconstructed && <> · <span className="italic">rebuilt from the visits</span></>}</p>
           </li>
         ))}
       </ol>

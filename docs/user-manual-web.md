@@ -306,7 +306,7 @@ The visits and the roles remember **which** location, camera, SD card or trapper
 
 **Nothing is deleted for good.** What is deleted — a research project, a location, a camera, an SD card, a role or a trapper — is kept, with the day it was deleted, and is only no longer listed; if it is added again it comes back with the day it was created. Everything also says when it was created and when it was last changed. What is no longer used is *archived*, which is a status of its own: an archived location, camera or SD card is still listed. A location can be deleted unless it has visits or comes from TRAPPER, and an SD card can be marked as stolen. Press **Save** to keep what you changed.
 
-**History of the status.** Every change of the status of a location, a camera or an SD card is written down — the status it had, the one it has, the day it is of and why: the visit that did it, or a person in the settings — in the `status_history.json` file of the research project. The panels with the details of a location, a camera and an SD card, which open from the dashboards, show it as a **History** list, the latest change first. What was kept before this existed has no history. It goes in the **backup** with the data of the research project, and comes back when it is restored: the lines that are there already are not repeated.
+**History of the status.** Every change of the status of a location, a camera or an SD card is written down — the status it had, the one it has, the day it is of and why: the visit that did it, or a person in the settings — in the `status_history.json` file of the research project. The panels with the details of a location, a camera and an SD card, which open from the dashboards, show it as a **History** list, the latest change first. What was kept before this existed has its history **rebuilt from the visits** the first time it is asked for, and again with [Rebuild the history of the states](#rebuild-the-history-of-the-states): those lines say *rebuilt from the visits*, and the status before the first visit is *Unknown*. It goes in the **backup** with the data of the research project, and comes back when it is restored: the lines that are there already are not repeated.
 
 ### Reports
 
@@ -1018,6 +1018,15 @@ Press **🧰 Utils**, then **Backup and restore**. It keeps the settings and the
 2. **Where to keep it.** A folder. The file is named after what it holds and the day (`wildintel-backup_DONA_20261030-103000.zip`), and a bar shows the progress. When it is made, it says what the file holds and offers to open the folder.
 
 **Restoring.** It asks for the backup file, and shows what it says it holds (when it was made, by which version, of which project, and the list), and what of it is already here. You pick what to restore: the settings, the data of the project, the visits and the deployments, and — if the backup has them — their images. **Replace what is already here** is off by default: what is there is left as it is and only what is missing is added; on, what the backup holds wins. **What is archived stays archived** whatever is chosen (an archived location, camera or SD card never goes back). Restoring the settings keeps the passwords and the folders of this computer.
+
+### Rebuild the history of the states
+
+Press **🧰 Utils**, then **Rebuild the history of the states**. The [history of the status](#entities) of the locations, the cameras and the SD cards starts when it was made: what was kept before has none. **Rebuild the history from the visits** works it out for the default research project — each visit says what it did: a camera put up, a card taken, a location started or archived — and writes a line for each change, *rebuilt from the visits*, of the day of the visit.
+
+- It is done by itself the first time the history of a research project is asked for, when it has none; the button does it again.
+- Nothing of the history is overwritten nor deleted, and a line it already has is not written again: it says how many lines it added.
+- It cannot know what was changed by hand, nor the status before the first visit: the first line of each is *Unknown → …*. When the visits do not end in the status the record has today, a last line says so — *The status is archived, the visits say ready.* —, of the day of that status.
+
 
 ## 10. Troubleshooting
 

@@ -747,6 +747,8 @@ export interface StatusChange {
   at: string
   day: string
   reason: string
+  /** Worked out from the visits kept, not written as it happened (its `before` is `unknown` when the status before the first visit is not known). */
+  reconstructed?: boolean
 }
 
 export interface LocalLocation {
