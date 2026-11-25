@@ -196,11 +196,32 @@ def _open(path: Path) -> zipfile.ZipFile:
     except zipfile.BadZipFile as exc:
         raise BackupError("That file is not a backup: it is not a .zip.") from exc
     for name in zf.namelist():
-        parts = PurePosixPath(name).parts
-        if name.startswith(("/", "\\")) or ".." in parts or (len(name) > 1 and name[1] == ":"):
+        # a backslash is a separator on Windows, where the files are written with it: it is read as one
+        plain = name.replace("\\", "/")
+        if plain.startswith("/") or ".." in PurePosixPath(plain).parts or (len(plain) > 1 and plain[1] == ":"):
             zf.close()
             raise BackupError("That backup has files with a path that goes out of it: it is not restored.")
     return zf
+
+
+def _folder_name(value, what: str) -> str:
+    """A name of the manifest that is joined to a folder (a collection, a deployment): only the name of one folder inside it — no separator, no `..`, no drive, nothing absolute.
+
+    Raises:
+        BackupError: it is not one."""
+    if not isinstance(value, str) or not value.strip() or value in (".", "..") or any(c in value for c in "/\\:\0"):
+        raise BackupError(f"That backup names {what} {value!r}, which is not the name of a folder: it is not restored.")
+    return value
+
+
+def _inside(target: Path, folder: Path) -> Path:
+    """The target, when it is inside the folder.
+
+    Raises:
+        BackupError: it is not."""
+    if not target.resolve().is_relative_to(folder.resolve()):
+        raise BackupError("That backup has files with a path that goes out of it: it is not restored.")
+    return target
 
 
 def _manifest(zf: zipfile.ZipFile) -> dict:
@@ -212,6 +233,15 @@ def _manifest(zf: zipfile.ZipFile) -> dict:
         raise BackupError("That .zip is not a backup of this app.")
     if int(manifest.get("version", 0)) > VERSION:
         raise BackupError("That backup was made by a newer version of the app: update it to restore it.")
+    scope = manifest.get("scope", {})
+    if not isinstance(scope, dict) or not isinstance(scope.get("deployments", []), list):
+        raise BackupError("That .zip is not a backup of this app: its manifest cannot be read.")
+    # the collection and the id of a deployment are folders of the research project: nothing else
+    for d in scope.get("deployments", []):
+        if not isinstance(d, dict):
+            raise BackupError("That .zip is not a backup of this app: its manifest cannot be read.")
+        _folder_name(d.get("collection"), "a collection")
+        _folder_name(d.get("id"), "a deployment")
     return manifest
 
 
@@ -363,6 +393,9 @@ def restore_backup(
                     target = pdir / collection / PurePosixPath(name).name  # type: ignore[operator]
                     if replace or not target.exists():
                         files.append((name, target))
+            # every file goes inside the research project, or none is written
+            for _, target in files:
+                _inside(target, pdir)  # type: ignore[arg-type]
             yield {"type": "step", "message": f"Restoring {len(summary['deployments']['restored'])} deployment(s)…"}
             for index, (name, target) in enumerate(files, start=1):
                 target.parent.mkdir(parents=True, exist_ok=True)

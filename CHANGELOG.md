@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Upcoming release
 
 ### Fixed
+- **Restoring a backup** (#196): a backup could have files written outside the folder of the research project. The collection and the id of each deployment of its manifest are accepted only as names of one folder, a backslash in the names of its files is read as a separator (as on Windows), and every file is checked to be inside the research project before any is written; a backup that has one that is not is neither read nor restored.
 - **Site start** (#129): a visit that says *New site* starts the site whether it already exists or what its status is, in a file or by hand. Revisions before its start do not expect a visit. Locations newly synced from Trapper are pending; locations already kept are not changed.
 
 ### Added
