@@ -12,11 +12,11 @@ export default function CloseDuration({ value, onChange }: { value: CloseAfter; 
   const unitLabel = UNITS.find((u) => u.value === value.unit)!
   const set = (changes: Partial<CloseAfter>) => onChange({ ...value, ...changes })
   return (
-    <section aria-label="When each revision is closed" className="border-t border-zinc-200 dark:border-zinc-700 border-l-4 border-l-blue-500 px-5 py-4">
+    <section aria-label="The day of the not visited mark" className="border-t border-zinc-200 dark:border-zinc-700 border-l-4 border-l-blue-500 px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-prose">
-          <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">When each revision is closed</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Unvisited locations are marked as not visited on that day: so long after the last visit of the revision, or before the first visit of the next one. Never before its last visit; if it reaches the next revision, the day before its first visit.</p>
+          <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">The day of the not visited mark</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Only the date written for the locations with no visit. The day of the last visit of the revision is right for almost everyone: change it only if you need to.</p>
         </div>
         <div role="radiogroup" aria-label="Counted from" className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 p-1">
           {ANCHORS.map((a) => (

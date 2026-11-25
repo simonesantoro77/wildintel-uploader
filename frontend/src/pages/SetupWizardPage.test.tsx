@@ -91,7 +91,7 @@ describe('SetupWizardPage', () => {
     expect(summary).toHaveTextContent('Trappers addedAna Pérez')
     expect(summary).toHaveTextContent('Locations addedDONA_01')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Register the first visit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Register the visits' }))
     expect(onRegisterVisit).toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Back to Utilities' }))
     await userEvent.click(screen.getByRole('button', { name: 'Back to the main menu' }))

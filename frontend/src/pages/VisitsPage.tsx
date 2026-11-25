@@ -1019,7 +1019,7 @@ export default function VisitsPage({ onBack, onMainMenu, onOpenSettings, setting
       <SwitchRow label="The images were not counted" hint="For old datasheets: a visit that collected a card but has no image count is accepted, and the count is left empty." checked={csvPhotosNotCounted} onChange={setCsvPhotosNotCounted} />
       <SwitchRow label="Use the coordinates of the location when a row has none" hint="A row with no coordinates takes those of its location. Off, a row with no coordinates is refused." checked={csvLocationCoordinates} onChange={setCsvLocationCoordinates} />
       <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40">
-        <div className="px-5"><SwitchRow plain label="Close the revision before when it has locations still planned" hint="A revision can only be added when the one before it is complete. On, the locations with no visit in the revision before are marked as not visited." checked={csvClose} onChange={setCsvClose} /></div>
+        <div className="px-5"><SwitchRow plain label="Mark the locations with no visit as not visited" hint="A revision can only be added when the one before it is finished. On, the locations that have no visit in the revision before are marked as not visited, so that it is finished. Below, the day that is written for them." checked={csvClose} onChange={setCsvClose} /></div>
         {csvClose && <CloseDuration value={csvCloseOn} onChange={setCsvCloseOn} />}
       </div>
     </div>

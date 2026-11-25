@@ -423,7 +423,7 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
       )}
 
       {step === 9 && result && (
-        <WizardStep n={num(9)} title="Review and continue" status="open" canEdit={false} onEdit={() => {}} description="What was saved, and what to do next.">
+        <WizardStep n={num(9)} title="Done" status="open" canEdit={false} onEdit={() => {}} description="What was saved, and what to do next.">
           <div className="space-y-4">
             {result.project.problems.length === 0 ? (
               <div role="status" className="rounded-xl border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-6 py-4 text-emerald-900 dark:text-emerald-100">
@@ -458,8 +458,8 @@ export default function SetupWizardPage({ onBack, onMainMenu, onRegisterVisit }:
               <div role="group" aria-label="What next">
                 <section aria-label="Next" className={CARD}>
                   <h6 className={HEAD}>Next</h6>
-                  <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">Do you want to register the first visit?</p>
-                  {onRegisterVisit && <button type="button" className={BIG} onClick={onRegisterVisit}>Register the first visit</button>}
+                  <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">Register the visits: load them from a file (your field history, or a download of Epicollect) or one by hand.</p>
+                  {onRegisterVisit && <button type="button" className={BIG} onClick={onRegisterVisit}>Register the visits</button>}
                 </section>
                 <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
                   <span>Or go back to</span>

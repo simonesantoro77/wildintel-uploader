@@ -1097,13 +1097,13 @@ describe('VisitsPage from a CSV file', () => {
     if (option.test('from a file')) {   // closing the revision before starts on: most of these tests are of what happens when it is not
       await waitFor(() => expect(screen.getByRole('button', { name: /^Continue( with .+)?$/ })).toBeEnabled())
       await userEvent.click(await screen.findByRole('button', { name: 'Customize' }))
-      const close = await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })
+      const close = await screen.findByRole('switch', { name: 'Mark the locations with no visit as not visited' })
       if (close.getAttribute('aria-checked') === 'true') await userEvent.click(close)
     }
     await continueFromTheFile()
   }
 
-  it('has \'Close the revision before when it has locations still planned\' on by default, and sends it: a revision left open for sites that were skipped is found weeks later', async () => {
+  it('has \'Mark the locations with no visit as not visited\' on by default, and sends it: a revision left open for sites that were skipped is found weeks later', async () => {
     mockedApi.visitsCsvColumns.mockResolvedValue(COLUMNS)
     mockedApi.importVisitsCsv.mockResolvedValue({ visits: [visit()], problems: [], skipped: 0, saved: null, new_sites: [], warnings: [] })
     render(<VisitsPage onBack={vi.fn()} />)
@@ -1112,7 +1112,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), file)
     await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
-    expect(await screen.findByRole('switch', { name: 'Close the revision before when it has locations still planned' })).toBeChecked()
+    expect(await screen.findByRole('switch', { name: 'Mark the locations with no visit as not visited' })).toBeChecked()
     await continueFromTheFile()
     await screen.findByLabelText('Site (a location of the research project)')
     await userEvent.selectOptions(screen.getByLabelText('Photos on the card collected'), 'Fotos')
@@ -1433,7 +1433,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
-    const toggle = screen.getByRole('switch', { name: 'Close the revision before when it has locations still planned' })
+    const toggle = screen.getByRole('switch', { name: 'Mark the locations with no visit as not visited' })
     expect(toggle).toBeChecked()
     await userEvent.click(toggle)
     await continueFromTheFile()
@@ -1449,7 +1449,7 @@ describe('VisitsPage from a CSV file', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'TATR — Tatra' }))
     await userEvent.upload(screen.getByLabelText('CSV file'), new File(['locationID,Date\n'], 'new.csv', { type: 'text/csv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Customize' }))
-    const card = within(screen.getByRole('region', { name: 'When each revision is closed' }))
+    const card = within(screen.getByRole('region', { name: 'The day of the not visited mark' }))
     expect(card.getByRole('radio', { name: /After its last visit/ })).toBeChecked()
     expect(card.getByRole('textbox', { name: 'How long' })).toHaveValue('0')
     expect(card.getByLabelText('The day')).toHaveTextContent('On the day of the last visit of the revision.')
