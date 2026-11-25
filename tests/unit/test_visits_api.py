@@ -1358,21 +1358,26 @@ def _close_file(rows: list[str], close_after: dict | None) -> dict:
     return _client().post("/api/visits/import-csv", json={"research_project_id": "DONA", "csv": text, "format": "mapped", "mapping": mapping, "close_revisions": True, "close_after": close_after}).json()
 
 
-def test_a_revision_that_is_closed_marks_what_it_lacks_as_not_visited_on_the_day_it_lasted_until(tmp_path: Path):
+def test_a_revision_that_is_closed_marks_what_it_lacks_as_not_visited_so_long_after_its_last_visit_or_before_the_next_revision(tmp_path: Path):
     rows = ["DONA_01,R0013,2026-02-01,08:00,Revision,5", "DONA_01,R0014,2026-03-01,08:00,Revision,5", "DONA_02,R0014,2026-03-01,09:00,Revision,5"]
     with _in(tmp_path):
         _project(archived=(3,))
         _installed((1, 2))                                   # R0012: both
-        two_weeks = _close_file(rows, {"amount": 2, "unit": "weeks"})
+        after_last = _close_file(rows, {"amount": 2, "unit": "weeks", "anchor": "after_last"})
+        before_next = _close_file(rows, {"amount": 3, "unit": "days", "anchor": "before_next"})
         as_before = _close_file(rows, None)
-        too_long = _close_file(rows, {"amount": 2, "unit": "months"})
+        too_long = _close_file(rows, {"amount": 2, "unit": "months", "anchor": "after_last"})
+        too_early = _close_file(rows, {"amount": 2, "unit": "months", "anchor": "before_next"})
 
-    assert two_weeks["problems"] == []
-    assert [(m["location_id"], m["session"], m["date"], m["time"]) for m in two_weeks["closed"]] == [("DONA_02", "R0013", "2026-02-15", "23:59:00")]
-    assert [(m["location_id"], m["date"]) for m in as_before["closed"]] == [("DONA_02", "2026-02-01")]           # none said: the day of its last visit
-    # two months would end after R0014 starts: it is closed the day before the first visit of R0014, and it is said
-    assert too_long["problems"] == [] and [(m["date"], m["time"]) for m in too_long["closed"]] == [("2026-02-28", "23:59:00")]
-    assert any("R0013 would be closed on 2026-04-01" in n and "it is closed on 2026-02-28, the day before" in n for n in too_long["notes"])
+    closed = lambda answer: [(m["location_id"], m["session"], m["date"], m["time"]) for m in answer["closed"]]
+    assert after_last["problems"] == [] and closed(after_last) == [("DONA_02", "R0013", "2026-02-15", "23:59:00")]   # its last visit, 2026-02-01, and two weeks
+    assert closed(before_next) == [("DONA_02", "R0013", "2026-02-26", "23:59:00")]                                    # three days before R0014, 2026-03-01
+    assert [(m["location_id"], m["date"]) for m in as_before["closed"]] == [("DONA_02", "2026-02-01")]                 # none said: the day of its last visit
+    # two months after would reach R0014: the day before its first visit
+    assert too_long["problems"] == [] and closed(too_long) == [("DONA_02", "R0013", "2026-02-28", "23:59:00")]
+    assert any("it is closed on 2026-02-28, the day before" in n for n in too_long["notes"])
+    # two months before R0014 is before the last visit of R0013: the day of that visit
+    assert closed(too_early) == [("DONA_02", "R0013", "2026-02-01", "23:59:00")] and any("before its last visit" in n for n in too_early["notes"])
 
 
 def test_a_revision_lasts_so_many_days_weeks_or_months_and_a_month_is_one_of_the_calendar():
@@ -1381,6 +1386,7 @@ def test_a_revision_lasts_so_many_days_weeks_or_months_and_a_month_is_one_of_the
     assert visit_rules.shifted("2026-01-31", 2, "weeks") == "2026-02-14"
     assert visit_rules.shifted("2026-01-31", 1, "months") == "2026-02-28"       # its last day
     assert visit_rules.shifted("2026-11-15", 3, "months") == "2027-02-15"
+    assert visit_rules.shifted("2026-03-31", -1, "months") == "2026-02-28" and visit_rules.shifted("2026-01-15", -2, "months") == "2025-11-15"   # and before
 
 
 def test_a_site_whose_camera_was_stolen_and_given_up_is_out_of_use_in_the_revisions_after_it_in_the_file(tmp_path: Path):

@@ -541,9 +541,10 @@ class LinkVisitRequest(LocalLocationsRequest):
 
 
 class CloseAfter(BaseModel):
-    """How long a revision lasted, from its first visit: so many days, weeks or months."""
+    """The day a revision is closed on: so many days, weeks or months after its last visit (`after_last`), or before the first visit of the revision after it (`before_next`)."""
     amount: int = Field(ge=0)
     unit: Literal["days", "weeks", "months"] = "days"
+    anchor: Literal["after_last", "before_next"] = "after_last"
 
 
 class ImportVisitsCsvRequest(LocalLocationsRequest):
@@ -560,8 +561,8 @@ class ImportVisitsCsvRequest(LocalLocationsRequest):
     create: Optional[dict[str, bool]] = None
     # The revision before the ones the file starts is closed when it has locations still planned: each is marked as not visited (an unknown one is not).
     close_revisions: bool = False
-    # How long a revision that is closed lasted, from its first visit: the locations still to be visited in it are marked as not visited on that day. The same for every revision
-    # the file closes; none closes them on the day of their last visit.
+    # The day a revision that is closed is closed on — so long after its last visit, or before the first visit of the revision after it —: the locations still to be visited in
+    # it are marked as not visited on that day. The same for every revision the file closes; none closes them on the day of their last visit.
     close_after: Optional[CloseAfter] = None
     # A row with no coordinates of the visit takes those of its location — unless this is off: then it is refused.
     coordinates_from_location: bool = True

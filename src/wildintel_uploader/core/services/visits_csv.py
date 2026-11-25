@@ -675,10 +675,13 @@ def parse_visits(text: str, locations: list[dict], kept: list[dict], mapping: di
             closes = None
             # the day to close on matters only to a revision that has locations still to be visited: one that is finished is left as it is
             if number > 1 and before and options.get("close_revisions") and close_after and visit_rules.revision_missing(number - 1, accepted, in_use, day, [*unknown_kept, *unknown], visits):
-                # the day it is closed on: so long after its first visit, from its last visit to the first of the revision after it
-                first, last = min(str(v["date"]) for v in before), max(str(v["date"]) for v in before)
-                close_day = visit_rules.shifted(first, int(close_after["amount"]), str(close_after["unit"]))
-                lasted = f"{close_after['amount']} {close_after['unit']} after its first visit ({first})"
+                # the day it is closed on: so long after its last visit, or so long before the first visit of the revision after it
+                last = max(str(v["date"]) for v in before)
+                amount, unit = int(close_after["amount"]), str(close_after["unit"])
+                if close_after.get("anchor") == "before_next":
+                    close_day, lasted = visit_rules.shifted(day, -amount, unit), f"{amount} {unit} before the first visit of R{number:04d} ({day})"
+                else:
+                    close_day, lasted = visit_rules.shifted(last, amount, unit), f"{amount} {unit} after its last visit ({last})"
                 # it cannot end before its last visit, nor after the revision after it starts: the day is taken to the nearest one it can be
                 if close_day < last:
                     close_notes.append(f"R{number - 1:04d} would be closed on {close_day}, {lasted}, before its last visit: it is closed on {last}, the day of its last visit.")

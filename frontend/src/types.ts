@@ -853,8 +853,8 @@ export interface VisitsCsvColumns {
 export type CsvEntity = 'locations' | 'cameras' | 'sd_cards' | 'trappers'
 export type CsvCreate = Record<CsvEntity, boolean>
 /** What is asked of the import besides the file: the entities to create, the value of the fields the file has no column for, and whether a row with no coordinates takes those of its location (it does, unless it is turned off). */
-/** How long a revision that is closed lasted, from its first visit. */
-export interface CloseAfter { amount: number; unit: 'days' | 'weeks' | 'months' }
+/** The day a revision that is closed is closed on: so long after its last visit, or before the first visit of the revision after it. */
+export interface CloseAfter { amount: number; unit: 'days' | 'weeks' | 'months'; anchor: 'after_last' | 'before_next' }
 export interface ImportCsvOptions { create?: CsvCreate; defaults?: Record<string, string>; close_revisions?: boolean; close_after?: CloseAfter; coordinates_from_location?: boolean; photos_not_counted?: boolean }
 
 /** What reading a CSV file of visits gave: the visits that can be kept, the rows that cannot (numbered as in the file, the header being 1),
