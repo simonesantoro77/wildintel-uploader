@@ -429,7 +429,10 @@ def closed_visits(req: ListVisitsRequest) -> dict:
 
         def zoned(visit: dict) -> dict:
             return {**visit, "timezone": zones.get(str(visit.get("location_id", "")).lower())}
-        return {"results": [{"visit": zoned(c["visit"]), "end": zoned(c["end"]), "details": visit_deployments.merged_details(c["visit"], c["end"])} for c in closed]}
+        # a visit that only revised the camera says how it was put up as the visit that put it up said it
+        visits = local_folder_service.list_visits(config.collections_dir(), req.research_project_id) if closed else []
+        return {"results": [{"visit": zoned(c["visit"]), "end": zoned(c["end"]),
+                             "details": visit_deployments.merged_details(visit_deployments.with_mount(c["visit"], visits), c["end"])} for c in closed]}
     except local_folder_service.LocalFolderError as exc:
         raise HTTPException(400, str(exc)) from exc
 

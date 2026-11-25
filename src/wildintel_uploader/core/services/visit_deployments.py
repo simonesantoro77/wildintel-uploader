@@ -114,6 +114,27 @@ def _fields(start: dict, end: dict | None) -> tuple[dict, list[str]]:
     return {names[k]: (" | ".join(v) if isinstance(v, list) else v) for k, v in merged.items()}, notes
 
 
+# What a visit says of how the camera was put up, and that a visit that only revises it does not say again: the field form asks it when a camera is put up.
+_MOUNT = ("camera_model", "camera_id", "camera_interval", "camera_height", "camera_depth", "camera_tilt", "camera_heading", "detection_distance", "bait_use",
+          "feature_type", "habitat")
+
+
+def with_mount(start: dict, visits: list[dict]) -> dict:
+    """The visit that left the camera, with how the camera was put up: when it only revised it, what it does not say comes from the visit that put up that
+    camera at the location (the last Installation before it). The deployment of R0042 of a camera put up in R0030 has its height, heading and bait use."""
+    if "Installation" in (start.get("actions") or []) or not start.get("when"):
+        return start
+    site = str(start.get("location_id", "")).lower()
+    before = [v for v in visits if str(v.get("location_id", "")).lower() == site and v.get("when") and v["when"] <= start["when"]
+              and "Installation" in (v.get("actions") or []) and v is not start]
+    if not before:
+        return start
+    put_up = max(before, key=lambda v: v["when"])
+    if start.get("camera_id") and put_up.get("camera_id") and str(start["camera_id"]).lower() != str(put_up["camera_id"]).lower():
+        return start                                    # another camera: what was said of that one is not of this one
+    return {**start, **{k: put_up[k] for k in _MOUNT if start.get(k) in (None, "") and put_up.get(k) not in (None, "")}}
+
+
 def merged_details(start: dict, end: dict | None) -> dict:
     """What the two visits of a deployment say of it, as the fields of the form of a deployment have them — the same mix the FieldworkLog gets: who set it up
     (the setup's, with the retrieval's beside when it differs), the camera, the details of the camera and the site, the tags of both, and the comments of
@@ -147,10 +168,11 @@ def _utc(when: str | None, keep_seconds: bool = True) -> str:
     return when if keep_seconds else re.sub(r":\d{2}Z$", ":00Z", when)
 
 
-def _deployment(collection: int, start: dict, end: dict | None, keep_seconds: bool = True, no_images: str | None = None) -> dict:
+def _deployment(collection: int, start: dict, end: dict | None, keep_seconds: bool = True, no_images: str | None = None, mounted: dict | None = None) -> dict:
     """A deployment from the visit that left the camera and, once it is collected, the one that collected it. When the camera was stolen the visit that found it
-    so closes the deployment, but nothing was collected: `no_images` says why there are none ("stolen"), and there never will be."""
-    fields, notes = _fields(start, end)
+    so closes the deployment, but nothing was collected: `no_images` says why there are none ("stolen"), and there never will be. `mounted` is the visit that
+    left the camera with how the camera was put up (see with_mount): its fields come from it."""
+    fields, notes = _fields(mounted or start, end)
     # who set it up: the one the visit that left it says (else who went); who collected it: who went on the visit that did
     return {
         "deployment_id": f"{collection_name(collection)}-{start['location_id']}", "collection": collection_name(collection), "site": start["location_id"],
@@ -173,20 +195,21 @@ def deployments(visits: list[dict], keep_seconds: bool = True) -> list[dict]:
     out: list[dict] = []
     for group in by_site.values():
         group.sort(key=lambda v: v["when"])
+        mounted = {id(v): with_mount(v, group) for v in group}   # its fields say how the camera was put up; the visit itself is kept as it is
         for earlier, later in zip(group, group[1:]):
             number = session_number(later.get("session"))
             if number is None or not _leaves_camera(earlier):
                 continue
             if "Stolen" in (later.get("actions") or []):
                 # a stolen camera closes its deployment with no images: nothing was on a card that was taken away
-                out.append(_deployment(number - 1, earlier, later, keep_seconds, no_images="stolen"))
+                out.append(_deployment(number - 1, earlier, later, keep_seconds, no_images="stolen", mounted=mounted[id(earlier)]))
             elif local_folder_service.closes_collection(later):
-                out.append(_deployment(number - 1, earlier, later, keep_seconds))
+                out.append(_deployment(number - 1, earlier, later, keep_seconds, mounted=mounted[id(earlier)]))
         last = group[-1]
         number = session_number(last.get("session"))
         if _camera_stays(last) and number is not None:
             # still out there: the collection the visit that collects it will name — the one being completed when it was left before the last trip
-            out.append(_deployment(last_session - 1 if number < last_session else last_session, last, None, keep_seconds))
+            out.append(_deployment(last_session - 1 if number < last_session else last_session, last, None, keep_seconds, mounted=mounted[id(last)]))
     return sorted(out, key=lambda d: (d["collection"], d["site"].lower()))
 
 

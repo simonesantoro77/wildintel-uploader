@@ -354,6 +354,34 @@ def test_the_closed_visits_come_with_the_timezone_of_their_location(tmp_path: Pa
     assert closed["visit"]["timezone"] == "UTC" and closed["end"]["timezone"] == "UTC"   # the day and the time of a visit are told on the wall clock of its location
 
 
+def test_a_deployment_left_by_a_revision_has_how_the_camera_was_put_up(tmp_path: Path):
+    with _in(tmp_path):
+        _save_all([
+            _visit("2026-06-10", ["Installation"], camera_height=0.5, camera_heading=0, bait_use=False),
+            _visit("2026-08-05", ["Revision"], num_photos=1620),        # the form does not ask again how the camera was put up
+            _visit("2026-10-02", ["Revision"], num_photos=300),
+        ])
+        closed = _closed()
+        found = _client().post("/api/visits/deployments", json={"research_project_id": "DONA"}).json()["results"]
+
+    revised = next(c for c in closed if c["visit"]["date"] == "2026-08-05")
+    assert revised["details"]["camera_height"] == 0.5 and revised["details"]["camera_heading"] == 0 and revised["details"]["bait_use"] is False
+    later = next(d for d in found if d["start"].startswith("2026-08-05"))
+    assert later["fields"]["cameraHeight"] == 0.5 and later["fields"]["cameraHeading"] == 0
+
+
+def test_a_revision_of_another_camera_does_not_take_how_the_first_was_put_up(tmp_path: Path):
+    with _in(tmp_path):
+        _save_all([
+            _visit("2026-06-10", ["Installation"], camera_id="7", camera_height=0.5),
+            _visit("2026-08-05", ["Revision"], camera_id="9", num_photos=1620),
+            _visit("2026-10-02", ["Revision"], num_photos=300),
+        ])
+        closed = _closed()
+
+    assert "camera_height" not in next(c for c in closed if c["visit"]["date"] == "2026-08-05")["details"]
+
+
 def test_what_does_not_collect_a_card_leaves_the_visit_before_it_open(tmp_path: Path):
     with _in(tmp_path):
         _save_all([
