@@ -295,6 +295,21 @@ def status_history_of(req: StatusHistoryRequest) -> dict:
     return {"results": status_history.list_history(_root(config.load_settings()), req.research_project_id, req.kind, req.name)}
 
 
+class RebuildStatusHistoryRequest(BaseModel):
+    research_project_id: str
+
+
+@router.post("/status-history/rebuild")
+def rebuild_status_history(req: RebuildStatusHistoryRequest) -> dict:
+    """Rebuilds the history of the status of a research project from its visits, adding the lines it lacks — nothing of it is overwritten nor deleted. Says how many it added."""
+    root = _root(config.load_settings())
+    try:
+        local_folder_service.require_research_project(root, req.research_project_id)
+    except local_folder_service.LocalFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"added": status_history.rebuild(root, req.research_project_id)}
+
+
 class NewConfigRequest(BaseModel):
     name: str
 

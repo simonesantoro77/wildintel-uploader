@@ -155,6 +155,9 @@ class JsonFolderStore(ProjectStore):
             raise self._missing(research_project_id)
         write_json(path, records)
 
+    def has_records(self, research_project_id: str, kind: str) -> bool:
+        return self._file(research_project_id, kind).is_file()
+
     def delete_records(self, research_project_id: str, kind: str) -> None:
         self._file(research_project_id, kind).unlink(missing_ok=True)
 
